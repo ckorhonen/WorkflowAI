@@ -21,7 +21,7 @@ class CompanyContextAgentOutput(BaseModel):
 
 
 INSTRUCTIONS = """
-What does this company do:{company_url}? Provide a detailled description of the company and its products. Do not add any markdown or formatting (ex: bold, italic, underline, etc.) in the response, except line breaks, punctation and eventual bullet points.
+What does this company do? Provide a detailled description of the company and its products. Do not add any markdown or formatting (ex: bold, italic, underline, etc.) in the response, except line breaks, punctation and eventual bullet points.
 """
 
 
