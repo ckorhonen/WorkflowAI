@@ -75,7 +75,7 @@ class ClerkUserService(UserService):
     @override
     async def count_registrations(self, since: datetime) -> int:
         async with self._client() as client:
-            response = await client.get(f"/users/count?created_at_after={since.timestamp() * 1000}")
+            response = await client.get(f"/users/count?created_at_after={int(since.timestamp() * 1000)}")
         response.raise_for_status()
         data = response.json()
         return data["total_count"]
