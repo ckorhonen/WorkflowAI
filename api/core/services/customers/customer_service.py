@@ -6,6 +6,7 @@ import re
 from contextlib import contextmanager
 
 from api.services.customer_assessment_service import CustomerAssessmentService
+from api.services.features import CompanyFeaturePreviewList, FeatureService
 from core.domain.analytics_events.analytics_events import UserProperties
 from core.domain.consts import ENV_NAME, WORKFLOWAI_APP_URL
 from core.domain.errors import InternalError
@@ -23,6 +24,20 @@ from core.storage.slack.utils import get_slack_hyperlink
 from core.utils.background import add_background_task
 
 _logger = logging.getLogger(__name__)
+
+
+def get_feature_preview_list_slack_message(
+    company_domain: str,
+    features_suggestions: CompanyFeaturePreviewList | None,
+) -> str:
+    if not features_suggestions or not features_suggestions.features or len(features_suggestions.features) == 0:
+        return "No suggested AI roadmap for this customer because the agent did not find any good enough feature"
+
+    DELIMITER = "\n\n-----------------------------------\n\n"
+
+    features_str = DELIMITER.join([feature.display_str for feature in features_suggestions.features])
+
+    return f"🗺️ Suggested AI Roadmap for {company_domain}: {DELIMITER}\n{features_str}"
 
 
 class CustomerService:
@@ -117,6 +132,24 @@ class CustomerService:
             if user:
                 assessment = await CustomerAssessmentService.run_customer_assessment(user.email)
                 await clt.send_message(channel_id, {"text": str(assessment)})
+
+                # Only run AI roadmap generation if the customer has a company website
+                if assessment.company_website_url:
+                    features_suggestions = await FeatureService().get_features_by_domain(
+                        assessment.company_website_url,
+                    )
+                    features_suggestions_message = get_feature_preview_list_slack_message(
+                        assessment.company_website_url,
+                        features_suggestions,
+                    )
+                    await clt.send_message(channel_id, {"text": features_suggestions_message})
+                else:
+                    await clt.send_message(
+                        channel_id,
+                        {
+                            "text": "No suggested AI roadmap for this customer because we could not find a company website",
+                        },
+                    )
 
     @contextmanager
     def _slack_client(self):

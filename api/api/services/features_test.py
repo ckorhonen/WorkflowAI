@@ -2,8 +2,10 @@ from typing import Any, AsyncIterator
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from pytest import LogCaptureFixture
 
 from api.services.features import (
+    URL_PICKING_INSTRUCTIONS,
     CompanyContext,
     CompanyFeaturePreviewList,
     FeatureOutputPreview,
@@ -40,6 +42,7 @@ from core.agents.company_agent_suggestion_agent import (
 )
 from core.domain.errors import ObjectNotFoundError
 from core.domain.features import BaseFeature, FeatureSection, FeatureTag, FeatureWithImage
+from core.domain.url_content import URLContent
 from core.tools.browser_text.browser_text_tool import FetchUrlContentResult
 from tests.utils import mock_aiter
 
@@ -448,7 +451,9 @@ async def test_get_features_by_domain_e2e(  # noqa: C901
     ):
         # Collect all outputs from the generator
         mock_event_router = Mock()
-        actual_outputs = [output async for output in service.get_features_by_domain(company_domain, mock_event_router)]
+        actual_outputs = [
+            output async for output in service.stream_features_by_domain(company_domain, mock_event_router)
+        ]
 
         # Compare with expected outputs
         assert len(actual_outputs) == len(expected_outputs)
@@ -1119,3 +1124,106 @@ async def test_get_agent_schemas() -> None:
             input_schema={"type": "object", "properties": {"input_string_field": {"type": "string"}}},
             output_schema={"type": "object", "properties": {"output_string_field": {"type": "string"}}},
         )
+
+
+@pytest.fixture
+def feature_service() -> FeatureService:
+    return FeatureService()
+
+
+class TestGetSitemapLinks:
+    async def test_get_sitemap_links_success(self, feature_service: FeatureService):
+        company_domain = "example.com"
+        expected_links = {"http://example.com", "http://example.com/page1"}
+
+        with patch("api.services.features.get_sitemap", new_callable=AsyncMock) as mock_get_sitemap:
+            mock_get_sitemap.return_value = expected_links
+            actual_links = await feature_service._get_sitemap_links(company_domain)  # pyright: ignore[reportPrivateUsage]
+            assert actual_links == expected_links
+            mock_get_sitemap.assert_awaited_once_with(company_domain)
+
+    async def test_get_sitemap_links_failure(self, feature_service: FeatureService, caplog: LogCaptureFixture):
+        company_domain = "example.com"
+        expected_links = {company_domain}  # Fallback
+
+        with patch("api.services.features.get_sitemap", new_callable=AsyncMock) as mock_get_sitemap:
+            mock_get_sitemap.side_effect = Exception("Sitemap fetch failed")
+            actual_links = await feature_service._get_sitemap_links(company_domain)  # pyright: ignore[reportPrivateUsage]
+            assert actual_links == expected_links
+            mock_get_sitemap.assert_awaited_once_with(company_domain)
+            assert "Error getting sitemap" in caplog.text
+
+
+class TestGetCompanyWebsiteContents:
+    async def test_get_contents_integration(self, feature_service: FeatureService):
+        company_domain = "final.com"
+        sitemap = {"final.com", "final.com/page1", "final.com/page2"}
+        picked = {"final.com", "final.com/page1"}  # Assume agent picks these
+        fetched = [
+            URLContent(url="final.com", content="Final Content"),
+            URLContent(url="final.com/page1", content="Page 1 Content"),
+        ]
+
+        # Patch the extracted methods
+        with (
+            patch.object(
+                feature_service,
+                "_get_sitemap_links",
+                new_callable=AsyncMock,
+                return_value=sitemap,
+            ) as mock_sitemap,
+            patch(
+                "api.services.features.ScrapingService.pick_relevant_links",
+                new_callable=AsyncMock,
+                return_value=picked,
+            ) as mock_picker,
+            patch(
+                "api.services.features.ScrapingService.fetch_url_contents_concurrently",
+                new_callable=AsyncMock,
+                return_value=fetched,
+            ) as mock_fetcher,
+            patch(
+                "api.services.features.ScrapingService.limit_url_content_size",
+                new_callable=AsyncMock,
+                return_value=fetched,
+            ),
+        ):
+            actual_contents = await feature_service.get_company_website_contents(company_domain)
+
+            assert actual_contents == fetched
+
+            mock_sitemap.assert_awaited_once_with(company_domain)
+            mock_picker.assert_awaited_once_with(list(sitemap), 10, URL_PICKING_INSTRUCTIONS)
+            mock_fetcher.assert_awaited_once_with(picked, 15.0, use_cache=True)
+
+    async def test_get_contents_ensures_domain_included(self, feature_service: FeatureService):
+        # Test case where the picker *doesn't* return the original domain
+        company_domain = "domain.com"
+        sitemap = {"domain.com", "other.com"}
+        picked = {"other.com"}  # Picker excludes the main domain
+        fetched = [URLContent(url="domain.com", content="D"), URLContent(url="other.com", content="O")]
+
+        with (
+            patch.object(feature_service, "_get_sitemap_links", new_callable=AsyncMock, return_value=sitemap),
+            patch(
+                "api.services.features.ScrapingService.pick_relevant_links",
+                new_callable=AsyncMock,
+                return_value=picked,
+            ),
+            patch(
+                "api.services.features.ScrapingService.fetch_url_contents_concurrently",
+                new_callable=AsyncMock,
+                return_value=fetched,
+            ) as mock_fetcher,
+            patch(
+                "api.services.features.ScrapingService.limit_url_content_size",
+                new_callable=AsyncMock,
+                return_value=fetched,
+            ),
+        ):
+            await feature_service.get_company_website_contents(company_domain)
+
+            args, _ = mock_fetcher.call_args
+            assert company_domain in args[0]
+            assert "other.com" in args[0]
+            assert len(args[0]) == 2

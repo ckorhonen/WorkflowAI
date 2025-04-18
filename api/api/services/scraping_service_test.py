@@ -20,7 +20,7 @@ class TestGetSitemapLinks:
 
         with patch("api.services.scraping_service.get_sitemap", new_callable=AsyncMock) as mock_get_sitemap:
             mock_get_sitemap.return_value = expected_links
-            actual_links = await scraping_service._get_sitemap_links(company_domain)  # pyright: ignore[reportPrivateUsage]
+            actual_links = await scraping_service.get_sitemap_links_cached(company_domain)  # pyright: ignore[reportPrivateUsage]
             assert actual_links == expected_links
             mock_get_sitemap.assert_awaited_once_with(company_domain)
 
@@ -30,7 +30,7 @@ class TestGetSitemapLinks:
 
         with patch("api.services.scraping_service.get_sitemap", new_callable=AsyncMock) as mock_get_sitemap:
             mock_get_sitemap.side_effect = Exception("Sitemap fetch failed")
-            actual_links = await scraping_service._get_sitemap_links(company_domain)  # pyright: ignore[reportPrivateUsage]
+            actual_links = await scraping_service.get_sitemap_links_cached(company_domain)  # pyright: ignore[reportPrivateUsage]
             assert actual_links == expected_links
             mock_get_sitemap.assert_awaited_once_with(company_domain)
             assert "Error getting sitemap" in caplog.text
@@ -119,7 +119,7 @@ class TestFetchUrlContentsConcurrently:
 
         mock_get_content.side_effect = mock_content_side_effect
 
-        actual_contents = await scraping_service.fetch_url_contents_concurrently(urls_to_fetch, timeout)
+        actual_contents = await scraping_service.fetch_url_contents_concurrently(urls_to_fetch, timeout, True)
 
         # Order might not be guaranteed by gather, so compare sets of results
         assert set(actual_contents) == set(expected_contents)
@@ -156,7 +156,7 @@ class TestFetchUrlContentsConcurrently:
 
         with patch("asyncio.gather", new_callable=AsyncMock) as mock_gather:
             mock_gather.return_value = mock_results
-            actual_contents = await scraping_service.fetch_url_contents_concurrently(urls_to_fetch, timeout)
+            actual_contents = await scraping_service.fetch_url_contents_concurrently(urls_to_fetch, timeout, True)
 
             assert set(actual_contents) == set(expected_successful)  # Only good.com should remain
             assert mock_get_content.call_count == len(urls_to_fetch)  # Ensure tasks were created
