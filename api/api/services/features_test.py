@@ -972,7 +972,7 @@ async def test_stream_company_context_perplexity_success(
     ):
         feature_service = FeatureService()
         result = []
-        result = [context async for context in feature_service._stream_company_context(company_url)]  # pyright: ignore[reportPrivateUsage]
+        result = [context async for context in feature_service._stream_company_context_perplexity(company_url)]  # pyright: ignore[reportPrivateUsage]
 
         assert result == expected_contexts
 
@@ -1016,7 +1016,7 @@ async def test_stream_company_context_perplexity_failure_scrapingbee_success(
         ),
     ):
         feature_service = FeatureService()
-        result = [context async for context in feature_service._stream_company_context(company_url)]  # pyright: ignore[reportPrivateUsage]
+        result = [context async for context in feature_service._stream_company_context_perplexity(company_url)]  # pyright: ignore[reportPrivateUsage]
 
         assert result == expected_contexts
 
@@ -1057,8 +1057,12 @@ async def test_stream_company_context_both_services_fail(
         ),
     ):
         feature_service = FeatureService()
-        result = [context async for context in feature_service._stream_company_context(company_url)]  # pyright: ignore[reportPrivateUsage]
-
+        result = [
+            context
+            async for context in feature_service._stream_company_context_perplexity(  # pyright: ignore[reportPrivateUsage]
+                company_url,
+            )
+        ]
         assert result == [
             CompanyContext(
                 public=f"Could not get context from {company_url}, we'll fallback on generic features suggestions",
