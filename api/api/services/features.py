@@ -172,7 +172,7 @@ class FeatureService:
 
         raise ObjectNotFoundError(msg=f"No feature tag found with tag: {tag}")
 
-    async def _stream_company_context(self, company_url: str) -> AsyncIterator[CompanyContext]:
+    async def _stream_company_context_perplexity(self, company_url: str) -> AsyncIterator[CompanyContext]:
         # Unused for now in favor of 'get_company_website_contents'.
         try:
             async for chunk in stream_perplexity_search(
@@ -359,6 +359,20 @@ class FeatureService:
     async def get_company_domain_content(self, company_domain: str) -> URLContent:
         return await ScrapingService().get_url_content_cached(company_domain, URL_FETCHING_TIMEOUT_SECONDS)
 
+    async def _stream_company_context(
+        self,
+        company_domain: str,
+        company_domain_content: str,
+    ) -> AsyncIterator[str]:
+        async for company_context_chunk in company_context_agent.stream(
+            agent_input=CompanyContextAgentInput(
+                company_name=company_domain,
+                company_website_content=company_domain_content,
+            ),
+        ):
+            if company_context_chunk.output.company_context:
+                yield company_context_chunk.output.company_context
+
     async def stream_features_by_domain(
         self,
         company_domain: str,
@@ -374,14 +388,12 @@ class FeatureService:
         company_domain_content = await company_domain_content_task
 
         company_context = ""
-        async for company_context_chunk in company_context_agent.stream(
-            agent_input=CompanyContextAgentInput(
-                company_name=company_domain_content.url,
-                company_website_content=company_domain_content.content,
-            ),
-        ):
-            if company_context_chunk.output.company_context:
-                company_context = company_context_chunk.output.company_context
+        if company_domain_content.content:
+            async for company_context_chunk in self._stream_company_context(
+                company_domain,
+                company_domain_content.content,
+            ):
+                company_context = company_context_chunk
                 yield CompanyFeaturePreviewList(
                     company_context=company_context,
                     features=[],

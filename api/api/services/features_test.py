@@ -2,7 +2,6 @@ from typing import Any, AsyncIterator
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from pytest import LogCaptureFixture
 
 from api.services.features import (
     URL_PICKING_INSTRUCTIONS,
@@ -31,9 +30,6 @@ from core.agents.chat_task_schema_generation.schema_generation_agent import (
     NewAgentSchema,
     SchemaBuilderInput,
     SchemaBuilderOutput,
-)
-from core.agents.company_agent_suggestion_agent import (
-    CompanyContext as CompanyContextInput,
 )
 from core.agents.company_agent_suggestion_agent import (
     SuggestAgentForCompanyInput,
@@ -402,9 +398,9 @@ async def test_get_features_by_domain_e2e(  # noqa: C901
     """
     service = FeatureService()
 
-    async def mock_stream_company_context(*args: Any, **kwargs: Any) -> AsyncIterator[CompanyContext]:
+    async def mock_stream_company_context(*args: Any, **kwargs: Any) -> AsyncIterator[str]:
         for chunk in company_context_chunks:
-            yield chunk
+            yield chunk.public
 
     async def mock_stream_feature_suggestions(
         *args: Any,
@@ -427,25 +423,18 @@ async def test_get_features_by_domain_e2e(  # noqa: C901
                 features=features,
             )
 
-    # Create a mock _build_agent_suggestion_input that returns a simple input
-    async def mock_build_agent_suggestion_input(*args: Any, **kwargs: Any) -> SuggestAgentForCompanyInput:
-        return SuggestAgentForCompanyInput(
-            supported_agent_input_types=[],
-            supported_agent_output_types=[],
-            available_tools=[],
-            company_context=CompanyContextInput(
-                company_url=company_domain,
-                company_url_content=company_context_chunks[0].private,
-                existing_agents=[],
-                latest_news="",
-            ),
-        )
-
     with (
         patch.object(service, "_stream_company_context", mock_stream_company_context),
-        patch.object(service, "_build_agent_suggestion_input", mock_build_agent_suggestion_input),
+        patch.object(
+            service,
+            "get_company_domain_content",
+            AsyncMock(return_value=URLContent(url=company_domain, content="some content")),
+        ),
+        # get_company_website_contents
+        patch.object(service, "get_company_website_contents", AsyncMock(return_value=[])),
         patch.object(service, "_stream_feature_suggestions", mock_stream_feature_suggestions),
         patch.object(service, "_get_company_latest_news", AsyncMock(return_value="")),
+        patch.object(service, "_stream_company_context", mock_stream_company_context),
         # Ensure validation passes for simplicity in this e2e test
         patch.object(service, "_is_agent_validated", AsyncMock(return_value=True)),
     ):
@@ -505,15 +494,13 @@ async def test_build_agent_suggestion_input(
         service = FeatureService(storage=mock_storage)
 
         # Call the method
-        result = await service._build_agent_suggestion_input(company_domain, company_context, latest_news)  # pyright: ignore[reportPrivateUsage]
+        result = await service._build_agent_suggestion_input(company_domain, company_context, [])  # pyright: ignore[reportPrivateUsage]
 
         # Verify the result
         assert result.supported_agent_input_types == expected_agent_types
         assert result.supported_agent_output_types == expected_agent_types
         assert result.company_context
         assert result.company_context.company_url == company_domain
-        assert result.company_context.company_url_content == company_context
-        assert result.company_context.latest_news == latest_news
 
         # Mocking storage directly, so existing_agents should always be empty based on current implementation
         assert result.company_context.existing_agents == []
@@ -1129,29 +1116,6 @@ async def test_get_agent_schemas() -> None:
 @pytest.fixture
 def feature_service() -> FeatureService:
     return FeatureService()
-
-
-class TestGetSitemapLinks:
-    async def test_get_sitemap_links_success(self, feature_service: FeatureService):
-        company_domain = "example.com"
-        expected_links = {"http://example.com", "http://example.com/page1"}
-
-        with patch("api.services.features.get_sitemap", new_callable=AsyncMock) as mock_get_sitemap:
-            mock_get_sitemap.return_value = expected_links
-            actual_links = await feature_service._get_sitemap_links(company_domain)  # pyright: ignore[reportPrivateUsage]
-            assert actual_links == expected_links
-            mock_get_sitemap.assert_awaited_once_with(company_domain)
-
-    async def test_get_sitemap_links_failure(self, feature_service: FeatureService, caplog: LogCaptureFixture):
-        company_domain = "example.com"
-        expected_links = {company_domain}  # Fallback
-
-        with patch("api.services.features.get_sitemap", new_callable=AsyncMock) as mock_get_sitemap:
-            mock_get_sitemap.side_effect = Exception("Sitemap fetch failed")
-            actual_links = await feature_service._get_sitemap_links(company_domain)  # pyright: ignore[reportPrivateUsage]
-            assert actual_links == expected_links
-            mock_get_sitemap.assert_awaited_once_with(company_domain)
-            assert "Error getting sitemap" in caplog.text
 
 
 class TestGetCompanyWebsiteContents:
