@@ -180,11 +180,11 @@ class CustomerService:
             if invite_users and (invitees := os.environ.get("SLACK_BOT_INVITEES")):
                 await clt.invite_users(channel_id, invitees.split(","))
 
-            if not slug or not org_id:
+            if not slug or org_id:
                 # That can happen for anonymous users for example
                 return
 
-            user = UserDetails(email="yann.bury@gmail.com", name="Yann Bury")
+            user = await self._user_service.get_user(owner_id) if owner_id else None
             org = await self._user_service.get_organization(org_id) if org_id else None
 
             await self._update_channel_purpose(clt, channel_id, org.slug if org else slug, user, org)
@@ -238,12 +238,14 @@ class CustomerService:
         with self._slack_client() as clt:
             await clt.rename_channel(org.slack_channel_id, self._channel_name(org.slug, org.uid))
 
-        await self._on_channel_created(
-            org.slack_channel_id,
-            org.slug,
-            org.org_id,
-            org.owner_id,
-            invite_users=False,  # We don't need to invite staff users again, as they should already be in the channel
+        add_background_task(
+            self._on_channel_created(
+                org.slack_channel_id,
+                org.slug,
+                org.org_id,
+                org.owner_id,
+                invite_users=False,  # We don't need to invite staff users again, as they should already be in the channel
+            ),
         )
 
     async def send_chat_started(self, user: UserProperties | None, existing_task_name: str | None, user_message: str):
