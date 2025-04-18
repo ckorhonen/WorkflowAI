@@ -11,11 +11,9 @@ from pydantic import BaseModel
 from api.services import tasks
 from api.services.customer_assessment_service import CustomerAssessmentService
 from api.services.features import CompanyFeaturePreviewList, FeatureService
-from core.agents.customer_email_redaction_agent import (
-    DailyUserDigest,
-)
 from core.domain.analytics_events.analytics_events import UserProperties
 from core.domain.consts import ENV_NAME, WORKFLOWAI_APP_URL
+from core.domain.daily_user_digest import DailyUserDigest
 from core.domain.errors import InternalError
 from core.domain.events import (
     Event,
