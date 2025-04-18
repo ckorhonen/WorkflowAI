@@ -51,7 +51,7 @@ class ScrapingService:
         else:
             fetching_function = scraping_service.get_url_content
 
-        tasks = [fetching_function(link, request_timeout=request_timeout) for link in urls_to_fetch]
+        tasks = [fetching_function(link, request_timeout) for link in urls_to_fetch]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         successful_contents: list[URLContent] = []

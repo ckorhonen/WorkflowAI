@@ -1134,9 +1134,8 @@ class TestGetCompanyWebsiteContents:
 
         # Patch the extracted methods
         with (
-            patch.object(
-                feature_service,
-                "_get_sitemap_links",
+            patch(
+                "api.services.features.ScrapingService.get_sitemap_links_cached",
                 new_callable=AsyncMock,
                 return_value=sitemap,
             ) as mock_sitemap,
@@ -1162,7 +1161,7 @@ class TestGetCompanyWebsiteContents:
 
             mock_sitemap.assert_awaited_once_with(company_domain)
             mock_picker.assert_awaited_once_with(list(sitemap), 10, URL_PICKING_INSTRUCTIONS)
-            mock_fetcher.assert_awaited_once_with(picked, 15.0, use_cache=True)
+            mock_fetcher.assert_awaited_once_with(picked, 60.0, use_cache=True)
 
     async def test_get_contents_ensures_domain_included(self, feature_service: FeatureService):
         # Test case where the picker *doesn't* return the original domain
@@ -1172,7 +1171,11 @@ class TestGetCompanyWebsiteContents:
         fetched = [URLContent(url="domain.com", content="D"), URLContent(url="other.com", content="O")]
 
         with (
-            patch.object(feature_service, "_get_sitemap_links", new_callable=AsyncMock, return_value=sitemap),
+            patch(
+                "api.services.features.ScrapingService.get_sitemap_links_cached",
+                new_callable=AsyncMock,
+                return_value=sitemap,
+            ),
             patch(
                 "api.services.features.ScrapingService.pick_relevant_links",
                 new_callable=AsyncMock,

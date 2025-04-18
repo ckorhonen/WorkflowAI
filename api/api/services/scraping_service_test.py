@@ -97,10 +97,10 @@ class TestPickRelevantLinks:
 
 
 class TestFetchUrlContentsConcurrently:
-    @patch("api.services.scraping_service.ScrapingService._get_url_content")
+    @patch("api.services.scraping_service.ScrapingService.get_url_content")
     async def test_fetch_contents_success(self, mock_get_content: AsyncMock, scraping_service: ScrapingService):
         urls_to_fetch = {"a.com", "b.com", "c.com"}
-        timeout = 10.0
+        timeout = 60.0
         expected_contents = [
             URLContent(url="a.com", content="Content A"),
             URLContent(url="b.com", content="Content B"),
@@ -119,16 +119,16 @@ class TestFetchUrlContentsConcurrently:
 
         mock_get_content.side_effect = mock_content_side_effect
 
-        actual_contents = await scraping_service.fetch_url_contents_concurrently(urls_to_fetch, timeout, True)
+        actual_contents = await scraping_service.fetch_url_contents_concurrently(urls_to_fetch, timeout, False)
 
         # Order might not be guaranteed by gather, so compare sets of results
         assert set(actual_contents) == set(expected_contents)
         assert mock_get_content.call_count == len(urls_to_fetch)
         for url in urls_to_fetch:
             # Check if called with correct args (any order)
-            mock_get_content.assert_any_call(url, request_timeout=timeout)
+            mock_get_content.assert_any_call(url, timeout)
 
-    @patch("api.services.scraping_service.ScrapingService._get_url_content")
+    @patch("api.services.scraping_service.ScrapingService.get_url_content")
     async def test_fetch_contents_partial_failure(
         self,
         mock_get_content: MagicMock,
@@ -156,7 +156,7 @@ class TestFetchUrlContentsConcurrently:
 
         with patch("asyncio.gather", new_callable=AsyncMock) as mock_gather:
             mock_gather.return_value = mock_results
-            actual_contents = await scraping_service.fetch_url_contents_concurrently(urls_to_fetch, timeout, True)
+            actual_contents = await scraping_service.fetch_url_contents_concurrently(urls_to_fetch, timeout, False)
 
             assert set(actual_contents) == set(expected_successful)  # Only good.com should remain
             assert mock_get_content.call_count == len(urls_to_fetch)  # Ensure tasks were created
