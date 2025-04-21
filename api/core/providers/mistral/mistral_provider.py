@@ -5,7 +5,12 @@ from httpx import Response
 from pydantic import BaseModel, ValidationError
 from typing_extensions import override
 
-from core.domain.errors import FailedGenerationError, MaxTokensExceededError, UnknownProviderError
+from core.domain.errors import (
+    FailedGenerationError,
+    MaxTokensExceededError,
+    ProviderBadRequestError,
+    UnknownProviderError,
+)
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import Message
 from core.domain.models import Model, Provider
@@ -176,18 +181,25 @@ class MistralAIProvider(HTTPXProvider[MistralAIConfig, CompletionResponse]):
             self.logger.exception("failed to parse MistralAI error response", extra={"response": response.text})
             return super()._unknown_error(response)
 
-        if payload.type == "invalid_request_error":
-            if payload.message and "too large for model" in payload.message:
-                return MaxTokensExceededError(msg=payload.message, response=response, store_task_run=False)
-        elif payload.type == "context_length_exceeded":
-            # Here the task run is stored because the error might
-            # have occurred during the generation
-            return MaxTokensExceededError(
-                msg=payload.message or "Context length exceeded",
-                response=response,
-            )
-
-        return UnknownProviderError(payload.message, response=response)
+        error_type = payload.actual_type
+        error_message = payload.actual_message
+        match error_type:
+            case "invalid_request_error":
+                if error_message and "too large for model" in error_message:
+                    return MaxTokensExceededError(msg=error_message, response=response, store_task_run=False)
+            case "value_error":
+                # We store here for debugging purposes
+                return ProviderBadRequestError(error_message or "Unknown error", response=response, store_task_run=True)
+            case "context_length_exceeded":
+                # Here the task run is stored because the error might
+                # have occurred during the generation
+                return MaxTokensExceededError(
+                    msg=error_message or "Context length exceeded",
+                    response=response,
+                )
+            case _:
+                pass
+        return UnknownProviderError(error_message or "Unknown error", response=response)
 
     @override
     @classmethod
