@@ -314,7 +314,27 @@ class MistralError(BaseModel):
     # param: str | None = None
     # code: str | None = None
 
+    class _Detail(BaseModel):
+        type: str | None = None
+        msg: str | None = None
+
+    # Sometimes we get a list of details instead of having the
+    # message and type at the root
+    detail: list[_Detail] | None = None
+
     model_config = ConfigDict(extra="allow")
+
+    @property
+    def actual_type(self) -> str | None:
+        if self.detail:
+            return self.detail[0].type
+        return self.type
+
+    @property
+    def actual_message(self) -> str | None:
+        if self.detail:
+            return self.detail[0].msg
+        return self.message
 
 
 class DeltaMessage(BaseModel):
