@@ -51,6 +51,8 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
             Model.LLAMA_3_3_70B: "llama-3.3-70b-versatile",
             Model.LLAMA_3_1_70B: "llama-3.1-70b-versatile",
             Model.LLAMA_3_1_8B: "llama-3.1-8b-instant",
+            Model.LLAMA_4_MAVERICK_BASIC: "meta-llama/llama-4-maverick-17b-128e-instruct",
+            Model.LLAMA_4_SCOUT_BASIC: "meta-llama/llama-4-scout-17b-16e-instruct",
         }
 
         return NAME_OVERRIDE_MAP.get(model, model.value)

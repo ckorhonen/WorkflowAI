@@ -612,6 +612,20 @@ GROQ_PROVIDER_DATA: ProviderDataByModel = {
     #     # native tools calls are not implemented on Groq for now as we will decommssion the provider for now.
     #     # see [WOR-1968: Disable `Groq` ?](https://linear.app/workflowai/issue/WOR-1968/disable-groq)
     # ),
+    Model.LLAMA_4_MAVERICK_BASIC: ModelProviderData(
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=0.20 * ONE_MILLION_TH,
+            completion_cost_per_token=0.60 * ONE_MILLION_TH,
+            source="https://groq.com/pricing/",
+        ),
+    ),
+    Model.LLAMA_4_SCOUT_BASIC: ModelProviderData(
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=0.11 / 1_000_000,
+            completion_cost_per_token=0.34 / 1_000_000,
+            source="https://groq.com/pricing/",
+        ),
+    ),
 }
 
 MISTRAL_PROVIDER_DATA: ProviderDataByModel = {
