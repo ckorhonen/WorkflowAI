@@ -214,19 +214,20 @@ class CustomerService:
         yesterday = datetime.combine(today - timedelta(days=1), time(0, 0), tzinfo=timezone.utc)
 
         count = await user_service.count_registrations(since=yesterday)
-        active_tasks = [a async for a in active_task_fetcher(yesterday)]
+        active_tasks = [a async for a in active_task_fetcher(yesterday) if a[0].slug != "workflowai"]
 
         parts = [
             f"Daily report for {today}",
             f"Total registrations: {count}",
-            f"Active tasks: {len(active_tasks)}",
+            f"Active tenants: {len(active_tasks)}",
+            f"Active agents: {sum(len(tasks) for _, tasks in active_tasks)}",
             "",
         ]
 
         for org, tasks in active_tasks:
             parts.append("-------")
-            parts.append(f"Organization: {org.name} ({org.slug})")
-            parts.extend(f"    Agent: {t.name} ({WORKFLOWAI_APP_URL}/{org.slug}/agents/{t.task_id})" for t in tasks)
+            parts.append(org.slug)
+            parts.extend(f" - {t.name}: ({WORKFLOWAI_APP_URL}/{org.slug}/agents/{t.task_id})" for t in tasks)
 
         return "\n".join(parts)
 

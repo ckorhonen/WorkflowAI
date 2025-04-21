@@ -3,10 +3,10 @@ from datetime import date
 from typing import Annotated
 
 import typer
+from dotenv import load_dotenv
 
 from _common import PROD_ARG, STAGING_ARG, get_mongo_storage
 from core.services.customers.customer_service import CustomerService
-from core.services.users.shared_user_service import shared_user_service
 from core.services.users.user_service import UserService
 from core.storage.mongo.mongo_storage import MongoStorage
 
@@ -30,6 +30,9 @@ def _run(
     staging: STAGING_ARG,
     commit: Annotated[bool, typer.Option()] = False,
 ):
+    load_dotenv(override=True)
+    from core.services.users.shared_user_service import shared_user_service
+
     mongo_storage = get_mongo_storage(prod=prod, staging=staging, tenant="__system__")
 
     asyncio.run(daily_report(mongo_storage, shared_user_service, date.today(), commit))
