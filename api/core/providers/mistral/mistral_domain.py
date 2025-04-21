@@ -70,6 +70,14 @@ class ImageURLChunk(BaseModel):
         return cls(image_url=ImageURL(url=file.to_url(default_content_type="image/*")))
 
 
+class DocumentURLChunk(BaseModel):
+    type: Literal["document_url"] = "document_url"
+    document_url: str
+
+    def to_standard(self) -> DocumentContentDict:
+        return {"type": "document_url", "source": {"url": self.document_url}}
+
+
 _role_to_map: dict[Message.Role, Literal["user", "assistant", "system"]] = {
     Message.Role.SYSTEM: "system",
     Message.Role.USER: "user",
@@ -103,7 +111,7 @@ class ToolCall(BaseModel):
 
 class MistralAIMessage(BaseModel):
     role: Literal["user", "assistant", "system"]
-    content: str | list[TextChunk | ImageURLChunk]
+    content: str | list[TextChunk | ImageURLChunk | DocumentURLChunk]
     tool_calls: list[ToolCall] | None = None
 
     @classmethod
@@ -112,13 +120,16 @@ class MistralAIMessage(BaseModel):
 
         role = _role_to_map[message.role]
         if not message.files:
-            content: str | list[TextChunk | ImageURLChunk] = message.content
+            content: str | list[TextChunk | ImageURLChunk | DocumentURLChunk] = message.content
         else:
-            content: str | list[TextChunk | ImageURLChunk] = []
+            content: str | list[TextChunk | ImageURLChunk | DocumentURLChunk] = []
             if message.content:
                 content.append(TextChunk(text=message.content))
             for file in message.files or []:
-                content.append(ImageURLChunk.from_file(file))
+                if file.is_image:
+                    content.append(ImageURLChunk.from_file(file))
+                else:
+                    content.append(DocumentURLChunk(document_url=file.to_url(default_content_type="application/pdf")))
 
         tool_calls: list[ToolCall] = []
         if message.tool_call_requests:

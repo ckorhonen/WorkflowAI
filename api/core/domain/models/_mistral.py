@@ -66,7 +66,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             supports_json_mode=True,
             supports_input_image=True,
             supports_multiple_images_in_input=True,
-            supports_input_pdf=False,
+            supports_input_pdf=True,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
                 max_tokens=131072,
@@ -85,7 +85,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             supports_json_mode=True,
             supports_input_image=True,
             supports_multiple_images_in_input=True,
-            supports_input_pdf=False,
+            supports_input_pdf=True,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
                 max_tokens=131072,
@@ -143,7 +143,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             supports_json_mode=True,
             supports_input_image=True,
             supports_multiple_images_in_input=True,
-            supports_input_pdf=False,
+            supports_input_pdf=True,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
                 max_tokens=32768,
