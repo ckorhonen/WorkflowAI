@@ -212,28 +212,118 @@ INSTRUCTIONS = """Step 1 (only if there is no existing_agent_schema):
 
     For chat based agent the schema could look like this:
     {
-    "agent_name": "Simple Chat",
-    "input_schema": {
-    "type": "object",
-    "fields": [{"name": "messages", "type": "array", "item_type": "object", "fields": [{"name": "role", "type": "enum", "values": ["USER", "ASSISTANT"]}, {"name": "content", "type": "string"}]}]
-    },
-    "output_schema": {
-    "type": "object",
-    "fields": [{"name": "assistant_answer", "type": "string"}]
-    }
+            "agent_name": "Simple Chat",
+            "input_schema": {
+                "type": "object",
+                "fields": [
+                    {
+                        "name": "messages",
+                        "type": "array",
+                        "description": "List of previous messages exchanged between the user and the assistant",
+                        "items": {
+                            "type": "object",
+                            "fields": [
+                                {
+                                    "name": "role",
+                                    "type": "enum",
+                                    "description": "The role of the message sender",
+                                    "values": ["USER", "ASSISTANT"],
+                                },
+                                {"name": "content", "type": "string", "description": "The content of the message"},
+                            ],
+                        },
+                    },
+                ],
+            },
+            "output_schema": {
+                "type": "object",
+                "fields": [
+                    {
+                        "name": "assistant_answer",
+                        "type": "string",
+                        "description": "The assistant's response to the user",
+                    },
+                ],
+            },
     }
 
     In case the assistant can return some special messages (ex: weather forecast) the same additional fields MUST be added to the 'messages' field in INPUT (since the chat can be multi-turn) as well as in the OUTPUT schema:
     {
-    "agent_name": "Weather Forecast Chat",
-    "input_schema": {
-    "type": "object",
-    "fields": [{"name": "messages", "type": "array", "item_type": "object", "fields": [{"name": "role", "type": "enum", "values": ["USER", "ASSISTANT"]}, {"name": "content", "type": "string"}, {"name": "weather_forecast", "type": "object", "fields": [{"name": "temperature", "type": "number"}, {"name": "condition", "type": "enum", "values": ["sunny", "cloudy", "rainy"]}]}]}]
-    },
-    "output_schema": {
-    "type": "object",
-    "fields": [{"name": "assistant_answer", "type": "string"}, {"name": "weather_forecast", "type": "object", "fields": [{"name": "temperature", "type": "number"}, {"name": "condition", "type": "enum", "values": ["sunny", "cloudy", "rainy"]}]}]
-    }
+        "agent_name": "Weather Chat",
+        "input_schema": {
+            "type": "object",
+            "fields": [
+                {
+                    "name": "messages",
+                    "type": "array",
+                    "description": "List of previous messages exchanged between the user and the assistant",
+                    "items": {
+                        "type": "object",
+                        "fields": [
+                            {
+                                "name": "role",
+                                "type": "enum",
+                                "description": "The role of the message sender",
+                                "values": ["USER", "ASSISTANT"],
+                            },
+                            {"name": "content", "type": "string", "description": "The content of the message"},
+                            {
+                                "name": "weather_data",
+                                "type": "object",
+                                "description": "Weather information provided by the assistant",
+                                "fields": [
+                                    {"name": "temperature", "type": "number", "description": "Temperature value"},
+                                    {
+                                        "name": "condition",
+                                        "type": "enum",
+                                        "description": "Weather condition",
+                                        "values": [
+                                            "sunny",
+                                            "cloudy",
+                                            "rainy",
+                                        ],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                },
+                {
+                    "name": "location",
+                    "type": "string",
+                    "description": "The location for which weather information is requested",
+                },
+            ],
+        },
+        "output_schema": {
+            "type": "object",
+            "fields": [
+                {
+                    "name": "assistant_answer",
+                    "type": "string",
+                    "description": "The assistant's response to the user's weather query",
+                },
+                {
+                    "name": "weather_data",
+                    "type": "object",
+                    "description": "Weather information provided by the assistant",
+                    "fields": [
+                        {"name": "temperature", "type": "number", "description": "Temperature value"},
+                        {
+                            "name": "condition",
+                            "type": "enum",
+                            "description": "Weather condition",
+                            "values": [
+                                "sunny",
+                                "cloudy",
+                                "rainy",
+
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
     }
 
     For both chat-based cases, please make sure not to include 'SYSTEM' as a message role.
