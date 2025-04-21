@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Concatenate, Coroutine, Generic, NamedTuple, TypeVar
 
 from taskiq import AsyncTaskiqDecoratedTask
@@ -44,7 +44,10 @@ _T = TypeVar("_T", bound=Event)
 
 class _JobListing(NamedTuple, Generic[_T]):
     event: type[_T]
-    jobs: list[AsyncTaskiqDecoratedTask[Concatenate[_T, ...], Coroutine[Any, Any, None]]]
+    jobs: list[AsyncTaskiqDecoratedTask[Concatenate[_T, ...], Coroutine[Any, Any, None]]]  # Run ASAP
+    scheduled_jobs: (
+        list[tuple[AsyncTaskiqDecoratedTask[Concatenate[_T, ...], Coroutine[Any, Any, None]], timedelta]] | None
+    ) = None
 
 
 def _jobs():
@@ -104,7 +107,7 @@ def _jobs():
         _JobListing(FeedbackCreatedEvent, feedback_created_jobs.JOBS),
         _JobListing(FeaturesByDomainGenerationStarted, features_by_domain_generation_started_jobs.JOBS),
         _JobListing(TenantCreatedEvent, tenant_created_jobs.JOBS),
-        _JobListing(TenantMigratedEvent, tenant_migrated_jobs.JOBS),
+        _JobListing(TenantMigratedEvent, tenant_migrated_jobs.JOBS, tenant_migrated_jobs.SCHEDULED_JOBS),
     ]
 
 
@@ -149,13 +152,26 @@ class _EventRouter:
             except Exception:
                 _logger.exception("Error sending job")
 
+    def _schedule_task(
+        self,
+        job: AsyncTaskiqDecoratedTask[[Event], Coroutine[Any, Any, None]],
+        event: Event,
+        schedule_time: datetime | None,
+    ):
+        t = asyncio.create_task(self._send_job(job, event, schedule_time))
+        self._tasks.add(t)
+        t.add_done_callback(self._tasks.remove)
+
     def __call__(self, event: Event, retry_after: datetime | None = None) -> None:
         try:
             listing = self._handlers[type(event)]
             for job in listing.jobs:
-                t = asyncio.create_task(self._send_job(job, event, retry_after))
-                self._tasks.add(t)
-                t.add_done_callback(self._tasks.remove)
+                self._schedule_task(job, event, retry_after)
+
+            if listing.scheduled_jobs:
+                now = datetime.now()
+                for job, delay in listing.scheduled_jobs:
+                    self._schedule_task(job, event, now + delay)
 
         except KeyError as e:
             _logger.exception("Missing event handler", exc_info=e)
