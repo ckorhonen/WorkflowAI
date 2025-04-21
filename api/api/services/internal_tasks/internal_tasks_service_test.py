@@ -187,6 +187,16 @@ def mock_format_instructions():
         yield mock
 
 
+@pytest.fixture(scope="function")
+def mock_agent_builder(monkeypatch: pytest.MonkeyPatch) -> Mock:
+    from api.services.internal_tasks import internal_tasks_service
+
+    mock_func = AsyncMock()
+
+    monkeypatch.setattr(internal_tasks_service, internal_tasks_service.agent_builder.__name__, mock_func)
+    return mock_func
+
+
 class TestNewTask:
     async def test_new_task_new_schema(
         self,
