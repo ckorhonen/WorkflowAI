@@ -95,7 +95,12 @@ class SlackMessageFormatter:
 
             return "".join(parts)
 
-        return f"""*Daily User Digest for {daily_digest.for_date.strftime("%Y-%m-%d")}*{DELIMITER}{DELIMITER.join([_get_agent_str(agent) for agent in daily_digest.agents])}"""
+        return f"""*Daily User Digest for {daily_digest.for_date.strftime("%Y-%m-%d")}*
+
+
+Remaining credits: ${daily_digest.remaining_credits_usd:.2f}
+Added credits (all time): ${daily_digest.added_credits_usd:.2f}
+{DELIMITER}{DELIMITER.join([_get_agent_str(agent) for agent in daily_digest.agents])}"""
 
 
 class CustomerService:
@@ -115,7 +120,15 @@ class CustomerService:
 
     async def _get_organization(self):
         return await self._storage.organizations.get_organization(
-            include={"slack_channel_id", "slug", "uid", "org_id", "owner_id"},
+            include={
+                "slack_channel_id",
+                "slug",
+                "uid",
+                "org_id",
+                "owner_id",
+                "current_credits_usd",
+                "added_credits_usd",
+            },
         )
 
     async def _get_or_create_slack_channel(self, clt: SlackApiClient, retries: int = 3):
