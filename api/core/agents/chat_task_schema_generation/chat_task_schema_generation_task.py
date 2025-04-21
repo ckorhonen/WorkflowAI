@@ -365,11 +365,6 @@ INSTRUCTIONS = """Step 1 (only if there is no existing_agent_schema):
 
 @workflowai.agent(
     id="chattaskschemageneration",
-    version=workflowai.VersionProperties(
-        model=workflowai.Model.CLAUDE_3_7_SONNET_20250219,
-        max_tokens=2500,  # Generated schema can be lengthy, so 2500 instead of 1000 of most Claude agents
-        instructions=INSTRUCTIONS,
-    ),
 )
 async def agent_builder(
     input: AgentBuilderInput,
