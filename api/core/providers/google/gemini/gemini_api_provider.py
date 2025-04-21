@@ -44,7 +44,7 @@ class GoogleGeminiAPIProvider(GoogleProviderBase[GoogleGeminiAPIProviderConfig])
         else:
             suffix = f"generateContent?key={self._config.api_key}"
 
-        model_str = model.value
+        model_str = self._model_url_str(model)
         api_version = self.model_api_versions.get(model, "v1beta")
         return f"{self._config.url}/{api_version}/models/{model_str}:{suffix}"
 
