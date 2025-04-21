@@ -54,6 +54,10 @@ MODELS_THAT_REQUIRE_DOWNLOADING_FILES = {
     Model.GEMINI_2_0_FLASH_THINKING_EXP_0121,
 }
 
+_MODEL_MAPPING = {
+    Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417: Model.GEMINI_2_5_FLASH_PREVIEW_0417,
+}
+
 
 class GoogleProviderBaseConfig(ProviderConfigInterface, Protocol):
     @property
@@ -62,13 +66,11 @@ class GoogleProviderBaseConfig(ProviderConfigInterface, Protocol):
 
 _GoogleConfigVar = TypeVar("_GoogleConfigVar", bound=GoogleProviderBaseConfig)
 
-THINKING_MODE_MODELS = (
-    Model.GEMINI_2_0_FLASH_THINKING_EXP_1219,
-    Model.GEMINI_2_0_FLASH_THINKING_EXP_0121,
-)
-
 
 class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Generic[_GoogleConfigVar]):
+    def _model_url_str(self, model: Model) -> str:
+        return _MODEL_MAPPING.get(model, model).value
+
     def _safety_settings(self) -> list[CompletionRequest.SafetySettings] | None:
         if self._config.default_block_threshold is None:
             return None
@@ -134,6 +136,16 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
                         raise InternalError("Multiple system messages not supported")
                     system_message = GoogleSystemMessage.from_domain(message)
 
+        # See https://ai.google.dev/gemini-api/docs/thinking
+        # Thinking is enabled by default on thinking models so we just need to "turn off" thinking
+        thinking_config = (
+            CompletionRequest.GenerationConfig.ThinkingConfig(
+                thinkingBudget=0,
+            )
+            if model_data.reasoning_level == "none"
+            else None
+        )
+
         completion_request = CompletionRequest(
             systemInstruction=system_message,
             contents=user_messages,
@@ -145,11 +157,7 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
                 if (model_data.supports_json_mode and not options.enabled_tools)
                 # Google does not allow setting the response mime type at all when using tools.
                 else "text/plain",
-                thinking_config=CompletionRequest.GenerationConfig.ThinkingConfig(
-                    include_thoughts=True,
-                )
-                if options.model in THINKING_MODE_MODELS
-                else None,
+                thinking_config=thinking_config,
             ),
             safetySettings=self._safety_settings(),
         )

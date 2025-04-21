@@ -53,11 +53,15 @@ def test_assert_model_data_has_all_fields_defined_should_not_raise() -> None:
 
 
 # Test that all models MODEL_DATAS have all fields defined, even if optional
+# TODO: remove, this test is a duplicate of pydantic model validation
 def test_MODEL_DATAS_has_all_fields_defined() -> None:
     for model in Model:
         model_data = MODEL_DATAS[model]
         if isinstance(model_data, ModelData):
-            assert_model_data_has_all_fields_defined(model_data, exclude={"latest_model", "quality_index"})
+            assert_model_data_has_all_fields_defined(
+                model_data,
+                exclude={"latest_model", "quality_index", "reasoning_level"},
+            )
 
 
 @pytest.fixture
