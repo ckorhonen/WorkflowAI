@@ -575,6 +575,7 @@ class CompletionRequest(BaseModel):
 
         class ThinkingConfig(BaseModel):
             include_thoughts: bool = False
+            thinkingBudget: int | None = None
 
         thinking_config: ThinkingConfig | None = None
 

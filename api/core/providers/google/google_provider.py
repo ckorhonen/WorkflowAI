@@ -22,16 +22,18 @@ from core.providers.google.google_provider_domain import (
     message_or_system_message,
 )
 
-# TODO: switch to having models multi region by default
-# https://cloud.google.com/vertex-ai/generative-ai/docs/learn/locations#available-regions
+# Models are global by default
 _MIXED_REGION_MODELS = {
-    # Model.GEMINI_2_0_FLASH_EXP,
     Model.GEMINI_1_5_FLASH_002,
     Model.GEMINI_1_5_FLASH_001,
     Model.GEMINI_1_5_PRO_001,
     Model.GEMINI_1_5_PRO_002,
     Model.GEMINI_2_0_FLASH_001,
     Model.GEMINI_2_0_FLASH_LITE_001,
+    Model.GEMINI_2_5_FLASH_PREVIEW_0417,
+    Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417,
+    Model.GEMINI_2_5_PRO_PREVIEW_0325,
+    Model.GEMINI_2_5_PRO_EXP_0325,
 }
 
 _VERTEX_API_REGION_METADATA_KEY = "workflowai.vertex_api_region"
@@ -67,7 +69,10 @@ class GoogleProvider(GoogleProviderBase[GoogleProviderConfig]):
     def all_available_regions(self):
         return set(self._config.vertex_location)
 
-    def get_vertex_location(self) -> str:
+    def get_vertex_location(self, model: Model) -> str:
+        if model not in _MIXED_REGION_MODELS:
+            return self._config.vertex_location[0]
+
         used_regions = self._get_metadata(_VERTEX_API_EXCLUDED_REGIONS_METADATA_KEY)
         excluded_regions: set[str] = set(used_regions.split(",")) if used_regions else set()
         region = self._get_metadata(_VERTEX_API_REGION_METADATA_KEY)
@@ -88,18 +93,23 @@ class GoogleProvider(GoogleProviderBase[GoogleProviderConfig]):
             "Authorization": f"Bearer {token}",
         }
 
+    _MODEL_STR_OVERRIDES = {
+        Model.LLAMA_3_2_90B: "llama-3.2-90b-vision-instruct-maas",
+        Model.LLAMA_3_1_405B: "llama3-405b-instruct-maas",
+    }
+
+    @override
+    def _model_url_str(self, model: Model) -> str:
+        if model in self._MODEL_STR_OVERRIDES:
+            return self._MODEL_STR_OVERRIDES[model]
+        return super()._model_url_str(model)
+
     @override
     def _request_url(self, model: Model, stream: bool) -> str:
-        location = self._config.vertex_location[0] if model not in _MIXED_REGION_MODELS else self.get_vertex_location()
+        location = self.get_vertex_location(model)
         self._add_metadata(_VERTEX_API_REGION_METADATA_KEY, location)
 
-        MODEL_STR_OVERRIDES = {
-            Model.LLAMA_3_2_90B: "llama-3.2-90b-vision-instruct-maas",
-            Model.LLAMA_3_1_405B: "llama3-405b-instruct-maas",
-        }
-
         PUBLISHER_OVERRIDES = {
-            Model.LLAMA_3_2_90B: "meta",
             Model.LLAMA_3_1_405B: "meta",
         }
 
@@ -108,8 +118,7 @@ class GoogleProvider(GoogleProviderBase[GoogleProviderConfig]):
         else:
             suffix = "generateContent"
 
-        model_str = MODEL_STR_OVERRIDES.get(model, model.value)
-
+        model_str = self._model_url_str(model)
         publisher_str = PUBLISHER_OVERRIDES.get(model, "google")
 
         return f"https://{location}-aiplatform.googleapis.com/v1/projects/{self._config.vertex_project}/locations/{location}/publishers/{publisher_str}/models/{model_str}:{suffix}"

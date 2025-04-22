@@ -21,6 +21,42 @@ ONE_MILLION_TH = 0.000_001
 
 
 GOOGLE_PROVIDER_DATA: ProviderDataByModel = {
+    # Although it seems that Vertex supports the models
+    # They return a lot of 429 errors so it is just better to use GEMINI for now
+    # Model.GEMINI_2_5_PRO_PREVIEW_0325: ModelProviderData(
+    #     text_price=TextPricePerToken(
+    #         prompt_cost_per_token=1.25 / 1_000_000,
+    #         completion_cost_per_token=10 / 1_000_000,
+    #         source="https://cloud.google.com/vertex-ai/generative-ai/pricing#modality-based-pricing",
+    #         thresholded_prices=[
+    #             ThresholdedTextPricePerToken(
+    #                 threshold=200_000,
+    #                 prompt_cost_per_token_over_threshold=2.5 / 1_000_000,
+    #                 completion_cost_per_token_over_threshold=15 / 1_000_000,
+    #             ),
+    #         ],
+    #     ),
+    # ),
+    # Model.GEMINI_2_5_FLASH_PREVIEW_0417: ModelProviderData(
+    #     text_price=TextPricePerToken(
+    #         prompt_cost_per_token=0.15 * ONE_MILLION_TH,
+    #         completion_cost_per_token=0.60 * ONE_MILLION_TH,
+    #         source="https://ai.google.dev/gemini-api/docs/pricing#gemini-2.5-flash",
+    #     ),
+    #     audio_price=AudioPricePerToken(
+    #         audio_input_cost_per_token=1.0 * ONE_MILLION_TH,
+    #     ),
+    # ),
+    # Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417: ModelProviderData(
+    #     text_price=TextPricePerToken(
+    #         prompt_cost_per_token=0.15 * ONE_MILLION_TH,
+    #         completion_cost_per_token=3.50 * ONE_MILLION_TH,
+    #         source="https://ai.google.dev/gemini-api/docs/pricing#gemini-2.5-flash",
+    #     ),
+    #     audio_price=AudioPricePerToken(
+    #         audio_input_cost_per_token=1.0 * ONE_MILLION_TH,
+    #     ),
+    # ),
     Model.GEMINI_2_0_FLASH_001: ModelProviderData(
         text_price=TextPricePerToken(
             prompt_cost_per_token=0.0375 * ONE_MILLION_TH * GOOGLE_CHARS_PER_TOKEN,
@@ -173,26 +209,11 @@ GOOGLE_PROVIDER_DATA: ProviderDataByModel = {
             source="https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#model_versions_and_lifecycle",
         ),
     ),
-    Model.LLAMA_3_2_90B: ModelProviderData(
-        # Llama 3.2 is free for now, but for UX reasons we're using the same price as Gemini 1.5 Pro 002
-        text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_005,
-            completion_cost_per_token=0.000_015,
-            source="not on  https://cloud.google.com/vertex-ai/generative-ai/pricing yet",
-        ),
-        image_price=ImageFixedPrice(
-            cost_per_image=0.001_315,
-            thresholded_prices=[
-                ThresholdedImageFixedPrice(threshold=128000, cost_per_image_over_threshold=0.002_63),
-            ],
-        ),
-    ),
     Model.LLAMA_3_1_405B: ModelProviderData(
-        # TODO: Groq prices are not available yet, using pricing from Azure
         text_price=TextPricePerToken(
             prompt_cost_per_token=0.000_005,
             completion_cost_per_token=0.000_016,
-            source="",
+            source="https://cloud.google.com/vertex-ai/generative-ai/pricing#meta-models",
         ),
     ),
 }
@@ -837,6 +858,26 @@ GOOGLE_GEMINI_API_PROVIDER_DATA: ProviderDataByModel = {
             audio_input_cost_per_token=0.70 * ONE_MILLION_TH,
         ),
     ),
+    Model.GEMINI_2_5_FLASH_PREVIEW_0417: ModelProviderData(
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=0.15 * ONE_MILLION_TH,
+            completion_cost_per_token=0.60 * ONE_MILLION_TH,
+            source="https://ai.google.dev/gemini-api/docs/pricing#gemini-2.5-flash",
+        ),
+        audio_price=AudioPricePerToken(
+            audio_input_cost_per_token=1.0 * ONE_MILLION_TH,
+        ),
+    ),
+    Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417: ModelProviderData(
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=0.15 * ONE_MILLION_TH,
+            completion_cost_per_token=3.50 * ONE_MILLION_TH,
+            source="https://ai.google.dev/gemini-api/docs/pricing#gemini-2.5-flash",
+        ),
+        audio_price=AudioPricePerToken(
+            audio_input_cost_per_token=1.0 * ONE_MILLION_TH,
+        ),
+    ),
     Model.GEMINI_2_5_PRO_PREVIEW_0325: ModelProviderData(
         text_price=TextPricePerToken(
             prompt_cost_per_token=1.25 / 1_000_000,
@@ -878,13 +919,6 @@ GOOGLE_GEMINI_API_PROVIDER_DATA: ProviderDataByModel = {
                 ),
             ],
             source="https://ai.google.dev/pricing#1_5pro",
-        ),
-    ),
-    Model.GEMINI_2_0_FLASH_THINKING_EXP_0121: ModelProviderData(
-        text_price=TextPricePerToken(
-            prompt_cost_per_token=0.0,
-            completion_cost_per_token=0.0,
-            source="https://ai.google.dev/pricing#2_0flash",
         ),
     ),
     Model.GEMINI_1_5_PRO_002: ModelProviderData(

@@ -518,6 +518,50 @@ def _build_model_datas():
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
         ),
+        Model.GEMINI_2_5_FLASH_PREVIEW_0417: ModelData(
+            display_name="Gemini 2.5 Flash Preview (0417)",
+            supports_json_mode=True,
+            supports_input_image=True,
+            supports_multiple_images_in_input=True,
+            supports_input_pdf=True,
+            supports_input_audio=True,
+            supports_structured_output=False,
+            max_tokens_data=MaxTokensData(
+                max_tokens=1_048_576 + 65_536,
+                max_output_tokens=65_536,
+                source="https://ai.google.dev/gemini-api/docs/models#gemini-2.5-flash-preview",
+            ),
+            provider_for_pricing=Provider.GOOGLE_GEMINI,
+            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
+            release_date=date(2025, 4, 17),
+            # https://www.vals.ai/benchmarks/gpqa-04-04-2025
+            quality_index=832,  # TODO
+            provider_name=DisplayedProvider.GOOGLE.value,
+            supports_tool_calling=True,
+            reasoning_level="none",
+        ),
+        Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417: ModelData(
+            display_name="Gemini 2.5 Flash Thinking Preview (0417)",
+            supports_json_mode=True,
+            supports_input_image=True,
+            supports_multiple_images_in_input=True,
+            supports_input_pdf=True,
+            supports_input_audio=True,
+            supports_structured_output=False,
+            max_tokens_data=MaxTokensData(
+                max_tokens=1_048_576 + 65_536,
+                max_output_tokens=65_536,
+                source="https://ai.google.dev/gemini-api/docs/models#gemini-2.5-flash-preview",
+            ),
+            provider_for_pricing=Provider.GOOGLE_GEMINI,
+            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
+            release_date=date(2025, 4, 17),
+            # https://www.vals.ai/benchmarks/gpqa-04-04-2025
+            quality_index=832,  # TODO
+            provider_name=DisplayedProvider.GOOGLE.value,
+            supports_tool_calling=True,
+            reasoning_level="medium",
+        ),
         Model.GEMINI_2_5_PRO_PREVIEW_0325: ModelData(
             display_name="Gemini 2.5 Pro Preview (0325)",
             supports_json_mode=True,
@@ -552,28 +596,11 @@ def _build_model_datas():
             display_name="Gemini 1.5 Pro (latest)",
             is_default=True,
         ),
-        Model.GEMINI_2_0_FLASH_THINKING_EXP_0121: ModelData(
-            display_name="Gemini 2.0 Flash Thinking Exp (0121)",
-            supports_json_mode=False,  # Json mode not supported for this model
-            supports_input_image=True,
-            supports_multiple_images_in_input=True,
-            supports_input_pdf=True,
-            supports_input_audio=True,
-            supports_structured_output=False,  # Model supports structured outputs, but we did not activate this feature for Google  yet
-            max_tokens_data=MaxTokensData(
-                max_tokens=1048576,
-                max_output_tokens=8_192,
-                source="https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#gemini-2.0-flash-thinking-mode",
-            ),
-            provider_for_pricing=Provider.GOOGLE_GEMINI,
-            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
-            release_date=date(2025, 1, 21),
-            quality_index=759,  # MMLU=77.60, GPQA=74.20
-            provider_name=DisplayedProvider.GOOGLE.value,
-            supports_tool_calling=False,
+        Model.GEMINI_2_0_FLASH_THINKING_EXP_0121: DeprecatedModel(
+            replacement_model=Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417,
         ),
         Model.GEMINI_2_0_FLASH_THINKING_EXP_1219: DeprecatedModel(
-            replacement_model=Model.GEMINI_2_0_FLASH_THINKING_EXP_0121,
+            replacement_model=Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417,
         ),
         Model.GEMINI_1_5_PRO_002: ModelData(
             display_name="Gemini 1.5 Pro (002)",

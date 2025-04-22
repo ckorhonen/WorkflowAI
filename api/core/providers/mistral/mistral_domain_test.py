@@ -5,6 +5,7 @@ from core.domain.message import Message
 from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.mistral.mistral_domain import (
     CompletionChunk,
+    DocumentURLChunk,
     ImageURL,
     ImageURLChunk,
     MistralAIMessage,
@@ -93,6 +94,26 @@ class TestMistralAIMessage:
         assert result.content[0].text == "Check this image"
         assert isinstance(result.content[1], ImageURLChunk)
         assert result.content[1].image_url.url == "https://example.com/image.jpg"
+
+    def test_from_domain_with_document(self) -> None:
+        # Given
+        message = Message(
+            role=Message.Role.USER,
+            content="Check this document",
+            files=[File(url="https://example.com/document.pdf", content_type="application/pdf")],
+        )
+
+        # When
+        result = MistralAIMessage.from_domain(message)
+
+        # Then
+        assert result.role == "user"
+        assert isinstance(result.content, list)
+        assert len(result.content) == 2
+        assert isinstance(result.content[0], TextChunk)
+        assert result.content[0].text == "Check this document"
+        assert isinstance(result.content[1], DocumentURLChunk)
+        assert result.content[1].document_url == "https://example.com/document.pdf"
 
     def test_from_domain_with_tool_calls(self) -> None:
         # Given
