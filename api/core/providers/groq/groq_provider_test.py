@@ -19,6 +19,7 @@ from core.domain.models import Model, Provider
 from core.domain.models.model_data import MaxTokensData, ModelData
 from core.domain.models.model_datas_mapping import DisplayedProvider
 from core.domain.structured_output import StructuredOutput
+from core.domain.tool import Tool
 from core.providers.base.models import RawCompletion
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.groq.groq_domain import Choice, CompletionResponse, GroqMessage, Usage
@@ -104,7 +105,7 @@ class TestStream:
                 },
             ],
             "response_format": {"type": "json_object"},
-            "stream": False,
+            "stream": True,
             "temperature": 0.0,
         }
 
@@ -245,6 +246,34 @@ class TestComplete:
         details = e.value.error_response().error.details
         assert details and details.get("provider_error") == {"raw": "Internal Server Error"}
 
+    async def test_complete_with_tool_calls(self, httpx_mock: HTTPXMock, groq_provider: GroqProvider):
+        httpx_mock.add_response(
+            url="https://api.groq.com/openai/v1/chat/completions",
+            json=fixtures_json("groq", "completion_with_tool_call.json"),
+        )
+
+        o = await groq_provider.complete(
+            [Message(role=Message.Role.USER, content="Hello")],
+            options=ProviderOptions(
+                model=Model.LLAMA_4_MAVERICK_BASIC,
+                max_tokens=10,
+                temperature=0,
+                enabled_tools=[
+                    Tool(
+                        name="get_current_time",
+                        description="Get the current time",
+                        input_schema={},
+                        output_schema={},
+                    ),
+                ],
+            ),
+            output_factory=lambda x, _: StructuredOutput(json.loads(x) if x else {}),
+        )
+
+        assert o.tool_calls is not None
+        assert o.tool_calls[0].tool_name == "get_current_time"
+        assert o.tool_calls[0].tool_input_dict == {"timezone": "America/New_York"}
+
 
 class TestStandardizeMessages:
     def test_standardize_messages(self) -> None:
@@ -253,8 +282,8 @@ class TestStandardizeMessages:
             {"role": "assistant", "content": "Hello"},
         ]
         assert GroqProvider.standardize_messages(messages) == [
-            {"role": "user", "content": "Hello"},
-            {"role": "assistant", "content": "Hello"},
+            {"role": "user", "content": [{"type": "text", "text": "Hello"}]},
+            {"role": "assistant", "content": [{"type": "text", "text": "Hello"}]},
         ]
 
 
@@ -327,7 +356,6 @@ class TestSanitizeModelData:
         )
         groq_provider.sanitize_model_data(model_data)
         assert model_data.supports_structured_output is False
-        assert model_data.supports_tool_calling is False
 
 
 class TestFinishReasonLength:

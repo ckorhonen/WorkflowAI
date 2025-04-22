@@ -2,6 +2,7 @@ import logging
 
 from api.jobs.common import CustomerServiceDep, InternalTasksServiceDep, StorageDep
 from api.jobs.utils.jobs_utils import get_task_str_for_slack
+from api.services.internal_tasks.moderation_service import ModerationService
 from api.services.slack_notifications import get_user_and_org_str
 from core.domain.events import TaskSchemaCreatedEvent
 from core.storage import ObjectNotFoundException
@@ -30,6 +31,9 @@ async def run_task_schema_moderation(
     storage: StorageDep,
     internal_service: InternalTasksServiceDep,
 ):
+    if not ModerationService.is_moderation_activated():
+        return
+
     task_variant = await storage.task_variants.get_latest_task_variant(
         task_id=event.task_id,
         schema_id=event.task_schema_id,
