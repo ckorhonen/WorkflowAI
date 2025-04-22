@@ -6,7 +6,10 @@ from core.providers.groq.groq_domain import GroqMessage, _ToolCall  # pyright: i
 class TestMessageToStandard:
     def test_message_to_standard(self) -> None:
         message = GroqMessage(content='{"message": "Hello you"}', role="assistant")
-        assert message.to_standard() == {"role": "assistant", "content": '{"message": "Hello you"}'}
+        assert message.to_standard() == {
+            "role": "assistant",
+            "content": [{"type": "text", "text": '{"message": "Hello you"}'}],
+        }
 
 
 class TestGroqMessageFromDomain:
