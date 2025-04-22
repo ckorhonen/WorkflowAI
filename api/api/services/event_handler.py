@@ -1,11 +1,9 @@
 import asyncio
 import logging
-import os
 from datetime import datetime
-from typing import Any, Concatenate, Coroutine, Generic, NamedTuple, TypeVar
+from typing import Any, Concatenate, Coroutine, Generic, NamedTuple, Sequence, TypeVar
 
 from taskiq import AsyncTaskiqDecoratedTask
-from taskiq_redis import RedisScheduleSource
 
 from api.jobs import features_by_domain_generation_started_jobs
 from core.domain.analytics_events.analytics_events import OrganizationProperties, TaskProperties, UserProperties
@@ -34,17 +32,18 @@ from core.domain.events import (
     TriggerRunEvaluationEvent,
     TriggerTaskRunEvent,
     UserReviewAddedEvent,
+    WithDelay,
 )
 
 _logger = logging.getLogger(__name__)
 
 
-_T = TypeVar("_T", bound=Event)
+T = TypeVar("T", bound=Event)
 
 
-class _JobListing(NamedTuple, Generic[_T]):
-    event: type[_T]
-    jobs: list[AsyncTaskiqDecoratedTask[Concatenate[_T, ...], Coroutine[Any, Any, None]]]
+class _JobListing(NamedTuple, Generic[T]):
+    event: type[T]
+    jobs: Sequence[AsyncTaskiqDecoratedTask[Concatenate[T, ...], Coroutine[Any, Any, None]] | WithDelay[T]]  # Run ASAP
 
 
 def _jobs():
@@ -108,17 +107,6 @@ def _jobs():
     ]
 
 
-def _build_schedule_source():
-    broker_url = os.environ["JOBS_BROKER_URL"]
-    if broker_url.startswith("redis"):
-        return RedisScheduleSource(broker_url)
-
-    return None
-
-
-_schedule_source = _build_schedule_source()
-
-
 class _EventRouter:
     def __init__(self) -> None:
         self._tasks: set[asyncio.Task[None]] = set()
@@ -127,18 +115,17 @@ class _EventRouter:
     @classmethod
     async def _send_job(
         cls,
-        job: AsyncTaskiqDecoratedTask[[_T], Coroutine[Any, Any, None]],
-        event: _T,
+        job: AsyncTaskiqDecoratedTask[[T], Coroutine[Any, Any, None]],
+        event: T,
         retry_after: datetime | None = None,
     ):
         try:
             if retry_after:
-                if _schedule_source:
-                    await job.schedule_by_time(_schedule_source, retry_after, event)
-                    return
+                from api.broker import schedule_job
 
-                    # If no schedule source is available, we sleep for the delay.
-                    await asyncio.sleep((retry_after - datetime.now()).total_seconds())
+                await schedule_job(job, retry_after, event)
+                return
+
             await job.kiq(event)
         except Exception as e:
             # We retry once, see https://github.com/redis/redis-py/issues/2491
@@ -149,13 +136,25 @@ class _EventRouter:
             except Exception:
                 _logger.exception("Error sending job")
 
+    def _schedule_task(
+        self,
+        job: AsyncTaskiqDecoratedTask[[Event], Coroutine[Any, Any, None]],
+        event: Event,
+        schedule_time: datetime | None,
+    ):
+        t = asyncio.create_task(self._send_job(job, event, schedule_time))
+        self._tasks.add(t)
+        t.add_done_callback(self._tasks.remove)
+
     def __call__(self, event: Event, retry_after: datetime | None = None) -> None:
         try:
             listing = self._handlers[type(event)]
+            now = datetime.now()
             for job in listing.jobs:
-                t = asyncio.create_task(self._send_job(job, event, retry_after))
-                self._tasks.add(t)
-                t.add_done_callback(self._tasks.remove)
+                if isinstance(job, WithDelay):
+                    self._schedule_task(job.job, event, now + job.delay)
+                else:
+                    self._schedule_task(job, event, retry_after)
 
         except KeyError as e:
             _logger.exception("Missing event handler", exc_info=e)

@@ -121,8 +121,8 @@ class AudioContent(BaseModel):
         )
 
 
-def parse_tool_call_or_raise(arguments: str) -> dict[str, Any] | None:
-    if arguments == "{}":
+def parse_tool_call_or_raise(arguments: str | None) -> dict[str, Any] | None:
+    if not arguments or arguments == "{}":
         return None
     try:
         args_dict = safe_extract_dict_from_json(arguments)
@@ -187,6 +187,7 @@ class OpenAIToolMessage(BaseModel):
                 tool_call_id=result.id,
                 # OpenAI expects a string or array of string here,
                 # but we stringify everything to simplify and align bahaviour with other providers.
+                # TODO: use stringified_result
                 content=str(
                     result.result,
                 ),

@@ -1,7 +1,8 @@
-from datetime import datetime
-from typing import Any, Literal, Protocol, Self
+from datetime import datetime, timedelta
+from typing import Any, Concatenate, Coroutine, Generic, Literal, NamedTuple, Protocol, Self, TypeVar
 
 from pydantic import BaseModel, field_validator, model_validator
+from taskiq import AsyncTaskiqDecoratedTask
 
 from core.agents.chat_task_schema_generation.chat_task_schema_generation_task import AgentSchemaJson
 from core.agents.meta_agent import MetaAgentChatMessage
@@ -235,3 +236,11 @@ class TenantMigratedEvent(Event):
 
 class EventRouter(Protocol):
     def __call__(self, event: Event, retry_after: datetime | None = None) -> None: ...
+
+
+T = TypeVar("T", bound=Event)
+
+
+class WithDelay(NamedTuple, Generic[T]):
+    job: AsyncTaskiqDecoratedTask[Concatenate[T, ...], Coroutine[Any, Any, None]]
+    delay: timedelta

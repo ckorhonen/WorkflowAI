@@ -113,6 +113,8 @@ class Model(StrEnum):
     # --------------------------------------------------------------------------
     # Llama Models
     # --------------------------------------------------------------------------
+    LLAMA_4_MAVERICK_FAST = "llama4-maverick-instruct-fast"
+    LLAMA_4_SCOUT_FAST = "llama4-scout-instruct-fast"
     LLAMA_4_MAVERICK_BASIC = "llama4-maverick-instruct-basic"
     LLAMA_4_SCOUT_BASIC = "llama4-scout-instruct-basic"
     LLAMA_3_3_70B = "llama-3.3-70b"

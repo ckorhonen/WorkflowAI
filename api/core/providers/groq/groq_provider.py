@@ -1,35 +1,42 @@
+import json
 from typing import Any, Literal
 
 from httpx import Response
 from pydantic import BaseModel, ValidationError
 from typing_extensions import override
 
-from core.domain.errors import MaxTokensExceededError, UnknownProviderError
+from core.domain.errors import FailedGenerationError, MaxTokensExceededError
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import Message
 from core.domain.models import Model, Provider
 from core.domain.models.model_data import ModelData
 from core.domain.tool import Tool
+from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.abstract_provider import RawCompletion
 from core.providers.base.httpx_provider import HTTPXProvider, ParsedResponse
 from core.providers.base.models import StandardMessage
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ToolCallRequestBuffer
 from core.providers.base.utils import get_provider_config_env
+from core.providers.google.google_provider_domain import native_tool_name_to_internal
 from core.providers.groq.groq_domain import (
     CompletionRequest,
     CompletionResponse,
     GroqError,
     GroqMessage,
+    GroqToolDescription,
     JSONResponseFormat,
     StreamedResponse,
+    TextResponseFormat,
 )
+from core.providers.openai.openai_domain import parse_tool_call_or_raise
 from core.runners.workflowai.utils import FileWithKeyPath
 
 
 class GroqConfig(BaseModel):
     provider: Literal[Provider.GROQ] = Provider.GROQ
     api_key: str
+    url: str = "https://api.groq.com/openai/v1/chat/completions"
 
     def __str__(self):
         return f"GroqConfig(api_key={self.api_key[:4]}****)"
@@ -51,6 +58,12 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
             Model.LLAMA_3_3_70B: "llama-3.3-70b-versatile",
             Model.LLAMA_3_1_70B: "llama-3.1-70b-versatile",
             Model.LLAMA_3_1_8B: "llama-3.1-8b-instant",
+            # The fast version of llama 4 is simply a way to target groq
+            # instead of fireworks for llama 4 models
+            Model.LLAMA_4_MAVERICK_BASIC: "meta-llama/llama-4-maverick-17b-128e-instruct",
+            Model.LLAMA_4_SCOUT_BASIC: "meta-llama/llama-4-scout-17b-16e-instruct",
+            Model.LLAMA_4_MAVERICK_FAST: "meta-llama/llama-4-maverick-17b-128e-instruct",
+            Model.LLAMA_4_SCOUT_FAST: "meta-llama/llama-4-scout-17b-16e-instruct",
         }
 
         return NAME_OVERRIDE_MAP.get(model, model.value)
@@ -72,18 +85,20 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
 
     @override
     def _build_request(self, messages: list[Message], options: ProviderOptions, stream: bool) -> BaseModel:
-        # NOTE: Enforce JSON Response Format for Groq, and as side effect disable streaming
-        response_format = JSONResponseFormat()
-        stream = False
+        groq_messages: list[GroqMessage] = []
+        for m in messages:
+            groq_messages.extend(GroqMessage.from_domain(m))
 
         return CompletionRequest(
-            messages=[GroqMessage.from_domain(m) for m in messages],
+            messages=groq_messages,
             model=self.model_str(Model(options.model)),
             temperature=options.temperature,
-            # TODO[max-tokens]: Set the max token from the context data
             max_tokens=options.max_tokens,
             stream=stream,
-            response_format=response_format,
+            response_format=JSONResponseFormat() if not options.enabled_tools else TextResponseFormat(),
+            tools=[GroqToolDescription.from_domain(t) for t in options.enabled_tools]
+            if options.enabled_tools
+            else None,
         )
 
     @override
@@ -94,7 +109,7 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
 
     @override
     def _request_url(self, model: Model, stream: bool) -> str:
-        return "https://api.groq.com/openai/v1/chat/completions"
+        return self._config.url
 
     @override
     def _response_model_cls(self) -> type[CompletionResponse]:
@@ -102,17 +117,31 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
 
     @override
     def _extract_content_str(self, response: CompletionResponse) -> str:
-        try:
-            for choice in response.choices:
-                if choice.finish_reason == "length":
-                    raise MaxTokensExceededError(
-                        msg="Model returned a response with a length finish reason, meaning the maximum number of tokens was exceeded.",
-                        raw_completion=response,
-                    )
-            return response.choices[0].message.content
-        except IndexError:
-            self.logger.warning("No content found in response", extra={"response": response.model_dump()})
+        for choice in response.choices:
+            if choice.finish_reason == "length":
+                raise MaxTokensExceededError(
+                    msg="Model returned a response with a length finish reason, meaning the maximum number of tokens was exceeded.",
+                    raw_completion=response,
+                )
+        message = response.choices[0].message
+        content = message.content
+        if content is None:
+            if not message.tool_calls:
+                raise FailedGenerationError(
+                    msg="Model did not generate a response content",
+                    capture=True,
+                )
             return ""
+        if isinstance(content, str):
+            return content
+        if len(content) > 1:
+            self.logger.warning("Multiple content items found in response", extra={"response": response.model_dump()})
+        # TODO: we should check if it is possible to have multiple text content items
+        for item in content:
+            if item.type == "text":
+                return item.text
+        self.logger.warning("No content found in response", extra={"response": response.model_dump()})
+        return ""
 
     @override
     def _extract_usage(self, response: CompletionResponse) -> LLMUsage | None:
@@ -135,7 +164,7 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
         )
 
     @override
-    def _extract_stream_delta(
+    def _extract_stream_delta(  # noqa: C901
         self,
         sse_event: bytes,
         raw_completion: RawCompletion,
@@ -152,15 +181,45 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
                 )
         if raw.usage:
             raw_completion.usage = raw.usage.to_domain()
-        elif raw.x_groq:
-            if raw.x_groq.usage:
-                raw_completion.usage = raw.x_groq.usage.to_domain()
-            if raw.x_groq.error:
-                if raw.x_groq.error == "over_capacity":
-                    raise MaxTokensExceededError("Max tokens exceeded")
-                raise UnknownProviderError(raw.x_groq.error)
+
         if raw.choices:
-            return ParsedResponse(raw.choices[0].delta.content)
+            tools_calls: list[ToolCallRequestWithID] = []
+            if raw.choices[0].delta.tool_calls:
+                for tool_call in raw.choices[0].delta.tool_calls:
+                    # Check if a tool call at that index is already in the buffer
+                    if tool_call.index not in tool_call_request_buffer:
+                        tool_call_request_buffer[tool_call.index] = ToolCallRequestBuffer()
+
+                    buffered_tool_call = tool_call_request_buffer[tool_call.index]
+
+                    if tool_call.id and not buffered_tool_call.id:
+                        buffered_tool_call.id = tool_call.id
+
+                    if tool_call.function.name and not buffered_tool_call.tool_name:
+                        buffered_tool_call.tool_name = tool_call.function.name
+
+                    if tool_call.function.arguments:
+                        buffered_tool_call.tool_input += tool_call.function.arguments
+
+                    if buffered_tool_call.id and buffered_tool_call.tool_name and buffered_tool_call.tool_input:
+                        try:
+                            tool_input_dict = json.loads(buffered_tool_call.tool_input)
+                        except json.JSONDecodeError:
+                            # That means the tool call is not full streamed yet
+                            continue
+
+                        tools_calls.append(
+                            ToolCallRequestWithID(
+                                id=buffered_tool_call.id,
+                                tool_name=native_tool_name_to_internal(buffered_tool_call.tool_name),
+                                tool_input_dict=tool_input_dict,
+                            ),
+                        )
+
+            return ParsedResponse(
+                raw.choices[0].delta.content or "",
+                tool_calls=tools_calls,
+            )
 
         return ParsedResponse("")
 
@@ -223,5 +282,20 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
     def sanitize_model_data(self, model_data: ModelData):
         # Groq does not support structured output yet
         model_data.supports_structured_output = False
-        # Native tool calling is not implemented on Groq yet.
-        model_data.supports_tool_calling = False
+        model_data.supports_input_audio = False
+        model_data.supports_input_pdf = False
+
+    @classmethod
+    def _extract_native_tool_calls(cls, response: CompletionResponse) -> list[ToolCallRequestWithID]:
+        choice = response.choices[0]
+
+        tool_calls: list[ToolCallRequestWithID] = [
+            ToolCallRequestWithID(
+                id=tool_call.id or "",
+                tool_name=native_tool_name_to_internal(tool_call.function.name or ""),
+                # OpenAI returns the tool call arguments as a string, so we need to parse it
+                tool_input_dict=parse_tool_call_or_raise(tool_call.function.arguments) or {},
+            )
+            for tool_call in choice.message.tool_calls or []
+        ]
+        return tool_calls

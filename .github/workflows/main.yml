@@ -74,6 +74,15 @@ jobs:
       env: staging
       full_app_name: workflowai-worker-staging
 
+  api-deploy-scheduler:
+    needs: [api-quality, api-build]
+    uses: ./.github/workflows/.deploy.yml
+    secrets: inherit
+    with:
+      image_name: ${{ needs.api-build.outputs.image_name }}
+      env: staging
+      full_app_name: workflowai-scheduler-staging
+
   api-deploy-run:
     needs: [api-quality, api-build]
     uses: ./.github/workflows/.deploy.yml
