@@ -5,6 +5,7 @@ import os
 import re
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
+from typing import NamedTuple
 
 from pydantic import BaseModel
 
@@ -29,17 +30,15 @@ from core.utils.background import add_background_task
 
 _logger = logging.getLogger(__name__)
 
-WORKFLOW_APP_URL = os.environ.get("WORKFLOWAI_APP_URL", "https://workflowai.com")
 
-
-class DailyUserDigest(BaseModel):
+class DailyUserDigest(NamedTuple):
     for_date: date
     tenant_slug: str
     org_id: str | None
     remaining_credits_usd: float
     added_credits_usd: float
 
-    class Agent(BaseModel):
+    class Agent(NamedTuple):
         name: str
         agent_id: str
         agent_schema_id: int
@@ -50,10 +49,10 @@ class DailyUserDigest(BaseModel):
     agents: list[Agent]
 
 
-class DailyDigestAndEmail(BaseModel):
+class DailyDigestAndEmail(NamedTuple):
     daily_digest: DailyUserDigest
 
-    class Email(BaseModel):
+    class Email(NamedTuple):
         subject: str | None = None
         body: str | None = None
 
@@ -112,7 +111,7 @@ class SlackMessageFormatter:
 
             parts.append("\n")
             parts.append(
-                f"{WORKFLOW_APP_URL}/{daily_digest.tenant_slug}/agents/{agent.agent_id}/{agent.agent_schema_id}",
+                f"{WORKFLOWAI_APP_URL}/{daily_digest.tenant_slug}/agents/{agent.agent_id}/{agent.agent_schema_id}",
             )
 
             parts.append("\n")
