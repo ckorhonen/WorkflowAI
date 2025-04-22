@@ -1,11 +1,9 @@
 import asyncio
 import logging
-import os
 from datetime import datetime
 from typing import Any, Concatenate, Coroutine, Generic, NamedTuple, Sequence, TypeVar
 
 from taskiq import AsyncTaskiqDecoratedTask
-from taskiq_redis import RedisScheduleSource
 
 from api.jobs import features_by_domain_generation_started_jobs
 from core.domain.analytics_events.analytics_events import OrganizationProperties, TaskProperties, UserProperties
@@ -109,17 +107,6 @@ def _jobs():
     ]
 
 
-def _build_schedule_source():
-    broker_url = os.environ["JOBS_BROKER_URL"]
-    if broker_url.startswith("redis"):
-        return RedisScheduleSource(broker_url)
-
-    return None
-
-
-_schedule_source = _build_schedule_source()
-
-
 class _EventRouter:
     def __init__(self) -> None:
         self._tasks: set[asyncio.Task[None]] = set()
@@ -134,12 +121,11 @@ class _EventRouter:
     ):
         try:
             if retry_after:
-                if _schedule_source:
-                    await job.schedule_by_time(_schedule_source, retry_after, event)
-                    return
+                from api.broker import schedule_job
 
-                    # If no schedule source is available, we sleep for the delay.
-                    await asyncio.sleep((retry_after - datetime.now()).total_seconds())
+                await schedule_job(job, retry_after, event)
+                return
+
             await job.kiq(event)
         except Exception as e:
             # We retry once, see https://github.com/redis/redis-py/issues/2491

@@ -1,9 +1,20 @@
+import asyncio
 import logging
 import os
+from collections.abc import Coroutine
+from datetime import datetime
 from typing import Any
 
-from taskiq import SimpleRetryMiddleware, TaskiqEvents, TaskiqMessage, TaskiqResult, TaskiqState
-from taskiq_redis import ListQueueBroker, RedisAsyncResultBackend
+from taskiq import (
+    AsyncTaskiqDecoratedTask,
+    SimpleRetryMiddleware,
+    TaskiqEvents,
+    TaskiqMessage,
+    TaskiqResult,
+    TaskiqScheduler,
+    TaskiqState,
+)
+from taskiq_redis import ListQueueBroker, RedisAsyncResultBackend, RedisScheduleSource
 from typing_extensions import override
 
 from api.common import setup
@@ -89,6 +100,30 @@ broker = _broker().with_middlewares(
     # TODO: add backoff and jitter
     ErrorMiddleware(default_retry_count=3),
 )
+
+
+def _build_scheduler() -> TaskiqScheduler | None:
+    if os.environ.get("SCHEDULER_ENABLED") != "true":
+        return None
+
+    broker_url = os.environ["JOBS_BROKER_URL"]
+    if broker_url.startswith("redis"):
+        source = RedisScheduleSource(broker_url)
+        return TaskiqScheduler(broker, sources=[source])
+
+    return None
+
+
+scheduler = _build_scheduler()
+
+
+async def schedule_job(job: AsyncTaskiqDecoratedTask[[Any], Coroutine[Any, Any, None]], at: datetime, *args: Any):
+    if scheduler:
+        await job.schedule_by_time(scheduler.sources[0], at, *args)
+        return
+
+    await asyncio.sleep((at - datetime.now()).total_seconds())
+    await job.kiq(*args)
 
 
 @broker.on_event(TaskiqEvents.WORKER_STARTUP)

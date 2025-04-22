@@ -55,6 +55,14 @@
       ]
     },
     {
+      "name": "Scheduler",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "taskiq",
+      "cwd": "${workspaceFolder}/api",
+      "args": ["scheduler", "api.broker:scheduler", "--fs-discover", "--tasks-pattern", "api/jobs/*_jobs.py"]
+    },
+    {
       "name": "Python: Debug Tests",
       "type": "debugpy",
       "request": "launch",
