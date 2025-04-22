@@ -57,6 +57,7 @@ def authenticated_routes(
         "/agents/home/messages",
         "/agents/home/agents/preview",
         "/v1/feedback",
+        "/webhooks/slack",
     }
 
     method_predicate = _include_methods(methods, exc_methods)
