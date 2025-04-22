@@ -4,7 +4,7 @@ import logging
 import os
 import re
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from pydantic import BaseModel
 
@@ -13,7 +13,6 @@ from api.services.customer_assessment_service import CustomerAssessmentService
 from api.services.features import CompanyFeaturePreviewList, FeatureService
 from core.domain.analytics_events.analytics_events import UserProperties
 from core.domain.consts import ENV_NAME, WORKFLOWAI_APP_URL
-from core.domain.daily_user_digest import DailyUserDigest
 from core.domain.errors import InternalError
 from core.domain.events import (
     Event,
@@ -31,6 +30,34 @@ from core.utils.background import add_background_task
 _logger = logging.getLogger(__name__)
 
 WORKFLOW_APP_URL = os.environ.get("WORKFLOWAI_APP_URL", "https://workflowai.com")
+
+
+class DailyUserDigest(BaseModel):
+    for_date: date
+    tenant_slug: str
+    org_id: str | None
+    remaining_credits_usd: float
+    added_credits_usd: float
+
+    class Agent(BaseModel):
+        name: str
+        agent_id: str
+        agent_schema_id: int
+        description: str | None
+        run_count_last_24h: int
+        active_run_count_last_24h: int
+
+    agents: list[Agent]
+
+
+class DailyDigestAndEmail(BaseModel):
+    daily_digest: DailyUserDigest
+
+    class Email(BaseModel):
+        subject: str | None = None
+        body: str | None = None
+
+    email: Email
 
 
 def _get_task_url(event: Event, task_id: str, task_schema_id: int) -> str | None:
