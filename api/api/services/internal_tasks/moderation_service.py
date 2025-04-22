@@ -27,8 +27,8 @@ class ModerationService:
     def __init__(self):
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    @property
-    def is_moderation_activated(self) -> bool:
+    @classmethod
+    def is_moderation_activated(cls) -> bool:
         return os.getenv("MODERATION_ENABLED", "true").lower() == "true"
 
     async def run_task_version_moderation_process(
@@ -44,7 +44,7 @@ class ModerationService:
         output_schema: dict[str, Any],
         chat_messages: list[ChatMessage] | None,
     ) -> None:
-        if not self.is_moderation_activated:
+        if not self.is_moderation_activated():
             return
 
         moderation_input = TaskVersionModerationInput(
