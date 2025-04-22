@@ -1,8 +1,8 @@
 import asyncio
 import logging
 import os
-from datetime import datetime, timedelta
-from typing import Any, Concatenate, Coroutine, Generic, NamedTuple, TypeVar
+from datetime import datetime
+from typing import Any, Concatenate, Coroutine, Generic, NamedTuple, Sequence, TypeVar
 
 from taskiq import AsyncTaskiqDecoratedTask
 from taskiq_redis import RedisScheduleSource
@@ -34,20 +34,18 @@ from core.domain.events import (
     TriggerRunEvaluationEvent,
     TriggerTaskRunEvent,
     UserReviewAddedEvent,
+    WithDelay,
 )
 
 _logger = logging.getLogger(__name__)
 
 
-_T = TypeVar("_T", bound=Event)
+T = TypeVar("T", bound=Event)
 
 
-class _JobListing(NamedTuple, Generic[_T]):
-    event: type[_T]
-    jobs: list[AsyncTaskiqDecoratedTask[Concatenate[_T, ...], Coroutine[Any, Any, None]]]  # Run ASAP
-    scheduled_jobs: (
-        list[tuple[AsyncTaskiqDecoratedTask[Concatenate[_T, ...], Coroutine[Any, Any, None]], timedelta]] | None
-    ) = None
+class _JobListing(NamedTuple, Generic[T]):
+    event: type[T]
+    jobs: Sequence[AsyncTaskiqDecoratedTask[Concatenate[T, ...], Coroutine[Any, Any, None]] | WithDelay[T]]  # Run ASAP
 
 
 def _jobs():
@@ -107,7 +105,7 @@ def _jobs():
         _JobListing(FeedbackCreatedEvent, feedback_created_jobs.JOBS),
         _JobListing(FeaturesByDomainGenerationStarted, features_by_domain_generation_started_jobs.JOBS),
         _JobListing(TenantCreatedEvent, tenant_created_jobs.JOBS),
-        _JobListing(TenantMigratedEvent, tenant_migrated_jobs.JOBS, tenant_migrated_jobs.SCHEDULED_JOBS),
+        _JobListing(TenantMigratedEvent, tenant_migrated_jobs.JOBS),
     ]
 
 
@@ -130,8 +128,8 @@ class _EventRouter:
     @classmethod
     async def _send_job(
         cls,
-        job: AsyncTaskiqDecoratedTask[[_T], Coroutine[Any, Any, None]],
-        event: _T,
+        job: AsyncTaskiqDecoratedTask[[T], Coroutine[Any, Any, None]],
+        event: T,
         retry_after: datetime | None = None,
     ):
         try:
@@ -165,13 +163,12 @@ class _EventRouter:
     def __call__(self, event: Event, retry_after: datetime | None = None) -> None:
         try:
             listing = self._handlers[type(event)]
+            now = datetime.now()
             for job in listing.jobs:
-                self._schedule_task(job, event, retry_after)
-
-            if listing.scheduled_jobs:
-                now = datetime.now()
-                for job, delay in listing.scheduled_jobs:
-                    self._schedule_task(job, event, now + delay)
+                if isinstance(job, WithDelay):
+                    self._schedule_task(job.job, event, now + job.delay)
+                else:
+                    self._schedule_task(job, event, retry_after)
 
         except KeyError as e:
             _logger.exception("Missing event handler", exc_info=e)
