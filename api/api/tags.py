@@ -22,4 +22,3 @@ class RouteTags(str, Enum):
     FEATURES = "Features"
     PROMPT_ENGINEER_AGENT = "Prompt Engineer Agent"
     FEEDBACK = "Feedback"
-    WEBHOOKS = "Webhooks"
