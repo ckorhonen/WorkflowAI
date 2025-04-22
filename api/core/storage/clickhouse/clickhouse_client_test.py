@@ -1152,6 +1152,44 @@ class TestRunCountByAgentUid:
             2: (2, pytest.approx(80.0)),  # pyright: ignore [reportUnknownMemberType]
         }
 
+    async def test_run_count_by_agent_uid_is_active(self, clickhouse_client: ClickhouseClient):
+        # Test filtering by is_active parameter
+        now = datetime.datetime(2024, 1, 1)
+        runs = [
+            # Active runs
+            _ck_run(task_uid=1, created_at=now, cost_usd=10.0, is_active=True),
+            _ck_run(task_uid=2, created_at=now, cost_usd=20.0, is_active=True),
+            # Inactive runs
+            _ck_run(task_uid=1, created_at=now, cost_usd=30.0, is_active=False),
+            _ck_run(task_uid=3, created_at=now, cost_usd=40.0, is_active=False),
+            # Mixed agent with both active and inactive runs
+            _ck_run(task_uid=4, created_at=now, cost_usd=50.0, is_active=True),
+            _ck_run(task_uid=4, created_at=now, cost_usd=60.0, is_active=False),
+        ]
+        await clickhouse_client.insert_models("runs", runs, {"async_insert": 0, "wait_for_async_insert": 0})
+
+        # Get only active runs
+        active_results = {
+            r.agent_uid: (r.run_count, r.total_cost_usd)
+            async for r in clickhouse_client.run_count_by_agent_uid(now, is_active=True)
+        }
+        assert active_results == {
+            1: (1, pytest.approx(10.0)),  # pyright: ignore [reportUnknownMemberType]
+            2: (1, pytest.approx(20.0)),  # pyright: ignore [reportUnknownMemberType]
+            4: (1, pytest.approx(50.0)),  # pyright: ignore [reportUnknownMemberType]
+        }
+
+        # Get all runs (default behavior with is_active=None)
+        all_results = {
+            r.agent_uid: (r.run_count, r.total_cost_usd) async for r in clickhouse_client.run_count_by_agent_uid(now)
+        }
+        assert all_results == {
+            1: (2, pytest.approx(40.0)),  # pyright: ignore [reportUnknownMemberType]
+            2: (1, pytest.approx(20.0)),  # pyright: ignore [reportUnknownMemberType]
+            3: (1, pytest.approx(40.0)),  # pyright: ignore [reportUnknownMemberType]
+            4: (2, pytest.approx(110.0)),  # pyright: ignore [reportUnknownMemberType]
+        }
+
 
 class TestWeeklyRunAggregate:
     def _start_of_week(self):
