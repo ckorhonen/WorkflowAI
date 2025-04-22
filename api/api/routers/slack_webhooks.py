@@ -3,12 +3,11 @@ import os
 
 from fastapi import APIRouter, HTTPException, Request
 
-from api.tags import RouteTags
 from core.storage.slack.slack_api_client import SlackApiClient
 
 _logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/slack-webhooks", tags=[RouteTags.WEBHOOKS])
+router = APIRouter(prefix="/slack-webhooks", include_in_schema=False)
 
 
 @router.post("")

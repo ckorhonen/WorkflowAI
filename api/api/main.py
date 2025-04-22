@@ -112,7 +112,9 @@ app = FastAPI(
         {"name": RouteTags.API_KEYS},
         {"name": RouteTags.PAYMENTS},
         {"name": RouteTags.NEW_TOOL_AGENT},
-        {"name": RouteTags.WEBHOOKS},
+        {"name": RouteTags.SLACK_WEBHOOKS},
+        {"name": RouteTags.CLERK_WEBHOOKS},
+        {"name": RouteTags.STRIPE_WEBHOOKS},
     ]
     if not _ONLY_RUN_ROUTES
     else [],
