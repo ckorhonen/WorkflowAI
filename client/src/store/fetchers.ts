@@ -316,7 +316,8 @@ export const useOrFetchTaskRunTranscriptions = (
 export const useOrFetchTaskRunReviews = (
   tenant: TenantID | undefined,
   taskId: TaskID,
-  taskRunId: string | undefined
+  taskRunId: string | undefined,
+  pollingInterval: number = 2000
 ) => {
   const reviews = useTaskRunReviews((state) => getOrUndef(state.reviewsById, taskRunId));
   const isLoading = useTaskRunReviews((state) => getOrUndef(state.isLoadingById, taskRunId));
@@ -343,13 +344,16 @@ export const useOrFetchTaskRunReviews = (
     return true;
   }, [reviews]);
 
+  const pollingIntervalRef = useRef(pollingInterval);
+  pollingIntervalRef.current = pollingInterval;
+
   useEffect(() => {
     if (shouldRefetch) {
       const intervalId = setInterval(() => {
         if (taskRunId) {
           fetchTaskRunReviews(tenant, taskId, taskRunId);
         }
-      }, 2000);
+      }, pollingIntervalRef.current);
 
       return () => clearInterval(intervalId);
     }
@@ -1328,6 +1332,7 @@ export const useOrRunVersion = (
   const runVersionInternally = useTasks((state) => state.runVersionInternally);
   const isRunningVersion = useTasks((state) => (scopeKey ? state.isRunningVersion.get(scopeKey) : false));
   const runMessage = useTasks((state) => (scopeKey ? state.runMessages.get(scopeKey) : undefined));
+  const error = useTasks((state) => (scopeKey ? state.runErrors.get(scopeKey) : undefined));
 
   const isRunningVersionRef = useRef(isRunningVersion);
   isRunningVersionRef.current = isRunningVersion;
@@ -1344,5 +1349,6 @@ export const useOrRunVersion = (
   return {
     isRunningVersion,
     runMessage,
+    error,
   };
 };

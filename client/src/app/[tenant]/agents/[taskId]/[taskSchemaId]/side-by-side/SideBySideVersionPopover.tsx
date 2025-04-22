@@ -11,6 +11,7 @@ import { SideBySideVersionPopoverModelItem } from './SideBySideVersionPopoverMod
 type SideBySideVersionPopoverProps = {
   versions: VersionV1[];
   models?: ModelResponse[];
+  baseVersion?: VersionV1;
   selectedVersionId: string | undefined;
   setSelectedVersionId: (newVersionId: string | undefined) => void;
   selectedModelId?: string | undefined;
@@ -23,6 +24,7 @@ type SideBySideVersionPopoverProps = {
 export function SideBySideVersionPopover(props: SideBySideVersionPopoverProps) {
   const {
     versions,
+    baseVersion,
     selectedVersionId,
     setSelectedVersionId,
     filterVersionIds,
@@ -101,7 +103,7 @@ export function SideBySideVersionPopover(props: SideBySideVersionPopoverProps) {
             {showTriggerVersionItem ? (
               <SideBySideVersionPopoverItem version={selectedVersion} className='px-0' showDetails={false} />
             ) : showTriggerModelItem ? (
-              <SideBySideVersionPopoverModelItem model={selectedModel} />
+              <SideBySideVersionPopoverModelItem model={selectedModel} baseVersion={baseVersion} />
             ) : (
               <div className='text-sm font-medium text-gray-500 truncate'>{placeholder}</div>
             )}
@@ -139,6 +141,7 @@ export function SideBySideVersionPopover(props: SideBySideVersionPopoverProps) {
                 <SideBySideVersionPopoverModelItem
                   key={model.id}
                   model={model}
+                  baseVersion={baseVersion}
                   onClick={() => onSelectedModelId(model.id)}
                 />
               );

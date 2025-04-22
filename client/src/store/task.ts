@@ -58,7 +58,7 @@ interface TasksState {
 
   isRunningVersion: Map<string, boolean>;
   runMessages: Map<string, RunResponseStreamChunk>;
-
+  runErrors: Map<string, Error>;
   fetchTask(tenant: TenantID | undefined, taskId: TaskID): Promise<void>;
   improveVersion(
     tenant: TenantID | undefined,
@@ -137,7 +137,7 @@ export const useTasks = create<TasksState>((set, get) => ({
   isInitialiazedTasksByTenant: new Map(),
   isRunningVersion: new Map(),
   runMessages: new Map(),
-
+  runErrors: new Map(),
   fetchTasks: async (tenant) => {
     if (get().isLoadingTasksByTenant.get(tenant) ?? false) return;
     set(
@@ -411,7 +411,11 @@ export const useTasks = create<TasksState>((set, get) => ({
         })
       );
     } catch (error) {
-      console.error('Failed to run version', error);
+      set(
+        produce((state: TasksState) => {
+          state.runErrors.set(scopeKey, error as Error);
+        })
+      );
     }
     set(
       produce((state: TasksState) => {

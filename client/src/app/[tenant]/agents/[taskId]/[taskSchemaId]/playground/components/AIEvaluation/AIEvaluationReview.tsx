@@ -23,12 +23,21 @@ interface AIEvaluationReviewProps {
   showFullBorder?: boolean;
   showOnlyButtons?: boolean;
   onImprovePrompt?: (evaluation: string) => Promise<void>;
+  pollingInterval?: number;
 }
 
 export function AIEvaluationReview(props: AIEvaluationReviewProps) {
-  const { runId, tenant, taskId, showFullBorder = false, showOnlyButtons = false, onImprovePrompt } = props;
+  const {
+    runId,
+    tenant,
+    taskId,
+    showFullBorder = false,
+    showOnlyButtons = false,
+    onImprovePrompt,
+    pollingInterval,
+  } = props;
 
-  const { reviews } = useOrFetchTaskRunReviews(tenant, taskId, runId);
+  const { reviews } = useOrFetchTaskRunReviews(tenant, taskId, runId, pollingInterval);
   const { createReview } = useTaskRunReviews();
 
   const latestReviews = useMemo(() => {

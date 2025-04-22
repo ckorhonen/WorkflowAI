@@ -1,3 +1,4 @@
+import { cn } from '@/lib/utils';
 import { getEnvironmentShorthandName } from '@/lib/versionUtils';
 import { VersionEnvironment } from '@/types/workflowAI';
 import { EnvironmentIcon } from './icons/EnvironmentIcon';
@@ -17,10 +18,10 @@ export function TaskEnvironmentBadge(props: TaskEnvironmentBadgeProps) {
   }
 
   return (
-    <Badge variant='default' className={className}>
+    <Badge variant='default' className={cn('bg-gray-900', className)}>
       <div className='flex items-center gap-1 max-w-[300px]'>
-        <EnvironmentIcon environment={environment} />
-        <div className='truncate font-mono font-normal'>
+        <EnvironmentIcon environment={environment} className='w-[14px] h-[14px]' />
+        <div className={cn('truncate font-normal', !useShorthandName && 'capitalize')}>
           {useShorthandName ? getEnvironmentShorthandName(environment) : environment}
         </div>
       </div>

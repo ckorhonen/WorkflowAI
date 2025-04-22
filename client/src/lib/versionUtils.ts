@@ -25,7 +25,10 @@ export function getEnvironmentShorthandName(environment: VersionEnvironment | un
   }
 }
 
-export function formatSemverVersion(version: VersionV1 | undefined): string | undefined {
+export function formatSemverVersion(
+  version: VersionV1 | undefined,
+  hideMinorVersion: boolean = false
+): string | undefined {
   if (!version) {
     return undefined;
   }
@@ -33,6 +36,9 @@ export function formatSemverVersion(version: VersionV1 | undefined): string | un
     return undefined;
   }
   const semver = version.semver as [number, number];
+  if (hideMinorVersion) {
+    return `${semver[0]}`;
+  }
   return `${semver[0]}.${semver[1]}`;
 }
 

@@ -7,12 +7,14 @@ type LatencyOutputValueRowProps = {
   minimumCostAIModel: ModelResponse | undefined;
   taskRun: TaskRun | undefined;
   minimumLatencyTaskRun: TaskRun | undefined;
+  hideLabel?: boolean;
 };
 export function LatencyOutputValueRow({
   currentAIModel,
   minimumCostAIModel,
   minimumLatencyTaskRun,
   taskRun,
+  hideLabel = false,
 }: LatencyOutputValueRowProps) {
   const value = taskRun?.duration_seconds;
   const minimumValue = minimumLatencyTaskRun?.duration_seconds;
@@ -42,7 +44,7 @@ export function LatencyOutputValueRow({
 
   return (
     <BaseOutputValueRow
-      label='Latency'
+      label={hideLabel ? undefined : 'Latency'}
       variant={variant}
       noteContent={noteContent}
       noteTitle={noteTitle}

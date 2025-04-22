@@ -29,7 +29,7 @@ export const pageRegexMap: Record<Page, RegExp> = {
   [Page.Tasks]: /\/agents$/,
   [Page.Cost]: /\/agents\/[^/]+\/[^/]+\/cost$/,
   [Page.Feedback]: /\/agents\/[^/]+\/[^/]+\/feedback$/,
-  [Page.SideBySide]: /\/agents\/[^/]+\/[^/]+\/sideBySide$/,
+  [Page.SideBySide]: /\/agents\/[^/]+\/[^/]+\/side-by-side$/,
 };
 
 export function detectPage(pathname: string): Page | undefined {

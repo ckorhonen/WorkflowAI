@@ -1,6 +1,7 @@
 import { VariantProps, cva } from 'class-variance-authority';
 import { ArrowUp } from 'lucide-react';
 import { SimpleTooltip } from '@/components/ui/Tooltip';
+import { cn } from '@/lib/utils';
 
 const valueVariant = cva('text-xs rounded-[2px] font-semibold font-lato', {
   variants: {
@@ -19,7 +20,7 @@ const valueVariant = cva('text-xs rounded-[2px] font-semibold font-lato', {
 export type TBaseOutputValueRowVariant = VariantProps<typeof valueVariant>['variant'];
 
 type BaseOutputValueRowProps = VariantProps<typeof valueVariant> & {
-  label: string;
+  label: string | undefined;
   value: React.ReactNode;
   noteContent?: React.ReactNode;
   noteTitle?: React.ReactNode;
@@ -49,10 +50,12 @@ export function BaseOutputValueRow(props: BaseOutputValueRowProps) {
   };
 
   return (
-    <div className='flex flex-row justify-between px-4 h-full w-full items-center'>
-      <div data-testid='label' className='text-gray-500 text-[13px] font-normal'>
-        {label}
-      </div>
+    <div className={cn('flex flex-row justify-between h-full w-full items-center', label ? 'px-4' : 'px-2')}>
+      {label && (
+        <div data-testid='label' className='text-gray-500 text-[13px] font-normal'>
+          {label}
+        </div>
+      )}
       <div className='flex flex-row items-center'>
         {renderNote()}
         <div data-testid='value' className={valueClassName}>

@@ -1,4 +1,3 @@
-import { ChevronUpDownRegular } from '@fluentui/react-icons';
 import { useMemo } from 'react';
 import { ModelResponse, VersionV1 } from '@/types/workflowAI';
 import { SideBySideVersionPopover } from './SideBySideVersionPopover';
@@ -6,6 +5,7 @@ import { SideBySideVersionPopover } from './SideBySideVersionPopover';
 type SideBySideTableHeaderProps = {
   versions: VersionV1[];
   models: ModelResponse[] | undefined;
+  baseVersion: VersionV1 | undefined;
 
   selectedLeftVersionId: string | undefined;
   setSelectedLeftVersionId: (newVersionId: string | undefined) => void;
@@ -16,19 +16,20 @@ type SideBySideTableHeaderProps = {
   selectedRightModelId: string | undefined;
   setSelectedRightModelId: (newModelId: string | undefined) => void;
 
-  numberOfInputs: number;
+  page: number;
 };
 export function SideBySideTableHeader(props: SideBySideTableHeaderProps) {
   const {
     versions,
     models,
+    baseVersion,
     selectedLeftVersionId,
     setSelectedLeftVersionId,
     selectedRightVersionId,
     setSelectedRightVersionId,
     selectedRightModelId,
     setSelectedRightModelId,
-    numberOfInputs,
+    page,
   } = props;
 
   const modelIdsToFilter = useMemo(() => {
@@ -40,9 +41,9 @@ export function SideBySideTableHeader(props: SideBySideTableHeaderProps) {
   return (
     <div className='flex items-center w-full h-[68px] border-b border-gray-100 font-lato text-gray-900 text-[13px] font-medium bg-white/60'>
       <div className='flex items-center w-[20%] h-full p-4 border-r border-gray-100'>
-        <div className='flex w-full items-center justify-between text-gray-700 pl-3 pr-2 py-[6px] border border-gray-300 rounded-[2px] bg-gray-100 shadow-sm'>
-          <div>Last {numberOfInputs} Runs</div>
-          <ChevronUpDownRegular className='w-4 h-4' />
+        <div className='flex w-full items-center justify-start gap-1 text-gray-700 pl-3 pr-2 py-[6px] border border-gray-300 rounded-[2px] bg-gray-100 shadow-sm'>
+          <div>Last Runs</div>
+          {page > 1 && <div>(Page {page})</div>}
         </div>
       </div>
       <div className='flex items-center w-[40%] h-full p-4 border-r border-gray-100'>
@@ -58,6 +59,7 @@ export function SideBySideTableHeader(props: SideBySideTableHeaderProps) {
         <SideBySideVersionPopover
           versions={versions}
           models={models}
+          baseVersion={baseVersion}
           selectedVersionId={selectedRightVersionId}
           setSelectedVersionId={setSelectedRightVersionId}
           selectedModelId={selectedRightModelId}

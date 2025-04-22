@@ -1,25 +1,64 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
+import { InfinitlyPaging } from '@/components/ui/InfinitlyPaging';
 import { Loader } from '@/components/ui/Loader';
 import { PageContainer } from '@/components/v2/PageContainer';
 import { useTaskSchemaParams } from '@/lib/hooks/useTaskParams';
-import { useOrFetchAllAiModels, useOrFetchTask, useOrFetchTaskRuns, useOrFetchVersions } from '@/store';
+import { useParsedSearchParams, useRedirectWithParams } from '@/lib/queryString';
+import {
+  useOrFetchAllAiModels,
+  useOrFetchLatestRun,
+  useOrFetchTask,
+  useOrFetchTaskRuns,
+  useOrFetchVersions,
+} from '@/store';
 import { EmptyStateComponent } from '../reviews/EmptyStateComponent';
 import { SideBySideTable } from './SideBySideTable';
+
+const ENTRIES_PER_PAGE = 10;
 
 export function SideBySideContainer() {
   const { tenant, taskId, taskSchemaId } = useTaskSchemaParams();
 
-  const { taskRuns, isLoading: isTaskRunsLoading } = useOrFetchTaskRuns(
-    tenant,
-    taskId,
-    taskSchemaId,
-    'limit=10&sort_by=recent&unique_by=task_input_hash&include_fields=task_input'
+  const { page: pageValue } = useParsedSearchParams('page');
+  const page = pageValue ? parseInt(pageValue) : 0;
+
+  // We are fetching one more to always be able to determinate if there is a page after this
+  const numberOfRunsToFetch = ENTRIES_PER_PAGE + 1;
+
+  const searchParams = useMemo(() => {
+    return (
+      `limit=${numberOfRunsToFetch}&sort_by=recent&unique_by=task_input_hash&include_fields=task_input` +
+      (page ? `&offset=${page * ENTRIES_PER_PAGE}` : '')
+    );
+  }, [page, numberOfRunsToFetch]);
+
+  const redirectWithParams = useRedirectWithParams();
+
+  const onPageSelected = useCallback(
+    (page: number) => {
+      redirectWithParams({
+        params: { page },
+        scroll: false,
+      });
+      const sideBySideTable = document.getElementById('side-by-side-table');
+      if (sideBySideTable) {
+        sideBySideTable.scrollTo(0, 0);
+      }
+    },
+    [redirectWithParams]
   );
 
+  // We are also fetching the last run to not need to wait for all the taskruns when changing page and in this way changing searchParams
+  const { latestRun, isLoading: isLatestRunLoading } = useOrFetchLatestRun(tenant, taskId, taskSchemaId);
+  const { taskRuns } = useOrFetchTaskRuns(tenant, taskId, taskSchemaId, searchParams);
+
+  const isNextPageAvaible = taskRuns?.length === numberOfRunsToFetch;
+
+  // Only the inputs to display without the one extra one to determinate if there is a next page
   const inputs = useMemo(() => {
-    return taskRuns?.map((taskRun) => taskRun.task_input);
+    return taskRuns?.slice(0, ENTRIES_PER_PAGE).map((taskRun) => taskRun.task_input);
   }, [taskRuns]);
 
   const { task } = useOrFetchTask(tenant, taskId);
@@ -27,7 +66,7 @@ export function SideBySideContainer() {
   const { models } = useOrFetchAllAiModels({ tenant, taskId, taskSchemaId });
 
   const numberOfVersions = !!versions ? versions.length : 0;
-  const areThereAnyRuns = !!taskRuns && taskRuns.length > 0;
+  const areThereAnyRuns = !!latestRun;
 
   const entriesForEmptyState = useMemo(() => {
     const isThereMoreThenOneVersion = versions?.length > 1;
@@ -54,7 +93,7 @@ export function SideBySideContainer() {
     ];
   }, [versions, areThereAnyRuns]);
 
-  if (isVersionsLoading || isTaskRunsLoading || !task) {
+  if (isVersionsLoading || isLatestRunLoading || !task) {
     return <Loader centered />;
   }
 
@@ -74,7 +113,7 @@ export function SideBySideContainer() {
 
   return (
     <PageContainer task={task} isInitialized={true} name='Side By Side' showCopyLink={true} showBottomBorder={true}>
-      <div className='flex flex-col h-full w-full overflow-hidden font-lato px-4 py-4 gap-4'>
+      <div className='flex flex-col h-full w-full overflow-hidden font-lato px-4 py-4 gap-4 justify-between'>
         <SideBySideTable
           tenant={tenant}
           taskId={taskId}
@@ -82,6 +121,13 @@ export function SideBySideContainer() {
           inputs={inputs}
           versions={versions}
           models={models}
+          page={page}
+        />
+        <InfinitlyPaging
+          nextPageAvailable={isNextPageAvaible}
+          currentPage={page}
+          onPageSelected={onPageSelected}
+          className='py-1'
         />
       </div>
     </PageContainer>

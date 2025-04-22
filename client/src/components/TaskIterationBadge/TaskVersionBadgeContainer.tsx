@@ -30,6 +30,7 @@ type TaskVersionBadgeContainerProps = {
   showSchema?: boolean;
   showFavorite?: boolean;
   interaction?: boolean;
+  hideMinorVersion?: boolean;
 
   side?: HoverCardContentProps['side'];
   align?: HoverCardContentProps['align'];
@@ -52,10 +53,11 @@ export function TaskVersionBadgeContainer(props: TaskVersionBadgeContainerProps)
     className,
     height,
     interaction = true,
+    hideMinorVersion = false,
   } = props;
   const [noteHoverCardOpen, setNoteHoverCardOpen] = useState(false);
 
-  const badgeText = formatSemverVersion(version);
+  const badgeText = formatSemverVersion(version, hideMinorVersion);
   const isFavorite = version.is_favorite === true;
 
   const { tenant, taskId } = useTaskSchemaParams();

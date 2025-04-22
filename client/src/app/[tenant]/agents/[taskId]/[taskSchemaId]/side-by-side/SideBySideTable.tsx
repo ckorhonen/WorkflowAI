@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useRedirectWithParams } from '@/lib/queryString';
 import { useParsedSearchParams } from '@/lib/queryString';
 import { useOrFetchCurrentTaskSchema } from '@/store/fetchers';
@@ -8,6 +9,7 @@ import { ModelResponse, VersionV1 } from '@/types/workflowAI';
 import { TaskInputDict } from '@/types/workflowAI';
 import { SideBySideTableHeader } from './SideBySideTableHeader';
 import { SideBySideTableRow } from './SideBySideTableRow';
+import { SideBySideTableStatsRow } from './Stats/SideBySideTableStatsRow';
 
 type SideBySideTableProps = {
   inputs: TaskInputDict[] | undefined;
@@ -16,10 +18,11 @@ type SideBySideTableProps = {
   tenant: TenantID | undefined;
   taskId: TaskID;
   taskSchemaId: TaskSchemaID;
+  page: number;
 };
 
 export function SideBySideTable(props: SideBySideTableProps) {
-  const { inputs, versions, models, tenant, taskId, taskSchemaId } = props;
+  const { inputs, versions, models, tenant, taskId, taskSchemaId, page } = props;
 
   const { selectedLeftVersionId, selectedRightVersionId, selectedRightModelId } = useParsedSearchParams(
     'selectedLeftVersionId',
@@ -126,36 +129,53 @@ export function SideBySideTable(props: SideBySideTableProps) {
     redirectWithParams,
   ]);
 
-  const onNewRunId = useCallback(() => {}, []);
-
   return (
     <div className='flex flex-col w-full felx-1 border border-gray-200 rounded-[2px] overflow-hidden relative'>
       <SideBySideTableHeader
         versions={versions}
         models={models}
+        baseVersion={selectedLeftVersion}
         selectedLeftVersionId={selectedLeftVersionId}
         setSelectedLeftVersionId={setSelectedLeftVersionId}
         selectedRightVersionId={selectedRightVersionId}
         setSelectedRightVersionId={setSelectedRightVersionId}
         selectedRightModelId={selectedRightModelId}
         setSelectedRightModelId={setSelectedRightModelId}
-        numberOfInputs={inputs?.length ?? 0}
+        page={page}
       />
-      <div className='flex flex-col w-full flex-1 overflow-y-auto'>
-        {inputs?.map((input, index) => (
-          <SideBySideTableRow
-            key={index}
-            input={input}
-            taskSchema={taskSchema}
-            selectedLeftVersion={selectedLeftVersion}
-            selectedRightVersion={selectedRightVersion}
-            selectedRightModel={selectedRightModel}
-            tenant={tenant}
-            taskId={taskId}
-            taskSchemaId={taskSchemaId}
-            onNewRunId={() => onNewRunId()}
-          />
-        ))}
+      <div className='flex flex-col w-full flex-1 overflow-y-auto' id='side-by-side-table'>
+        <SideBySideTableStatsRow
+          tenant={tenant}
+          taskId={taskId}
+          taskSchemaId={taskSchemaId}
+          selectedLeftVersionId={selectedLeftVersionId}
+          selectedRightVersionId={selectedRightVersionId}
+          selectedRightModelId={selectedRightModelId}
+          inputs={inputs}
+          leftVersion={selectedLeftVersion}
+          rightVersion={selectedRightVersion}
+        />
+        {!!taskSchema && !!inputs ? (
+          <>
+            {inputs.map((input, index) => (
+              <SideBySideTableRow
+                key={index}
+                input={input}
+                taskSchema={taskSchema}
+                selectedLeftVersion={selectedLeftVersion}
+                selectedRightVersion={selectedRightVersion}
+                selectedRightModel={selectedRightModel}
+                tenant={tenant}
+                taskId={taskId}
+                taskSchemaId={taskSchemaId}
+              />
+            ))}
+          </>
+        ) : (
+          <div className='flex w-full h-[200px] items-center justify-center'>
+            <Loader2 className='w-8 h-8 animate-spin text-gray-200' />
+          </div>
+        )}
       </div>
       {!selectedLeftVersionId && (
         <div className='absolute top-[20%] left-[20%] w-[40%] items-center flex justify-center text-gray-400 text-[13px] font-medium'>

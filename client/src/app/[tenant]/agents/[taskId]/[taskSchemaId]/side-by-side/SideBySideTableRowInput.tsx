@@ -4,8 +4,8 @@ import { SerializableTaskIOWithSchema } from '@/types/task';
 import { TaskInputDict } from '@/types/workflowAI';
 
 type SideBySideTableRowInputProps = {
-  input: TaskInputDict | undefined;
-  inputSchema: SerializableTaskIOWithSchema | undefined;
+  input: TaskInputDict;
+  inputSchema: SerializableTaskIOWithSchema;
 };
 
 export function SideBySideTableRowInput(props: SideBySideTableRowInputProps) {
