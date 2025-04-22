@@ -81,7 +81,7 @@ async def test_list_models_with_and_without_tools(test_client: IntegrationTestCl
     is correctly applied.
     """
 
-    model_not_supporting_tools = Model.GEMINI_2_0_FLASH_THINKING_EXP_0121.value
+    model_not_supporting_tools = Model.LLAMA_3_3_70B.value
     model_supporting_tools = Model.GEMINI_1_5_FLASH_002.value
 
     create_task = await test_client.create_task()

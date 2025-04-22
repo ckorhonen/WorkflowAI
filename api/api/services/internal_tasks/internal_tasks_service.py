@@ -7,6 +7,7 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Annotated, Any, AsyncIterator, Literal, NamedTuple, Optional, Sequence, overload
 
+import workflowai
 from workflowai import Run
 
 from api.services.internal_tasks._internal_tasks_utils import (
@@ -21,6 +22,9 @@ from api.services.internal_tasks.moderation_service import ModerationService
 from api.services.internal_tasks.task_input_service import TaskInputService
 from api.services.tasks import list_agent_summaries
 from core.agents.audio_transcription_task import AudioTranscriptionTask, AudioTranscriptionTaskInput
+from core.agents.chat_task_schema_generation.chat_task_schema_generation_task import (
+    INSTRUCTIONS as AGENT_BUILDER_INSTRUCTIONS,
+)
 from core.agents.chat_task_schema_generation.chat_task_schema_generation_task import (
     AgentBuilderInput,
     AgentBuilderOutput,
@@ -99,7 +103,7 @@ from core.agents.url_finder_agent import URLFinderAgentInput, url_finder_agent
 from core.deprecated.workflowai import WorkflowAI
 from core.domain.changelogs import VersionChangelog
 from core.domain.deprecated.task import Task, TaskInput, TaskOutput
-from core.domain.errors import InternalError, JSONSchemaValidationError, UnparsableChunkError
+from core.domain.errors import FailedGenerationError, InternalError, JSONSchemaValidationError, UnparsableChunkError
 from core.domain.events import EventRouter, TaskInstructionsGeneratedEvent
 from core.domain.fields.chat_message import ChatMessage
 from core.domain.fields.file import File
@@ -354,30 +358,75 @@ class InternalTasksService:
             Annotated[str, "The assistant's answer message"],
         ]
     ]:
-        iterator = agent_builder.stream(
-            await self._prepare_agent_builder_input(chat_messages, user_email, existing_task),
-            use_cache="always",
-        )
-        chunk: Run[AgentBuilderOutput] | None = None
-        async for chunk in iterator:
-            try:
-                yield self._handle_stream_task_iterations_chunk(chunk.output, partial=True)
-            except UnparsableChunkError:
-                self.logger.warning(
-                    "Error handling stream task iteration chunk",
-                    exc_info=True,
-                )
-                # If anything goes wrong, we skip the chunk, because we may be in an intermediate state in the generation
-        if chunk:
-            try:
-                # We stream the last chunk with partial=False, because it is the final chunk
-                yield self._handle_stream_task_iterations_chunk(chunk.output, partial=False)
-            except UnparsableChunkError:
-                self.logger.warning(
-                    "Error handling stream task iteration chunk",
-                    exc_info=True,
-                )
-                # If anything goes wrong, we skip the chunk, because we may be in an intermediate state in the generation
+        AGENT_BUILDER_MODELS = [
+            workflowai.Model.CLAUDE_3_7_SONNET_20250219,
+            Model.GPT_41_2025_04_14,  # TODO: use workflowai.Model when the model will be in the SDK
+            Model.GROK_3_BETA,  # TODO: use workflowai.Model when the model will be in the SDK
+        ]
+
+        agent_input = await self._prepare_agent_builder_input(chat_messages, user_email, existing_task)
+
+        for model in AGENT_BUILDER_MODELS:
+            is_last_chance = model == AGENT_BUILDER_MODELS[-1]
+
+            version = workflowai.VersionProperties(
+                model=model,
+                max_tokens=2500,  # Generated schema can be lengthy, so 2500 instead of 1000 of most Claude agents
+                instructions=AGENT_BUILDER_INSTRUCTIONS,
+            )
+
+            iterator = agent_builder.stream(
+                agent_input,
+                version=version,
+                use_cache="always",
+            )
+            chunk: Run[AgentBuilderOutput] | None = None
+            latest_chunk_is_error = False
+            async for chunk in iterator:
+                try:
+                    yield self._handle_stream_task_iterations_chunk(chunk.output, partial=True)
+                    latest_chunk_is_error = False
+                except UnparsableChunkError:
+                    latest_chunk_is_error = True
+                    # If anything goes wrong, we skip the chunk, because we may be in an intermediate state in the generation
+            if chunk:
+                try:
+                    # We stream the last chunk with partial=False, because it is the final chunk
+                    yield self._handle_stream_task_iterations_chunk(chunk.output, partial=False)
+                    latest_chunk_is_error = False
+                except UnparsableChunkError:
+                    latest_chunk_is_error = True
+                    # If anything goes wrong, we skip the chunk, because we may be in an intermediate state in the generation
+            else:
+                if is_last_chance:
+                    error_message = "No agent builder chunk was generated"
+                    self.logger.error(
+                        error_message,
+                    )
+                    raise FailedGenerationError(error_message)
+                else:
+                    self.logger.warning(
+                        "Agent builder failed to generate a valid chunk, trying with a different model",
+                        extra={"model": model},
+                    )
+                    continue
+
+            if latest_chunk_is_error:
+                if is_last_chance:
+                    error_message = "Agent builder failed to generate a final valid chunk"
+                    self.logger.error(
+                        error_message,
+                    )
+                    raise FailedGenerationError(error_message)
+                else:
+                    self.logger.warning(
+                        "Agent builder failed to generate a valid chunk, trying with a different model",
+                        extra={"model": model},
+                    )
+                    continue
+            else:
+                # We have a valid final chunk, we can return
+                return
 
     async def generate_task_instructions(
         self,
