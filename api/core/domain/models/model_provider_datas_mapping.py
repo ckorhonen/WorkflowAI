@@ -626,6 +626,20 @@ GROQ_PROVIDER_DATA: ProviderDataByModel = {
             source="https://groq.com/pricing/",
         ),
     ),
+    Model.LLAMA_4_MAVERICK_FAST: ModelProviderData(
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=0.20 * ONE_MILLION_TH,
+            completion_cost_per_token=0.60 * ONE_MILLION_TH,
+            source="https://groq.com/pricing/",
+        ),
+    ),
+    Model.LLAMA_4_SCOUT_FAST: ModelProviderData(
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=0.11 / 1_000_000,
+            completion_cost_per_token=0.34 / 1_000_000,
+            source="https://groq.com/pricing/",
+        ),
+    ),
 }
 
 MISTRAL_PROVIDER_DATA: ProviderDataByModel = {
