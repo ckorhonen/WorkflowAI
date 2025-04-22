@@ -119,6 +119,17 @@ class TestGoogleProvider(unittest.TestCase):
         assert config.vertex_project == "p"
         assert config.vertex_location == ["l"]
 
+    async def test_parse_region_strings(self):
+        old_config = {
+            "vertex_credentials": "k",
+            "vertex_project": "p",
+            "vertex_location": "l,m",
+        }
+        config = GoogleProviderConfig.model_validate(old_config)
+        assert config.vertex_credentials == "k"
+        assert config.vertex_project == "p"
+        assert config.vertex_location == ["l", "m"]
+
     async def test_parse_config(self):
         old_config = {
             "vertex_credentials": "k",

@@ -11,6 +11,7 @@ import { Provider, ProviderSettings } from '@/types/workflowAI';
 import { TenantData } from '@/types/workflowAI';
 import { AI_PROVIDERS_METADATA } from '../AIModelsCombobox/utils';
 import { Textarea } from '../ui/Textarea';
+import { GeminiConfigForm } from './GeminiConfigForm';
 import { GoogleConfigForm } from './GoogleConfigForm';
 
 type SetProviderConfigProps = {
@@ -122,6 +123,10 @@ function ProviderConfigForm(props: ProviderConfigFormProps) {
     return <GoogleConfigForm setConfig={setConfig} />;
   }
 
+  if (current_provider === 'google_gemini') {
+    return <GeminiConfigForm setConfig={setConfig} />;
+  }
+
   if (current_provider === 'amazon_bedrock' || current_provider === 'azure_openai') {
     return <JSONProviderConfigForm current_provider={current_provider} setConfig={setConfig} />;
   }
@@ -217,7 +222,7 @@ export function AddProviderKeyModal(props: AddProviderKeyModalProps) {
         onClose(true);
       } catch (e: unknown) {
         if (e instanceof RequestError) {
-          displayErrorToaster('Invalid Provider Key');
+          displayErrorToaster(`Invalid Provider Key`);
           return;
         }
         throw e;
