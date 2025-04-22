@@ -7,9 +7,11 @@ from core.storage.slack.slack_api_client import SlackApiClient
 
 _logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/slack-webhooks", include_in_schema=False)
+router = APIRouter(prefix="/webhooks/slack", include_in_schema=False)
 
 
+# Accept both "" and "/" withouth yield a 307 that would provoke the webhook to be called several times
+@router.post("/")
 @router.post("")
 async def slack_webhook(request: Request):
     try:
