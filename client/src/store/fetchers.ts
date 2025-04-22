@@ -1295,6 +1295,7 @@ export const useOrCreateVersion = (
   const createVersionInternally = useVersions((state) => state.createVersionInternally);
   const isCreatingVersion = useVersions((state) => (scopeKey ? state.isCreatingVersion.get(scopeKey) : false));
   const createdVersion = useVersions((state) => (scopeKey ? state.createdVersions.get(scopeKey) : undefined));
+  const error = useVersions((state) => (scopeKey ? state.createVersionErrors.get(scopeKey) : undefined));
 
   const isCreatingVersionRef = useRef(isCreatingVersion);
   isCreatingVersionRef.current = isCreatingVersion;
@@ -1311,6 +1312,7 @@ export const useOrCreateVersion = (
   return {
     isCreatingVersion,
     createdVersion,
+    error,
   };
 };
 

@@ -22,7 +22,7 @@ export function SideBySideContainer() {
   const { tenant, taskId, taskSchemaId } = useTaskSchemaParams();
 
   const { page: pageValue } = useParsedSearchParams('page');
-  const page = pageValue ? parseInt(pageValue) : 0;
+  const page = useMemo(() => (pageValue ? parseInt(pageValue) : 0), [pageValue]);
 
   // We are fetching one more to always be able to determinate if there is a page after this
   const numberOfRunsToFetch = ENTRIES_PER_PAGE + 1;

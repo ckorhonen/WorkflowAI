@@ -58,7 +58,7 @@ export function SideBySideVersionPopover(props: SideBySideVersionPopoverProps) {
   const filteredVersions = useMemo(() => {
     return versionsToUse.filter((version) => {
       const textBadge = formatSemverVersion(version);
-      return textBadge?.includes(searchLower);
+      return textBadge?.includes(searchLower) || version.properties?.model?.toLowerCase().includes(searchLower);
     });
   }, [versionsToUse, searchLower]);
 
@@ -72,7 +72,7 @@ export function SideBySideVersionPopover(props: SideBySideVersionPopoverProps) {
   const filteredModels = useMemo(() => {
     return modelsToUse?.filter((model) => {
       const textBadge = model.name;
-      return textBadge?.includes(searchLower);
+      return textBadge?.toLowerCase().includes(searchLower);
     });
   }, [modelsToUse, searchLower]);
 
@@ -143,6 +143,7 @@ export function SideBySideVersionPopover(props: SideBySideVersionPopoverProps) {
                   model={model}
                   baseVersion={baseVersion}
                   onClick={() => onSelectedModelId(model.id)}
+                  className='pl-2'
                 />
               );
             })}

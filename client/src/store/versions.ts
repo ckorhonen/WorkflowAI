@@ -3,6 +3,7 @@ import { isEmpty } from 'lodash';
 import { useEffect } from 'react';
 import { create } from 'zustand';
 import { client } from '@/lib/api';
+import { RequestError } from '@/lib/api/client';
 import { formatSemverVersion, sortEnvironmentsInOrderOfImportance } from '@/lib/versionUtils';
 import { Page } from '@/types';
 import { TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
@@ -142,7 +143,7 @@ interface VersionsState {
 
   isCreatingVersion: Map<string, boolean>;
   createdVersions: Map<string, CreateVersionResponse>;
-
+  createVersionErrors: Map<string, RequestError>;
   createVersion: (
     tenant: TenantID | undefined,
     taskId: TaskID,
@@ -194,7 +195,7 @@ export const useVersions = create<VersionsState>((set, get) => ({
 
   isCreatingVersion: new Map(),
   createdVersions: new Map(),
-
+  createVersionErrors: new Map(),
   createVersion: async (
     tenant: TenantID | undefined,
     taskId: TaskID,
@@ -227,17 +228,26 @@ export const useVersions = create<VersionsState>((set, get) => ({
       })
     );
 
-    const response = await client.post<CreateVersionRequest, CreateVersionResponse>(
-      taskSchemaSubPath(tenant, taskId, taskSchemaId, `/versions`, true),
-      body
-    );
+    try {
+      const response = await client.post<CreateVersionRequest, CreateVersionResponse>(
+        taskSchemaSubPath(tenant, taskId, taskSchemaId, `/versions`, true),
+        body
+      );
 
-    set(
-      produce((state) => {
-        state.isCreatingVersion.set(scopeKey, false);
-        state.createdVersions.set(scopeKey, response);
-      })
-    );
+      set(
+        produce((state) => {
+          state.isCreatingVersion.set(scopeKey, false);
+          state.createdVersions.set(scopeKey, response);
+        })
+      );
+    } catch (error) {
+      set(
+        produce((state) => {
+          state.createVersionErrors.set(scopeKey, error as RequestError);
+          state.isCreatingVersion.set(scopeKey, false);
+        })
+      );
+    }
   },
 
   saveVersion: async (tenant, taskId, versionId) => {

@@ -43,7 +43,7 @@ export function SideBySideTableHeader(props: SideBySideTableHeaderProps) {
       <div className='flex items-center w-[20%] h-full p-4 border-r border-gray-100'>
         <div className='flex w-full items-center justify-start gap-1 text-gray-700 pl-3 pr-2 py-[6px] border border-gray-300 rounded-[2px] bg-gray-100 shadow-sm'>
           <div>Last Runs</div>
-          {page > 1 && <div>(Page {page})</div>}
+          {page > 0 && <div>(Page {page + 1})</div>}
         </div>
       </div>
       <div className='flex items-center w-[40%] h-full p-4 border-r border-gray-100'>

@@ -4,12 +4,14 @@ import { useLocalStorage } from 'usehooks-ts';
 type ModelToAdvertise = {
   name: string;
   date: string;
+  modelId: string;
 };
 
 const MODELS_TO_ADVERTISE: ModelToAdvertise[] = [
   {
     name: 'Gemini 2.5 Flash',
     date: '2025-04-21',
+    modelId: 'gemini-2.5-flash-preview-04-17',
   },
 ];
 
@@ -41,5 +43,9 @@ export function useModelToAdvertise() {
     [setDismissedModels]
   );
 
-  return { modelToAdvertise: modelToAdvertise?.name, dismiss };
+  return {
+    modelToAdvertise: modelToAdvertise?.name,
+    modelId: modelToAdvertise?.modelId,
+    dismiss,
+  };
 }

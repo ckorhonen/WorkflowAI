@@ -102,12 +102,12 @@ export function SideBySideTable(props: SideBySideTableProps) {
   }, [versions]);
 
   useEffect(() => {
-    if (versions.length === 0 || !!selectedLeftVersionId || !!selectedRightVersionId || !!selectedRightModelId) {
+    if (versions.length === 0 || !!selectedLeftVersionId) {
       return;
     }
 
     const leftVersion = deployedVersion ?? versions[0];
-    const rightVersion = deployedVersion
+    const rightVersion: VersionV1 | undefined = deployedVersion
       ? leftVersion.id === versions[0].id
         ? versions[1]
         : versions[0]
@@ -116,7 +116,8 @@ export function SideBySideTable(props: SideBySideTableProps) {
     redirectWithParams({
       params: {
         selectedLeftVersionId: leftVersion.id,
-        selectedRightVersionId: rightVersion.id,
+        selectedRightVersionId: !selectedRightModelId ? selectedRightVersionId ?? rightVersion?.id : undefined,
+        selectedRightModelId: selectedRightModelId ?? undefined,
       },
       scroll: false,
     });

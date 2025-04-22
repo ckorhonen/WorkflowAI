@@ -32,14 +32,19 @@ export function SideBySideTableRowOutput(props: SideBySideTableRowOutputProps) {
   const { outputSchema, body, input, tenant, taskId, taskSchemaId, isHovering, inputHash, versionId, modelId, stats } =
     props;
 
-  const { isCreatingVersion, createdVersion } = useOrCreateVersion(tenant, taskId, taskSchemaId, body);
-  const { isRunningVersion, runMessage, error } = useOrRunVersion(
-    tenant,
-    taskId,
-    taskSchemaId,
-    createdVersion?.id,
-    input
-  );
+  const {
+    isCreatingVersion,
+    createdVersion,
+    error: createVersionError,
+  } = useOrCreateVersion(tenant, taskId, taskSchemaId, body);
+
+  const {
+    isRunningVersion,
+    runMessage,
+    error: runVersionError,
+  } = useOrRunVersion(tenant, taskId, taskSchemaId, createdVersion?.id, input);
+
+  const error = createVersionError ?? runVersionError;
 
   const output: TaskOutput | undefined = runMessage?.task_output;
   const isLoading = isCreatingVersion || isRunningVersion;
