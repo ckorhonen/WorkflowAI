@@ -27,6 +27,7 @@ from core.providers.groq.groq_domain import (
     GroqToolDescription,
     JSONResponseFormat,
     StreamedResponse,
+    TextResponseFormat,
 )
 from core.providers.openai.openai_domain import parse_tool_call_or_raise
 from core.runners.workflowai.utils import FileWithKeyPath
@@ -94,7 +95,7 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
             temperature=options.temperature,
             max_tokens=options.max_tokens,
             stream=stream,
-            response_format=JSONResponseFormat(),
+            response_format=JSONResponseFormat() if not options.enabled_tools else TextResponseFormat(),
             tools=[GroqToolDescription.from_domain(t) for t in options.enabled_tools]
             if options.enabled_tools
             else None,

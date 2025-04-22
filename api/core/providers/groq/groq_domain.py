@@ -141,7 +141,7 @@ class GroqMessage(BaseModel):
 
         role = role_to_groq_map[message.role]
 
-        if role == "system":
+        if message.content and not message.files and not message.tool_call_requests:
             out.append(cls(role=role, content=message.content))
             return out
 
@@ -155,11 +155,11 @@ class GroqMessage(BaseModel):
             else:
                 raise ModelDoesNotSupportMode("Groq only supports image files in messages")
 
-        if message.content:
+        if message.content or message.tool_call_requests:
             out.append(
                 cls(
                     role=role,
-                    content=content,
+                    content=content or None,
                     tool_calls=[_ToolCall.from_domain(tool_call) for tool_call in message.tool_call_requests]
                     if message.tool_call_requests
                     else None,
