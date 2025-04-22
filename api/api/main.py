@@ -38,6 +38,7 @@ from .common import setup
 from .routers import (
     probes,
     run,
+    webhooks,
 )
 from .services.request_id_ctx import request_id_var
 
@@ -113,6 +114,7 @@ app = FastAPI(
         {"name": RouteTags.API_KEYS},
         {"name": RouteTags.PAYMENTS},
         {"name": RouteTags.NEW_TOOL_AGENT},
+        {"name": RouteTags.WEBHOOKS},
     ]
     if not _ONLY_RUN_ROUTES
     else [],
@@ -133,6 +135,7 @@ if WORKFLOWAI_ALLOWED_ORIGINS:
 app.include_router(probes.router)
 app.include_router(run.router)
 app.include_router(openai_proxy_router.router)
+app.include_router(webhooks.router)
 
 if not _ONLY_RUN_ROUTES:
     from .main_router import main_router
