@@ -207,7 +207,7 @@ class SlackApiClient:
     async def handle_webhook(self, raw_payload: dict[str, Any]) -> None:
         try:
             # Parse the payload as a SlackWebhookEvent
-            webhook_event = SlackWebhookEvent.model_validate(raw_payload)
+            webhook_event = SlackWebhookEvent(**raw_payload)
             if not self._should_process_webhook_event(webhook_event=webhook_event):
                 return
 
