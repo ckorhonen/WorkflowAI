@@ -8,10 +8,10 @@ from core.storage.slack.slack_api_client import SlackApiClient
 
 _logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/webhooks", tags=[RouteTags.WEBHOOKS])
+router = APIRouter(prefix="/slack-webhooks", tags=[RouteTags.WEBHOOKS])
 
 
-@router.post("/slack")
+@router.post("")
 async def slack_webhook(request: Request):
     try:
         payload = await request.json()

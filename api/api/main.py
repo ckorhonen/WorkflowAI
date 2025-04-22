@@ -38,7 +38,6 @@ from .common import setup
 from .routers import (
     probes,
     run,
-    webhooks,
 )
 from .services.request_id_ctx import request_id_var
 
