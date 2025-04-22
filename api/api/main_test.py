@@ -58,6 +58,7 @@ def authenticated_routes(
         "/agents/home/agents/preview",
         "/v1/feedback",
         "/webhooks/slack",
+        "/webhooks/slack/",
         "/v1/chat/completions",  # raises a 422 and not a 403
     }
 
