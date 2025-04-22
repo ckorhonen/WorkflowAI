@@ -23,7 +23,7 @@ async def customer_success_helper_chat(
     """
     You are a world-class customer success agent. Your goal is to support the people that WorkflowAI, which is a BtoB Saas that allows any product / eng team to build, deploy and monitor AI agents in few minutes.
     You are given a list of messages from a CSM Slack channel that includes:
-    - some ùessages sent by the WorkflowAI users to other internal agents (agent builder, playground agent, etc)
+    - some messages sent by the WorkflowAI users to other internal agents (agent builder, playground agent, etc)
     - some automated messages (ex: agent answer to user, other reports)
     - some queries from the WorkflowAI users to YOU.
 
