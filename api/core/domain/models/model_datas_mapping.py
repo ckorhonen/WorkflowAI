@@ -531,7 +531,7 @@ def _build_model_datas():
                 max_output_tokens=65_536,
                 source="https://ai.google.dev/gemini-api/docs/models#gemini-2.5-flash-preview",
             ),
-            provider_for_pricing=Provider.GOOGLE,
+            provider_for_pricing=Provider.GOOGLE_GEMINI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2025, 4, 17),
             # https://www.vals.ai/benchmarks/gpqa-04-04-2025
@@ -553,7 +553,7 @@ def _build_model_datas():
                 max_output_tokens=65_536,
                 source="https://ai.google.dev/gemini-api/docs/models#gemini-2.5-flash-preview",
             ),
-            provider_for_pricing=Provider.GOOGLE,
+            provider_for_pricing=Provider.GOOGLE_GEMINI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2025, 4, 17),
             # https://www.vals.ai/benchmarks/gpqa-04-04-2025
@@ -575,7 +575,7 @@ def _build_model_datas():
                 max_output_tokens=65_536,
                 source="https://ai.google.dev/gemini-api/docs/models#gemini-2.5-pro-preview-03-25",
             ),
-            provider_for_pricing=Provider.GOOGLE,
+            provider_for_pricing=Provider.GOOGLE_GEMINI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2025, 3, 25),
             # https://www.vals.ai/benchmarks/gpqa-04-04-2025
