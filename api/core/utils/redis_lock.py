@@ -33,7 +33,7 @@ async def redis_dedup(dedup_key: str, expire_seconds: int = 60):
     acquired = await shared_redis_client.set(dedup_key, "1", nx=True, ex=expire_seconds)
 
     if not acquired:
-        _logger.info("Failed to acquire deduplication, resource already locke", extra={"dedup_key": dedup_key})
+        _logger.info("Failed to acquire deduplication, resource already locked", extra={"dedup_key": dedup_key})
         raise DedupAcquisitionError(f"Could not acquire deduplication: {dedup_key}")
 
     try:
