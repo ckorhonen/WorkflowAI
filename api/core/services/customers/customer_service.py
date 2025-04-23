@@ -30,6 +30,7 @@ from core.storage.backend_storage import BackendStorage
 from core.storage.slack.slack_api_client import SlackApiClient
 from core.storage.slack.utils import get_slack_hyperlink
 from core.utils.background import add_background_task
+from core.utils.coroutines import capture_errors
 
 _logger = logging.getLogger(__name__)
 
@@ -215,11 +216,12 @@ class CustomerService:
         slug: str,
         org_id: str | None,
         owner_id: str | None,
-        invite_users: bool = True,
     ):
         with self._slack_client() as clt:
-            if invite_users and (invitees := os.environ.get("SLACK_BOT_INVITEES")):
-                await clt.invite_users(channel_id, invitees.split(","))
+            # We only invite users when the channel is not for an anonymous user
+            if (org_id or owner_id) and (invitees := os.environ.get("SLACK_BOT_INVITEES")):
+                with capture_errors(_logger, "Failed to invite users to channel"):
+                    await clt.invite_users(channel_id, invitees.split(","))
 
             if not slug or org_id:
                 # That can happen for anonymous users for example
@@ -271,7 +273,6 @@ class CustomerService:
             await clt.send_message(channel_id, {"text": message})
 
     async def handle_customer_migrated(self, from_user_id: str | None, from_anon_id: str | None):
-        # TODO: rename slack channel
         org = await self._get_organization()
         if not org.slack_channel_id:
             _logger.warning("No slack channel id found for organization", extra={"org_uid": org.uid, "slug": org.slug})
@@ -286,7 +287,6 @@ class CustomerService:
                 org.slug,
                 org.org_id,
                 org.owner_id,
-                invite_users=False,  # We don't need to invite staff users again, as they should already be in the channel
             ),
         )
 
