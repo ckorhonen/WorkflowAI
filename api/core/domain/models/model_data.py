@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -56,6 +57,10 @@ class ModelData(ModelDataSupports):
     supports_tool_calling: bool = Field(
         description="Whether the model supports tool calling",
     )
+
+    # TODO: most thinking models don't use that value yet
+    # Use none for models to deactivate reasoning on thinking models
+    reasoning_level: Literal["none", "low", "medium", "high"] | None = None
 
     @property
     def modes(self) -> list[str]:

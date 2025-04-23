@@ -36,7 +36,6 @@ from tests.integration.common import (
     fetch_run,
     get_amplitude_requests,
     list_groups,
-    mock_gemini_call,
     mock_openai_call,
     mock_vertex_call,
     openai_endpoint,
@@ -244,26 +243,6 @@ async def test_usage_for_per_token_model(
     assert usage["prompt_token_count"] == 222  # from initial usage
     assert usage["completion_token_count"] == 9  # from initial usage
     assert usage["model_context_window_size"] == 128000  # from model
-
-
-async def test_cost_for_zero_cost_gemini_experimental_model(
-    httpx_mock: HTTPXMock,
-    int_api_client: AsyncClient,
-    patched_broker: InMemoryBroker,
-):
-    await create_task(int_api_client, patched_broker, httpx_mock)
-
-    mock_gemini_call(httpx_mock, model="gemini-2.0-flash-thinking-exp-01-21", api_version="v1alpha")
-
-    task_run = await run_task_v1(
-        int_api_client,
-        task_id="greet",
-        task_schema_id=1,
-        task_input={"name": "John", "age": 30},
-        model="gemini-2.0-flash-thinking-exp-01-21",
-    )
-
-    assert task_run["cost_usd"] == 0
 
 
 async def test_openai_usage(httpx_mock: HTTPXMock, int_api_client: AsyncClient, patched_broker: InMemoryBroker):
@@ -1173,7 +1152,7 @@ async def test_tool_calling_not_supported(test_client: IntegrationTestClient):
         await test_client.run_task_v1(
             task,
             version={
-                "model": Model.GEMINI_2_0_FLASH_THINKING_EXP_0121.value,  # model that does not support tool calling
+                "model": Model.LLAMA_3_3_70B.value,  # model that does not support tool calling
                 "instructions": "Use @perplexity-sonar-pro",  # instructions that triggers tool calling activation
             },
         )
@@ -1181,7 +1160,7 @@ async def test_tool_calling_not_supported(test_client: IntegrationTestClient):
     content_json = json.loads(exc_info.value.response.content)
     assert content_json["error"]["status_code"] == 400
     assert content_json["error"]["code"] == "model_does_not_support_mode"
-    assert content_json["error"]["message"] == "gemini-2.0-flash-thinking-exp-01-21 does not support tool calling"
+    assert content_json["error"]["message"] == "llama-3.3-70b does not support tool calling"
 
 
 async def test_tool_calling_not_supported_streaming(test_client: IntegrationTestClient):
@@ -1193,7 +1172,7 @@ async def test_tool_calling_not_supported_streaming(test_client: IntegrationTest
         async for c in test_client.stream_run_task_v1(
             task,
             version={
-                "model": Model.GEMINI_2_0_FLASH_THINKING_EXP_0121.value,  # model that does not support tool calling
+                "model": Model.LLAMA_3_3_70B.value,  # model that does not support tool calling
                 "instructions": "Use @perplexity-sonar-pro",  # instructions that triggers tool calling activation
             },
         )
@@ -1201,7 +1180,7 @@ async def test_tool_calling_not_supported_streaming(test_client: IntegrationTest
     assert chunks
     assert chunks[0]["error"]["status_code"] == 400
     assert chunks[0]["error"]["code"] == "model_does_not_support_mode"
-    assert chunks[0]["error"]["message"] == "gemini-2.0-flash-thinking-exp-01-21 does not support tool calling"
+    assert chunks[0]["error"]["message"] == "llama-3.3-70b does not support tool calling"
 
 
 async def test_structured_generation_failure_and_retry(

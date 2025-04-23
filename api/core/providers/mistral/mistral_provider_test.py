@@ -9,6 +9,7 @@ from pytest_httpx import HTTPXMock, IteratorStream
 from core.domain.errors import (
     FailedGenerationError,
     MaxTokensExceededError,
+    ProviderBadRequestError,
     ProviderInternalError,
     UnknownProviderError,
 )
@@ -387,6 +388,23 @@ class TestComplete:
 
         details = e.value.error_response().error.details
         assert details and details.get("provider_error") == {"raw": "Internal Server Error"}
+
+    async def test_complete_value_error(self, httpx_mock: HTTPXMock, mistral_provider: MistralAIProvider):
+        httpx_mock.add_response(
+            url="https://api.mistral.ai/v1/chat/completions",
+            status_code=400,
+            json=fixtures_json("mistralai", "error_with_details.json"),
+        )
+
+        with pytest.raises(ProviderBadRequestError) as e:
+            await mistral_provider.complete(
+                [Message(role=Message.Role.USER, content="Hello")],
+                options=ProviderOptions(model=Model.PIXTRAL_12B_2409, max_tokens=10, temperature=0),
+                output_factory=lambda x, _: StructuredOutput(json.loads(x)),
+            )
+
+        message = e.value.error_response().error.message
+        assert message.startswith("Value error, Image content")
 
     async def test_max_tokens_exceeded_invalid_request(
         self,

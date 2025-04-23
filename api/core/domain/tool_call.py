@@ -104,6 +104,11 @@ class ToolCall(ToolCallRequestWithID):
         tool_calls_dict = {t.id: t for t in tool_calls}
         return safe_map(outputs, lambda output: tool_calls_dict[output.id].add_output(output))
 
+    def stringified_result(self):
+        if self.error is not None:
+            return f"Error: {self.error}"
+        return str(self.result)
+
 
 class ToolCallOutput(BaseModel):
     id: str

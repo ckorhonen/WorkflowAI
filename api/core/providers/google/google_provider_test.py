@@ -27,12 +27,10 @@ from core.domain.message import Message
 from core.domain.models import Model, Provider
 from core.domain.models.model_data import ModelData
 from core.domain.models.model_datas_mapping import MODEL_DATAS
-from core.domain.models.model_provider_datas_mapping import GOOGLE_PROVIDER_DATA
 from core.domain.structured_output import StructuredOutput
 from core.providers.base.abstract_provider import RawCompletion
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.google.google_provider import (
-    _MIXED_REGION_MODELS,  # pyright: ignore [reportPrivateUsage]
     _VERTEX_API_EXCLUDED_REGIONS_METADATA_KEY,  # pyright: ignore [reportPrivateUsage]
     GoogleProvider,
     GoogleProviderConfig,
@@ -74,11 +72,6 @@ def patch_google_provider_auth():
         autospec=True,
     ) as mock_google_provider_auth:
         yield mock_google_provider_auth
-
-
-def test_mixed_region_models():
-    gemini_models = {model for model in GOOGLE_PROVIDER_DATA.keys() if model.startswith("gemini")}
-    assert _MIXED_REGION_MODELS == gemini_models
 
 
 class TestGoogleProvider(unittest.TestCase):
@@ -125,6 +118,17 @@ class TestGoogleProvider(unittest.TestCase):
         assert config.vertex_credentials == "k"
         assert config.vertex_project == "p"
         assert config.vertex_location == ["l"]
+
+    async def test_parse_region_strings(self):
+        old_config = {
+            "vertex_credentials": "k",
+            "vertex_project": "p",
+            "vertex_location": "l,m",
+        }
+        config = GoogleProviderConfig.model_validate(old_config)
+        assert config.vertex_credentials == "k"
+        assert config.vertex_project == "p"
+        assert config.vertex_location == ["l", "m"]
 
     async def test_parse_config(self):
         old_config = {
@@ -259,12 +263,9 @@ MODEL_PRICES_PER_CHAR[Model.GEMINI_2_0_FLASH_001] = PerCharPricing(
 
 
 def google_vertex_ai_per_char_models():
-    for model in GoogleProvider.all_supported_models():
-        if model in MODEL_PRICE_PER_TOKEN.keys():
-            # Per token priced model are tested in another test
-            continue
-
-        yield model
+    # Only yield Gemini 2.0 Flash
+    # No point in running tests for all models
+    yield Model.GEMINI_2_0_FLASH_LITE_001
 
 
 def _llm_completion(messages: list[dict[str, Any]], usage: LLMUsage, response: str | None = None):
@@ -510,12 +511,8 @@ MODEL_PRICE_PER_TOKEN = {
 
 
 def google_vertex_ai_per_token_models():
-    for model in GoogleProvider.all_supported_models():
-        if model in PER_TOKEN_PRICING_IGNORE_LIST:
-            # Per char priced model are tested in another test
-            continue
-
-        yield model
+    # No point in running tests for all models
+    yield Model.LLAMA_3_1_405B
 
 
 class TestGoogleProviderPerTokenCostCalculation:

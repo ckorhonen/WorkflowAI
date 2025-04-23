@@ -57,6 +57,7 @@ from core.utils.schema_sanitation import (
     normalize_output_json_schema,  # pyright: ignore[reportDeprecated]
 )
 from core.utils.schema_validation_utils import fix_non_object_root
+from core.utils.stream_response_utils import safe_streaming_response
 from core.utils.streams import format_model_for_sse
 
 from ..dependencies.storage import StorageDep
@@ -132,7 +133,7 @@ async def generate_via_chat(
                     if agent_schema
                     else None,
                 )
-                yield format_model_for_sse(payload)
+                yield payload
 
             if agent_schema is not None and assistant_answer is not None:
                 event_router(
@@ -145,7 +146,7 @@ async def generate_via_chat(
                     ),
                 )
 
-        return StreamingResponse(_stream(), media_type="text/event-stream")
+        return safe_streaming_response(_stream, media_type="text/event-stream")
 
     new_task_schema, assistant_answer = await internal_tasks.run_task_schema_iterations(
         chat_messages=chat_messages,

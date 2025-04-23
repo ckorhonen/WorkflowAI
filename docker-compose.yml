@@ -103,6 +103,19 @@ services:
         '1',
         '--reload',
       ]
+  scheduler:
+    <<: *api
+    # No ports needed
+    ports: []
+    command:
+      [
+        'poetry',
+        'run',
+        'taskiq',
+        'scheduler',
+        'api.scheduler:scheduler',
+      ]
+
   # Client, serves the fronted
   client:
     build:

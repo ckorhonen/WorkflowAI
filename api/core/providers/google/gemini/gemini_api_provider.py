@@ -17,7 +17,7 @@ from core.runners.workflowai.utils import FileWithKeyPath
 class GoogleGeminiAPIProviderConfig(BaseModel):
     provider: Literal[Provider.GOOGLE_GEMINI] = Provider.GOOGLE_GEMINI
     api_key: str
-    url: str
+    url: str = "https://generativelanguage.googleapis.com"
 
     default_block_threshold: BLOCK_THRESHOLD | None = None
 
@@ -44,7 +44,7 @@ class GoogleGeminiAPIProvider(GoogleProviderBase[GoogleGeminiAPIProviderConfig])
         else:
             suffix = f"generateContent?key={self._config.api_key}"
 
-        model_str = model.value
+        model_str = self._model_url_str(model)
         api_version = self.model_api_versions.get(model, "v1beta")
         return f"{self._config.url}/{api_version}/models/{model_str}:{suffix}"
 
@@ -62,13 +62,12 @@ class GoogleGeminiAPIProvider(GoogleProviderBase[GoogleGeminiAPIProviderConfig])
     @classmethod
     def _default_config(cls, index: int) -> GoogleGeminiAPIProviderConfig:
         return GoogleGeminiAPIProviderConfig(
-            url="https://generativelanguage.googleapis.com",
             api_key=get_provider_config_env("GEMINI_API_KEY", index),
         )
 
     @override
     def default_model(self) -> Model:
-        return Model.GEMINI_1_5_FLASH_002
+        return Model.GEMINI_2_0_FLASH_001
 
     def _compute_prompt_token_count_per_token(self, messages: list[dict[str, Any]], model: Model) -> float:
         token_count = 0

@@ -69,11 +69,13 @@ class Model(StrEnum):
     # Gemini Models
     # --------------------------------------------------------------------------
     # GEMINI_2_0_FLASH_LATEST = "gemini-2.0-flash-latest"
+    GEMINI_2_5_FLASH_PREVIEW_0417 = "gemini-2.5-flash-preview-04-17"
+    GEMINI_2_5_FLASH_THINKING_PREVIEW_0417 = "gemini-2.5-flash-thinking-preview-04-17"
+    GEMINI_2_5_PRO_PREVIEW_0325 = "gemini-2.5-pro-preview-03-25"
     GEMINI_2_5_PRO_EXP_0325 = "gemini-2.5-pro-exp-03-25"
     GEMINI_2_0_FLASH_001 = "gemini-2.0-flash-001"
     GEMINI_2_0_FLASH_LITE_001 = "gemini-2.0-flash-lite-001"
     GEMINI_2_0_FLASH_LITE_PREVIEW_2502 = "gemini-2.0-flash-lite-preview-02-05"
-    GEMINI_2_5_PRO_PREVIEW_0325 = "gemini-2.5-pro-preview-03-25"
     GEMINI_2_0_PRO_EXP = "gemini-2.0-pro-exp-02-05"
     GEMINI_2_0_FLASH_EXP = "gemini-2.0-flash-exp"
     GEMINI_2_0_FLASH_THINKING_EXP_1219 = "gemini-2.0-flash-thinking-exp-1219"
@@ -111,6 +113,8 @@ class Model(StrEnum):
     # --------------------------------------------------------------------------
     # Llama Models
     # --------------------------------------------------------------------------
+    LLAMA_4_MAVERICK_FAST = "llama4-maverick-instruct-fast"
+    LLAMA_4_SCOUT_FAST = "llama4-scout-instruct-fast"
     LLAMA_4_MAVERICK_BASIC = "llama4-maverick-instruct-basic"
     LLAMA_4_SCOUT_BASIC = "llama4-scout-instruct-basic"
     LLAMA_3_3_70B = "llama-3.3-70b"
