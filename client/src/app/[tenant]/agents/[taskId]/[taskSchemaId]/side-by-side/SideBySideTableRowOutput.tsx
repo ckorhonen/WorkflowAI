@@ -1,8 +1,9 @@
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useEffect } from 'react';
 import { TaskOutputViewer } from '@/components/ObjectViewer/TaskOutputViewer';
-import { useOrCreateVersion, useOrRunVersion } from '@/store/fetchers';
+import { useOrRunVersion } from '@/store/run_version';
 import { useSideBySideStore } from '@/store/side_by_side';
+import { useOrCreateVersion } from '@/store/versions';
 import { TenantID } from '@/types/aliases';
 import { TaskSchemaID } from '@/types/aliases';
 import { TaskID } from '@/types/aliases';

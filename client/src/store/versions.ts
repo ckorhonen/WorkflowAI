@@ -1,6 +1,6 @@
 import { enableMapSet, produce } from 'immer';
 import { isEmpty } from 'lodash';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { create } from 'zustand';
 import { client } from '@/lib/api';
 import { RequestError } from '@/lib/api/client';
@@ -209,6 +209,7 @@ export const useVersions = create<VersionsState>((set, get) => ({
     return response;
   },
 
+  // This method differs from createVersion in the fact that it keeps the state, and that enables us to use the useOrCreateVersion hook
   createVersionInternally: async (
     tenant: TenantID | undefined,
     taskId: TaskID,
@@ -462,3 +463,40 @@ export function useOrFetchVersionsStats(tenant: TenantID, taskId: TaskID) {
     isLoading,
   };
 }
+
+export const useOrCreateVersion = (
+  tenant: TenantID | undefined,
+  taskId: TaskID,
+  taskSchemaId: TaskSchemaID,
+  body: CreateVersionRequest | undefined
+) => {
+  const scopeKey = buildCreateVersionScopeKey({
+    tenant,
+    taskId,
+    taskSchemaId,
+    body,
+  });
+
+  const createVersionInternally = useVersions((state) => state.createVersionInternally);
+  const isCreatingVersion = useVersions((state) => (scopeKey ? state.isCreatingVersion.get(scopeKey) : false));
+  const createdVersion = useVersions((state) => (scopeKey ? state.createdVersions.get(scopeKey) : undefined));
+  const error = useVersions((state) => (scopeKey ? state.createVersionErrors.get(scopeKey) : undefined));
+
+  const isCreatingVersionRef = useRef(isCreatingVersion);
+  isCreatingVersionRef.current = isCreatingVersion;
+
+  const wasVersionCreatedRef = useRef(false);
+  wasVersionCreatedRef.current = !!createdVersion;
+
+  useEffect(() => {
+    if (!wasVersionCreatedRef.current && !isCreatingVersionRef.current && !!body) {
+      createVersionInternally(tenant, taskId, taskSchemaId, body);
+    }
+  }, [createVersionInternally, isCreatingVersionRef, tenant, taskId, taskSchemaId, body]);
+
+  return {
+    isCreatingVersion,
+    createdVersion,
+    error,
+  };
+};

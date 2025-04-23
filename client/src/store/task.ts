@@ -4,7 +4,6 @@ import { create } from 'zustand';
 import { client } from '@/lib/api';
 import { Method, SSEClient } from '@/lib/api/client';
 import { TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
-import { GeneralizedTaskInput } from '@/types/task_run';
 import {
   BuildAgentIteration,
   BuildAgentRequest,
@@ -23,14 +22,7 @@ import {
   UpdateTaskRequest,
 } from '@/types/workflowAI';
 import { useMetaAgentChat } from './meta_agent_messages';
-import {
-  buildRunVersionScopeKey,
-  buildScopeKey,
-  rootTaskPath,
-  rootTaskPathNoProxy,
-  rootTaskPathNoProxyV1,
-  runTaskPathNoProxy,
-} from './utils';
+import { buildScopeKey, rootTaskPath, rootTaskPathNoProxy, rootTaskPathNoProxyV1, runTaskPathNoProxy } from './utils';
 
 enableMapSet();
 
@@ -56,9 +48,6 @@ interface TasksState {
   isLoadingTaskByScope: Map<string, boolean>;
   isInitialiazedTaskByScope: Map<string, boolean>;
 
-  isRunningVersion: Map<string, boolean>;
-  runMessages: Map<string, RunResponseStreamChunk>;
-  runErrors: Map<string, Error>;
   fetchTask(tenant: TenantID | undefined, taskId: TaskID): Promise<void>;
   improveVersion(
     tenant: TenantID | undefined,
@@ -119,13 +108,6 @@ interface TasksState {
     onMessage: (message: RunResponseStreamChunk) => void;
     signal?: AbortSignal;
   }): Promise<RunResponseStreamChunk>;
-  runVersionInternally(
-    tenant: TenantID | undefined,
-    taskId: TaskID,
-    taskSchemaId: TaskSchemaID,
-    versionId: string,
-    input: GeneralizedTaskInput
-  ): Promise<void>;
 }
 
 export const useTasks = create<TasksState>((set, get) => ({
@@ -135,9 +117,7 @@ export const useTasks = create<TasksState>((set, get) => ({
   isInitialiazedTaskByScope: new Map(),
   isLoadingTasksByTenant: new Map(),
   isInitialiazedTasksByTenant: new Map(),
-  isRunningVersion: new Map(),
-  runMessages: new Map(),
-  runErrors: new Map(),
+
   fetchTasks: async (tenant) => {
     if (get().isLoadingTasksByTenant.get(tenant) ?? false) return;
     set(
@@ -361,66 +341,5 @@ export const useTasks = create<TasksState>((set, get) => ({
       signal
     );
     return lastMessage;
-  },
-
-  runVersionInternally: async (
-    tenant: TenantID | undefined,
-    taskId: TaskID,
-    taskSchemaId: TaskSchemaID,
-    versionId: string,
-    input: GeneralizedTaskInput
-  ): Promise<void> => {
-    const scopeKey = buildRunVersionScopeKey({
-      tenant,
-      taskId,
-      taskSchemaId,
-      versionId,
-      input,
-    });
-
-    if (!scopeKey) return;
-
-    if (get().isRunningVersion.get(scopeKey) ?? false) return;
-
-    set(
-      produce((state: TasksState) => {
-        state.isRunningVersion.set(scopeKey, true);
-      })
-    );
-
-    try {
-      const lastMessage = await SSEClient<RunRequest, RunResponseStreamChunk>(
-        `${runTaskPathNoProxy(tenant)}/${taskId}/schemas/${taskSchemaId}/run`,
-        Method.POST,
-        {
-          task_input: input as Record<string, unknown>,
-          version: versionId,
-        },
-        (message) => {
-          set(
-            produce((state: TasksState) => {
-              state.runMessages.set(scopeKey, message);
-            })
-          );
-        }
-      );
-
-      set(
-        produce((state: TasksState) => {
-          state.runMessages.set(scopeKey, lastMessage);
-        })
-      );
-    } catch (error) {
-      set(
-        produce((state: TasksState) => {
-          state.runErrors.set(scopeKey, error as Error);
-        })
-      );
-    }
-    set(
-      produce((state: TasksState) => {
-        state.isRunningVersion.set(scopeKey, false);
-      })
-    );
   },
 }));
