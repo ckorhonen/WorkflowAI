@@ -58,6 +58,7 @@ export function SideBySideTableRow(props: SideBySideTableRowProps) {
       return {
         properties: {
           ...selectedLeftVersion.properties,
+          provider: selectedRightModel.providers[0],
           model: selectedRightModel.id,
         },
         save: false,
