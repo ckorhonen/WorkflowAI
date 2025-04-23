@@ -12,6 +12,10 @@ class SchemaTypology(BaseModel):
     has_audio: bool = Field(default=False, description="Whether the schema contains an audio")
     has_pdf: bool = Field(default=False, description="Whether the schema contains a pdf")
 
+    @property
+    def is_text_only(self) -> bool:
+        return not self.has_image and not self.has_audio and not self.has_pdf
+
     def assign_from_schema(self, schema: JsonSchema, is_array: bool):
         followed: str | None = schema.get("$ref")
         if followed is None:

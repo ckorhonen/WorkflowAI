@@ -20,6 +20,7 @@ from core.domain.errors import (
     MaxToolCallIterationError,
     ModelDoesNotSupportMode,
 )
+from core.domain.fields.image_options import ImageOptions
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.message import Message
 from core.domain.metrics import send_gauge
@@ -136,6 +137,8 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             self.internal_tools,
             self.properties.enabled_tools,
         )
+
+        self._typology = self.task.typology()
 
     @override
     def version(self) -> str:
@@ -395,6 +398,30 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
 
         return rendered
 
+    async def _extract_image_options(
+        self,
+        input: TaskInputDict,
+        input_schema: dict[str, Any],
+    ) -> ImageOptions | None:
+        """Extract the image options from the input and remove it from the input if possible"""
+        input_parameters = input.get("options")
+        if not input_parameters:
+            return None
+        try:
+            option_ref = input_schema.get("properties", {}).get("options", {}).get("$ref")
+        except Exception:
+            # that can happen for weird schemas
+            return None
+        if option_ref != "#/$defs/ImageOptions":
+            return None
+
+        try:
+            image_parameters = ImageOptions.model_validate(input_parameters)
+        except Exception:
+            return None
+        del input["options"]
+        return image_parameters
+
     async def _build_messages(
         self,
         template_name: TemplateName,
@@ -414,6 +441,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         input_copy = deepcopy(input)
         input_schema = self.task_input_schema()
         output_schema = self.task_output_schema()
+        image_options = await self._extract_image_options(input, input_schema)
 
         input_schema, input_copy, files = extract_files(input_schema, input_copy)
 
@@ -474,6 +502,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
                     output_schema=output_schema,
                 ),
                 role=Message.Role.SYSTEM,
+                image_options=image_options,
             ),
         ]
         if user_message_content.content or files:
@@ -799,13 +828,24 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         template_name = self._pick_template(provider, model_data_copy, is_structured_generation_enabled)
         return provider, template_name, provider_options, model_data_copy
 
-    async def _stream_task_output_from_messages(
+    async def _stream_task_output_from_messages(  # noqa: C901
         self,
         provider: AbstractProvider[Any, Any],
         options: ProviderOptions,
         messages: list[Message],
     ):
+        # TODO: this should really not be here but instead built when computing options
+        # in _build_provider_data
         options.enabled_tools = list(self._all_tools())
+
+        # For now we don't stream images
+        streamable = not self._typology.output.is_text_only and provider.is_streamable(
+            options.model,
+            options.enabled_tools,
+        )
+        if streamable:
+            yield (await self._build_task_output_from_messages(provider, options, messages))
+            return
 
         if not provider.is_streamable(options.model, options.enabled_tools):
             yield (await self._build_task_output_from_messages(provider, options, messages))
