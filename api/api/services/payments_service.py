@@ -56,16 +56,20 @@ class _IntentMetadata(_CustomerMetadata):
     trigger: Literal["automatic", "manual"] = "manual"
 
 
+class MissingPaymentMethod(BadRequestError):
+    pass
+
+
 class PaymentService:
     def __init__(self, org_storage: OrganizationStorage):
         self._org_storage = org_storage
 
     @classmethod
-    def _get_stripe_customer_id_from_org(cls, org_settings: TenantData) -> str:
+    def _get_stripe_customer_id_from_org(cls, org_settings: TenantData, capture: bool = True) -> str:
         if org_settings.stripe_customer_id is None:
             raise BadRequestError(
                 "Organization has no Stripe customer ID",
-                capture=True,
+                capture=capture,
                 extra={"org_settings": safe_dump_pydantic_model(org_settings)},
             )
         return org_settings.stripe_customer_id
@@ -139,7 +143,7 @@ class PaymentService:
         if customer.invoice_settings is None or customer.invoice_settings.default_payment_method is None:
             # This can happen if the client creates a payment intent before
             # Setting a default payment method.
-            raise BadRequestError(
+            raise MissingPaymentMethod(
                 "Organization has no default payment method",
                 capture=True,
                 extra={"tenant": org_settings.tenant},
@@ -177,19 +181,13 @@ class PaymentService:
         )
 
     @classmethod
-    async def get_payment_method(cls, org_settings: TenantData) -> PaymentMethodResponse | None:
-        if not stripe.api_key:
-            _logger.error("Stripe API key is not set. Skipping payment method retrieval.")
-            return None
-        if not org_settings.stripe_customer_id:
-            return None
-
+    async def _get_default_payment_method(cls, stripe_customer_id: str) -> PaymentMethodResponse | None:
         customer = await stripe.Customer.retrieve_async(
-            org_settings.stripe_customer_id,
+            stripe_customer_id,
             expand=["invoice_settings.default_payment_method"],
         )
         if customer.invoice_settings is None:
-            raise ValueError("Organization has no invoice settings")
+            return None
 
         if not customer.invoice_settings.default_payment_method:
             return None
@@ -203,24 +201,27 @@ class PaymentService:
             exp_year=pm.card.exp_year,  # pyright: ignore
         )
 
+    @classmethod
+    async def get_payment_method(cls, org_settings: TenantData) -> PaymentMethodResponse | None:
+        if not stripe.api_key:
+            _logger.error("Stripe API key is not set. Skipping payment method retrieval.")
+            return None
+        if not org_settings.stripe_customer_id:
+            return None
+
+        return await cls._get_default_payment_method(org_settings.stripe_customer_id)
+
     async def delete_payment_method(self, org_settings: TenantData) -> None:
         stripe_customer_id = self._get_stripe_customer_id_from_org(org_settings)
+        payment_method = await self._get_default_payment_method(stripe_customer_id)
+        if not payment_method:
+            raise MissingPaymentMethod(
+                "Organization has no default payment method",
+                capture=True,
+                extra={"tenant": org_settings.tenant},
+            )
 
-        customer = await stripe.Customer.retrieve_async(stripe_customer_id)
-
-        invoice_settings = customer.invoice_settings
-        if invoice_settings is None:
-            _logger.info("Organization has no invoice settings")
-            return
-
-        default_payment_method = invoice_settings.default_payment_method
-        if default_payment_method is None:
-            _logger.info("Organization has no default payment method")
-            return
-
-        await stripe.PaymentMethod.detach_async(
-            default_payment_method,  # pyright: ignore
-        )
+        await stripe.PaymentMethod.detach_async(payment_method.payment_method_id)
 
         await stripe.Customer.modify_async(
             stripe_customer_id,
@@ -230,14 +231,26 @@ class PaymentService:
         # Opt-out from automatic payments
         await self._org_storage.update_automatic_payment(opt_in=False, threshold=None, balance_to_maintain=None)
 
-        _logger.info("Deleted payment method", extra={"payment_method_id": default_payment_method})  # pyright: ignore
+        _logger.info("Deleted payment method", extra={"payment_method_id": payment_method.payment_method_id})
 
     async def configure_automatic_payment(
         self,
+        org_settings: TenantData,
         opt_in: bool,
         threshold: float | None,
         balance_to_maintain: float | None,
     ):
+        # This will throw an error if the customer does not exist
+        stripe_customer_id = self._get_stripe_customer_id_from_org(org_settings, capture=False)
+
+        default_payment_method = await self._get_default_payment_method(stripe_customer_id)
+        if not default_payment_method:
+            raise MissingPaymentMethod(
+                "Organization has no default payment method",
+                capture=True,  # Capturing, that would mean a bug in the frontend
+                extra={"tenant": org_settings.tenant},
+            )
+
         await self._org_storage.update_automatic_payment(opt_in, threshold, balance_to_maintain)
 
 
@@ -298,7 +311,7 @@ class PaymentSystemService:
 
         default_payment_method = await PaymentService.get_payment_method(org_settings)
         if default_payment_method is None:
-            raise InternalError(
+            raise MissingPaymentMethod(
                 "Organization has no default payment method",
                 extra={"org_settings": org_settings.model_dump()},
             )
@@ -352,6 +365,15 @@ class PaymentSystemService:
 
         try:
             await self._start_automatic_payment_for_locked_org(org_settings, min_amount=min_amount)
+        except MissingPaymentMethod:
+            # Capture for now, this should not happen
+            _logger.error("Automatic payment failed due to missing payment method", extra={"tenant": tenant})
+            # The customer has no default payment method so we can't process the payment
+            await self._unlock_payment_for_failure(
+                tenant,
+                code="payment_failed",
+                failure_reason="The account does not have a default payment method",
+            )
         except stripe.CardError as e:
             await self._unlock_payment_for_failure(
                 tenant,
