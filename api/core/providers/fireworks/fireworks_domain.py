@@ -1,7 +1,7 @@
 import json
 from typing import Annotated, Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from core.domain.errors import UnpriceableRunError
 from core.domain.fields.file import File
@@ -305,3 +305,10 @@ class FireworksAIError(BaseModel):
         model_config = ConfigDict(extra="allow")
 
     error: Payload
+
+    @field_validator("error", mode="before")
+    def validate_error(cls, v: Any) -> Any:
+        # Sometimes, fireworks returns a string instead of a dict
+        if isinstance(v, str):
+            return cls.Payload(message=v)
+        return v

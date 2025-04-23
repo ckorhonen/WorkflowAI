@@ -11,6 +11,7 @@ from core.domain.errors import (
     FailedGenerationError,
     InvalidGenerationError,
     MaxTokensExceededError,
+    MissingModelError,
     UnknownProviderError,
 )
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
@@ -265,6 +266,11 @@ class FireworksAIProvider(HTTPXProvider[FireworksConfig, CompletionResponse]):
                 msg=payload.error.message,
                 response=response,
                 store_task_run=False,
+            )
+        if "model not found, inaccessible, and/or not deployed" in lower_msg:
+            return MissingModelError(
+                msg=payload.error.message,
+                response=response,
             )
         return False
 

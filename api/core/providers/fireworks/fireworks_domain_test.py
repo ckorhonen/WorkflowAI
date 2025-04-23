@@ -30,14 +30,20 @@ def test_streamed_response_final():
     assert raw.choices[0].delta.content == ""
 
 
-@pytest.mark.parametrize(
-    "payload",
-    [
-        """{"error":{"message":"'messages' must contain the word 'json' in some form, to use 'response_format' of type 'json_object'.","type":"invalid_request_error","param":"messages","code":null}}""",
-    ],
-)
-def test_error(payload: str):
-    assert FireworksAIError.model_validate_json(payload)
+class TestFireworksAIError:
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            """{"error":{"message":"'messages' must contain the word 'json' in some form, to use 'response_format' of type 'json_object'.","type":"invalid_request_error","param":"messages","code":null}}""",
+        ],
+    )
+    def test_error(self, payload: str):
+        assert FireworksAIError.model_validate_json(payload)
+
+    def test_error_with_string_payload(self):
+        payload = '{"error":"The account does not have a default payment method"}'
+        error = FireworksAIError.model_validate_json(payload)
+        assert error.error.message == "The account does not have a default payment method"
 
 
 class TestFireworksMessageTokenCount:
