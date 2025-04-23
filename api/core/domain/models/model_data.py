@@ -131,6 +131,11 @@ class FinalModelData(ModelData):
 
         if task_typology.output.has_image and not self.supports_output_image:
             return f"{self.display_name} does not support output images"
+        # Right now we have no model supporting output audio or PDF but that could change in the future
+        if task_typology.output.has_audio:
+            return f"{self.display_name} does not support output audio"
+        if task_typology.output.has_pdf:
+            return f"{self.display_name} does not support output pdf"
         return None
 
 

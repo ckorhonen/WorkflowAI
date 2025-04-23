@@ -10,7 +10,6 @@ from api.dependencies.services import AnalyticsServiceDep
 from api.dependencies.storage import StorageDep
 from api.tags import RouteTags
 from core.domain.analytics_events.analytics_events import CreatedTaskProperties, TaskProperties
-from core.domain.errors import BadRequestError
 from core.domain.events import TaskSchemaCreatedEvent
 from core.domain.fields.chat_message import ChatMessage
 from core.domain.page import Page
@@ -18,7 +17,6 @@ from core.domain.task_io import SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
 from core.utils import strings
 from core.utils.fields import datetime_factory
-from core.utils.schema_sanitation import schema_contains_file
 
 router = APIRouter(prefix="/v1/{tenant}/agents", tags=[RouteTags.AGENTS])
 
@@ -91,16 +89,15 @@ async def create_agent(
     analytics_service: AnalyticsServiceDep,
     user_org: RequiredUserOrganizationDep,
 ) -> CreateAgentResponse:
-    output_schema = SerializableTaskIO.from_json_schema(request.output_schema, streamline=request.sanitize_schemas)
-    if schema_contains_file(output_schema.json_schema):
-        raise BadRequestError("The output schema contains a file")
+    # We no longer limit on the output schema, the check will happen client side anyway
+    # The task typology will be detected and models will be filtered accordingly
     variant = SerializableTaskVariant(
         id="",
         task_id=request.id,
         task_schema_id=0,
         name=request.name,
         input_schema=SerializableTaskIO.from_json_schema(request.input_schema, streamline=request.sanitize_schemas),
-        output_schema=output_schema,
+        output_schema=SerializableTaskIO.from_json_schema(request.output_schema, streamline=request.sanitize_schemas),
         created_at=datetime_factory(),
         creation_chat_messages=request.chat_messages,
     )
