@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from core.utils.redis_lock import LockAcquisitionError, redis_lock
+from core.utils.redis_lock import DedupAcquisitionError, redis_dedup
 
 
 @pytest.mark.asyncio
@@ -13,7 +13,7 @@ async def test_redis_lock_acquire_success():
     mock_redis.set.return_value = True  # Lock acquisition succeeds
 
     with patch("core.utils.redis_lock.shared_redis_client", mock_redis):
-        async with redis_lock("test:lock:key"):
+        async with redis_dedup("test:lock:key"):
             # If we get here, lock was acquired successfully
             pass
 
@@ -28,8 +28,8 @@ async def test_redis_lock_acquire_fail():
     mock_redis.set.return_value = False  # Lock acquisition fails
 
     with patch("core.utils.redis_lock.shared_redis_client", mock_redis):
-        with pytest.raises(LockAcquisitionError):
-            async with redis_lock("test:lock:key"):
+        with pytest.raises(DedupAcquisitionError):
+            async with redis_dedup("test:lock:key"):
                 pytest.fail("Code block should not be executed")
 
 
@@ -38,7 +38,7 @@ async def test_redis_lock_no_redis_client():
     """Test behavior when Redis client is not available"""
     with patch("core.utils.redis_lock.shared_redis_client", None):
         # Should proceed without error when Redis is unavailable
-        async with redis_lock("test:lock:key"):
+        async with redis_dedup("test:lock:key"):
             # Should execute the code block normally
             pass
 
@@ -50,7 +50,7 @@ async def test_redis_lock_with_custom_expiry():
     mock_redis.set.return_value = True
 
     with patch("core.utils.redis_lock.shared_redis_client", mock_redis):
-        async with redis_lock("test:lock:key", expire_seconds=120):
+        async with redis_dedup("test:lock:key", expire_seconds=120):
             pass
 
         # Verify expiry time was passed correctly
@@ -70,7 +70,7 @@ async def test_redis_lock_concurrent_access():
 
         async def task1():
             nonlocal task1_completed
-            async with redis_lock("test:lock:key"):
+            async with redis_dedup("test:lock:key"):
                 # Simulate some work
                 await asyncio.sleep(0.1)
                 task1_completed = True
@@ -78,9 +78,9 @@ async def test_redis_lock_concurrent_access():
         # Second task attempts to acquire the same lock
         async def task2():
             try:
-                async with redis_lock("test:lock:key"):
+                async with redis_dedup("test:lock:key"):
                     pytest.fail("Second task should not acquire the lock")
-            except LockAcquisitionError:
+            except DedupAcquisitionError:
                 # Expected exception
                 pass
 
