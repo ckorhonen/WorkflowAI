@@ -429,6 +429,8 @@ class InvalidProviderConfig(ProviderError):
     code = "invalid_provider_config"
     default_status_code = 400
     default_message = "Invalid provider configuration"
+    should_try_next_provider = True
+    default_capture = True
 
 
 class MaxTokensExceededError(ProviderError):
