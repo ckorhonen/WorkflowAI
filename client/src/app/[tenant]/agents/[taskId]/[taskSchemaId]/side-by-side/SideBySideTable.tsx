@@ -1,5 +1,6 @@
 import { Loader2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useLocalStorage } from 'usehooks-ts';
 import { useRedirectWithParams } from '@/lib/queryString';
 import { useParsedSearchParams } from '@/lib/queryString';
 import { useOrFetchCurrentTaskSchema } from '@/store/fetchers';
@@ -24,11 +25,13 @@ type SideBySideTableProps = {
 export function SideBySideTable(props: SideBySideTableProps) {
   const { inputs, versions, models, tenant, taskId, taskSchemaId, page } = props;
 
-  const { selectedLeftVersionId, selectedRightVersionId, selectedRightModelId } = useParsedSearchParams(
-    'selectedLeftVersionId',
-    'selectedRightVersionId',
-    'selectedRightModelId'
-  );
+  const { selectedLeftVersionId, selectedRightVersionId, selectedRightModelId, requestedRightModelId } =
+    useParsedSearchParams(
+      'selectedLeftVersionId',
+      'selectedRightVersionId',
+      'selectedRightModelId',
+      'requestedRightModelId'
+    );
 
   const redirectWithParams = useRedirectWithParams();
 
@@ -39,6 +42,7 @@ export function SideBySideTable(props: SideBySideTableProps) {
           selectedLeftVersionId: newLeftVersionId,
           selectedRightVersionId: undefined,
           selectedRightModelId: undefined,
+          requestedRightModelId: undefined,
         },
         scroll: false,
       });
@@ -101,23 +105,87 @@ export function SideBySideTable(props: SideBySideTableProps) {
     return undefined;
   }, [versions]);
 
+  const [savedLeftVersionId, setSavedLeftVersionId] = useLocalStorage(
+    `savedLeftVersionId-${taskId}`,
+    selectedLeftVersionId
+  );
+  const [savedRightVersionId, setSavedRightVersionId] = useLocalStorage(
+    `savedRightVersionId-${taskId}`,
+    selectedRightVersionId
+  );
+  const [savedRightModelId, setSavedRightModelId] = useLocalStorage(
+    `savedRightModelId-${taskId}`,
+    selectedRightModelId
+  );
+
+  // Always save the selected Versions and Models
   useEffect(() => {
+    // If left Version Id is not set, means we didn't yet set the defaults
+    if (!selectedLeftVersionId) {
+      return;
+    }
+    setSavedLeftVersionId(selectedLeftVersionId);
+    setSavedRightVersionId(selectedRightVersionId);
+    setSavedRightModelId(selectedRightModelId);
+  }, [
+    selectedLeftVersionId,
+    selectedRightVersionId,
+    selectedRightModelId,
+    setSavedLeftVersionId,
+    setSavedRightVersionId,
+    setSavedRightModelId,
+  ]);
+
+  useEffect(() => {
+    // We only check is selectedLeftVersionId is empty becasue that will happen only when first loading the page, it will be imposible to set it to empty later on
     if (versions.length === 0 || !!selectedLeftVersionId) {
       return;
     }
 
-    const leftVersion = deployedVersion ?? versions[0];
-    const rightVersion: VersionV1 | undefined = deployedVersion
-      ? leftVersion.id === versions[0].id
-        ? versions[1]
-        : versions[0]
-      : versions[1];
+    // Default Left Version
+    let defaultLeftVersionId: string | undefined = deployedVersion?.id ?? versions[0].id;
+
+    // Default Right Version
+    let defaultRightVersionId: string | undefined = deployedVersion
+      ? defaultLeftVersionId === versions[0].id
+        ? versions[1].id
+        : versions[0].id
+      : versions[1].id;
+
+    // Default Right Model
+    let defaultRightModelId: string | undefined = undefined;
+
+    // Let's override default ones if there are saved ones
+    defaultLeftVersionId = savedLeftVersionId ?? defaultLeftVersionId;
+
+    // Those ids should be exclusive so if one is set in saved we want set the values for both
+    if (savedRightVersionId || savedRightModelId) {
+      defaultRightVersionId = savedRightVersionId;
+      defaultRightModelId = savedRightModelId;
+    }
+
+    // Logic for deep linking
+    let leftVersionId: string | undefined = undefined;
+    let rightVersionId: string | undefined = undefined;
+    let rightModelId: string | undefined = undefined;
+
+    leftVersionId = defaultLeftVersionId;
+
+    // We will override the selectedRightVersionId if we have a requestedRightModelId from a deeplink
+    if (requestedRightModelId) {
+      rightVersionId = undefined;
+      rightModelId = requestedRightModelId;
+    } else {
+      rightVersionId = defaultRightVersionId;
+      rightModelId = defaultRightModelId;
+    }
 
     redirectWithParams({
       params: {
-        selectedLeftVersionId: leftVersion.id,
-        selectedRightVersionId: !selectedRightModelId ? selectedRightVersionId ?? rightVersion?.id : undefined,
-        selectedRightModelId: selectedRightModelId ?? undefined,
+        selectedLeftVersionId: leftVersionId,
+        selectedRightVersionId: rightVersionId,
+        selectedRightModelId: rightModelId,
+        requestedRightModelId: undefined,
       },
       scroll: false,
     });
@@ -125,9 +193,11 @@ export function SideBySideTable(props: SideBySideTableProps) {
     deployedVersion,
     versions,
     selectedLeftVersionId,
-    selectedRightVersionId,
-    selectedRightModelId,
+    requestedRightModelId,
     redirectWithParams,
+    savedLeftVersionId,
+    savedRightModelId,
+    savedRightVersionId,
   ]);
 
   return (

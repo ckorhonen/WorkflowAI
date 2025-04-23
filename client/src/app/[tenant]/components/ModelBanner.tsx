@@ -22,7 +22,7 @@ export function ModelBanner(props: ModelBannerProps) {
       return null;
     }
 
-    return taskSideBySideRoute(tenant, taskId, taskSchemaId, { selectedRightModelId: modelId });
+    return taskSideBySideRoute(tenant, taskId, taskSchemaId, { requestedRightModelId: modelId });
   }, [modelId, tenant, taskId, taskSchemaId]);
 
   return (
