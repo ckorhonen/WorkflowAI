@@ -846,25 +846,7 @@ def _build_model_datas():
             provider_name=DisplayedProvider.ANTHROPIC.value,
             supports_tool_calling=True,
         ),
-        Model.CLAUDE_3_SONNET_20240229: ModelData(
-            display_name="Claude 3 Sonnet (2024-02-29)",
-            supports_json_mode=False,
-            supports_input_image=True,
-            supports_multiple_images_in_input=True,
-            supports_input_pdf=False,
-            supports_input_audio=False,
-            max_tokens_data=MaxTokensData(
-                max_tokens=200000,
-                max_output_tokens=4096,
-                source="https://docs.anthropic.com/en/docs/about-claude/models",
-            ),
-            provider_for_pricing=Provider.AMAZON_BEDROCK,
-            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/anthropic.svg",
-            release_date=date(2024, 2, 29),
-            quality_index=704,  # MMLU=81.50, GPQA=59.40
-            provider_name=DisplayedProvider.ANTHROPIC.value,
-            supports_tool_calling=True,
-        ),
+        Model.CLAUDE_3_SONNET_20240229: DeprecatedModel(replacement_model=Model.CLAUDE_3_5_SONNET_20241022),
         Model.CLAUDE_3_HAIKU_20240307: ModelData(
             display_name="Claude 3 Haiku (2024-03-07)",
             supports_json_mode=False,
@@ -908,7 +890,6 @@ def _build_model_datas():
             provider_name=DisplayedProvider.ANTHROPIC.value,
             supports_tool_calling=True,
         ),
-        # https://fireworks.ai/models/fireworks/llama-v3-70b-instruct
         Model.LLAMA3_70B_8192: DeprecatedModel(replacement_model=Model.LLAMA_4_SCOUT_BASIC),
         Model.LLAMA3_8B_8192: DeprecatedModel(replacement_model=Model.LLAMA_4_SCOUT_BASIC),
         Model.LLAMA_3_1_405B: ModelData(
@@ -988,102 +969,15 @@ def _build_model_datas():
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=False,
         ),
-        Model.LLAMA_3_2_90B: ModelData(
-            display_name="Llama 3.2 (90B) Instruct",
-            supports_json_mode=False,
-            supports_input_image=True,
-            supports_multiple_images_in_input=False,
-            supports_input_pdf=False,
-            supports_input_audio=False,
-            max_tokens_data=MaxTokensData(
-                max_tokens=128000,
-                source="https://console.cloud.google.com/vertex-ai/publishers/meta/model-garden/llama3-2",
-            ),
-            provider_for_pricing=Provider.AMAZON_BEDROCK,  # TODO: fixeworks
-            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
-            release_date=date(2024, 9, 25),
-            quality_index=664,  # MMLU=86.00, GPQA=46.70
-            provider_name=DisplayedProvider.AMAZON_BEDROCK.value,
-            supports_tool_calling=True,
-        ),
-        Model.LLAMA_3_2_11B: ModelData(
-            display_name="Llama 3.2 (11B) Instruct",
-            supports_json_mode=False,
-            supports_input_image=True,
-            supports_multiple_images_in_input=False,
-            supports_input_pdf=False,
-            supports_input_audio=False,
-            max_tokens_data=MaxTokensData(
-                max_tokens=128000,
-                source="https://us-west-2.console.aws.amazon.com/bedrock/home?region=us-west-2#/providers?model=meta.llama3-2-11b-instruct-v1:0",
-            ),
-            provider_for_pricing=Provider.AMAZON_BEDROCK,  # TODO: fixeworks
-            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
-            release_date=date(2024, 9, 25),
-            quality_index=529,  # MMLU=73.00, GPQA=32.80
-            provider_name=DisplayedProvider.AMAZON_BEDROCK.value,
-            supports_tool_calling=False,
-        ),
-        Model.LLAMA_3_2_3B: ModelData(
-            display_name="Llama 3.2 (3B) Instruct",
-            supports_json_mode=False,
-            supports_input_image=False,
-            supports_multiple_images_in_input=False,
-            supports_input_pdf=False,
-            supports_input_audio=False,
-            supports_structured_output=True,
-            max_tokens_data=MaxTokensData(
-                max_tokens=131072,
-                source="https://api.fireworks.ai/v1/accounts/fireworks/models/llama-v3p2-3b-instruct",
-            ),
-            provider_for_pricing=Provider.FIREWORKS,
-            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
-            release_date=date(2024, 9, 25),
-            quality_index=483,  # MMLU=63.40, GPQA=33.80
-            provider_name=DisplayedProvider.FIREWORKS.value,
-            supports_tool_calling=False,
-        ),
-        Model.LLAMA_3_2_1B: ModelData(
-            display_name="Llama 3.2 (1B) Instruct",
-            supports_json_mode=False,
-            supports_input_image=False,
-            supports_multiple_images_in_input=False,
-            supports_input_pdf=False,
-            supports_input_audio=False,
-            max_tokens_data=MaxTokensData(
-                max_tokens=131000,
-                source="https://us-west-2.console.aws.amazon.com/bedrock/home?region=us-west-2#/providers?model=meta.llama3-2-1b-instruct-v1:0",
-            ),
-            provider_for_pricing=Provider.AMAZON_BEDROCK,  # TODO: fixeworks
-            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
-            release_date=date(2024, 9, 25),
-            quality_index=368,  # MMLU=49.30, GPQA=27.20
-            provider_name=DisplayedProvider.AMAZON_BEDROCK.value,
-            supports_tool_calling=False,
-        ),
+        Model.LLAMA_3_2_90B: DeprecatedModel(replacement_model=Model.LLAMA_4_SCOUT_BASIC),
+        Model.LLAMA_3_2_11B: DeprecatedModel(replacement_model=Model.LLAMA_4_SCOUT_BASIC),
+        Model.LLAMA_3_2_3B: DeprecatedModel(replacement_model=Model.LLAMA_4_SCOUT_BASIC),
+        Model.LLAMA_3_2_1B: DeprecatedModel(replacement_model=Model.LLAMA_4_SCOUT_BASIC),
         Model.LLAMA_3_2_90B_TEXT_PREVIEW: DeprecatedModel(replacement_model=Model.LLAMA_4_SCOUT_BASIC),
         Model.LLAMA_3_2_11B_TEXT_PREVIEW: DeprecatedModel(replacement_model=Model.LLAMA_4_SCOUT_BASIC),
         # https://fireworks.ai/models/fireworks/llama-v3p2-3b
-        Model.LLAMA_3_2_3B_PREVIEW: ModelData(
-            display_name="Llama 3.2 (3B) Preview",
-            supports_json_mode=True,
-            supports_input_image=False,
-            supports_multiple_images_in_input=False,
-            supports_input_pdf=False,
-            supports_input_audio=False,
-            supports_structured_output=True,
-            max_tokens_data=MaxTokensData(
-                max_tokens=131072,
-                source="https://api.fireworks.ai/v1/accounts/fireworks/models/llama-v3p2-3b-instruct",
-            ),
-            provider_for_pricing=Provider.FIREWORKS,
-            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
-            release_date=date(2024, 9, 25),
-            quality_index=481,  # MMLU=63.40, GPQA=32.80
-            provider_name=DisplayedProvider.FIREWORKS.value,
-            supports_tool_calling=False,
-        ),
-        Model.LLAMA_3_2_1B_PREVIEW: DeprecatedModel(replacement_model=Model.LLAMA_3_2_1B),
+        Model.LLAMA_3_2_3B_PREVIEW: DeprecatedModel(replacement_model=Model.LLAMA_4_SCOUT_BASIC),
+        Model.LLAMA_3_2_1B_PREVIEW: DeprecatedModel(replacement_model=Model.LLAMA_4_SCOUT_BASIC),
         Model.LLAMA_3_2_90B_VISION_PREVIEW: DeprecatedModel(replacement_model=Model.LLAMA_4_MAVERICK_BASIC),
         Model.GEMINI_1_5_FLASH_8B: ModelData(
             display_name="Gemini 1.5 Flash (8B)",
@@ -1106,8 +1000,8 @@ def _build_model_datas():
         ),
         Model.GEMINI_EXP_1206: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0325),
         Model.GEMINI_EXP_1121: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0325),
-        Model.QWEN_QWQ_32B_PREVIEW: ModelData(
-            display_name="Qwen QWQ (32B) Preview",
+        Model.QWEN_QWQ_32B: ModelData(
+            display_name="Qwen QWQ (32B)",
             supports_json_mode=True,
             supports_input_image=False,
             supports_multiple_images_in_input=False,
@@ -1115,16 +1009,17 @@ def _build_model_datas():
             supports_input_audio=False,
             supports_structured_output=True,
             max_tokens_data=MaxTokensData(
-                max_tokens=32768,
-                source="https://api.fireworks.ai/v1/accounts/fireworks/models/qwen-qwq-32b-preview",
+                max_tokens=131_072,
+                source="https://fireworks.ai/models/fireworks/qwq-32b",
             ),
             provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/qwen.svg",
-            release_date=date(2024, 11, 28),
+            release_date=date(2025, 3, 6),
             quality_index=693,  # MMLU=83.30, GPQA=59.10
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=False,
         ),
+        Model.QWEN_QWQ_32B_PREVIEW: DeprecatedModel(replacement_model=Model.QWEN_QWQ_32B),
         Model.LLAMA_3_2_11B_VISION: DeprecatedModel(
             replacement_model=Model.LLAMA_4_MAVERICK_BASIC,
         ),

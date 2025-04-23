@@ -11,6 +11,7 @@ from core.domain.errors import (
     FailedGenerationError,
     InvalidGenerationError,
     MaxTokensExceededError,
+    MissingModelError,
     UnknownProviderError,
 )
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
@@ -66,6 +67,7 @@ _NAME_OVERRIDE_MAP = {
     Model.DEEPSEEK_R1_2501_BASIC: "accounts/fireworks/models/deepseek-r1-basic",
     Model.LLAMA_4_MAVERICK_BASIC: "accounts/fireworks/models/llama4-maverick-instruct-basic",
     Model.LLAMA_4_SCOUT_BASIC: "accounts/fireworks/models/llama4-scout-instruct-basic",
+    Model.QWEN_QWQ_32B: "accounts/fireworks/models/qwq-32b",
 }
 
 
@@ -265,6 +267,11 @@ class FireworksAIProvider(HTTPXProvider[FireworksConfig, CompletionResponse]):
                 msg=payload.error.message,
                 response=response,
                 store_task_run=False,
+            )
+        if "model not found, inaccessible, and/or not deployed" in lower_msg:
+            return MissingModelError(
+                msg=payload.error.message,
+                response=response,
             )
         return False
 

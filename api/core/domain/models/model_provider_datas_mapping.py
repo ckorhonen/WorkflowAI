@@ -445,18 +445,18 @@ AMAZON_BEDROCK_PROVIDER_DATA: ProviderDataByModel = {
             source="https://aws.amazon.com/bedrock/pricing/",
         ),
     ),
-    Model.CLAUDE_3_SONNET_20240229: ModelProviderData(
-        text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_003,
-            completion_cost_per_token=0.000_015,
-            source="https://aws.amazon.com/bedrock/pricing/",
-        ),
-        lifecycle_data=LifecycleData(
-            sunset_date=datetime.date(year=2025, month=7, day=20),
-            source="https://aws.amazon.com/bedrock/pricing/",
-            post_sunset_replacement_model=Model.CLAUDE_3_5_SONNET_20241022,
-        ),
-    ),
+    # Model.CLAUDE_3_SONNET_20240229: ModelProviderData(
+    #     text_price=TextPricePerToken(
+    #         prompt_cost_per_token=0.000_003,
+    #         completion_cost_per_token=0.000_015,
+    #         source="https://aws.amazon.com/bedrock/pricing/",
+    #     ),
+    #     lifecycle_data=LifecycleData(
+    #         sunset_date=datetime.date(year=2025, month=7, day=20),
+    #         source="https://aws.amazon.com/bedrock/pricing/",
+    #         post_sunset_replacement_model=Model.CLAUDE_3_5_SONNET_20241022,
+    #     ),
+    # ),
     Model.CLAUDE_3_HAIKU_20240307: ModelProviderData(
         text_price=TextPricePerToken(
             prompt_cost_per_token=0.000_000_25,
@@ -499,27 +499,27 @@ AMAZON_BEDROCK_PROVIDER_DATA: ProviderDataByModel = {
             source="https://aws.amazon.com/bedrock/pricing/",
         ),
     ),
-    Model.LLAMA_3_2_90B: ModelProviderData(
-        text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_000_72,
-            completion_cost_per_token=0.000_000_72,
-            source="https://aws.amazon.com/bedrock/pricing/",
-        ),
-    ),
-    Model.LLAMA_3_2_11B: ModelProviderData(
-        text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_000_16,
-            completion_cost_per_token=0.000_000_16,
-            source="https://aws.amazon.com/bedrock/pricing/",
-        ),
-    ),
-    Model.LLAMA_3_2_3B: ModelProviderData(
-        text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_000_15,
-            completion_cost_per_token=0.000_000_15,
-            source="https://aws.amazon.com/bedrock/pricing/",
-        ),
-    ),
+    # Model.LLAMA_3_2_90B: ModelProviderData(
+    #     text_price=TextPricePerToken(
+    #         prompt_cost_per_token=0.000_000_72,
+    #         completion_cost_per_token=0.000_000_72,
+    #         source="https://aws.amazon.com/bedrock/pricing/",
+    #     ),
+    # ),
+    # Model.LLAMA_3_2_11B: ModelProviderData(
+    #     text_price=TextPricePerToken(
+    #         prompt_cost_per_token=0.000_000_16,
+    #         completion_cost_per_token=0.000_000_16,
+    #         source="https://aws.amazon.com/bedrock/pricing/",
+    #     ),
+    # ),
+    # Model.LLAMA_3_2_3B: ModelProviderData(
+    #     text_price=TextPricePerToken(
+    #         prompt_cost_per_token=0.000_000_15,
+    #         completion_cost_per_token=0.000_000_15,
+    #         source="https://aws.amazon.com/bedrock/pricing/",
+    #     ),
+    # ),
     Model.LLAMA_3_3_70B: ModelProviderData(
         text_price=TextPricePerToken(
             prompt_cost_per_token=0.000_000_72,
@@ -527,13 +527,13 @@ AMAZON_BEDROCK_PROVIDER_DATA: ProviderDataByModel = {
             source="https://aws.amazon.com/bedrock/pricing/",
         ),
     ),
-    Model.LLAMA_3_2_1B: ModelProviderData(
-        text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_000_1,
-            completion_cost_per_token=0.000_000_1,
-            source="https://aws.amazon.com/bedrock/pricing/",
-        ),
-    ),
+    # Model.LLAMA_3_2_1B: ModelProviderData(
+    #     text_price=TextPricePerToken(
+    #         prompt_cost_per_token=0.000_000_1,
+    #         completion_cost_per_token=0.000_000_1,
+    #         source="https://aws.amazon.com/bedrock/pricing/",
+    #     ),
+    # ),
 }
 
 GROQ_PROVIDER_DATA: ProviderDataByModel = {
@@ -596,15 +596,15 @@ GROQ_PROVIDER_DATA: ProviderDataByModel = {
         # native tools calls are not implemented on Groq for now as we will decommssion the provider for now.
         # see [WOR-1968: Disable `Groq` ?](https://linear.app/workflowai/issue/WOR-1968/disable-groq)
     ),
-    Model.LLAMA_3_2_3B_PREVIEW: ModelProviderData(
-        text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_000_06,
-            completion_cost_per_token=0.000_000_06,
-            source="https://console.groq.com/settings/billing",
-        ),
-        # native tools calls are not implemented on Groq for now as we will decommssion the provider for now.
-        # see [WOR-1968: Disable `Groq` ?](https://linear.app/workflowai/issue/WOR-1968/disable-groq)
-    ),
+    # Model.LLAMA_3_2_3B_PREVIEW: ModelProviderData(
+    #     text_price=TextPricePerToken(
+    #         prompt_cost_per_token=0.000_000_06,
+    #         completion_cost_per_token=0.000_000_06,
+    #         source="https://console.groq.com/settings/billing",
+    #     ),
+    #     # native tools calls are not implemented on Groq for now as we will decommssion the provider for now.
+    #     # see [WOR-1968: Disable `Groq` ?](https://linear.app/workflowai/issue/WOR-1968/disable-groq)
+    # ),
     # Model.LLAMA_3_2_90B_VISION_PREVIEW: ModelProviderData(
     #     text_price=TextPricePerToken(
     #         prompt_cost_per_token=0.000_000_90,
@@ -1042,22 +1042,22 @@ FIREWORKS_PROVIDER_DATA: ProviderDataByModel = {
         ),
         # see: https://docs.fireworks.ai/guides/function-calling#supported-models
     ),
-    Model.LLAMA_3_2_3B: ModelProviderData(
-        text_price=TextPricePerToken(
-            prompt_cost_per_token=0.10 / 1_000_000,
-            completion_cost_per_token=0.10 / 1_000_000,
-            source="https://fireworks.ai/pricing",
-        ),
-        # see: https://docs.fireworks.ai/guides/function-calling#supported-models
-    ),
-    Model.LLAMA_3_2_3B_PREVIEW: ModelProviderData(
-        text_price=TextPricePerToken(
-            prompt_cost_per_token=0.10 / 1_000_000,
-            completion_cost_per_token=0.10 / 1_000_000,
-            source="https://fireworks.ai/pricing",
-        ),
-        # see: https://docs.fireworks.ai/guides/function-calling#supported-models
-    ),
+    # Model.LLAMA_3_2_3B: ModelProviderData(
+    #     text_price=TextPricePerToken(
+    #         prompt_cost_per_token=0.10 / 1_000_000,
+    #         completion_cost_per_token=0.10 / 1_000_000,
+    #         source="https://fireworks.ai/pricing",
+    #     ),
+    #     # see: https://docs.fireworks.ai/guides/function-calling#supported-models
+    # ),
+    # Model.LLAMA_3_2_3B_PREVIEW: ModelProviderData(
+    #     text_price=TextPricePerToken(
+    #         prompt_cost_per_token=0.10 / 1_000_000,
+    #         completion_cost_per_token=0.10 / 1_000_000,
+    #         source="https://fireworks.ai/pricing",
+    #     ),
+    #     # see: https://docs.fireworks.ai/guides/function-calling#supported-models
+    # ),
     # Model.LLAMA_3_2_11B_VISION: ModelProviderData(
     #     text_price=TextPricePerToken(
     #         prompt_cost_per_token=0.20 / 1_000_000,
@@ -1075,12 +1075,11 @@ FIREWORKS_PROVIDER_DATA: ProviderDataByModel = {
     #     ),
     #     # see: https://docs.fireworks.ai/guides/function-calling#supported-models
     # ),
-    Model.QWEN_QWQ_32B_PREVIEW: ModelProviderData(
+    Model.QWEN_QWQ_32B: ModelProviderData(
         text_price=TextPricePerToken(
             prompt_cost_per_token=0.90 / 1_000_000,
             completion_cost_per_token=0.90 / 1_000_000,
             source="https://fireworks.ai/pricing",
-            # QWEN_QWQ_32B_PREVIEW is not a MoE model, so in 16.1B+ category
         ),
         # see: https://docs.fireworks.ai/guides/function-calling#supported-models
     ),

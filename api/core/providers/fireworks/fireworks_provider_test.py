@@ -10,6 +10,7 @@ from pytest_httpx import HTTPXMock, IteratorStream
 
 from core.domain.errors import (
     MaxTokensExceededError,
+    MissingModelError,
     ProviderInternalError,
     UnknownProviderError,
 )
@@ -495,6 +496,19 @@ class TestComplete:
         body = json.loads(request.read().decode())
         assert body["context_length_exceeded_behavior"] == "truncate"
         assert body["max_tokens"] == expected
+
+    async def test_missing_model(self, httpx_mock: HTTPXMock, fireworks_provider: FireworksAIProvider):
+        httpx_mock.add_response(
+            url="https://api.fireworks.ai/inference/v1/chat/completions",
+            status_code=400,
+            json={"error": "model not found, inaccessible, and/or not deployed"},
+        )
+        with pytest.raises(MissingModelError):
+            await fireworks_provider.complete(
+                [Message(role=Message.Role.USER, content="Hello")],
+                options=ProviderOptions(model=Model.LLAMA_3_3_70B, max_tokens=10, temperature=0),
+                output_factory=lambda x, _: StructuredOutput(json.loads(x)),
+            )
 
 
 class TestCheckValid:
