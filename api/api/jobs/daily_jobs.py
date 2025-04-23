@@ -14,7 +14,14 @@ async def _once_a_day(key: str):
         yield
 
 
-@broker.task()
+@broker.task(
+    schedule=[
+        {
+            "cron": "0 0 * * *",
+            "cron_offset": "America/New_York",
+        },
+    ],
+)
 async def send_daily_active_customers(user_service: UserServiceDep, storage: SystemStorageDep):
     async with _once_a_day("daily_active_customers"):
         await CustomerService.send_daily_report(user_service, datetime.now().date(), storage.active_tasks)
