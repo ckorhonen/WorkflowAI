@@ -1,5 +1,4 @@
 import { DeviceEqFilled, DocumentBulletList16Regular } from '@fluentui/react-icons';
-import NextImage from 'next/image';
 import { Fragment, ReactNode, memo } from 'react';
 import { ImagePlaceholderIcon } from '@/components/icons/ImagePlaceholderIcon';
 import { cn } from '@/lib/utils';
@@ -11,7 +10,8 @@ function ImagePreview(props: { url: string }) {
     return <ImagePlaceholderIcon />;
   }
 
-  return <NextImage src={url} alt='' width={48} height={48} className='max-h-12 max-w-12 object-contain' />;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={url} alt='' className='max-h-12 max-w-12 object-contain' loading='lazy' />;
 }
 
 function PreviewComponent(props: { prefix: string; url: string }) {
