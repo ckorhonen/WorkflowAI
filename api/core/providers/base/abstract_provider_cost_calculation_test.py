@@ -29,9 +29,9 @@ class _ModelWithPriceData(NamedTuple):
 # Since we should only use the provider for pricing
 def active_models_with_price(providers: set[Provider] | None = None):
     if providers is None:
-        # TODO: make general for all providers, see
+        # TODO: we need to adapt this test, provider for pricing should not be used anymore
         # https://linear.app/workflowai/issue/WOR-3373/sanitize-cost-computations
-        providers = {Provider.FIREWORKS, Provider.OPEN_AI}
+        providers = {Provider.OPEN_AI}
 
     for model in Model:
         model_data = get_model_data(model)

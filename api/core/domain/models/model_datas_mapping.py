@@ -1065,7 +1065,7 @@ def _build_model_datas():
             supports_structured_output=True,
         ),
         Model.LLAMA_4_MAVERICK_FAST: ModelData(
-            display_name="Llama 4 Maverick (faster)",
+            display_name="Llama 4 Maverick ⚡",
             supports_json_mode=True,
             supports_input_image=True,
             supports_multiple_images_in_input=True,
@@ -1085,7 +1085,7 @@ def _build_model_datas():
         ),
         # https://fireworks.ai/models/fireworks/llama4-scout-instruct-basic
         Model.LLAMA_4_SCOUT_FAST: ModelData(
-            display_name="Llama 4 Scout (faster)",
+            display_name="Llama 4 Scout ⚡",
             supports_json_mode=True,
             supports_input_image=True,
             supports_multiple_images_in_input=True,
