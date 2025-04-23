@@ -73,6 +73,9 @@ async def stripe_webhook(
     payment_service = PaymentSystemService(storage, email_service)
 
     match event.type:
+        case "payment_intent.created":
+            # Nothing to do here
+            pass
         case "payment_intent.succeeded":
             payment_intent = PaymentIntentData.model_validate(event.data.object)
             await payment_service.handle_payment_success(payment_intent.metadata, payment_intent.amount / 100)

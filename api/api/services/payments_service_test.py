@@ -440,3 +440,34 @@ class TestDecrementCredits:
 
         await wait_for_background_tasks()
         mock_email_service.send_payment_failure_email.assert_called_once_with("test-tenant")
+
+    async def test_decrement_credits_missing_payment_method(
+        self,
+        payment_system_service: PaymentSystemService,
+        mock_storage: AsyncMock,
+        test_org: TenantData,
+        mock_stripe: Mock,
+        mock_email_service: Mock,
+    ):
+        mock_lock_doc = Mock()
+        mock_lock_doc.locked_for_payment = True
+        mock_storage.organizations.attempt_lock_for_payment.return_value = test_org.model_copy(
+            update={"locked_for_payment": True},
+        )
+
+        # Mock payment method retrieval
+        _mock_customer(mock_stripe, payment_method=False)
+
+        await payment_system_service.decrement_credits("test-tenant", 100.0)
+
+        mock_storage.organizations.decrement_credits.assert_called_once_with(tenant="test-tenant", credits=100.0)
+        mock_storage.organizations.attempt_lock_for_payment.assert_called_once()
+        mock_storage.organizations.unlock_payment_for_failure.assert_called_once_with(
+            tenant="test-tenant",
+            now=mock.ANY,
+            code="payment_failed",
+            failure_reason="The account does not have a default payment method",
+        )
+
+        await wait_for_background_tasks()
+        mock_email_service.send_payment_failure_email.assert_called_once_with("test-tenant")

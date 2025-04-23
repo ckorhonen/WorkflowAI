@@ -9,13 +9,35 @@ import { SimpleTooltip } from '@/components/ui/Tooltip';
 import { useAuth, useAuthUI } from '@/lib/AuthContext';
 import { NEW_TASK_MODAL_OPEN, useQueryParamModal } from '@/lib/globalModal';
 import { signUpRoute } from '@/lib/routeFormatter';
-import { TenantID } from '@/types/aliases';
 import { CreditsSection } from './CreditsSection';
 import { UserMenu } from './userMenu';
 
 export function SidebarLinks() {
   return (
     <div className='flex flex-row justify-between sm:px-2.5 px-5 pb-2.5 pt-2.5 border-t border-gray-100 w-full overflow-hidden flex-shrink-0'>
+      <SimpleTooltip
+        content={`Join our community\non Discord`}
+        tooltipDelay={100}
+        tooltipClassName='m-1 whitespace-pre-wrap text-center'
+      >
+        <Button
+          variant='newDesignText'
+          toRoute='https://discord.com/invite/qcsq8Kva'
+          rel='noopener noreferrer'
+          target='_blank'
+          icon={
+            <Image
+              src='https://workflowai.blob.core.windows.net/workflowai-public/DiscordIcon.png'
+              alt='Discord'
+              className='w-[18px] h-[18px]'
+              width={32}
+              height={32}
+            />
+          }
+          size='none'
+          className='text-gray-700 hover:text-gray-700 hover:opacity-80 flex-shrink-0 w-7 h-7'
+        />
+      </SimpleTooltip>
       <SimpleTooltip content='Contact us at team@workflowai.support' tooltipDelay={100} tooltipClassName='m-1'>
         <Button
           variant='newDesignText'

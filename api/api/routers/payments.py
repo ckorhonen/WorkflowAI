@@ -129,6 +129,7 @@ async def update_automatic_payments(
     user_org: RequiredUserOrganizationDep,
 ) -> None:
     await payment_service.configure_automatic_payment(
+        org_settings=user_org,
         opt_in=request.opt_in,
         threshold=request.threshold,
         balance_to_maintain=request.balance_to_maintain,
