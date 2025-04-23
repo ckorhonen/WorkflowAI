@@ -37,23 +37,29 @@ const PaginationLink = ({ className, isActive, ...props }: PaginationLinkProps) 
 );
 PaginationLink.displayName = 'PaginationLink';
 
-const PaginationPrevious = ({ className, ...props }: React.ComponentProps<typeof PaginationLink>) => (
+type PaginationNavigationProps = {
+  showLabel?: boolean;
+} & React.ComponentProps<typeof PaginationLink>;
+
+const PaginationPrevious = ({ className, showLabel, ...props }: PaginationNavigationProps) => (
   <PaginationLink
     aria-label='Go to previous page'
-    className={cn('flex items-center justify-center h-7 w-7 mr-1', className)}
+    className={cn('flex items-center justify-center h-7', showLabel ? 'px-2' : 'w-7', 'mr-1', className)}
     {...props}
   >
     <ChevronLeft16Filled className='h-4 w-4' />
+    {showLabel && <span className='ml-1'>Previous</span>}
   </PaginationLink>
 );
 PaginationPrevious.displayName = 'PaginationPrevious';
 
-const PaginationNext = ({ className, ...props }: React.ComponentProps<typeof PaginationLink>) => (
+const PaginationNext = ({ className, showLabel, ...props }: PaginationNavigationProps) => (
   <PaginationLink
     aria-label='Go to next page'
-    className={cn('flex items-center justify-center h-7 w-7 ml-1', className)}
+    className={cn('flex items-center justify-center h-7', showLabel ? 'px-2' : 'w-7', 'ml-1', className)}
     {...props}
   >
+    {showLabel && <span className='mr-1'>Next</span>}
     <ChevronRight16Filled className='h-4 w-4' />
   </PaginationLink>
 );

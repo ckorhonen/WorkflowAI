@@ -38,9 +38,10 @@ type PriceOutputValueRowProps = {
   minimumCostAIModel: ModelResponse | undefined;
   taskRun: TaskRun | undefined;
   minimumCostTaskRun: TaskRun | undefined;
+  hideLabel?: boolean;
 };
 export function PriceOutputValueRow(props: PriceOutputValueRowProps) {
-  const { minimumCostTaskRun, taskRun, currentAIModel, minimumCostAIModel } = props;
+  const { minimumCostTaskRun, taskRun, currentAIModel, minimumCostAIModel, hideLabel = false } = props;
 
   const value = taskRun?.cost_usd;
   const minimumValue = minimumCostTaskRun?.cost_usd;
@@ -69,7 +70,7 @@ export function PriceOutputValueRow(props: PriceOutputValueRowProps) {
 
   return (
     <BaseOutputValueRow
-      label='Price'
+      label={hideLabel ? undefined : 'Price'}
       variant={variant}
       noteContent={noteContent}
       noteTitle={noteTitle}

@@ -10,7 +10,8 @@ import { TENANT_PLACEHOLDER } from '@/lib/routeFormatter';
 import { sortVersions } from '@/lib/versionUtils';
 import { TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
 import { CodeLanguage } from '@/types/snippets';
-import { ChatMessage, FieldQuery, PlaygroundState, VersionV1 } from '@/types/workflowAI';
+import { GeneralizedTaskInput } from '@/types/task_run';
+import { ChatMessage, CreateVersionRequest, FieldQuery, PlaygroundState, VersionV1 } from '@/types/workflowAI';
 import { useAIModels } from './ai_models';
 import { useApiKeys } from './api_keys';
 import { useClerkOrganizationStore } from './clerk_organisations';
@@ -41,6 +42,7 @@ import {
   buildVersionScopeKey,
   getOrUndef,
 } from './utils';
+import { buildCreateVersionScopeKey, buildRunVersionScopeKey } from './utils';
 import { getVersionsPerEnvironment, mapMajorVersionsToVersions, useVersions } from './versions';
 import { useWeeklyRuns } from './weekly_runs';
 
@@ -314,7 +316,8 @@ export const useOrFetchTaskRunTranscriptions = (
 export const useOrFetchTaskRunReviews = (
   tenant: TenantID | undefined,
   taskId: TaskID,
-  taskRunId: string | undefined
+  taskRunId: string | undefined,
+  pollingInterval: number = 2000
 ) => {
   const reviews = useTaskRunReviews((state) => getOrUndef(state.reviewsById, taskRunId));
   const isLoading = useTaskRunReviews((state) => getOrUndef(state.isLoadingById, taskRunId));
@@ -341,13 +344,16 @@ export const useOrFetchTaskRunReviews = (
     return true;
   }, [reviews]);
 
+  const pollingIntervalRef = useRef(pollingInterval);
+  pollingIntervalRef.current = pollingInterval;
+
   useEffect(() => {
     if (shouldRefetch) {
       const intervalId = setInterval(() => {
         if (taskRunId) {
           fetchTaskRunReviews(tenant, taskId, taskRunId);
         }
-      }, 2000);
+      }, pollingIntervalRef.current);
 
       return () => clearInterval(intervalId);
     }

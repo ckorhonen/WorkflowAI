@@ -47,6 +47,7 @@ interface TasksState {
   fetchTasks(tenant: TenantID): Promise<void>;
   isLoadingTaskByScope: Map<string, boolean>;
   isInitialiazedTaskByScope: Map<string, boolean>;
+
   fetchTask(tenant: TenantID | undefined, taskId: TaskID): Promise<void>;
   improveVersion(
     tenant: TenantID | undefined,
@@ -116,6 +117,7 @@ export const useTasks = create<TasksState>((set, get) => ({
   isInitialiazedTaskByScope: new Map(),
   isLoadingTasksByTenant: new Map(),
   isInitialiazedTasksByTenant: new Map(),
+
   fetchTasks: async (tenant) => {
     if (get().isLoadingTasksByTenant.get(tenant) ?? false) return;
     set(
@@ -296,6 +298,7 @@ export const useTasks = create<TasksState>((set, get) => ({
     }
     return task;
   },
+
   updateTask: async (
     tenant: TenantID | undefined,
     taskId: TaskID,
@@ -308,6 +311,7 @@ export const useTasks = create<TasksState>((set, get) => ({
     }
     return task;
   },
+
   deleteTask: async (tenant: TenantID | undefined, taskId: TaskID) => {
     await client.del(`${rootTaskPath(tenant)}/${taskId}`);
     // Refetch tasks to get the updated list of schemas in the task switcher
@@ -316,6 +320,7 @@ export const useTasks = create<TasksState>((set, get) => ({
     }
     useMetaAgentChat.getState().remove(taskId);
   },
+
   updateTaskSchema: async (
     tenant: TenantID | undefined,
     taskId: TaskID,
@@ -326,6 +331,7 @@ export const useTasks = create<TasksState>((set, get) => ({
       id: taskId,
     });
   },
+
   runTask: async ({ tenant, taskId, taskSchemaId, body, onMessage, signal }) => {
     const lastMessage = await SSEClient<RunRequest, RunResponseStreamChunk>(
       `${runTaskPathNoProxy(tenant)}/${taskId}/schemas/${taskSchemaId}/run`,

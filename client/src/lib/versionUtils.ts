@@ -1,3 +1,4 @@
+import { getVersionIdsAndEnvironmentsDict } from '@/store/versions';
 import { MajorVersion, VersionV1 } from '@/types/workflowAI';
 import { VersionEnvironment } from '@/types/workflowAI';
 
@@ -24,7 +25,10 @@ export function getEnvironmentShorthandName(environment: VersionEnvironment | un
   }
 }
 
-export function formatSemverVersion(version: VersionV1 | undefined): string | undefined {
+export function formatSemverVersion(
+  version: VersionV1 | undefined,
+  hideMinorVersion: boolean = false
+): string | undefined {
   if (!version) {
     return undefined;
   }
@@ -32,6 +36,9 @@ export function formatSemverVersion(version: VersionV1 | undefined): string | un
     return undefined;
   }
   const semver = version.semver as [number, number];
+  if (hideMinorVersion) {
+    return `${semver[0]}`;
+  }
   return `${semver[0]}.${semver[1]}`;
 }
 
@@ -83,6 +90,11 @@ export function sortVersionsByEnvironment(
   nonEnviromentVersions = sortVersions(nonEnviromentVersions);
 
   return [...enviromentVersions, ...nonEnviromentVersions];
+}
+
+export function sortVersionsTakingIntoAccountEnvironments(versions: VersionV1[]): VersionV1[] {
+  const versionIdsAndEnvironmentsDict = getVersionIdsAndEnvironmentsDict(versions);
+  return sortVersionsByEnvironment(versions, versionIdsAndEnvironmentsDict);
 }
 
 export function sortEnvironmentsInOrderOfImportance(environments: VersionEnvironment[]): VersionEnvironment[] {
