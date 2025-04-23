@@ -74,6 +74,7 @@ export function ManageCardsContent(props: ManageCardsContentProps) {
       />
       <AmountToAddSection amountToAdd={amountToAdd} setAmountToAdd={setAmountToAdd} />
       <AutomaticPaymentsSection
+        hasPaymentMethod={isPaymentMethodAvailable}
         automaticPaymentsFailure={automaticPaymentsFailure}
         organizationSettings={organizationSettings}
         onEnableAutoRecharge={() => setShowEnableAutoRecharge(true)}

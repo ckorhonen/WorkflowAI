@@ -5,12 +5,42 @@ import { InfoLabel } from './InfoLabel';
 
 type AutomaticPaymentsSectionProps = {
   automaticPaymentsFailure: string | undefined;
-  organizationSettings: TenantData;
+  hasPaymentMethod: boolean;
+  organizationSettings: Pick<
+    TenantData,
+    'automatic_payment_enabled' | 'automatic_payment_threshold' | 'automatic_payment_balance_to_maintain'
+  >;
   onEnableAutoRecharge: () => void;
 };
 
+function EnabledAutomaticPaymentsSection(
+  props: Pick<AutomaticPaymentsSectionProps, 'organizationSettings' | 'onEnableAutoRecharge'>
+) {
+  const { organizationSettings, onEnableAutoRecharge } = props;
+
+  return (
+    <div className='flex flex-col'>
+      <div className='flex flex-row items-center gap-1'>
+        <CheckmarkCircleRegular className='text-green-500 w-4 h-4' />
+        <div className='text-gray-700 font-normal text-[13px]'>
+          Auto recharge is <span className='font-semibold'>on</span>.
+        </div>
+      </div>
+      <div className='text-gray-500 font-normal text-[12px] pt-1'>
+        When your credit balance reaches ${organizationSettings.automatic_payment_threshold}, your payment method will
+        be charged to bring the balance up to ${organizationSettings.automatic_payment_balance_to_maintain}.
+      </div>
+      <div className='pt-2'>
+        <Button variant='newDesignGray' onClick={onEnableAutoRecharge}>
+          Modify Auto-Recharge
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function AutomaticPaymentsSection(props: AutomaticPaymentsSectionProps) {
-  const { organizationSettings, onEnableAutoRecharge, automaticPaymentsFailure } = props;
+  const { organizationSettings, onEnableAutoRecharge, automaticPaymentsFailure, hasPaymentMethod } = props;
 
   const isAutomaticPaymentsEnabled = organizationSettings.automatic_payment_enabled;
 
@@ -24,23 +54,10 @@ export function AutomaticPaymentsSection(props: AutomaticPaymentsSectionProps) {
         />
       )}
       {isAutomaticPaymentsEnabled && !automaticPaymentsFailure ? (
-        <div className='flex flex-col'>
-          <div className='flex flex-row items-center gap-1'>
-            <CheckmarkCircleRegular className='text-green-500 w-4 h-4' />
-            <div className='text-gray-700 font-normal text-[13px]'>
-              Auto recharge is <span className='font-semibold'>on</span>.
-            </div>
-          </div>
-          <div className='text-gray-500 font-normal text-[12px] pt-1'>
-            When your credit balance reaches ${organizationSettings.automatic_payment_threshold}, your payment method
-            will be charged to bring the balance up to ${organizationSettings.automatic_payment_balance_to_maintain}.
-          </div>
-          <div className='pt-2'>
-            <Button variant='newDesignGray' onClick={onEnableAutoRecharge}>
-              Modify Auto-Recharge
-            </Button>
-          </div>
-        </div>
+        <EnabledAutomaticPaymentsSection
+          organizationSettings={organizationSettings}
+          onEnableAutoRecharge={onEnableAutoRecharge}
+        />
       ) : (
         <div className='flex flex-col'>
           <div className='flex flex-row items-center gap-1'>
@@ -50,10 +67,13 @@ export function AutomaticPaymentsSection(props: AutomaticPaymentsSectionProps) {
             </div>
           </div>
           <div className='text-gray-500 font-normal text-[12px] pt-1'>
-            Enable automatic recharge to automatically keep your credit balance topped up.
+            {hasPaymentMethod
+              ? 'Enable automatic recharge to automatically keep your credit balance topped up.'
+              : 'Set up a payment method to enable automatic recharge.'}
           </div>
+
           <div className='pt-2'>
-            <Button variant='newDesignIndigo' onClick={onEnableAutoRecharge}>
+            <Button variant='newDesignIndigo' onClick={onEnableAutoRecharge} disabled={!hasPaymentMethod}>
               Enable Auto-Recharge
             </Button>
           </div>
