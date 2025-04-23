@@ -81,7 +81,10 @@ def is_valid_unicode(b: str):
     if len(b) != 2:
         raise ValueError("Expected exactly two bytes.")
     # Convert bytes to an integer.
-    code_point = int(b, 16)
+    try:
+        code_point = int(b, 16)
+    except ValueError:
+        return None
 
     # Check that it's in the valid Unicode range and not a surrogate.
     if 0 <= code_point <= 0x10FFFF and not (0xD800 <= code_point <= 0xDFFF):
@@ -110,7 +113,8 @@ def clean_unicode_chars(input_str: str) -> str:
             # Replace the first two bytes with the valid character
             splits[i] = c + val[2:]
         else:
-            # We don't have a valid unicode character so we just remove the first two bytes
-            splits[i] = val[2:]
+            # We don't have a valid unicode character
+            # But just in case it's meant to be a null byte we leave the string as is
+            splits[i] = val
 
     return b"".join(splits).decode()
