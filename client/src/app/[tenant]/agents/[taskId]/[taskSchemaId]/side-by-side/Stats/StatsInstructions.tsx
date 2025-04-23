@@ -1,4 +1,5 @@
 import { TaskVersionBadgeContainer } from '@/components/TaskIterationBadge/TaskVersionBadgeContainer';
+import { SimpleTooltip } from '@/components/ui/Tooltip';
 import { VersionV1 } from '@/types/workflowAI';
 
 type StatsInstructionsProps = {
@@ -11,9 +12,15 @@ export function StatsInstructions(props: StatsInstructionsProps) {
 
   if (version) {
     return (
-      <div className='flex w-full h-full items-center justify-start bg-white border border-gray-300 rounded-[2px] px-2 overflow-hidden my-2'>
-        <div className='w-full text-gray-900 text-[13px] truncate'>{version.properties.instructions}</div>
-      </div>
+      <SimpleTooltip
+        content={<div className='max-w-[480px] max-h-[300px]'>{version.properties.instructions}</div>}
+        tooltipClassName='whitespace-pre-line py-3 m-2 max-w-[80vh] max-h-[40vh] overflow-scroll'
+        tooltipDelay={100}
+      >
+        <div className='flex w-full h-full items-center justify-start bg-white border border-gray-300 rounded-[2px] px-2 overflow-hidden my-2'>
+          <div className='w-full text-gray-900 text-[13px] truncate'>{version.properties.instructions}</div>
+        </div>
+      </SimpleTooltip>
     );
   }
 

@@ -52,7 +52,8 @@ export function SideBySideTableHeader(props: SideBySideTableHeaderProps) {
           selectedVersionId={selectedLeftVersionId}
           setSelectedVersionId={setSelectedLeftVersionId}
           filterVersionIds={[selectedLeftVersionId]}
-          placeholder='Select Version'
+          placeholder='Select version'
+          searchPlaceholder='Search versions'
         />
       </div>
       <div className='flex items-center w-[40%] h-full p-4'>
@@ -66,7 +67,8 @@ export function SideBySideTableHeader(props: SideBySideTableHeaderProps) {
           setSelectedModelId={setSelectedRightModelId}
           filterVersionIds={[selectedLeftVersionId, selectedRightVersionId]}
           filterModelIds={modelIdsToFilter}
-          placeholder='Select Version or Model'
+          placeholder='Select version and model'
+          searchPlaceholder='Search versions and models'
         />
       </div>
     </div>

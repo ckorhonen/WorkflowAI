@@ -19,6 +19,7 @@ type SideBySideVersionPopoverProps = {
   filterVersionIds?: (string | undefined)[];
   filterModelIds?: (string | undefined)[];
   placeholder?: string;
+  searchPlaceholder?: string;
 };
 
 export function SideBySideVersionPopover(props: SideBySideVersionPopoverProps) {
@@ -33,6 +34,7 @@ export function SideBySideVersionPopover(props: SideBySideVersionPopoverProps) {
     filterModelIds,
     models,
     placeholder = 'Select',
+    searchPlaceholder = 'Search versions',
   } = props;
 
   const [open, setOpen] = useState(false);
@@ -111,18 +113,19 @@ export function SideBySideVersionPopover(props: SideBySideVersionPopoverProps) {
           <ChevronsUpDown className='h-4 w-4 shrink-0 text-gray-500' />
         </div>
       </PopoverTrigger>
-      <PopoverContent className='max-w-[90vw] w-fit overflow-auto max-h-[354px] p-0 rounded-[2px]' align='start'>
-        <CustomCommandInput placeholder='Search versions' search={search} onSearchChange={setSearch} />
+      <PopoverContent className='max-w-[90vw] w-fit overflow-auto max-h-[362px] p-0 rounded-[2px]' align='start'>
+        <CustomCommandInput placeholder={searchPlaceholder} search={search} onSearchChange={setSearch} />
         {filteredVersions.length === 0 && (!filteredModels || filteredModels.length === 0) && (
           <div className='text-sm text-center p-4'>No versions found</div>
         )}
         {!!filteredVersions && filteredVersions.length > 0 && (
           <div
             className={cn(
-              'flex flex-col p-1',
-              !!filteredModels && filteredModels.length > 0 && 'border-b border-gray-200'
+              'flex flex-col pl-1 pr-1 pt-1 pb-2',
+              !!filteredModels && filteredModels.length > 0 && 'border-b border-gray-200 border-dashed'
             )}
           >
+            <div className='text-indigo-600 text-xs font-medium font-lato px-2 pt-2 pb-2'>VERSIONS</div>
             {filteredVersions.map((version) => {
               return (
                 <SideBySideVersionPopoverItem
@@ -135,7 +138,8 @@ export function SideBySideVersionPopover(props: SideBySideVersionPopoverProps) {
           </div>
         )}
         {!!filteredModels && filteredModels.length > 0 && (
-          <div className='flex flex-col p-1'>
+          <div className='flex flex-col pl-1 pr-1 pt-1 pb-2'>
+            <div className='text-indigo-600 text-xs font-medium font-lato px-2 pt-2 pb-2'>MODELS</div>
             {filteredModels.map((model) => {
               return (
                 <SideBySideVersionPopoverModelItem
