@@ -12,7 +12,7 @@ from core.domain.models.model_data import (
 )
 from core.domain.models.model_datas_mapping import MODEL_DATAS, DisplayedProvider
 from core.domain.models.model_provider_data import ModelProviderData, TextPricePerToken
-from core.domain.task_typology import TaskTypology
+from core.domain.task_typology import SchemaTypology, TaskTypology
 
 
 def _md(**kwargs: Any) -> FinalModelData:
@@ -23,7 +23,6 @@ def _md(**kwargs: Any) -> FinalModelData:
         display_name="GPT-3.5 Turbo (1106)",
         supports_json_mode=True,
         supports_input_image=False,
-        supports_multiple_images_in_input=False,
         supports_input_pdf=False,
         supports_input_audio=False,
         max_tokens_data=MaxTokensData(
@@ -59,55 +58,30 @@ def _md(**kwargs: Any) -> FinalModelData:
     [
         (
             _md(),
-            TaskTypology(
-                has_image_in_input=False,
-                has_multiple_images_in_input=False,
-                has_audio_in_input=False,
-            ),
+            TaskTypology(input=SchemaTypology(has_image=False, has_audio=False)),
             None,
         ),
         (
             _md(),
-            TaskTypology(
-                has_image_in_input=True,
-                has_multiple_images_in_input=False,
-                has_audio_in_input=False,
-            ),
+            TaskTypology(input=SchemaTypology(has_image=True, has_audio=False)),
             "GPT-3.5 Turbo (1106) does not support input images",
         ),
         (
             _md(),
-            TaskTypology(
-                has_image_in_input=True,
-                has_multiple_images_in_input=True,
-                has_audio_in_input=False,
-            ),
+            TaskTypology(input=SchemaTypology(has_image=True, has_audio=False)),
             "GPT-3.5 Turbo (1106) does not support input images",
         ),
         (
-            _md(supports_input_image=True, supports_multiple_images_in_input=True),
-            TaskTypology(
-                has_image_in_input=True,
-                has_multiple_images_in_input=True,
-                has_audio_in_input=False,
-            ),
+            _md(supports_input_image=True),
+            TaskTypology(input=SchemaTypology(has_image=True, has_audio=False)),
             None,
-        ),
-        (
-            _md(supports_input_image=True, display_name="Llama 3.2 (90B) Instruct"),
-            TaskTypology(
-                has_image_in_input=True,
-                has_multiple_images_in_input=True,
-                has_audio_in_input=False,
-            ),
-            "Llama 3.2 (90B) Instruct does not support multiple images in input",
         ),
         # Check when the model does not support pdf or images
-        (_md(), TaskTypology(has_pdf_in_input=True), "GPT-3.5 Turbo (1106) does not support input pdf"),
+        (_md(), TaskTypology(input=SchemaTypology(has_pdf=True)), "GPT-3.5 Turbo (1106) does not support input pdf"),
         # Check when the model does not support pdf but supports images
         (
             _md(supports_input_image=True, supports_input_pdf=False),
-            TaskTypology(has_pdf_in_input=True),
+            TaskTypology(input=SchemaTypology(has_pdf=True)),
             None,
         ),
     ],
@@ -139,7 +113,6 @@ class TestFinalModelData:
             providers=[(Provider.OPEN_AI, m1), (Provider.AZURE_OPEN_AI, m2)],
             supports_json_mode=True,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(

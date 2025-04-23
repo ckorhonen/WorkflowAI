@@ -116,19 +116,15 @@ class FinalModelData(ModelData):
         # make the model data represent what WorkflowAI support instead of the model card
         supports_inlining = any(provider == Provider.FIREWORKS for provider, _ in self.providers)
 
-        if self.supports_audio_only and not task_typology.has_audio_in_input:
+        if self.supports_audio_only and not task_typology.input.has_audio:
             return f"{self.display_name} does not support non-audio inputs"
-        if task_typology.has_image_in_input and not self.supports_input_image:
+        if task_typology.input.has_image and not self.supports_input_image:
             if supports_inlining:
                 return None
             return f"{self.display_name} does not support input images"
-        if task_typology.has_multiple_images_in_input and not self.supports_multiple_images_in_input:
-            if supports_inlining:
-                return None
-            return f"{self.display_name} does not support multiple images in input"
-        if task_typology.has_audio_in_input and not self.supports_input_audio:
+        if task_typology.input.has_audio and not self.supports_input_audio:
             return f"{self.display_name} does not support input audio"
-        if task_typology.has_pdf_in_input and (not self.supports_input_pdf and not self.supports_input_image):
+        if task_typology.input.has_pdf and (not self.supports_input_pdf and not self.supports_input_image):
             if supports_inlining:
                 return None
             return f"{self.display_name} does not support input pdf"

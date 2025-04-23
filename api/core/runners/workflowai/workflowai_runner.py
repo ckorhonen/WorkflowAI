@@ -264,32 +264,19 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
                 msg=f"{model_data.display_name} does not support audio.",
             )
 
-    def _assert_support_for_multiple_images_input(self, model_data: ModelData):
-        if not model_data.supports_multiple_images_in_input:
-            raise ModelDoesNotSupportMode(
-                title="This model does not support multiple images in input",
-                msg=f"{model_data.display_name} does not support multiple images in input.",
-            )
-
     def _check_support_for_files(self, model_data: ModelData, files: Sequence[FileWithKeyPath]):
         # We check for support here to allow bypassing some providers in the pipeline
         # Some providers may support different modes
         # The model settings should be optimistic, at worst the provider will return with an error
 
-        images_count = 0
-
         for file in files:
             if file.is_image:
-                images_count += 1
                 self._assert_support_for_image_input(model_data)
             if file.is_pdf:
                 self._assert_support_for_pdf_input(model_data)
             if file.is_audio:
                 self._assert_support_for_audio_input(model_data)
             # TODO: Add more content-type checks as needed
-
-        if images_count > 1:
-            self._assert_support_for_multiple_images_input(model_data)
 
     async def _convert_pdf_to_images(
         self,

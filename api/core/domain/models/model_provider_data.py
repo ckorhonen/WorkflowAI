@@ -82,7 +82,6 @@ _T = TypeVar("_T", bound=ModelDataSupports)
 class ModelDataSupportsOverride(BaseModel):
     supports_json_mode: bool | None = None
     supports_input_image: bool | None = None
-    supports_multiple_images_in_input: bool | None = None
     supports_input_pdf: bool | None = None
     supports_input_audio: bool | None = None
     supports_audio_only: bool | None = None

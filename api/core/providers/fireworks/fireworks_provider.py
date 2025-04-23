@@ -576,7 +576,6 @@ class FireworksAIProvider(HTTPXProvider[FireworksConfig, CompletionResponse]):
     @override
     def sanitize_model_data(self, model_data: ModelData):
         model_data.supports_input_image = True
-        model_data.supports_multiple_images_in_input = True
         model_data.supports_input_pdf = True
 
     @classmethod

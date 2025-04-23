@@ -4,9 +4,6 @@ from pydantic import BaseModel, Field
 class ModelDataSupports(BaseModel):
     supports_json_mode: bool = Field(description="Whether the model supports JSON mode")
     supports_input_image: bool = Field(description="Whether the model supports input images")
-    supports_multiple_images_in_input: bool = Field(
-        description="Whether the model supports multiple images in the input",
-    )
     supports_input_pdf: bool = Field(description="Whether the model supports input pdfs")
     supports_input_audio: bool = Field(description="Whether the model supports input audio")
     supports_audio_only: bool = Field(

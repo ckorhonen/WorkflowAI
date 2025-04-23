@@ -94,7 +94,6 @@ def model_data():
         display_name="GPT-4o (2024-11-20)",
         supports_json_mode=True,
         supports_input_image=True,
-        supports_multiple_images_in_input=True,
         supports_input_pdf=False,
         supports_input_audio=False,
         supports_structured_output=True,
@@ -476,41 +475,6 @@ class TestBuildMessages:
         assert msgs[1].files[1].data
 
         mock_convert_from_bytes.assert_called_once()
-
-    async def test_run_with_unsupported_multiple_images(self, mock_provider: Mock, model_data: ModelData) -> None:
-        class PdfSummaryTaskInput(BaseModel):
-            files: list[File]
-
-        task = task_variant(input_model=PdfSummaryTaskInput, output_model=PdfSummaryTaskInput)
-
-        model_data.display_name = "Llama 3.2 (90B) Instruct"
-        model_data.supports_multiple_images_in_input = False
-
-        runner = _build_runner(task=task, model=Model.LLAMA_3_2_90B)
-
-        with pytest.raises(
-            ModelDoesNotSupportMode,
-            match=re.escape("Llama 3.2 (90B) Instruct does not support multiple images in input."),
-        ):
-            await runner._build_messages(  # pyright: ignore [reportPrivateUsage]
-                TemplateName.V2_DEFAULT,
-                {
-                    "files": [
-                        {"content_type": "image/png", "data": "some_data"},
-                        {"content_type": "image/png", "data": "some_data"},
-                    ],
-                },
-                mock_provider,
-                model_data,
-            )
-
-        # Should not raise with one image only
-        await runner._build_messages(  # pyright: ignore [reportPrivateUsage]
-            TemplateName.V2_DEFAULT,
-            {"files": [{"content_type": "image/png", "data": "some_data"}]},
-            mock_provider,
-            model_data,
-        )
 
     async def test_with_text_files(
         self,
@@ -1732,7 +1696,6 @@ class TestBuildProviderData:
             supports_structured_output=True,
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=True,
             display_name="test",
@@ -1790,7 +1753,6 @@ class TestBuildProviderData:
             supports_structured_output=True,
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=True,
             display_name="Test GPT-4O Mini",
@@ -1841,7 +1803,6 @@ class TestBuildProviderData:
             supports_structured_output=True,
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=True,
             display_name="Test GPT-4O Mini",
