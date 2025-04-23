@@ -366,6 +366,8 @@ class PaymentSystemService:
         try:
             await self._start_automatic_payment_for_locked_org(org_settings, min_amount=min_amount)
         except MissingPaymentMethod:
+            # Capture for now, this should not happen
+            _logger.error("Automatic payment failed due to missing payment method", extra={"tenant": tenant})
             # The customer has no default payment method so we can't process the payment
             await self._unlock_payment_for_failure(
                 tenant,
