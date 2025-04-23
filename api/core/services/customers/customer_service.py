@@ -346,16 +346,16 @@ class CustomerService:
         active_tasks = [a async for a in active_task_fetcher(yesterday) if a[0].slug != "workflowai"]
 
         parts = [
-            f"Daily report for {today}",
-            f"Total registrations: {count}",
-            f"Active tenants: {len(active_tasks)}",
-            f"Active agents: {sum(len(tasks) for _, tasks in active_tasks)}",
+            f"**Daily report for {today}**",
+            f"Total registrations: **{count}**",
+            f"Active tenants (Org with runs from API or SDK in the last 24h): **{len(active_tasks)}**",
+            f"Active agents: (Agents with runs from API or SDK in the last 24h): **{sum(len(tasks) for _, tasks in active_tasks)}**",
             "",
         ]
 
         for org, ts in active_tasks:
             parts.append("-------")
-            parts.append(org.slug)
+            parts.append(f"**{org.slug}** (#{cls._channel_name(org.slug, org.uid)})")
             parts.extend(f" - {t.name}: ({WORKFLOWAI_APP_URL}/{org.slug}/agents/{t.task_id})" for t in ts)
 
         return "\n".join(parts)
