@@ -3,6 +3,7 @@ from typing import NamedTuple, Protocol
 
 
 class UserDetails(NamedTuple):
+    id: str
     email: str
     name: str
 

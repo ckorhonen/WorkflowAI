@@ -28,7 +28,7 @@ class ClerkUserService(UserService):
             response = await client.get(f"/users/{user_id}")
         response.raise_for_status()
         data: ClerkUserDict = response.json()
-        return UserDetails(email=_find_primary_email(data), name=_full_name(data))
+        return UserDetails(id=data["id"], email=_find_primary_email(data), name=_full_name(data))
 
     @override
     async def get_organization(self, org_id: str) -> OrganizationDetails:
@@ -62,7 +62,7 @@ class ClerkUserService(UserService):
         response = await client.get(f"/users?user_ids={','.join(user_ids)}")
         response.raise_for_status()
         data: list[ClerkUserDict] = response.json()
-        return [UserDetails(email=_find_primary_email(user), name=_full_name(user)) for user in data]
+        return [UserDetails(id=user["id"], email=_find_primary_email(user), name=_full_name(user)) for user in data]
 
     @override
     async def get_org_admins(self, org_id: str, max_users: int = 5) -> list[UserDetails]:

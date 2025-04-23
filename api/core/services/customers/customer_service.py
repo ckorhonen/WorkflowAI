@@ -208,7 +208,21 @@ class CustomerService:
         if org:
             components.append(f"Organization: {org.name})")
 
+        if clerk_link := self._clerk_link(org_id=org.id if org else None, owner_id=user.id if user else None):
+            components.append(f"Clerk Link: {clerk_link}")
+
         await clt.set_channel_purpose(channel_id, "\n".join(components))
+
+    @classmethod
+    def _clerk_link(cls, org_id: str | None, owner_id: str | None) -> str | None:
+        dashboard = os.environ.get("CLERK_DASHBOARD_PREFIX")
+        if not dashboard:
+            return None
+        if owner_id:
+            return f"{dashboard}/users/{owner_id}"
+        if org_id:
+            return f"{dashboard}/organizations/{org_id}"
+        return None
 
     async def _on_channel_created(
         self,
@@ -230,7 +244,13 @@ class CustomerService:
             user = await self._user_service.get_user(owner_id) if owner_id else None
             org = await self._user_service.get_organization(org_id) if org_id else None
 
-            await self._update_channel_purpose(clt, channel_id, org.slug if org else slug, user, org)
+            await self._update_channel_purpose(
+                clt,
+                channel_id,
+                org.slug if org else slug,
+                user,
+                org,
+            )
 
             if user:
                 assessment = await CustomerAssessmentService.run_customer_assessment(user.email)
