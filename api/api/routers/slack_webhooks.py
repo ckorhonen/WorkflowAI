@@ -3,6 +3,7 @@ import os
 
 from fastapi import APIRouter, HTTPException, Request
 
+from core.services.customers.customer_service import CustomerService
 from core.storage.slack.slack_api_client import SlackApiClient
 
 _logger = logging.getLogger(__name__)
@@ -22,7 +23,9 @@ async def slack_webhook(request: Request):
             return {"challenge": payload["challenge"]}
 
         slack_client = SlackApiClient(bot_token=os.environ["SLACK_BOT_TOKEN"])
-        await slack_client.handle_webhook(payload)
+        validated_event = await slack_client.handle_webhook(payload)
+        if validated_event:
+            await CustomerService.process_slack_webhook_message(validated_event)
 
         return {"status": "success"}
     except Exception as e:

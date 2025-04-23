@@ -1,4 +1,6 @@
-from typing import Any, Literal, NamedTuple, NotRequired, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
+
+from pydantic import BaseModel
 
 
 class SlackTextBlock(TypedDict):
@@ -60,7 +62,7 @@ class SlackMessage(OutboundSlackMessage):
 
 
 # Data structures for the webhooks events. Most field are ununsed for now.
-class SlackBotProfile(NamedTuple):
+class SlackBotProfile(BaseModel):
     id: str
     deleted: bool
     name: str
@@ -71,7 +73,7 @@ class SlackBotProfile(NamedTuple):
     team_id: str
 
 
-class SlackEventData(NamedTuple):
+class SlackEventData(BaseModel):
     user: str
     type: str
     ts: str
@@ -87,19 +89,17 @@ class SlackEventData(NamedTuple):
     blocks: list[dict[str, Any]] | None = None
 
 
-class SlackAuthorization(NamedTuple):
-    enterprise_id: str | None
+class SlackAuthorization(BaseModel):
     team_id: str
     user_id: str
     is_bot: bool
     is_enterprise_install: bool
+    enterprise_id: str | None = None
 
 
-class SlackWebhookEvent(NamedTuple):
+class SlackWebhookEvent(BaseModel):
     token: str
     team_id: str
-    context_team_id: str
-    context_enterprise_id: str | None
     api_app_id: str
     event: SlackEventData
     type: str
@@ -108,6 +108,8 @@ class SlackWebhookEvent(NamedTuple):
     authorizations: list[SlackAuthorization]
     is_ext_shared_channel: bool
     event_context: str
+    context_team_id: str | None = None
+    context_enterprise_id: str | None = None
 
     def is_bot_triggered(self) -> bool:
         return self.event.bot_profile is not None

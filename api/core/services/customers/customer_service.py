@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from api.services import tasks
 from api.services.customer_assessment_service import CustomerAssessmentService
 from api.services.features import CompanyFeaturePreviewList, FeatureService
+from core.agents.customer_success_helper_chat import CustomerSuccessHelperChatAgentInput, customer_success_helper_chat
 from core.domain.analytics_events.analytics_events import UserProperties
 from core.domain.consts import ENV_NAME, WORKFLOWAI_APP_URL
 from core.domain.errors import InternalError
@@ -23,10 +24,12 @@ from core.domain.events import (
 )
 from core.domain.task_info import PublicTaskInfo
 from core.domain.tenant_data import PublicOrganizationData
+from core.domain.fields.chat_message import ChatMessage
 from core.services.users.user_service import OrganizationDetails, UserDetails, UserService
 from core.storage import ObjectNotFoundException
 from core.storage.backend_storage import BackendStorage
 from core.storage.slack.slack_api_client import SlackApiClient
+from core.storage.slack.slack_types import OutboundSlackMessage, SlackWebhookEvent
 from core.storage.slack.utils import get_slack_hyperlink
 from core.utils.background import add_background_task
 from core.utils.coroutines import capture_errors
@@ -442,6 +445,64 @@ class CustomerService:
         message = SlackMessageFormatter.get_daily_user_digest_slack_message(daily_digest)
         await self._send_message(message)
         return daily_digest
+
+    @classmethod
+    def _should_process_webhook_event(cls, webhook_event: SlackWebhookEvent) -> bool:
+        bot_id: str | None = None
+
+        # Filter out message that do not contain "@WorkflowAI Bot"
+        if len(webhook_event.authorizations) > 0:
+            # TODO: use an env var to store the bot id
+            bot_id = webhook_event.authorizations[0].user_id
+
+            if webhook_event.event and webhook_event.event.text and bot_id not in webhook_event.event.text:
+                _logger.info(
+                    "The message is not addressed to the bot, skipping",
+                    extra={"event": webhook_event.event.text},
+                )
+                return False
+
+        # Filter messages send by the bot itself
+        if webhook_event.is_bot_triggered():
+            _logger.info("Skipping bot triggered event", extra={"event": webhook_event})
+            return False
+
+        # Filter out non-message events (will be handled later, maybe)
+        if webhook_event.event.type != "message":
+            _logger.info("Skipping non-message event", extra={"event": webhook_event.event})
+            return False
+
+        return True
+
+    @classmethod
+    async def process_slack_webhook_message(cls, webhook_event: SlackWebhookEvent) -> None:
+        if not cls._should_process_webhook_event(webhook_event=webhook_event):
+            return
+
+        """Process a webhook message after deduplication check"""
+        channel_id = webhook_event.event.channel
+
+        with cls._slack_client() as slack:
+            messages = await slack.fetch_channel_messages(channel_id)
+
+            csm_agent_input = CustomerSuccessHelperChatAgentInput(
+                messages=[
+                    ChatMessage(
+                        role="ASSISTANT" if "bot_id" in message else "USER",
+                        content=message["text"] or "not text in this message",
+                    )
+                    for message in messages
+                    if "text" in message
+                ],
+                current_datetime=datetime.now(),
+            )
+
+            csm_agent_run = await customer_success_helper_chat(csm_agent_input)
+
+            await slack.send_message(
+                channel_id,
+                OutboundSlackMessage(text=csm_agent_run.response or "no response from "),
+            )
 
 
 def _readable_name(user: UserProperties | None) -> str:
