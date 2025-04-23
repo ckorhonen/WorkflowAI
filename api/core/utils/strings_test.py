@@ -167,6 +167,7 @@ def test_remove_empty_lines(text: str, expected: str) -> None:
         # For now we split surrogates char
         pytest.param("hello\ud83d\ude00world", "helloworld", id="valid surrogate"),
         pytest.param("hello😁world", "hello😁world", id="emoji"),
+        pytest.param("hello\u0000ci29", "helloci29", id="actual null byte"),
     ],
 )
 def test_clean_unicode_chars(input_str: str, expected_output: str):
