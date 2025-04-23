@@ -9,7 +9,7 @@ from core.agents.customer_success_helper_chat import CustomerSuccessHelperChatAg
 from core.domain.errors import InternalError
 from core.domain.fields.chat_message import ChatMessage
 from core.storage.slack.slack_types import OutboundSlackMessage, SlackMessage, SlackWebhookEvent
-from core.utils.redis_lock import LockAcquisitionError, redis_lock
+from core.utils.redis_lock import DedupAcquisitionError, redis_dedup
 
 _logger = logging.getLogger(__name__)
 
@@ -219,13 +219,13 @@ class SlackApiClient:
                     extra={"event": webhook_event.event},
                 )
             else:
-                lock_key = f"slack:webhook:lock:{client_msg_id}"
+                dedup_key = f"slack:webhook:lock:{client_msg_id}"
                 try:
-                    async with redis_lock(lock_key, expire_seconds=60):
+                    async with redis_dedup(dedup_key, expire_seconds=60):
                         # Process the message only if we obtained the lock
                         await self._process_webhook_message(webhook_event)
                         return
-                except LockAcquisitionError:
+                except DedupAcquisitionError:
                     # This message is already being processed or was processed recently
                     _logger.info("Skipping duplicate webhook event", extra={"client_msg_id": client_msg_id})
                     return
