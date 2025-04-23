@@ -7,6 +7,7 @@ from api.jobs.common import (
     VersionsServiceDep,
 )
 from api.jobs.utils.jobs_utils import get_task_str_for_slack
+from api.services.internal_tasks.moderation_service import ModerationService
 from api.services.slack_notifications import get_user_and_org_str
 from core.domain.events import TaskGroupCreated
 
@@ -21,6 +22,9 @@ async def run_task_version_moderation(
     storage: StorageDep,
     internal_tasks: InternalTasksServiceDep,
 ):
+    if not ModerationService.is_moderation_activated():
+        return
+
     group = await storage.task_groups.get_task_group_by_id(
         task_id=event.task_id,
         id=event.id,

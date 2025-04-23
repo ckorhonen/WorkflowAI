@@ -1169,6 +1169,46 @@ def _build_model_datas():
             supports_tool_calling=False,
             supports_structured_output=True,
         ),
+        Model.LLAMA_4_MAVERICK_FAST: ModelData(
+            display_name="Llama 4 Maverick Fast",
+            supports_json_mode=True,
+            supports_input_image=True,
+            supports_multiple_images_in_input=True,
+            supports_input_pdf=False,
+            supports_input_audio=False,
+            max_tokens_data=MaxTokensData(
+                max_tokens=128_000,
+                source="https://console.groq.com/docs/model/llama-4-maverick-17b-128e-instruct",
+            ),
+            provider_for_pricing=Provider.GROQ,
+            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
+            release_date=date(2025, 4, 5),
+            quality_index=878,  # TODO: same as CLAUDE_3_7_SONNET_20250219 for now
+            provider_name=DisplayedProvider.GROQ.value,
+            supports_tool_calling=True,
+            supports_structured_output=True,
+        ),
+        # https://fireworks.ai/models/fireworks/llama4-scout-instruct-basic
+        Model.LLAMA_4_SCOUT_FAST: ModelData(
+            display_name="Llama 4 Scout Fast",
+            supports_json_mode=True,
+            supports_input_image=True,
+            supports_multiple_images_in_input=True,
+            supports_input_pdf=False,
+            supports_input_audio=False,
+            max_tokens_data=MaxTokensData(
+                max_tokens=128_000,
+                source="https://console.groq.com/docs/model/llama-4-scout-17b-16e-instruct",
+            ),
+            provider_for_pricing=Provider.GROQ,
+            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
+            release_date=date(2025, 4, 5),
+            # https://ai.meta.com/blog/llama-4-multimodal-intelligence/
+            quality_index=870,  # TODO: a bit less than CLAUDE_3_7_SONNET_20250219 for now
+            provider_name=DisplayedProvider.GROQ.value,
+            supports_tool_calling=True,
+            supports_structured_output=True,
+        ),
         # https://fireworks.ai/models/fireworks/deepseek-v3
         Model.DEEPSEEK_V3_2412: ModelData(
             display_name="DeepSeek V3 (24-12) (US hosted)",

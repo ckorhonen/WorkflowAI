@@ -3,7 +3,7 @@ import json
 import random
 from typing import Any, Literal
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, field_validator
 from typing_extensions import override
 
 from core.domain.errors import (
@@ -54,12 +54,12 @@ class GoogleProviderConfig(BaseModel):
             f"GoogleProviderConfig(project={self.vertex_project}, location={self.vertex_location[0]}, credentials=****)"
         )
 
-    @model_validator(mode="before")
+    @field_validator("vertex_location", mode="before")
     @classmethod
     def sanitize_vertex_location(cls, data: Any) -> Any:
-        if isinstance(data, dict) and "vertex_location" in data and isinstance(data["vertex_location"], str):
-            data["vertex_location"] = [data["vertex_location"]]
-        return data  # pyright: ignore [reportUnknownVariableType]
+        if isinstance(data, str):
+            return data.split(",")
+        return data
 
 
 class GoogleProvider(GoogleProviderBase[GoogleProviderConfig]):
@@ -145,7 +145,7 @@ class GoogleProvider(GoogleProviderBase[GoogleProviderConfig]):
 
     @override
     def default_model(self) -> Model:
-        return Model.GEMINI_1_5_FLASH_002
+        return Model.GEMINI_2_0_FLASH_001
 
     @classmethod
     def sanitize_config(cls, config: GoogleProviderConfig) -> GoogleProviderConfig:

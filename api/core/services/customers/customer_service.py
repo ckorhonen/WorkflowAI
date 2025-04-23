@@ -4,8 +4,14 @@ import logging
 import os
 import re
 from contextlib import contextmanager
+from datetime import date, datetime, timedelta
+from typing import NamedTuple
 
+from pydantic import BaseModel
+
+from api.services import tasks
 from api.services.customer_assessment_service import CustomerAssessmentService
+from api.services.features import CompanyFeaturePreviewList, FeatureService
 from core.domain.analytics_events.analytics_events import UserProperties
 from core.domain.consts import ENV_NAME, WORKFLOWAI_APP_URL
 from core.domain.errors import InternalError
@@ -25,6 +31,104 @@ from core.utils.background import add_background_task
 _logger = logging.getLogger(__name__)
 
 
+class DailyUserDigest(NamedTuple):
+    for_date: date
+    tenant_slug: str
+    org_id: str | None
+    remaining_credits_usd: float
+    added_credits_usd: float
+
+    class Agent(NamedTuple):
+        name: str
+        agent_id: str
+        agent_schema_id: int
+        description: str | None
+        run_count_last_24h: int
+        active_run_count_last_24h: int
+
+    agents: list[Agent]
+
+
+class DailyDigestAndEmail(NamedTuple):
+    daily_digest: DailyUserDigest
+
+    class Email(NamedTuple):
+        subject: str | None = None
+        body: str | None = None
+
+    email: Email
+
+
+def _get_task_url(event: Event, task_id: str, task_schema_id: int) -> str | None:
+    organization_slug = event.organization_properties.organization_slug if event.organization_properties else None
+    if organization_slug is None:
+        return None
+
+    base_domain = os.environ.get("WORKFLOWAI_APP_URL")
+    if base_domain is None:
+        return None
+
+    # Not super solid, will break if we change the task URL format in the web app, but we can't access the webapp URL schema from here.
+    # Additionally, this code is purely for notification purposes, so it's not critical for the clients
+    return f"{base_domain}/{organization_slug}/agents/{task_id}/{task_schema_id}"
+
+
+def _get_task_str_for_slack(event: Event, task_id: str, task_schema_id: int) -> str:
+    task_str = task_id
+    task_url = _get_task_url(event=event, task_id=task_id, task_schema_id=task_schema_id)
+    if task_url is not None:
+        task_str = get_slack_hyperlink(url=task_url, text=task_str)
+    return task_str
+
+
+class SlackMessageFormatter:
+    @classmethod
+    def get_feature_preview_list_slack_message(
+        cls,
+        company_domain: str,
+        features_suggestions: CompanyFeaturePreviewList | None,
+    ) -> str:
+        if not features_suggestions or not features_suggestions.features or len(features_suggestions.features) == 0:
+            return "No suggested AI roadmap for this customer because the agent did not find any good enough feature"
+
+        DELIMITER = "\n\n-----------------------------------\n\n"
+
+        features_str = DELIMITER.join([feature.display_str for feature in features_suggestions.features])
+
+        return f"🗺️ Suggested AI Roadmap for {company_domain}: {DELIMITER}\n{features_str}"
+
+    @classmethod
+    def get_daily_user_digest_slack_message(cls, daily_digest: DailyUserDigest) -> str:
+        DELIMITER = "\n\n-----------------------------------\n\n"
+
+        def _get_agent_str(agent: DailyUserDigest.Agent) -> str:
+            parts: list[str] = [
+                f"*{agent.name}*",
+                "\n",
+            ]
+            if agent.description:
+                parts.append(f"{agent.description}")
+
+            parts.append("\n")
+            parts.append(
+                f"{WORKFLOWAI_APP_URL}/{daily_digest.tenant_slug}/agents/{agent.agent_id}/{agent.agent_schema_id}",
+            )
+
+            parts.append("\n")
+            parts.append(f"Runs (last 24h): {agent.run_count_last_24h}")
+            if agent.active_run_count_last_24h:
+                parts.append(f"({agent.active_run_count_last_24h} active)")
+
+            return "".join(parts)
+
+        return f"""*Daily User Digest for {daily_digest.for_date.strftime("%Y-%m-%d")}*
+
+
+Remaining credits: ${daily_digest.remaining_credits_usd:.2f}
+Added credits (all time): ${daily_digest.added_credits_usd:.2f}
+{DELIMITER}{DELIMITER.join([_get_agent_str(agent) for agent in daily_digest.agents])}"""
+
+
 class CustomerService:
     _SLEEP_BETWEEN_RETRIES = 0.1
 
@@ -42,7 +146,15 @@ class CustomerService:
 
     async def _get_organization(self):
         return await self._storage.organizations.get_organization(
-            include={"slack_channel_id", "slug", "uid", "org_id", "owner_id"},
+            include={
+                "slack_channel_id",
+                "slug",
+                "uid",
+                "org_id",
+                "owner_id",
+                "current_credits_usd",
+                "added_credits_usd",
+            },
         )
 
     async def _get_or_create_slack_channel(self, clt: SlackApiClient, retries: int = 3):
@@ -117,6 +229,24 @@ class CustomerService:
             if user:
                 assessment = await CustomerAssessmentService.run_customer_assessment(user.email)
                 await clt.send_message(channel_id, {"text": str(assessment)})
+
+                # Only run AI roadmap generation if the customer has a company website
+                if assessment.company_website_url:
+                    features_suggestions = await FeatureService().get_features_by_domain(
+                        assessment.company_website_url,
+                    )
+                    features_suggestions_message = SlackMessageFormatter.get_feature_preview_list_slack_message(
+                        assessment.company_website_url,
+                        features_suggestions,
+                    )
+                    await clt.send_message(channel_id, {"text": features_suggestions_message})
+                else:
+                    await clt.send_message(
+                        channel_id,
+                        {
+                            "text": "No suggested AI roadmap for this customer because we could not find a company website",
+                        },
+                    )
 
     @contextmanager
     def _slack_client(self):
@@ -198,30 +328,57 @@ class CustomerService:
         message = f"Task {task_id} became active"
         await self._send_message(message)
 
+    async def build_daily_user_digest(self) -> DailyUserDigest:
+        class AgentStat(BaseModel):
+            agent_uid: int
+            run_count: int
+            total_cost_usd: float
+
+        storage = self._storage
+        tenant = await self._get_organization()
+
+        existing_agents = await tasks.list_tasks(storage)
+
+        from_date = datetime.now() - timedelta(hours=24)
+        items_stats = [
+            AgentStat(agent_uid=stat.agent_uid, run_count=stat.run_count, total_cost_usd=stat.total_cost_usd)
+            async for stat in storage.task_runs.run_count_by_agent_uid(from_date)
+        ]
+        active_items_stats = [
+            AgentStat(agent_uid=stat.agent_uid, run_count=stat.run_count, total_cost_usd=stat.total_cost_usd)
+            async for stat in storage.task_runs.run_count_by_agent_uid(from_date, is_active=True)
+        ]
+
+        return DailyUserDigest(
+            for_date=datetime.now().date(),
+            tenant_slug=tenant.slug,
+            org_id=tenant.org_id,
+            remaining_credits_usd=tenant.current_credits_usd,
+            added_credits_usd=tenant.added_credits_usd,
+            agents=[
+                DailyUserDigest.Agent(
+                    name=agent.name,
+                    agent_id=agent.id,
+                    agent_schema_id=max(v.schema_id for v in agent.versions),
+                    description=agent.description,
+                    run_count_last_24h=next((stat.run_count for stat in items_stats if stat.agent_uid == agent.uid), 0),
+                    active_run_count_last_24h=next(
+                        (stat.run_count for stat in active_items_stats if stat.agent_uid == agent.uid),
+                        0,
+                    ),
+                )
+                for agent in existing_agents
+            ],
+        )
+
+    async def send_daily_user_digest(self) -> DailyUserDigest:
+        daily_digest = await self.build_daily_user_digest()
+        message = SlackMessageFormatter.get_daily_user_digest_slack_message(daily_digest)
+        await self._send_message(message)
+        return daily_digest
+
 
 def _readable_name(user: UserProperties | None) -> str:
     if user:
         return user.user_email or "missing email"
     return "unknown user"
-
-
-def _get_task_url(event: Event, task_id: str, task_schema_id: int) -> str | None:
-    organization_slug = event.organization_properties.organization_slug if event.organization_properties else None
-    if organization_slug is None:
-        return None
-
-    base_domain = os.environ.get("WORKFLOWAI_APP_URL")
-    if base_domain is None:
-        return None
-
-    # Not super solid, will break if we change the task URL format in the web app, but we can't access the webapp URL schema from here.
-    # Additionally, this code is purely for notification purposes, so it's not critical for the clients
-    return f"{base_domain}/{organization_slug}/agents/{task_id}/{task_schema_id}"
-
-
-def _get_task_str_for_slack(event: Event, task_id: str, task_schema_id: int) -> str:
-    task_str = task_id
-    task_url = _get_task_url(event=event, task_id=task_id, task_schema_id=task_schema_id)
-    if task_url is not None:
-        task_str = get_slack_hyperlink(url=task_url, text=task_str)
-    return task_str
