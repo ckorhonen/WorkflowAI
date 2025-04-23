@@ -84,6 +84,11 @@ def _md(**kwargs: Any) -> FinalModelData:
             TaskTypology(input=SchemaTypology(has_pdf=True)),
             None,
         ),
+        (
+            _md(),
+            TaskTypology(output=SchemaTypology(has_image=True)),
+            "GPT-3.5 Turbo (1106) does not support output images",
+        ),
     ],
 )
 def test_is_model_not_supported_and_why(

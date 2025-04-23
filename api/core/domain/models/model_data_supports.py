@@ -13,3 +13,4 @@ class ModelDataSupports(BaseModel):
     support_system_messages: bool = Field(default=True, description="Whether the model supports system messages")
     supports_structured_output: bool = Field(default=False, description="Whether the model supports structured output")
     support_input_schema: bool = Field(default=True, description="Whether the model supports input schema")
+    supports_output_image: bool = Field(default=False, description="Whether the model supports output images")

@@ -128,6 +128,9 @@ class FinalModelData(ModelData):
             if supports_inlining:
                 return None
             return f"{self.display_name} does not support input pdf"
+
+        if task_typology.output.has_image and not self.supports_output_image:
+            return f"{self.display_name} does not support output images"
         return None
 
 
