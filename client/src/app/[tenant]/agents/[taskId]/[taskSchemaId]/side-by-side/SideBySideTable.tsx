@@ -146,11 +146,17 @@ export function SideBySideTable(props: SideBySideTableProps) {
     let defaultLeftVersionId: string | undefined = deployedVersion?.id ?? versions[0].id;
 
     // Default Right Version
-    let defaultRightVersionId: string | undefined = deployedVersion
-      ? defaultLeftVersionId === versions[0].id
-        ? versions[1].id
-        : versions[0].id
-      : versions[1].id;
+    let defaultRightVersionId: string | undefined = undefined;
+
+    if (deployedVersion) {
+      if (defaultLeftVersionId === deployedVersion.id) {
+        defaultRightVersionId = versions.length > 1 ? versions[1].id : undefined;
+      } else {
+        defaultRightVersionId = versions[0].id;
+      }
+    } else {
+      defaultRightVersionId = versions.length > 1 ? versions[1].id : undefined;
+    }
 
     // Default Right Model
     let defaultRightModelId: string | undefined = undefined;
