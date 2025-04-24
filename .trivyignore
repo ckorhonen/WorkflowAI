@@ -1,0 +1,3 @@
+# httpcore locks a previous version of h11
+# See https://github.com/encode/httpcore/issues/1007
+CVE-2025-43859
