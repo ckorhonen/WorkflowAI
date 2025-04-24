@@ -166,6 +166,6 @@ async def test_run_preview_with_downloaded_file(test_client: IntegrationTestClie
     fetched_task_run = await test_client.fetch_run(task, run_id=task_run["id"])
     storage_url = test_client.storage_url(
         task,
-        "460b4d834db4657bec3bbc25edd9742c4e5129905421e96d08e3615e06ca8d39.png",
+        "460b4d834db4657bec3bbc25edd9742c4e5129905421e96d08e3615e06ca8d39.jpg",
     )
     assert fetched_task_run["task_input_preview"] == f"image: [[img:{storage_url}]]"
