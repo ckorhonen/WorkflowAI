@@ -41,7 +41,6 @@ export function ToolboxModalContent(props: ToolboxModalContentProps) {
   }, [selectedTool]);
 
   const onSave = useCallback(async () => {
-    console.log('onSave', tools);
     await onToolsUpdate(tools);
     close();
   }, [onToolsUpdate, tools, close]);
