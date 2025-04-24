@@ -30,7 +30,7 @@ class CustomerSuccessHelperChatAgentOutput(BaseModel):
             description="The subject of the email, aim at 4-6 words max.",
             examples=["Your next step on WorkflowAI"],
         )
-        body: str | None = Field(default=None, description="The body of the email")
+        body: str | None = Field(default=None, description="The body of the email, WITHOUT signature")
 
     email_draft: EmailDraft | None = Field(
         default=None,
@@ -74,7 +74,7 @@ async def customer_success_helper_chat(
     You can draft emails for customers based on their context and the interaction they had with the platform so far. The goal is for you to save some time for the WorkflowAI staff so they can get the discussion started with the customer understand their needs better and identify blockers if there are any.
 
     You will not send email the goal is only to draft the email and provide it to the WorkflowAI staff. You can introduce yourself as Pierre's AI Assistant in the beginning of the email. Pierre is the CEO of WorkflowAI.
-    Do not add signature in the email draft.
+    NEVER add signature in the 'email_draft.body', since the signature is automatically added when sending the email.
 
     When drafting emails you must write in the language the user is writing in. But only in English and French because our team only speak English and French.
     In case several user email are in the Slack channel, double check with the WorkflowAI staff who the email is for.
@@ -83,7 +83,7 @@ async def customer_success_helper_chat(
 
     Email should be short (max 6-8 lines of text) and engaging and have a relaxed, yet sharp style. Avoid very long emails that look like B2B software. Try to be cool, WorkflowAI is cool :)
 
-    You must return the email draft in the 'email_draft' output. In this case, the 'response' can stay very minimal or empty.
+    You must return the email draft in the 'email_draft.body' output. In this case, the 'response' can stay very minimal or empty.
 
     # AI Roadmap Generation
 
