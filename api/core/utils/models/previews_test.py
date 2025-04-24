@@ -62,6 +62,11 @@ def test_compute_preview_default_limit():
             "[[img:https://example.com/image.png]]",
             id="url_with_data",
         ),
+        pytest.param(
+            {"url": 10, "content_type": "image/png"},
+            "{url",  # truncated
+            id="not_a_file",
+        ),
     ],
 )
 def test_compute_preview_file(file_payload: dict[str, Any], expected: str):
