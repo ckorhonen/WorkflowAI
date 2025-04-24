@@ -210,24 +210,6 @@ class HelpScoutClient:
             operation_name="create reply",
         )
 
-    async def create_reply(
-        self,
-        conversation_id: int,
-        text: str,
-        customer_email: str,
-    ) -> None:
-        """Create a reply for a conversation"""
-        data: dict[str, Any] = {
-            "text": text,
-            "customer": {"email": customer_email},
-        }
-
-        await self.post(
-            f"/conversations/{conversation_id}/reply",
-            json_data=data,
-            operation_name="create reply",
-        )
-
     async def setup_webhook(self, webhook_url: str) -> None:
         data: dict[str, Any] = {
             "url": webhook_url,
