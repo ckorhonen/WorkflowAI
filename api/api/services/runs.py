@@ -379,6 +379,21 @@ class RunsService:
         # Data is stripped from the files
         cls._apply_files(payload, files, {"content_type", "url", "storage_url"}, exclude={"key_path"})
 
+    @classmethod
+    async def _should_store_files(
+        cls,
+        input_schema: dict[str, Any],
+        input: dict[str, Any],
+        output_schema: dict[str, Any],
+        output: dict[str, Any],
+    ) -> bool:
+        results = await asyncio.gather(
+            cls._extract_download_and_apply_files(input_schema, input),
+            cls._extract_download_and_apply_files(output_schema, output),
+            return_exceptions=True,
+        )
+        return any(res is True for res in results)
+
     # TODO: merge with instance method when workflowai.py is removed
     # Staticmethod is only used as a bridge to avoid adding a new dependency on workflowai.py
     @classmethod
@@ -396,9 +411,11 @@ class RunsService:
         source: SourceType | None = None,
     ) -> AgentRun:
         # Extract data of files in the task run input only, download files if needed
-        should_store_files = await cls._extract_download_and_apply_files(
-            schema=task_variant.input_schema.json_schema,
-            payload=task_run.task_input,
+        should_store_files = await cls._should_store_files(
+            input_schema=task_variant.input_schema.json_schema,
+            input=task_run.task_input,
+            output_schema=task_variant.output_schema.json_schema,
+            output=task_run.task_output,
         )
 
         # Compute cost
@@ -423,7 +440,6 @@ class RunsService:
                         folder_path=folder_path,
                     ),
                 ),
-                # TODO: test
                 sentry_wrap(
                     cls._extract_and_store_files(
                         schema=task_variant.output_schema.json_schema,
