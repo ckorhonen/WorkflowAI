@@ -186,11 +186,6 @@ class SlackApiClient:
 
         purpose: Purpose = Field(default_factory=Purpose)
 
-        class Purpose(BaseModel):
-            value: str
-
-        purpose: Purpose
-
         @property
         def short_description(self) -> str:
             return f"{self.topic.value}\n{self.purpose.value}"
@@ -201,7 +196,6 @@ class SlackApiClient:
             params={"channel": channel_id},
             operation_name="get slack channel info",
         )
-        print(f"PARSED CHANNEL INFO: {parsed}")
         return self.ChannelInfo.model_validate(parsed["channel"])
 
     async def list_channels(self, limit: int = 1000):
