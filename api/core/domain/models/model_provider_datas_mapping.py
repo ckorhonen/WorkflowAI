@@ -113,6 +113,7 @@ GOOGLE_PROVIDER_DATA: ProviderDataByModel = {
             release_date=datetime.date(year=2024, month=5, day=24),
             sunset_date=datetime.date(year=2025, month=5, day=24),
             source="https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#model_versions_and_lifecycle",
+            post_sunset_replacement_model=Model.GEMINI_1_5_PRO_002,
         ),
     ),
     Model.GEMINI_1_5_PRO_002: ModelProviderData(
@@ -176,6 +177,7 @@ GOOGLE_PROVIDER_DATA: ProviderDataByModel = {
             release_date=datetime.date(year=2024, month=5, day=24),
             sunset_date=datetime.date(year=2025, month=5, day=24),
             source="https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#model_versions_and_lifecycle",
+            post_sunset_replacement_model=Model.GEMINI_2_0_FLASH_001,
         ),
     ),
     Model.GEMINI_1_5_FLASH_002: ModelProviderData(
@@ -207,6 +209,7 @@ GOOGLE_PROVIDER_DATA: ProviderDataByModel = {
             release_date=datetime.date(year=2024, month=9, day=24),
             sunset_date=datetime.date(year=2025, month=9, day=24),
             source="https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#model_versions_and_lifecycle",
+            post_sunset_replacement_model=Model.GEMINI_2_0_FLASH_001,
         ),
     ),
     Model.LLAMA_3_1_405B: ModelProviderData(
