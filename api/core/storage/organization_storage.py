@@ -42,6 +42,8 @@ class OrganizationSystemStorage(PublicOrganizationStorage, Protocol):
 
     async def decrement_credits(self, tenant: str, credits: float) -> TenantData: ...
 
+    async def get_organization_by_slack_channel_id(self, slack_channel_id: str) -> TenantData | None: ...
+
     async def migrate_tenant_to_organization(
         self,
         org_id: str,

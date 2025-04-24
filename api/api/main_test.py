@@ -59,6 +59,10 @@ def authenticated_routes(
         "/v1/feedback",
         "/webhooks/slack",
         "/webhooks/slack/",
+        "/webhooks/slack/actions",
+        "/webhooks/slack/actions/",
+        "/webhooks/helpscout",
+        "/webhooks/helpscout/",
     }
 
     method_predicate = _include_methods(methods, exc_methods)

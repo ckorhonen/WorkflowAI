@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 import httpx
 
@@ -17,7 +18,7 @@ class SlackWebhookClient:
         if self.webhook_url is None:
             logger.debug("SLACK_WEBHOOK_URL environment variable is not set. Slack notifications will be skipped.")
 
-    async def send_message(self, message: str | OutboundSlackMessage) -> None:
+    async def send_message(self, message: str | OutboundSlackMessage | dict[str, Any]) -> None:
         if self.webhook_url is None:
             logger.warning(
                 "Skipped Slack message sending because 'webhook_url' is not set",
