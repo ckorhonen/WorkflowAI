@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Iterable
 from datetime import datetime
-from typing import Generic, List, TypedDict, TypeVar
+from typing import Any, Generic, List, TypedDict, TypeVar
 
 import httpx
 from typing_extensions import NotRequired, override

@@ -26,9 +26,14 @@ from core.domain.events import (
     MetaAgentChatMessagesSent,
     TaskSchemaCreatedEvent,
 )
+from core.domain.fields.chat_message import ChatMessageWithTimestamp
+from core.domain.helpscout_email import HelpScoutEmail
 from core.domain.task_info import PublicTaskInfo
 from core.domain.tenant_data import PublicOrganizationData
-from core.domain.fields.chat_message import ChatMessage
+from core.services.customers.customer_service_models import DailyUserDigest
+from core.services.customers.customer_service_slack_message_formatter import SlackMessageFormatter
+from core.services.users.clerk_user_service import ClerkUserService
+from core.services.users.shared_user_service import shared_user_service
 from core.services.users.user_service import OrganizationDetails, UserDetails, UserService
 from core.storage import ObjectNotFoundException
 from core.storage.backend_storage import BackendStorage, SystemBackendStorage
@@ -41,6 +46,7 @@ from core.storage.slack.slack_types import (
 )
 from core.storage.slack.utils import get_slack_hyperlink
 from core.utils.background import add_background_task
+from core.utils.coroutines import capture_errors
 from core.utils.redis_cache import redis_cached
 
 _logger = logging.getLogger(__name__)
