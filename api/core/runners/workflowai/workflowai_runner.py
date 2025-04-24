@@ -56,6 +56,7 @@ from core.runners.workflowai.utils import (
     convert_pdf_to_images,
     download_file,
     extract_files,
+    possible_file_keypaths,
     sanitize_model_and_provider,
     split_tools,
 )
@@ -627,6 +628,21 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         external_tools: Sequence[ToolCallRequestWithID] | None = (
             await self._external_tool_cache.values() if include_tool_calls else None
         )
+
+        # TODO: test
+        if output.files:
+            # The structured output generated files so we need to apply them
+            keypaths = possible_file_keypaths(self.task_output_schema(), len(output.files))
+            if len(keypaths) != len(output.files):
+                logger.warning(
+                    "The number of files in the structured output does not match the number of keypaths",
+                    extra={"run_id": self._run_id, "expected": len(keypaths), "actual": len(output.files)},
+                )
+            for idx, keypath in enumerate(keypaths):
+                # TODO: We should probably handle errors here, but not sure what to
+                # do if the keypath is invalid
+                set_at_keypath(output.output, keypath, output.files[idx])
+
         return RunOutput(
             task_output=output.output,
             tool_calls=internal_tools or None,

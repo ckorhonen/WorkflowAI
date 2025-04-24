@@ -78,7 +78,7 @@ class TestApplyFiles:
     async def test_apply_files(self):
         payload = {"image": {"url": "https://test-url.com/file"}}
         files = [FileWithKeyPath(key_path=["image"], url="https://test-url.com/file", data="1234")]
-        await RunsService._apply_files(payload, files, include=None, exclude={"key_path"})  # pyright: ignore [reportPrivateUsage]
+        RunsService._apply_files(payload, files, include=None, exclude={"key_path"})  # pyright: ignore [reportPrivateUsage]
         assert payload == {
             "image": {
                 "url": "https://test-url.com/file",
@@ -96,7 +96,7 @@ class TestApplyFiles:
                 content_type="image",
             ),
         ]
-        await RunsService._apply_files(  # pyright: ignore [reportPrivateUsage]
+        RunsService._apply_files(  # pyright: ignore [reportPrivateUsage]
             payload,
             files,
             include={"content_type", "url", "storage_url"},
