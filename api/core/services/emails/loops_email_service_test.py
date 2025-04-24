@@ -146,8 +146,8 @@ class TestSendPaymentFailureEmail:
 
         # Mock user service response
         mock_user_service.get_org_admins.return_value = [
-            UserDetails(email="admin1@example.com", name="Admin One"),
-            UserDetails(email="admin2@example.com", name="Admin Two"),
+            UserDetails(email="admin1@example.com", name="Admin One", id="test_admin_id_1"),
+            UserDetails(email="admin2@example.com", name="Admin Two", id="test_admin_id_2"),
         ]
 
         # Mock Loops API response
@@ -201,7 +201,11 @@ class TestSendPaymentFailureEmail:
         )
 
         # Mock user service response
-        mock_user_service.get_user.return_value = UserDetails(email="owner@example.com", name="Owner")
+        mock_user_service.get_user.return_value = UserDetails(
+            email="owner@example.com",
+            name="Owner",
+            id="test_owner_id",
+        )
 
         await loops_service.send_payment_failure_email("test_tenant")
 
@@ -228,8 +232,8 @@ class TestSendLowCreditsEmail:
 
         # Mock user service response with two admins
         mock_user_service.get_org_admins.return_value = [
-            UserDetails(email="admin1@example.com", name="Admin One"),
-            UserDetails(email="admin2@example.com", name="Admin Two"),
+            UserDetails(email="admin1@example.com", name="Admin One", id="test_admin_id_1"),
+            UserDetails(email="admin2@example.com", name="Admin Two", id="test_admin_id_2"),
         ]
 
         # Mock Loops API response

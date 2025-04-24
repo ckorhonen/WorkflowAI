@@ -17,6 +17,7 @@ async def _once_a_day(key: str):
 @broker.task(
     schedule=[
         {
+            # Daily at 12:00 AM EST
             "cron": "0 0 * * *",
             "cron_offset": "America/New_York",
         },
