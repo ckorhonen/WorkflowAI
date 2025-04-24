@@ -413,6 +413,18 @@ OPENAI_PROVIDER_DATA: ProviderDataByModel = {
     # ),
 }
 
+OPENAI_IMAGE_PROVIDER_DATA: ProviderDataByModel = {
+    Model.GPT_IMAGE_1: ModelProviderData(
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=5 * ONE_MILLION_TH,
+            prompt_image_cost_per_token=10 * ONE_MILLION_TH,
+            completion_cost_per_token=0,  # GPT Image 1 does not generate text
+            completion_image_cost_per_token=40 * ONE_MILLION_TH,
+            source="https://openai.com/api/pricing/",
+        ),
+    ),
+}
+
 AMAZON_BEDROCK_PROVIDER_DATA: ProviderDataByModel = {
     Model.CLAUDE_3_7_SONNET_20250219: ModelProviderData(
         text_price=TextPricePerToken(
@@ -1210,6 +1222,7 @@ MODEL_PROVIDER_DATAS: ProviderModelDataMapping = {
     # ------------------------------------------------------------------------------------------------
     # OpenAI
     Provider.OPEN_AI: OPENAI_PROVIDER_DATA,
+    Provider.OPEN_AI_IMAGE: OPENAI_IMAGE_PROVIDER_DATA,
     # ------------------------------------------------------------------------------------------------
     # Amazon Bedrock
     Provider.AMAZON_BEDROCK: AMAZON_BEDROCK_PROVIDER_DATA,

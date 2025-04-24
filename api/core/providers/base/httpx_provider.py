@@ -1,12 +1,9 @@
-import json
 from abc import abstractmethod
 from collections.abc import Callable
-from contextlib import asynccontextmanager
 from json import JSONDecodeError
 from typing import Any, AsyncGenerator, AsyncIterator, Generic, NamedTuple, TypeVar
 
-import httpx
-from httpx import ReadTimeout, RemoteProtocolError, Response
+from httpx import Response
 from pydantic import BaseModel
 from typing_extensions import override
 
@@ -14,17 +11,8 @@ from core.domain.errors import (
     ContentModerationError,
     FailedGenerationError,
     InternalError,
-    InvalidGenerationError,
-    InvalidProviderConfig,
     JSONSchemaValidationError,
     ProviderError,
-    ProviderInternalError,
-    ProviderRateLimitError,
-    ProviderTimeoutError,
-    ProviderUnavailableError,
-    ReadTimeOutError,
-    ServerOverloadedError,
-    UnknownProviderError,
 )
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_completion import LLMCompletion
@@ -33,14 +21,15 @@ from core.domain.message import Message
 from core.domain.models import Model
 from core.domain.structured_output import StructuredOutput
 from core.domain.tool_call import ToolCallRequestWithID
-from core.providers.base.abstract_provider import AbstractProvider, ProviderConfigVar, RawCompletion
+from core.providers.base.abstract_provider import ProviderConfigVar, RawCompletion
 from core.providers.base.client_pool import ClientPool
+from core.providers.base.httpx_provider_base import HTTPXProviderBase
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import StreamingContext, ToolCallRequestBuffer
 from core.utils.background import add_background_task
 from core.utils.dicts import InvalidKeyPathError, set_at_keypath_str
 from core.utils.json_utils import extract_json_str
-from core.utils.streams import JSONStreamError, standard_wrap_sse
+from core.utils.streams import standard_wrap_sse
 
 ResponseModel = TypeVar("ResponseModel", bound=BaseModel)
 
@@ -54,7 +43,7 @@ class ParsedResponse(NamedTuple):
     tool_calls: list[ToolCallRequestWithID] | None = None
 
 
-class HTTPXProvider(AbstractProvider[ProviderConfigVar, dict[str, Any]], Generic[ProviderConfigVar, ResponseModel]):
+class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generic[ProviderConfigVar, ResponseModel]):
     @abstractmethod
     def _build_request(self, messages: list[Message], options: ProviderOptions, stream: bool) -> BaseModel:
         pass
@@ -99,14 +88,13 @@ class HTTPXProvider(AbstractProvider[ProviderConfigVar, dict[str, Any]], Generic
         """Extract the raw prompt from the request JSON"""
         return request_json["messages"]
 
-    def _invalid_json_error(self, response: Response, exception: Exception, content_str: str) -> Exception:
-        return self._failed_generation_error_wrapper(content_str, "Response does not contain a valid JSON", retry=True)
-
+    @override
     def _parse_response(
         self,
         response: Response,
         output_factory: Callable[[str, bool], StructuredOutput],
         raw_completion: RawCompletion,
+        request: dict[str, Any],
     ) -> StructuredOutput:
         try:
             raw = response.json()
@@ -150,88 +138,6 @@ class HTTPXProvider(AbstractProvider[ProviderConfigVar, dict[str, Any]], Generic
             native_tools_calls=native_tool_calls,
         )
 
-    def _provider_rate_limit_error(self, response: Response):
-        return ProviderRateLimitError(retry_after=10, response=response)
-
-    def _provider_timeout_error(self, response: Response):
-        return ProviderTimeoutError(retry_after=10, response=response)
-
-    def _provider_internal_error(self, response: Response):
-        return ProviderInternalError(retry_after=10, response=response)
-
-    def _server_overloaded_error(self, response: Response):
-        return ServerOverloadedError(retry_after=10, response=response)
-
-    def _provider_unavailable_error(self, response: Response):
-        return ProviderInternalError(retry_after=10, response=response)
-
-    def _unknown_error_message(self, response: Response):
-        """Method called to extract the error message from the response when"""
-        return f"Unknown error status {response.status_code}"
-
-    def _unknown_error(self, response: Response) -> ProviderError:
-        return UnknownProviderError(msg=self._unknown_error_message(response), response=response)
-
-    def _handle_error_status_code(self, response: Response):
-        match response.status_code:
-            case 401 | 403:
-                err = InvalidProviderConfig(f"Config {self._config_id} seems invalid", response=response)
-                if not self._config_id:
-                    # if no config id is provided, then it's the local config that is invalid
-                    # so it should still log to sentry
-
-                    self.logger.exception(err, extra={"response": response.text})
-                raise err
-            case 402:
-                # Payment required, let's raise an invalid config so the provider pipeline knows to go to the next provider
-                raise InvalidProviderConfig(
-                    f"Payment required for provider {self._config_id}",
-                    response=response,
-                    capture=True,
-                )
-            case 408:
-                raise self._provider_timeout_error(response)
-            case 429:
-                raise self._provider_rate_limit_error(response)
-            case 500 | 520 | 530:
-                raise self._provider_internal_error(response)
-            case 502 | 503 | 522:
-                raise self._provider_unavailable_error(response)
-            case 529:
-                raise self._server_overloaded_error(response)
-            case _:
-                # if no exception is raised, then it's an unknown error
-                # which will be handled by the caller
-                pass
-
-    @classmethod
-    def _client_pool(cls) -> ClientPool:
-        return shared_client_pool
-
-    @asynccontextmanager
-    async def _open_client(self, url: str):
-        try:
-            yield shared_client_pool.get(url)
-        except (httpx.ConnectError, httpx.ReadError) as e:
-            raise ProviderUnavailableError(
-                msg=f"Failed to reach provider: {e}",
-                retry=True,
-                capture=True,
-                max_attempt_count=3,
-            ) from e
-        except httpx.HTTPStatusError as e:
-            self._handle_error_status_code(response=e.response)
-            # if no exception is raised, then it's an unknown error
-            raise self._unknown_error(e.response)
-        except ProviderError as e:
-            # Just forward provider errors
-            raise e
-        except (JSONSchemaValidationError, JSONStreamError) as e:
-            raise InvalidGenerationError(
-                msg=f"Received invalid JSON: {e}",
-                provider_status_code=200,
-            ) from e
-
     @classmethod
     def _initial_usage(cls, messages: list[Message]) -> LLMUsage:
         image_count = 0
@@ -262,42 +168,20 @@ class HTTPXProvider(AbstractProvider[ProviderConfigVar, dict[str, Any]], Generic
 
         return body, raw
 
-    async def _extract_and_log_rate_limits(self, response: Response, options: ProviderOptions):
-        """Use _log_rate_limit from the base class to track rate limits"""
-        pass
-
     @override
-    async def _single_complete(
-        self,
-        request: dict[str, Any],
-        output_factory: Callable[[str, bool], StructuredOutput],
-        raw_completion: RawCompletion,
-        options: ProviderOptions,
-    ) -> StructuredOutput:
-        response_status_200 = False
-        try:
-            url = self._request_url(model=options.model, stream=False)
-            headers = await self._request_headers(request, url, options.model)
+    async def _execute_request(self, request: dict[str, Any], options: ProviderOptions) -> Response:
+        url = self._request_url(model=options.model, stream=False)
+        headers = await self._request_headers(request, url, options.model)
 
-            async with self._open_client(url) as client:
-                response = await client.post(
-                    url,
-                    json=request,
-                    headers=headers,
-                    timeout=options.timeout,
-                )
-                add_background_task(self._extract_and_log_rate_limits(response, options=options))
-                response.raise_for_status()
-                response_status_200 = True
-                return self._parse_response(response, output_factory=output_factory, raw_completion=raw_completion)
-        except ReadTimeout:
-            raise ReadTimeOutError(retry=True, retry_after=10)
-        except RemoteProtocolError:
-            raise ProviderInternalError(msg="Provider has disconnected without sending a response.", retry_after=10)
-        except ProviderError as e:
-            if not response_status_200:
-                raw_completion.response = None
-            raise e
+        async with self._open_client(url) as client:
+            response = await client.post(
+                url,
+                json=request,
+                headers=headers,
+                timeout=options.timeout,
+            )
+            response.raise_for_status()
+            return response
 
     async def wrap_sse(self, raw: AsyncIterator[bytes], termination_chars: bytes = b"\n\n"):
         async for chunk in standard_wrap_sse(raw, termination_chars, self.logger):
@@ -411,7 +295,11 @@ class HTTPXProvider(AbstractProvider[ProviderConfigVar, dict[str, Any]], Generic
         options: ProviderOptions,
     ) -> AsyncGenerator[StructuredOutput, None]:
         streaming_context: StreamingContext | None = None
-        try:
+
+        def _finally():
+            raw_completion.response = streaming_context.streamer.raw_completion if streaming_context else None
+
+        with self._wrap_errors(options=options, raw_completion=raw_completion, finally_block=_finally):
             url = self._request_url(model=options.model, stream=True)
             headers = await self._request_headers(request=request, url=url, model=options.model)
             async with self._open_client(url) as client:
@@ -462,22 +350,3 @@ class HTTPXProvider(AbstractProvider[ProviderConfigVar, dict[str, Any]], Generic
                             streaming_context.streamer.raw_completion,
                             str(e),
                         )
-        except ReadTimeout:
-            raise ReadTimeOutError(retry=True, retry_after=10)
-        except RemoteProtocolError:
-            raise ProviderInternalError(msg="Provider has disconnected without sending a response.", retry_after=10)
-        finally:
-            raw_completion.response = streaming_context.streamer.raw_completion if streaming_context else None
-
-    async def check_valid(self) -> bool:
-        options = ProviderOptions(model=self.default_model(), max_tokens=10, temperature=0)
-
-        try:
-            await self.complete(
-                messages=[Message(role=Message.Role.USER, content="Respond with an empty json")],
-                options=options,
-                output_factory=lambda x, _: StructuredOutput(json.loads(x)),
-            )
-            return True
-        except InvalidProviderConfig:
-            return False

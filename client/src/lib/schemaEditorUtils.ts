@@ -12,7 +12,7 @@ import {
   JsonValueSchema,
   sanitizeRef,
 } from '@/types';
-import { AUDIO_REF_NAME, FILE_REF_NAMES, IMAGE_REF_NAME } from './constants';
+import { AUDIO_REF_NAME, FILE_REF_NAMES, IMAGE_OPTIONS_REF_NAME, IMAGE_REF_NAME } from './constants';
 
 export const IMAGE_REF: JsonRefSchema = {
   $ref: '#/$defs/Image',
@@ -20,6 +20,10 @@ export const IMAGE_REF: JsonRefSchema = {
 
 export const FILE_REF: JsonRefSchema = {
   $ref: '#/$defs/File',
+};
+
+export const IMAGE_OPTIONS_REF: JsonRefSchema = {
+  $ref: '#/$defs/ImageOptions',
 };
 
 export type SelectableFieldType =
@@ -37,7 +41,8 @@ export type SelectableFieldType =
   | 'enum'
   | 'image'
   | 'audio'
-  | 'document';
+  | 'document'
+  | 'image-options';
 
 const FILE_SELECTABLE_FIELD_TYPES: SelectableFieldType[] = ['image', 'audio', 'document'];
 
@@ -111,6 +116,10 @@ function fieldTypeToSelectableFieldType(
 
     if (FILE_REF_NAMES.includes(refName)) {
       return extractFileFieldType(schema);
+    }
+
+    if (IMAGE_OPTIONS_REF_NAME === refName) {
+      return 'image-options';
     }
 
     if (!!definitions) {
@@ -251,6 +260,13 @@ export function fromSchemaToSplattedEditorFields(
       return {
         keyName,
         type: 'audio',
+      };
+    }
+
+    if (IMAGE_OPTIONS_REF_NAME === refName) {
+      return {
+        keyName,
+        type: 'image-options',
       };
     }
 
@@ -413,6 +429,8 @@ export function fromSplattedEditorFieldsToSchema(
     };
   } else if (splattedEditorFields.type === 'image') {
     result = IMAGE_REF;
+  } else if (splattedEditorFields.type === 'image-options') {
+    result = IMAGE_OPTIONS_REF;
   } else if (!!splattedEditorFields.type && FILE_SELECTABLE_FIELD_TYPES.includes(splattedEditorFields.type)) {
     result = {
       ...FILE_REF,
@@ -446,7 +464,7 @@ export function shouldDisableRemove(schema: SchemaEditorField | undefined): bool
   return (schema.type === 'object' || schema.arrayType === 'object') && !!schema.fields && schema.fields?.length < 2;
 }
 
-const IGNORED_DEFS_FOR_COMPARISON = ['Image', 'File', 'Audio', 'DatetimeLocal'];
+const IGNORED_DEFS_FOR_COMPARISON = ['Image', 'File', 'Audio', 'DatetimeLocal', 'ImageOptions'];
 
 function sanitizeDefsForComparison(schema: JsonSchema) {
   if (!schema.$defs) {

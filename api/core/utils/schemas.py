@@ -109,7 +109,7 @@ class JsonSchema:
             raise InvalidSchemaError("No definitions found")
 
         schema = defs.get(key[2])
-        if not schema:
+        if schema is None:
             raise InvalidSchemaError(f"Ref {uri} not found")
         # Not sure why pyright is freaking out here
         # We remove the ref to make sure it is not included in the returned schema and to

@@ -2,6 +2,7 @@ import asyncio
 import base64
 import copy
 import logging
+from collections.abc import Iterator
 from io import BytesIO
 from typing import Any, cast, override
 
@@ -24,6 +25,7 @@ from core.runners.workflowai.internal_tool import InternalTool
 from core.tools import ToolKind
 from core.utils.file_utils.file_utils import guess_content_type
 from core.utils.schema_sanitation import get_file_format
+from core.utils.schemas import JsonSchema
 from core.utils.strings import clean_unicode_chars
 
 _logger = logging.getLogger(__file__)
@@ -194,6 +196,43 @@ def extract_files(schema: dict[str, Any], payload: Any) -> tuple[dict[str, Any],
     return schema, payload, out
 
 
+def possible_file_keypaths(schema: dict[str, Any], file_count: int):
+    """Recursively navigate the schema to find where to put the files. Returns a list of keypath of size file_count"""
+
+    def _keypath_iterator(
+        schema: JsonSchema,
+        key_prefix: list[str | int],
+        remaining_files: int,
+    ) -> Iterator[list[str | int]]:
+        for key, child in schema.child_iterator():
+            if child.followed_ref_name in FILE_DEFS:
+                # We found a file !
+                # TODO: We should do some additional checks here, for example check
+                # the expected file type but for now we only support images in output so we
+                # can just fill the spots as they come in
+
+                if isinstance(key, int):
+                    # We are in a list ! so we can just fill all the spots
+                    for idx in range(remaining_files):
+                        yield [*key_prefix, idx]
+                    # We have filled all the spots
+                    return
+
+                # Otherwise we have a single file so we can yield the keypath and continue
+                yield [*key_prefix, key]
+                # We have filled one spot
+                remaining_files -= 1
+
+                if remaining_files == 0:
+                    # We have filled all the spots
+                    return
+
+            yield from _keypath_iterator(child, [*key_prefix, key], remaining_files)
+
+    raw = JsonSchema(schema)
+    return list(_keypath_iterator(raw, [], file_count))
+
+
 _download_client = httpx.AsyncClient()
 
 
@@ -326,3 +365,26 @@ def cleanup_provider_json(obj: Any) -> Any:
     if isinstance(obj, str):
         return clean_unicode_chars(obj)
     return obj
+
+
+def count_image_fields(schema: dict[str, Any]) -> int:
+    # TODO: maybe there is something to merge with possible_file_keypaths above to make code DRYer
+    def _image_counter(schema: JsonSchema) -> Iterator[int]:
+        if schema.followed_ref_name == "Image":
+            yield 1
+            return
+        t = schema.type
+        if not t:
+            return
+        match t:
+            case "object":
+                for key in schema.get("properties", {}).keys():
+                    yield from _image_counter(schema.child_schema(key))
+            case "array":
+                # Assuming array only has one item
+                yield from _image_counter(schema.child_schema(0))
+            case _:
+                pass
+
+    raw = JsonSchema(schema)
+    return sum(_image_counter(raw))

@@ -342,7 +342,6 @@ class TestSanitizeModelData:
             supports_structured_output=True,
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=True,
             display_name="test",

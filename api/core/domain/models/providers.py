@@ -20,3 +20,4 @@ class Provider(StrEnum):
     MISTRAL_AI = "mistral_ai"
     GOOGLE_GEMINI = "google_gemini"
     X_AI = "xai"
+    OPEN_AI_IMAGE = "openai_image"

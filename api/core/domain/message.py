@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from core.domain.fields.file import File
+from core.domain.fields.image_options import ImageOptions
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.providers.base.models import StandardMessage
 
@@ -36,6 +37,8 @@ class Message(BaseModel):
 
     tool_call_requests: list[ToolCallRequestWithID] | None = None
     tool_call_results: list[ToolCall] | None = None
+
+    image_options: ImageOptions | None = None
 
     @classmethod
     def from_standard(cls, message: StandardMessage):
