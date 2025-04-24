@@ -53,6 +53,11 @@ def active_models_with_price(providers: set[Provider] | None = None):
             yield pytest.param(m, id=str(m))
 
 
+def test_active_models_with_price():
+    # Test to check out that the fixture is working
+    assert [m for m in active_models_with_price()]
+
+
 def _llm_completion(messages: list[dict[str, Any]], usage: LLMUsage, response: str | None = None):
     return LLMCompletion(
         messages=messages,

@@ -22,8 +22,11 @@ class ThresholdedAudioPricePerSecond(BaseModel):
     cost_per_second_over_threshold: float
 
 
+# TODO: name is not super accurate. It should just be PricePerToken
+# Since a token count can represent a text token, an image token, an audio token, etc.
 class TextPricePerToken(SourcedBaseModel):
     prompt_cost_per_token: float
+    prompt_image_cost_per_token: float | None = None
     prompt_cached_tokens_discount: float = Field(
         default=0.0,
         ge=0.0,
@@ -31,6 +34,7 @@ class TextPricePerToken(SourcedBaseModel):
         description="The discount between 0 and 1 on the cost per token for cached tokens in the prompt.",
     )
     completion_cost_per_token: float
+    completion_image_cost_per_token: float | None = None
 
     thresholded_prices: list[ThresholdedTextPricePerToken] | None = None
 

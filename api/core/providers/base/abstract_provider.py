@@ -73,7 +73,7 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
     def is_custom_config(self) -> bool:
         return self._config_id is not None
 
-    # TODO: remove
+    # TODO: remove, we should use the first mode available in the mapping
     @abstractmethod
     def default_model(self) -> Model:
         pass

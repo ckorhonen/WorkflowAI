@@ -26,6 +26,7 @@ class Model(StrEnum):
     GPT_4O_2024_05_13 = "gpt-4o-2024-05-13"
     GPT_4O_MINI_LATEST = "gpt-4o-mini-latest"
     GPT_4O_MINI_2024_07_18 = "gpt-4o-mini-2024-07-18"
+    GPT_IMAGE_1 = "gpt-image-1"
     O3_LATEST_HIGH_REASONING_EFFORT = "o3-latest-high"
     O3_LATEST_MEDIUM_REASONING_EFFORT = "o3-latest-medium"
     O3_LATEST_LOW_REASONING_EFFORT = "o3-latest-low"

@@ -7,6 +7,11 @@ from core.domain.models._mistral import mistral_models
 from .model_data import DeprecatedModel, FinalModelData, LatestModel, MaxTokensData, ModelData
 
 
+def _char_to_token(char_count: int) -> int:
+    # Approx 4 characters per token
+    return int(round(char_count / 4))
+
+
 def _build_model_datas():
     models = {
         Model.GPT_4O_LATEST: LatestModel(
@@ -176,6 +181,26 @@ def _build_model_datas():
             quality_index=611,  # MMLU=82.00, GPQA=40.20
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
+        ),
+        Model.GPT_IMAGE_1: ModelData(
+            display_name="GPT IMAGE 1",
+            supports_json_mode=True,
+            supports_input_image=True,
+            supports_input_pdf=False,
+            supports_input_audio=False,
+            supports_structured_output=False,
+            max_tokens_data=MaxTokensData(
+                # gpt-image-1 does not really have a context window it seems
+                # But the input max is 32_000 characters
+                max_tokens=_char_to_token(32_000),
+                source="https://platform.openai.com/docs/models",
+            ),
+            provider_for_pricing=Provider.OPEN_AI_IMAGE,
+            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
+            release_date=date(2025, 4, 23),
+            quality_index=611,  # TODO: a bit difficult to estimate here
+            provider_name=DisplayedProvider.OPEN_AI.value,
+            supports_tool_calling=False,
         ),
         Model.GPT_3_5_TURBO_0125: DeprecatedModel(replacement_model=Model.GPT_4O_MINI_2024_07_18),
         Model.GPT_3_5_TURBO_1106: DeprecatedModel(replacement_model=Model.GPT_4O_MINI_2024_07_18),
