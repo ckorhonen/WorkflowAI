@@ -92,6 +92,7 @@ class ModelDataSupportsOverride(BaseModel):
     support_system_messages: bool | None = None
     supports_structured_output: bool | None = None
     support_input_schema: bool | None = None
+    supports_output_image: bool | None = None
 
     def override(self, data: _T) -> _T:
         return data.model_copy(update=self.model_dump(exclude_none=True))
