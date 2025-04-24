@@ -1,8 +1,7 @@
 from contextlib import asynccontextmanager
 from datetime import datetime
 
-from broker import broker
-
+from api.broker import broker
 from api.jobs.common import SystemStorageDep, UserServiceDep
 from core.services.customers.customer_service import CustomerService
 from core.utils.redis_cache import should_run_today
