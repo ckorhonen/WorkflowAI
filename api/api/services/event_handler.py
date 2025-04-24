@@ -5,7 +5,6 @@ from typing import Any, Concatenate, Coroutine, Generic, NamedTuple, Sequence, T
 
 from taskiq import AsyncTaskiqDecoratedTask
 
-from api.jobs import features_by_domain_generation_started_jobs
 from core.domain.analytics_events.analytics_events import OrganizationProperties, TaskProperties, UserProperties
 from core.domain.events import (
     AIReviewCompletedEvent,
@@ -55,6 +54,7 @@ def _jobs():
         ai_reviewer_updated_jobs,
         analytics_jobs,
         chat_started_jobs,
+        features_by_domain_generation_started_jobs,
         feedback_created_jobs,
         meta_agent_chat_messages_sent_jobs,
         recompute_review_benchmark_jobs,

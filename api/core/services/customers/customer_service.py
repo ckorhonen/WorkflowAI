@@ -11,8 +11,12 @@ from pydantic import BaseModel
 
 from api.services import tasks
 from api.services.customer_assessment_service import CustomerAssessmentService
-from api.services.features import CompanyFeaturePreviewList, FeatureService
-from core.agents.customer_success_helper_chat import CustomerSuccessHelperChatAgentInput, customer_success_helper_chat
+from api.services.features import FeatureService
+from core.agents.customer_success_helper_chat import (
+    CustomerSuccessHelperChatAgentInput,
+    CustomerSuccessHelperChatAgentOutput,
+    customer_success_helper_chat,
+)
 from core.domain.analytics_events.analytics_events import UserProperties
 from core.domain.consts import ENV_NAME, WORKFLOWAI_APP_URL
 from core.domain.errors import InternalError
@@ -27,42 +31,19 @@ from core.domain.tenant_data import PublicOrganizationData
 from core.domain.fields.chat_message import ChatMessage
 from core.services.users.user_service import OrganizationDetails, UserDetails, UserService
 from core.storage import ObjectNotFoundException
-from core.storage.backend_storage import BackendStorage
+from core.storage.backend_storage import BackendStorage, SystemBackendStorage
+from core.storage.helpscout.helpscout_client import HelpScoutClient
 from core.storage.slack.slack_api_client import SlackApiClient
-from core.storage.slack.slack_types import OutboundSlackMessage, SlackWebhookEvent
+from core.storage.slack.slack_types import (
+    OutboundSlackMessage,
+    SlackBlockActionWebhookEvent,
+    SlackWebhookEvent,
+)
 from core.storage.slack.utils import get_slack_hyperlink
 from core.utils.background import add_background_task
-from core.utils.coroutines import capture_errors
+from core.utils.redis_cache import redis_cached
 
 _logger = logging.getLogger(__name__)
-
-
-class DailyUserDigest(NamedTuple):
-    for_date: date
-    tenant_slug: str
-    org_id: str | None
-    remaining_credits_usd: float
-    added_credits_usd: float
-
-    class Agent(NamedTuple):
-        name: str
-        agent_id: str
-        agent_schema_id: int
-        description: str | None
-        run_count_last_24h: int
-        active_run_count_last_24h: int
-
-    agents: list[Agent]
-
-
-class DailyDigestAndEmail(NamedTuple):
-    daily_digest: DailyUserDigest
-
-    class Email(NamedTuple):
-        subject: str | None = None
-        body: str | None = None
-
-    email: Email
 
 
 def _get_task_url(event: Event, task_id: str, task_schema_id: int) -> str | None:
@@ -85,54 +66,6 @@ def _get_task_str_for_slack(event: Event, task_id: str, task_schema_id: int) -> 
     if task_url is not None:
         task_str = get_slack_hyperlink(url=task_url, text=task_str)
     return task_str
-
-
-class SlackMessageFormatter:
-    @classmethod
-    def get_feature_preview_list_slack_message(
-        cls,
-        company_domain: str,
-        features_suggestions: CompanyFeaturePreviewList | None,
-    ) -> str:
-        if not features_suggestions or not features_suggestions.features or len(features_suggestions.features) == 0:
-            return "No suggested AI roadmap for this customer because the agent did not find any good enough feature"
-
-        DELIMITER = "\n\n-----------------------------------\n\n"
-
-        features_str = DELIMITER.join([feature.display_str for feature in features_suggestions.features])
-
-        return f"🗺️ Suggested AI Roadmap for {company_domain}: {DELIMITER}\n{features_str}"
-
-    @classmethod
-    def get_daily_user_digest_slack_message(cls, daily_digest: DailyUserDigest) -> str:
-        DELIMITER = "\n\n-----------------------------------\n\n"
-
-        def _get_agent_str(agent: DailyUserDigest.Agent) -> str:
-            parts: list[str] = [
-                f"*{agent.name}*",
-                "\n",
-            ]
-            if agent.description:
-                parts.append(f"{agent.description}")
-
-            parts.append("\n")
-            parts.append(
-                f"{WORKFLOWAI_APP_URL}/{daily_digest.tenant_slug}/agents/{agent.agent_id}/{agent.agent_schema_id}",
-            )
-
-            parts.append("\n")
-            parts.append(f"Runs (last 24h): {agent.run_count_last_24h}")
-            if agent.active_run_count_last_24h:
-                parts.append(f"({agent.active_run_count_last_24h} active)")
-
-            return "".join(parts)
-
-        return f"""*Daily User Digest for {daily_digest.for_date.strftime("%Y-%m-%d")}*
-
-
-Remaining credits: ${daily_digest.remaining_credits_usd:.2f}
-Added credits (all time): ${daily_digest.added_credits_usd:.2f}
-{DELIMITER}{DELIMITER.join([_get_agent_str(agent) for agent in daily_digest.agents])}"""
 
 
 class CustomerService:
@@ -467,42 +400,231 @@ class CustomerService:
             _logger.info("Skipping bot triggered event", extra={"event": webhook_event})
             return False
 
-        # Filter out non-message events (will be handled later, maybe)
-        if webhook_event.event.type != "message":
-            _logger.info("Skipping non-message event", extra={"event": webhook_event.event})
-            return False
-
         return True
 
+    @staticmethod
+    @redis_cached(expiration_seconds=60 * 60)  # TTL=1 hour
+    async def get_slack_channel_description(channel_id: str) -> str:
+        with CustomerService._slack_client() as slack:
+            channel_info = await slack.get_channel_info(channel_id)
+            return channel_info.short_description
+
     @classmethod
-    async def process_slack_webhook_message(cls, webhook_event: SlackWebhookEvent) -> None:
+    async def _generate_roadmap_for_company(
+        cls,
+        company_domain: str,
+        additional_instructions: str | None,
+        channel_id: str,
+    ) -> None:
+        streamed_features_indexes: set[int] = set()
+
+        with cls._slack_client() as slack:
+            async for chunk in FeatureService.stream_features_by_domain(
+                company_domain=company_domain,
+                additional_instructions=additional_instructions,
+            ):
+                if chunk.features and len(chunk.features or []) <= 1:
+                    continue
+
+                # The logic below allow to only stream a feature when it's ready and only once.
+                second_to_last_feature_index = len(chunk.features or []) - 2
+                if chunk.features and second_to_last_feature_index not in streamed_features_indexes:
+                    await slack.send_message(
+                        channel_id,
+                        {
+                            "text": f"""• *{chunk.features[second_to_last_feature_index].name}*
+{chunk.features[second_to_last_feature_index].description or ""}""",
+                        },
+                    )
+                    streamed_features_indexes.add(second_to_last_feature_index)
+
+            await slack.send_message(
+                channel_id,
+                {
+                    "text": "AI roadmap generation completed",
+                },
+            )
+
+    @classmethod
+    async def process_slack_webhook_message(
+        cls,
+        webhook_event: SlackWebhookEvent,
+        storage: SystemBackendStorage,
+    ) -> None:
         if not cls._should_process_webhook_event(webhook_event=webhook_event):
             return
 
         """Process a webhook message after deduplication check"""
         channel_id = webhook_event.event.channel
 
+        """tenant = await storage.organizations.get_organization_by_slack_channel_id(channel_id)
+        if not tenant:
+            _logger.error("No tenant found for slack channel", extra={"channel_id": channel_id})
+            return"""
+
         with cls._slack_client() as slack:
             messages = await slack.fetch_channel_messages(channel_id)
+            short_channel_description = await cls.get_slack_channel_description(channel_id)
 
             csm_agent_input = CustomerSuccessHelperChatAgentInput(
+                channel_description=short_channel_description,
                 messages=[
-                    ChatMessage(
-                        role="ASSISTANT" if "bot_id" in message else "USER",
-                        content=message["text"] or "not text in this message",
+                    ChatMessageWithTimestamp(
+                        role="USER",
+                        content=SlackMessageFormatter.get_slack_message_display_str(message),
+                        timestamp=datetime.fromtimestamp(float(message.ts)),
                     )
                     for message in messages
-                    if "text" in message
                 ],
                 current_datetime=datetime.now(),
             )
 
             csm_agent_run = await customer_success_helper_chat(csm_agent_input)
 
-            await slack.send_message(
-                channel_id,
-                OutboundSlackMessage(text=csm_agent_run.response or "no response from "),
+            if (
+                not csm_agent_run.response
+                and not csm_agent_run.email_draft
+                and not csm_agent_run.roadmap_generation_command
+            ):
+                _logger.error("No response from the CSM agent", extra={"channel_id": channel_id})
+                await slack.send_message(
+                    channel_id,
+                    OutboundSlackMessage(text="No response from the CSM agent, contact the engineering team"),
+                )
+                return
+
+            if csm_agent_run.response:
+                await slack.send_message(
+                    channel_id,
+                    OutboundSlackMessage(text=csm_agent_run.response),
+                )
+
+            if (
+                csm_agent_run.email_draft
+                and csm_agent_run.email_draft.to
+                and csm_agent_run.email_draft.subject
+                and csm_agent_run.email_draft.body
+            ):
+                await slack.send_message(
+                    channel_id,
+                    SlackMessageFormatter.get_slack_action_message_for_email_draft(csm_agent_run.email_draft),
+                )
+
+            if csm_agent_run.roadmap_generation_command and csm_agent_run.roadmap_generation_command.company_domain:
+                await slack.send_message(
+                    channel_id,
+                    OutboundSlackMessage(text="AI roadmap generation trigger received, processing..."),
+                )
+                add_background_task(
+                    cls._generate_roadmap_for_company(
+                        csm_agent_run.roadmap_generation_command.company_domain,
+                        csm_agent_run.roadmap_generation_command.additional_instructions,
+                        channel_id,
+                    ),
+                )
+
+    @classmethod
+    async def _handle_send_email_draft(
+        cls,
+        email_draft: CustomerSuccessHelperChatAgentOutput.EmailDraft,
+        channel_id: str,
+        message_ts: str,
+    ):
+        with cls._slack_client() as slack_client:
+            try:
+                if not email_draft.to:
+                    raise InternalError("No to in the email draft", extra={"email_draft": email_draft})
+                if not email_draft.subject:
+                    raise InternalError("No subject in the email draft", extra={"email_draft": email_draft})
+                if not email_draft.body:
+                    raise InternalError("No body in the email draft", extra={"email_draft": email_draft})
+
+                if email_draft.conversation_id:
+                    # TODO: support sending message to multiple customers
+                    await HelpScoutClient().send_reply(
+                        conversation_id=email_draft.conversation_id,
+                        text=email_draft.body,
+                        customer_email=email_draft.to[0],
+                    )
+                else:
+                    # TODO: support sending message to multiple customers
+                    await HelpScoutClient().create_conversation(
+                        customer_email=email_draft.to[0],
+                        email_subject=email_draft.subject,
+                        email_body=email_draft.body,
+                    )
+
+                # No need to send confirmation message since the webhook will be triggered and add a message to the channel
+
+                await slack_client.delete_message(channel_id, message_ts)
+            except Exception as e:
+                await slack_client.send_message(
+                    channel_id,
+                    OutboundSlackMessage(text="Error sending email, contact the engineering team"),
+                )
+                _logger.exception("Error sending email", exc_info=e)
+
+    @classmethod
+    async def process_slack_block_action(cls, validated_action_event: SlackBlockActionWebhookEvent):
+        email_draft = SlackMessageFormatter.get_email_draft_slack_action_event(validated_action_event)
+        if email_draft:
+            add_background_task(
+                cls._handle_send_email_draft(
+                    email_draft,
+                    validated_action_event.container.channel_id,
+                    validated_action_event.message.ts,
+                ),
             )
+        else:
+            slack_client = SlackApiClient(bot_token=os.environ["SLACK_BOT_TOKEN"])
+            # Action is discarded, delete the message
+            await slack_client.delete_message(
+                validated_action_event.container.channel_id,
+                validated_action_event.message.ts,
+            )
+
+    @staticmethod
+    async def _find_slack_channel_ids_for_email(
+        email_address: str,
+        storage: SystemBackendStorage,
+    ) -> list[str]:
+        if not isinstance(shared_user_service, ClerkUserService):
+            raise InternalError("Clerk is needed to process incoming emails")
+
+        # First, try to find the customer organization
+        user_id = await shared_user_service.get_user_id_by_email(email_address)
+        org_ids = await shared_user_service.get_user_organization_ids(user_id)
+
+        slack_channel_ids: list[str] = []
+
+        # We could fetch the organization concurrently, but this part of the code is not performance critical
+        try:
+            user_own_org = await storage.organizations.find_tenant_for_owner_id(user_id)
+            if user_own_org and user_own_org.slack_channel_id:
+                slack_channel_ids.append(user_own_org.slack_channel_id)
+        except ObjectNotFoundException:
+            # user has no "own" organization
+            pass
+
+        for org_id in org_ids:
+            user_org = await storage.organizations.find_tenant_for_org_id(org_id)
+            if user_org and user_org.slack_channel_id:
+                slack_channel_ids.append(user_org.slack_channel_id)
+
+        return slack_channel_ids
+
+    @classmethod
+    async def _send_email_to_slack_channel(cls, email: HelpScoutEmail, channel_id: str):
+        slack_api_client = SlackApiClient(bot_token=os.environ["SLACK_BOT_TOKEN"])
+        await slack_api_client.send_message(channel_id, SlackMessageFormatter.get_email_activity_slack_message(email))
+
+    @classmethod
+    async def handle_helpscout_email_sent(cls, email: HelpScoutEmail, storage: SystemBackendStorage):
+        slack_channel_ids = await cls._find_slack_channel_ids_for_email(email.customer_email, storage)
+
+        # We post the email to each Slack channel the user is part of, because a user could have his own Slack channel, and one for his organization
+        for channel_id in slack_channel_ids:
+            await cls._send_email_to_slack_channel(email, channel_id)
 
 
 def _readable_name(user: UserProperties | None) -> str:
