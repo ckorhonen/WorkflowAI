@@ -1,9 +1,13 @@
+import io
+import logging
+from base64 import b64decode
 from collections.abc import Callable
 from json import JSONDecodeError
 from typing import Any, AsyncGenerator, override
 
 from httpx import Response
 
+from core.domain.fields.file import File
 from core.domain.fields.image_options import ImageOptions
 from core.domain.llm_completion import LLMCompletion
 from core.domain.message import Message
@@ -18,6 +22,8 @@ from core.providers.base.utils import get_provider_config_env
 from core.providers.openai_image.openai_image_config import OpenAIImageConfig
 from core.providers.openai_image.openai_image_domain import OpenAIImageRequest, OpenAIImageResponse
 from core.runners.workflowai.utils import FileWithKeyPath
+
+_logger = logging.getLogger(__name__)
 
 
 class OpenAIImageProvider(HTTPXProviderBase[OpenAIImageConfig, OpenAIImageRequest]):
@@ -116,29 +122,64 @@ class OpenAIImageProvider(HTTPXProviderBase[OpenAIImageConfig, OpenAIImageReques
             usage=self._initial_usage(messages),
             provider=self.name(),
         )
+        image_options = messages[0].image_options or ImageOptions()
         req = OpenAIImageRequest.build(
             prompt=prompt,
-            image_options=messages[0].image_options or ImageOptions(),
+            image_options=image_options,
             model=options.model,
         )
 
+        images: list[File] = []
+        for message in messages:
+            if message.files:
+                for file in message.files:
+                    if not file.is_image:
+                        _logger.warning("Non image file found in message, ignoring")
+                        continue
+                    if not file.data:
+                        _logger.warning("Image file has no data, ignoring")
+                        continue
+                    images.append(file)
+        req.images = images or None
+        req.mask = image_options.mask
+
         return req, raw
+
+    @classmethod
+    def _httpx_files(cls, images: list[File]):
+        for idx, image in enumerate(images):
+            if not image.data:
+                continue
+            if not image.content_type:
+                continue
+            yield (f"{idx}{image.get_extension()}", io.BytesIO(b64decode(image.data)), image.content_type)
 
     @override
     async def _execute_request(self, request: OpenAIImageRequest, options: ProviderOptions) -> Response:
-        url = (
-            "https://api.openai.com/v1/images/edits"
-            if request.is_edit_request
-            else "https://api.openai.com/v1/images/generations"
-        )
+        data = request.model_dump(mode="json", exclude_none=True, by_alias=True, exclude={"images", "mask"})
+        if request.images:
+            url = "https://api.openai.com/v1/images/edits"
+            kwargs: dict[str, Any] = {"data": data}
+
+            files: list[Any] = []
+            for f in self._httpx_files(request.images):
+                files.append(("image[]", f))  # noqa: PERF401
+            if request.mask:
+                for f in self._httpx_files([request.mask]):
+                    files.append(("mask[]", f))  # noqa: PERF401
+            kwargs["files"] = files
+
+        else:
+            url = "https://api.openai.com/v1/images/generations"
+            kwargs = {"json": data}
 
         async with self._open_client(url) as client:
             response = await client.post(
                 url,
                 # Probably have to send the mask and image as files
                 headers={"Authorization": f"Bearer {self._config.api_key}"},
-                json=request.model_dump(mode="json", exclude_none=True, by_alias=True),
                 timeout=options.timeout,
+                **kwargs,
             )
             response.raise_for_status()
             return response

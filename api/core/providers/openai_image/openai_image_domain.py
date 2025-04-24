@@ -33,12 +33,8 @@ class OpenAIImageRequest(BaseModel):
         description="The background color of the generated images.",
     )
 
-    image: str | list[str] | None = Field(description="The image to edit.")
-    mask: str | list[str] | None = Field(description="The mask to use for the image.")
-
-    @property
-    def is_edit_request(self) -> bool:
-        return self.image is not None or self.mask is not None
+    images: list[File] | None = None
+    mask: File | None = None
 
     @property
     def content_type(self) -> str:
@@ -77,8 +73,6 @@ class OpenAIImageRequest(BaseModel):
         return OpenAIImageRequest(
             prompt=prompt,
             n=image_options.image_count or 1,
-            image=None,
-            mask=None,
             model=model,
             quality=cls._map_quality(image_options.quality),
             background=cls._map_background(image_options.background),
