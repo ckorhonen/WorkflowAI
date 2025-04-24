@@ -204,12 +204,6 @@ class SlackApiClient:
             params={"exclude_archived": "true", "limit": str(limit)},
             operation_name="list slack channels",
         )
-        return [self.ChannelInfo.model_validate(channel) for channel in parsed["channels"]]    async def list_channels(self, limit: int = 1000):
-        parsed = await self.get(
-            "/conversations.list",
-            params={"exclude_archived": "true", "limit": str(limit)},
-            operation_name="list slack channels",
-        )
         return [self.ChannelInfo.model_validate(channel) for channel in parsed["channels"]]
 
     async def handle_webhook(self, raw_payload: dict[str, Any]) -> SlackWebhookEvent | None:
