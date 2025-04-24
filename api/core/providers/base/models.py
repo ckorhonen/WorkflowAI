@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Literal, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -13,9 +13,6 @@ class RawCompletion(BaseModel):
     finish_reason: str | None = None
 
     start_time: datetime = Field(default_factory=datetime_factory)
-
-    def end(self):
-        self.end_time = datetime.now(timezone.utc)
 
     model_config = ConfigDict(extra="allow")
 

@@ -3,7 +3,7 @@ from collections.abc import Callable
 from json import JSONDecodeError
 from typing import Any, AsyncGenerator, AsyncIterator, Generic, NamedTuple, TypeVar
 
-from httpx import ReadTimeout, RemoteProtocolError, Response
+from httpx import Response
 from pydantic import BaseModel
 from typing_extensions import override
 
@@ -13,8 +13,6 @@ from core.domain.errors import (
     InternalError,
     JSONSchemaValidationError,
     ProviderError,
-    ProviderInternalError,
-    ReadTimeOutError,
 )
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_completion import LLMCompletion
@@ -297,7 +295,11 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
         options: ProviderOptions,
     ) -> AsyncGenerator[StructuredOutput, None]:
         streaming_context: StreamingContext | None = None
-        try:
+
+        def _finally():
+            raw_completion.response = streaming_context.streamer.raw_completion if streaming_context else None
+
+        with self._wrap_errors(options=options, raw_completion=raw_completion, finally_block=_finally):
             url = self._request_url(model=options.model, stream=True)
             headers = await self._request_headers(request=request, url=url, model=options.model)
             async with self._open_client(url) as client:
@@ -348,9 +350,3 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
                             streaming_context.streamer.raw_completion,
                             str(e),
                         )
-        except ReadTimeout:
-            raise ReadTimeOutError(retry=True, retry_after=10)
-        except RemoteProtocolError:
-            raise ProviderInternalError(msg="Provider has disconnected without sending a response.", retry_after=10)
-        finally:
-            raw_completion.response = streaming_context.streamer.raw_completion if streaming_context else None

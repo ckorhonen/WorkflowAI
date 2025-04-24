@@ -1,11 +1,11 @@
 import json
 from abc import abstractmethod
 from collections.abc import Callable
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
 from typing import NamedTuple, TypeVar
 
 import httpx
-from httpx import ReadTimeout, RemoteProtocolError, Response
+from httpx import Response
 from pydantic import BaseModel
 from typing_extensions import override
 
@@ -113,10 +113,20 @@ class HTTPXProviderBase(AbstractProvider[ProviderConfigVar, ProviderRequestVar])
     def _client_pool(cls) -> ClientPool:
         return shared_client_pool
 
-    @asynccontextmanager
-    async def _open_client(self, url: str):
+    def _assign_raw_completion_response_on_error(self, raw_completion: RawCompletion, error: httpx.HTTPStatusError):
+        """Set raw completion to None on status error. Usually non 200 status codes from providers means that the
+        call did not succeed and we should not have a cost"""
+        raw_completion.response = None
+
+    @contextmanager
+    def _wrap_errors(
+        self,
+        options: ProviderOptions,
+        raw_completion: RawCompletion,
+        finally_block: Callable[..., None] | None = None,
+    ):
         try:
-            yield shared_client_pool.get(url)
+            yield
         except (httpx.ConnectError, httpx.ReadError) as e:
             raise ProviderUnavailableError(
                 msg=f"Failed to reach provider: {e}",
@@ -125,17 +135,33 @@ class HTTPXProviderBase(AbstractProvider[ProviderConfigVar, ProviderRequestVar])
                 max_attempt_count=3,
             ) from e
         except httpx.HTTPStatusError as e:
+            self._assign_raw_completion_response_on_error(raw_completion, e)
             self._handle_error_status_code(response=e.response)
             # if no exception is raised, then it's an unknown error
             raise self._unknown_error(e.response)
         except ProviderError as e:
             # Just forward provider errors
+            e.provider_options = options
+            e.provider = self.name()
             raise e
         except (JSONSchemaValidationError, JSONStreamError) as e:
             raise InvalidGenerationError(
                 msg=f"Received invalid JSON: {e}",
                 provider_status_code=200,
             ) from e
+        except httpx.ReadTimeout:
+            raise ReadTimeOutError(retry=True, retry_after=10)
+        except httpx.RemoteProtocolError:
+            raise ProviderInternalError(msg="Provider has disconnected without sending a response.", retry_after=10)
+        finally:
+            if finally_block:
+                finally_block()
+
+    @asynccontextmanager
+    async def _open_client(self, url: str):
+        # We don't open or close the client here
+        # Since we re-use them from a shared pool
+        yield shared_client_pool.get(url)
 
     @classmethod
     def _initial_usage(cls, messages: list[Message]) -> LLMUsage:
@@ -160,11 +186,6 @@ class HTTPXProviderBase(AbstractProvider[ProviderConfigVar, ProviderRequestVar])
 
     @abstractmethod
     async def _execute_request(self, request: ProviderRequestVar, options: ProviderOptions) -> Response:
-        """Execute request is expected to raise a status error if needed."""
-        # TODO: this is a bit misleading but that's because for now
-        # the httpx status error is handled in _open_client which is also used
-        # when streaming in httpx_provider.py. We should likely separate the error
-        # handling to avoid this confusion.
         pass
 
     @abstractmethod
@@ -185,26 +206,16 @@ class HTTPXProviderBase(AbstractProvider[ProviderConfigVar, ProviderRequestVar])
         raw_completion: RawCompletion,
         options: ProviderOptions,
     ) -> StructuredOutput:
-        response_status_200 = False
-        try:
+        with self._wrap_errors(options=options, raw_completion=raw_completion):
             response = await self._execute_request(request, options)
+            response.raise_for_status()
             add_background_task(self._extract_and_log_rate_limits(response, options=options))
-            response_status_200 = True
             return self._parse_response(
                 response,
                 output_factory=output_factory,
                 raw_completion=raw_completion,
                 request=request,
             )
-
-        except ReadTimeout:
-            raise ReadTimeOutError(retry=True, retry_after=10)
-        except RemoteProtocolError:
-            raise ProviderInternalError(msg="Provider has disconnected without sending a response.", retry_after=10)
-        except ProviderError as e:
-            if not response_status_200:
-                raw_completion.response = None
-            raise e
 
     def _failed_generation_error_wrapper(self, raw_completion: str, error_msg: str, retry: bool = False):
         # Check for content moderation rejection patterns in the response text.
