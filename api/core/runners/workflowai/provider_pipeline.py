@@ -148,7 +148,8 @@ class ProviderPipeline:
             yield from self._iter_with_structured_gen(provider, model_data)
 
             # No point in retrying on the same provider if the last error code was not a rate limit
-            if self.last_error_code != "rate_limit":
+            # Or an invalid provider config
+            if self.last_error_code not in {"rate_limit", "invalid_provider_config"}:
                 return
 
         # Then we shuffle the rest
