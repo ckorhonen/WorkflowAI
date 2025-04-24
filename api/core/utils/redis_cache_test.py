@@ -318,6 +318,7 @@ async def test_async_generator_cached_different_scenarios(input_chunks: list[str
 class TestShouldRunToday:
     # TODO: This is pretty hard to test since
     # the function relies on expiration time in the redis server
+    @pytest.mark.skip(reason="This test requires a real Redis instance")
     async def test_should_run_today(self):
         if shared_redis_client:
             await shared_redis_client.delete("test_key")
