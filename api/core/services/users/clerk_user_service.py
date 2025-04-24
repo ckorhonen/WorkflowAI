@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Iterable
+from datetime import datetime
 from typing import Generic, List, TypedDict, TypeVar
 
 import httpx
@@ -27,7 +28,7 @@ class ClerkUserService(UserService):
             response = await client.get(f"/users/{user_id}")
         response.raise_for_status()
         data: ClerkUserDict = response.json()
-        return UserDetails(email=_find_primary_email(data), name=_full_name(data))
+        return UserDetails(id=data["id"], email=_find_primary_email(data), name=_full_name(data))
 
     @override
     async def get_organization(self, org_id: str) -> OrganizationDetails:
@@ -61,7 +62,7 @@ class ClerkUserService(UserService):
         response = await client.get(f"/users?user_ids={','.join(user_ids)}")
         response.raise_for_status()
         data: list[ClerkUserDict] = response.json()
-        return [UserDetails(email=_find_primary_email(user), name=_full_name(user)) for user in data]
+        return [UserDetails(id=user["id"], email=_find_primary_email(user), name=_full_name(user)) for user in data]
 
     @override
     async def get_org_admins(self, org_id: str, max_users: int = 5) -> list[UserDetails]:
@@ -70,6 +71,14 @@ class ClerkUserService(UserService):
             if not user_ids:
                 return []
             return await self._get_users_by_id(client, user_ids)
+
+    @override
+    async def count_registrations(self, since: datetime) -> int:
+        async with self._client() as client:
+            response = await client.get(f"/users/count?created_at_after={int(since.timestamp() * 1000)}")
+        response.raise_for_status()
+        data = response.json()
+        return data["total_count"]
 
 
 _TD = TypeVar("_TD")

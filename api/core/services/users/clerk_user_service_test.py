@@ -49,6 +49,7 @@ class TestGetUserEmail:
             url="https://api.clerk.com/v1/users/test_user_id",
             status_code=200,
             json={
+                "id": "test_user_id",
                 "email_addresses": [
                     {"id": "email_2", "email_address": "secondary@example.com"},
                 ],
@@ -71,6 +72,7 @@ class TestGetUserEmail:
             url="https://api.clerk.com/v1/users/test_user_id",
             status_code=200,
             json={
+                "id": "test_user_id",
                 "primary_email_address_id": "blabla",
                 "email_addresses": [
                     {"id": "email_2", "email_address": "secondary@example.com"},
