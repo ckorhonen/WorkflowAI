@@ -5,7 +5,6 @@ import os
 import re
 from collections.abc import AsyncIterator, Callable
 from datetime import date, datetime, time, timedelta, timezone
-from typing import NamedTuple
 
 from pydantic import BaseModel
 
