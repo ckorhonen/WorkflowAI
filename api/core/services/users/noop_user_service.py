@@ -13,7 +13,7 @@ class NoopUserService(UserService):
     @override
     async def get_user(self, user_id: str) -> UserDetails:
         self._logger.warning("NoopUserService.get_user called")
-        return UserDetails(email="", name="")
+        return UserDetails(email="", name="", id="")
 
     @override
     async def get_org_admins(self, org_id: str) -> list[UserDetails]:

@@ -206,12 +206,12 @@ class CustomerService:
         if user:
             components.append(f"User: {user.name} ({user.email})")
         if org:
-            components.append(f"Organization: {org.name})")
-
-        if clerk_link := self._clerk_link(org_id=org.id if org else None, owner_id=user.id if user else None):
-            components.append(f"Clerk Link: {clerk_link}")
+            components.append(f"Organization: {org.name}")
 
         await clt.set_channel_purpose(channel_id, "\n".join(components))
+
+        if clerk_link := self._clerk_link(org_id=org.id if org else None, owner_id=user.id if user else None):
+            await clt.set_channel_topic(channel_id, clerk_link)
 
     @classmethod
     def _clerk_link(cls, org_id: str | None, owner_id: str | None) -> str | None:
