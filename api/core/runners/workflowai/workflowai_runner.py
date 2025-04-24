@@ -641,7 +641,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             for idx, keypath in enumerate(keypaths):
                 # TODO: We should probably handle errors here, but not sure what to
                 # do if the keypath is invalid
-                set_at_keypath(output.output, keypath, output.files[idx])
+                set_at_keypath(output.output, keypath, output.files[idx].model_dump(mode="json"))
 
         return RunOutput(
             task_output=output.output,

@@ -115,7 +115,7 @@ class OpenAIImageProvider(HTTPXProviderBase[OpenAIImageConfig, OpenAIImageReques
             usage=self._initial_usage(messages),
             provider=self.name(),
         )
-        req = OpenAIImageRequest(prompt=prompt, n=1, image=None, mask=None)
+        req = OpenAIImageRequest(prompt=prompt, n=1, image=None, mask=None, model=options.model)
 
         return req, raw
 

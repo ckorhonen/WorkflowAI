@@ -7,13 +7,13 @@ from core.domain.fields.file import File
 
 class OpenAIImageRequest(BaseModel):
     prompt: str = Field(description="A text description of the desired image(s).")
-    model: str = Field(default="dall-e-2", description="The model to use for image generation.")
+    model: str = Field(description="The model to use for image generation.")
     n: int = Field(default=1, ge=1, le=10, description="The number of images to generate.")
     quality: Literal["high", "medium", "low", "auto"] = Field(
         default="auto",
         description="The quality of the image that will be generated.",
     )
-    moderation: Literal["auto", "low"] = Field(
+    moderation: Literal["auto", "low"] | None = Field(
         default="auto",
         description="The moderation level of the generated images.",
     )
@@ -21,13 +21,12 @@ class OpenAIImageRequest(BaseModel):
         default="1024x1024",
         description="The size of the generated images.",
     )
-    style: Literal["vivid", "natural"] = Field(default="vivid", description="The style of the generated images.")
     output_format: Literal["png", "jpeg", "webp"] = Field(
         default="png",
         description="The format of the generated images.",
     )
-    background: Literal["transparent", "opaque", "auto"] = Field(
-        default="auto",
+    background: Literal["transparent", "opaque", "auto"] | None = Field(
+        default=None,
         description="The background color of the generated images.",
     )
 

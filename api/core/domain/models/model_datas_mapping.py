@@ -183,9 +183,10 @@ def _build_model_datas():
             supports_tool_calling=True,
         ),
         Model.GPT_IMAGE_1: ModelData(
-            display_name="GPT IMAGE 1",
-            supports_json_mode=True,
+            display_name="GPT Image 1",
+            supports_json_mode=False,
             supports_input_image=True,
+            supports_output_image=True,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_structured_output=False,

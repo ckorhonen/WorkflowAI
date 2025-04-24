@@ -134,7 +134,6 @@ export function NewTaskModalContent(props: NewTaskModalContentProps) {
             details='This is the content you want the LLM to provide in return'
             splattedSchema={outputSplattedSchema}
             setSplattedSchema={setOutputSplattedSchema}
-            disableImage
             disableAudio
             disableDocuments
             className='border-t border-gray-200 border-dashed'

@@ -2,6 +2,7 @@ import logging
 from typing import Any, TypeAlias
 
 from core.domain.fields.file import File, FileKind
+from core.domain.fields.image_options import ImageOptions
 from core.domain.fields.local_date_time import DatetimeLocal
 from core.utils import strings
 
@@ -104,6 +105,12 @@ def _handle_datetime_local_field(defs: dict[str, Any]) -> dict[str, Any]:
     return {"$ref": "#/$defs/DatetimeLocal"}
 
 
+def _handle_image_generation_options_field(defs: dict[str, Any]) -> dict[str, Any]:
+    """Handle ImageGenerationOptions field conversion."""
+    defs["ImageOptions"] = ImageOptions.model_json_schema()
+    return {"$ref": "#/$defs/ImageOptions"}
+
+
 def _get_format_schema(field_type: InputSchemaFieldType | OutputSchemaFieldType) -> dict[str, Any]:
     """Get schema for fields with format specification."""
     format_mapping = {
@@ -158,6 +165,8 @@ def _handle_generic_field(
             return _handle_file_field(FileKind.DOCUMENT, defs)
         case OutputSchemaFieldType.DATETIME_LOCAL:
             return _handle_datetime_local_field(defs)
+        case InputSchemaFieldType.IMAGE_GENERATION_OPTIONS:
+            return _handle_image_generation_options_field(defs)
         case _ if field.type is not None:
             return _get_format_schema(field.type)
         case _:
