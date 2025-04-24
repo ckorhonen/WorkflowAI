@@ -21,6 +21,7 @@ from .utils import (
     _process_ref,  # pyright: ignore[reportPrivateUsage]
     cleanup_provider_json,
     convert_pdf_to_images,
+    count_image_fields,
     download_file,
     extract_files,
     is_schema_containing_legacy_file,
@@ -564,3 +565,57 @@ class TestPossibleFileKeypaths:
         }
 
         assert possible_file_keypaths(schema, 3) == [["file"], ["files", 0], ["files", 1]]
+
+
+class TestCountImageFields:
+    def test_single_image_field(self):
+        schema = {
+            "properties": {
+                "image": {"$ref": "#/$defs/Image"},
+            },
+            "$defs": {
+                "Image": {
+                    "type": "object",
+                    "properties": {
+                        "url": {"type": "string"},
+                    },
+                },
+            },
+        }
+        assert count_image_fields(schema) == 1
+
+    def test_image_array(self):
+        schema = {
+            "properties": {
+                "images": {
+                    "type": "array",
+                    "items": {"$ref": "#/$defs/Image"},
+                },
+            },
+            "$defs": {
+                "Image": {
+                    "type": "object",
+                    "properties": {
+                        "url": {"type": "string"},
+                    },
+                },
+            },
+        }
+        assert count_image_fields(schema) == 1
+
+    def test_two_image_fields(self):
+        schema = {
+            "properties": {
+                "profile_image": {"$ref": "#/$defs/Image"},
+                "cover_image": {"$ref": "#/$defs/Image"},
+            },
+            "$defs": {
+                "Image": {
+                    "type": "object",
+                    "properties": {
+                        "url": {"type": "string"},
+                    },
+                },
+            },
+        }
+        assert count_image_fields(schema) == 2

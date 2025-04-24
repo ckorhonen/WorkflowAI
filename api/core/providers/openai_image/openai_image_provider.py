@@ -4,6 +4,7 @@ from typing import Any, AsyncGenerator, override
 
 from httpx import Response
 
+from core.domain.fields.image_options import ImageOptions
 from core.domain.llm_completion import LLMCompletion
 from core.domain.message import Message
 from core.domain.models.models import Model
@@ -115,7 +116,11 @@ class OpenAIImageProvider(HTTPXProviderBase[OpenAIImageConfig, OpenAIImageReques
             usage=self._initial_usage(messages),
             provider=self.name(),
         )
-        req = OpenAIImageRequest(prompt=prompt, n=1, image=None, mask=None, model=options.model)
+        req = OpenAIImageRequest.build(
+            prompt=prompt,
+            image_options=messages[0].image_options or ImageOptions(),
+            model=options.model,
+        )
 
         return req, raw
 

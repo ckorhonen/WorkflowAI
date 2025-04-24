@@ -3,6 +3,8 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 from core.domain.fields.file import File
+from core.domain.fields.image_options import ImageBackground, ImageFormat, ImageOptions, ImageQuality, ImageShape
+from core.domain.models.models import Model
 
 
 class OpenAIImageRequest(BaseModel):
@@ -13,11 +15,12 @@ class OpenAIImageRequest(BaseModel):
         default="auto",
         description="The quality of the image that will be generated.",
     )
-    moderation: Literal["auto", "low"] | None = Field(
-        default="auto",
-        description="The moderation level of the generated images.",
-    )
-    size: Literal["1024x1024", "1792x1024", "1024x1792"] = Field(
+    # TODO: unused for now
+    # moderation: Literal["auto", "low"] | None = Field(
+    #     default="auto",
+    #     description="The moderation level of the generated images.",
+    # )
+    size: Literal["1024x1024", "1536x1024", "1024x1536"] = Field(
         default="1024x1024",
         description="The size of the generated images.",
     )
@@ -46,6 +49,42 @@ class OpenAIImageRequest(BaseModel):
                 return "image/jpeg"
             case "webp":
                 return "image/webp"
+
+    @classmethod
+    def _map_format(cls, format: ImageFormat) -> Literal["png", "jpeg", "webp"]:
+        return format
+
+    @classmethod
+    def _map_shape(cls, shape: ImageShape) -> Literal["1024x1024", "1536x1024", "1024x1536"]:
+        match shape:
+            case "square":
+                return "1024x1024"
+            case "portrait":
+                return "1024x1536"
+            case "landscape":
+                return "1536x1024"
+
+    @classmethod
+    def _map_background(cls, background: ImageBackground) -> Literal["transparent", "opaque", "auto"]:
+        return background
+
+    @classmethod
+    def _map_quality(cls, quality: ImageQuality) -> Literal["low", "medium", "high"]:
+        return quality
+
+    @classmethod
+    def build(cls, prompt: str, image_options: ImageOptions, model: Model):
+        return OpenAIImageRequest(
+            prompt=prompt,
+            n=image_options.image_count or 1,
+            image=None,
+            mask=None,
+            model=model,
+            quality=cls._map_quality(image_options.quality),
+            background=cls._map_background(image_options.background),
+            output_format=cls._map_format(image_options.format),
+            size=cls._map_shape(image_options.shape),
+        )
 
 
 class OpenAIImageResponse(BaseModel):

@@ -54,6 +54,7 @@ from core.runners.workflowai.utils import (
     ToolCallRecursionError,
     cleanup_provider_json,
     convert_pdf_to_images,
+    count_image_fields,
     download_file,
     extract_files,
     possible_file_keypaths,
@@ -403,6 +404,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         self,
         input: TaskInputDict,
         input_schema: dict[str, Any],
+        output_schema: dict[str, Any],
     ) -> ImageOptions | None:
         """Extract the image options from the input and remove it from the input if possible"""
         input_parameters = input.get("options")
@@ -420,6 +422,10 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             image_parameters = ImageOptions.model_validate(input_parameters)
         except Exception:
             return None
+
+        if image_parameters.image_count is None:
+            image_parameters.image_count = count_image_fields(output_schema)
+
         del input["options"]
         return image_parameters
 
@@ -442,7 +448,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         input_copy = deepcopy(input)
         input_schema = self.task_input_schema()
         output_schema = self.task_output_schema()
-        image_options = await self._extract_image_options(input, input_schema)
+        image_options = await self._extract_image_options(input, input_schema, output_schema)
 
         input_schema, input_copy, files = extract_files(input_schema, input_copy)
 

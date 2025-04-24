@@ -365,3 +365,26 @@ def cleanup_provider_json(obj: Any) -> Any:
     if isinstance(obj, str):
         return clean_unicode_chars(obj)
     return obj
+
+
+def count_image_fields(schema: dict[str, Any]) -> int:
+    # TODO: maybe there is something to merge with possible_file_keypaths above to make code DRYer
+    def _image_counter(schema: JsonSchema) -> Iterator[int]:
+        if schema.followed_ref_name == "Image":
+            yield 1
+            return
+        t = schema.type
+        if not t:
+            return
+        match t:
+            case "object":
+                for key in schema.get("properties", {}).keys():
+                    yield from _image_counter(schema.child_schema(key))
+            case "array":
+                # Assuming array only has one item
+                yield from _image_counter(schema.child_schema(0))
+            case _:
+                pass
+
+    raw = JsonSchema(schema)
+    return sum(_image_counter(raw))
