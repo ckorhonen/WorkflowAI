@@ -154,6 +154,14 @@ class TestStoreTaskRun:
         # Check that we don't throw
         await clickhouse_client.store_task_run(run)
 
+    async def test_store_task_run_negative_overhead(self, clickhouse_client: ClickhouseClient):
+        run = task_run_ser(
+            id=str(uuid7()),
+            overhead_seconds=-1,
+        )
+        # Overhead will be coherced to when storing
+        await clickhouse_client.store_task_run(run)
+
 
 class TestSearchTaskRun:
     @classmethod

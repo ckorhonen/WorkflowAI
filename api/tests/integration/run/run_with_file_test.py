@@ -34,16 +34,18 @@ async def test_run_with_file_url(test_client: IntegrationTestClient):
 
     await test_client.wait_for_completed_tasks()
     fetched_task_run = await test_client.fetch_run(task, run_id=task_run["id"])
-    assert fetched_task_run["task_input_preview"] == "image: [[img:https://bla.com/image.png]]"
+    storage_url = test_client.storage_url(
+        task,
+        "23439dd28abda73e46eb007534630bebe9cd930710f22171af0d62fa75187bb8.png",
+    )
+
+    assert fetched_task_run["task_input_preview"] == f"image: [[img:{storage_url}]]"
 
     assert fetched_task_run["task_input"] == {
         "image": {
             "url": "https://bla.com/image.png",
             "content_type": "image/png",
-            "storage_url": test_client.storage_url(
-                task,
-                "23439dd28abda73e46eb007534630bebe9cd930710f22171af0d62fa75187bb8.png",
-            ),
+            "storage_url": storage_url,
         },
     }
 
@@ -81,10 +83,11 @@ async def test_run_previews_list_images(test_client: IntegrationTestClient):
 
     await test_client.wait_for_completed_tasks()
     fetched_task_run = await test_client.fetch_run(task, run_id=task_run["id"])
-    assert (
-        fetched_task_run["task_input_preview"]
-        == "images: [[[img:https://bla.com/image.png]], [[img:https://bla.com/image.png]], [[img:https://bla.com/image.png]]]"
+    storage_url = test_client.storage_url(
+        task,
+        "23439dd28abda73e46eb007534630bebe9cd930710f22171af0d62fa75187bb8.png",
     )
+    assert fetched_task_run["task_input_preview"] == f"images: [[[img:{storage_url}]], [[img:{storage_url}]]"
 
 
 async def test_run_previews_with_data_url(test_client: IntegrationTestClient):
@@ -161,4 +164,8 @@ async def test_run_preview_with_downloaded_file(test_client: IntegrationTestClie
 
     await test_client.wait_for_completed_tasks()
     fetched_task_run = await test_client.fetch_run(task, run_id=task_run["id"])
-    assert fetched_task_run["task_input_preview"] == "image: [[img:https://bla.com/image]]"
+    storage_url = test_client.storage_url(
+        task,
+        "460b4d834db4657bec3bbc25edd9742c4e5129905421e96d08e3615e06ca8d39.jpg",
+    )
+    assert fetched_task_run["task_input_preview"] == f"image: [[img:{storage_url}]]"

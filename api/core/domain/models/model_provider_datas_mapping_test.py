@@ -109,9 +109,11 @@ class TestSunsetModels:
     def test_models_sunset_in_1_month_have_replacement_model(self, now: datetime.date):
         one_month_from_now = now + datetime.timedelta(days=30)
         for provider_data in MODEL_PROVIDER_DATAS.values():
-            for model_data in provider_data.values():
+            for model, model_data in provider_data.items():
                 if model_data.lifecycle_data and model_data.lifecycle_data.is_sunset(one_month_from_now):
-                    assert model_data.replacement_model(one_month_from_now)
+                    assert model_data.replacement_model(one_month_from_now), (
+                        f"Model {model} should have a replacement model"
+                    )
 
     @pytest.mark.parametrize("provider_data", MODEL_PROVIDER_DATAS.values())
     def test_sunset_models_are_not_sunset(

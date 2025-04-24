@@ -2,7 +2,7 @@ import logging
 from typing import Any
 
 import httpx
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from core.domain.errors import InternalError
 from core.storage.slack.slack_types import SlackMessage
@@ -126,12 +126,18 @@ class SlackApiClient:
         )
 
     class ChannelInfo(BaseModel):
+        id: str
         name: str
 
         class Topic(BaseModel):
-            value: str
+            value: str = ""
 
-        topic: Topic
+        topic: Topic = Field(default_factory=Topic)
+
+        class Purpose(BaseModel):
+            value: str = ""
+
+        purpose: Purpose = Field(default_factory=Purpose)
 
     async def get_channel_info(self, channel_id: str):
         parsed = await self.get(
@@ -140,3 +146,11 @@ class SlackApiClient:
             operation_name="get slack channel info",
         )
         return self.ChannelInfo.model_validate(parsed["channel"])
+
+    async def list_channels(self, limit: int = 1000):
+        parsed = await self.get(
+            "/conversations.list",
+            params={"exclude_archived": "true", "limit": str(limit)},
+            operation_name="list slack channels",
+        )
+        return [self.ChannelInfo.model_validate(channel) for channel in parsed["channels"]]

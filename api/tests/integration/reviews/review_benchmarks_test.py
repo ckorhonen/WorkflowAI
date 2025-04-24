@@ -21,7 +21,6 @@ async def test_review_benchmarks(test_client: IntegrationTestClient):
 
     # Now we send a review
     await test_client.user_review(task, run1, "positive")
-    await test_client.wait_for_completed_tasks()
 
     # Fetch the run and make sure the review is there
     fetched_run1 = await fetch_run(test_client.int_api_client, task, run1)
@@ -43,9 +42,8 @@ async def test_review_benchmarks(test_client: IntegrationTestClient):
 
     await test_client.wait_for_completed_tasks()
 
-    fetched_benchmark = result_or_raise(
-        await test_client.int_api_client.get(task_schema_url(task, "reviews/benchmark")),
-    )
+    fetched_benchmark = await test_client.get(task_schema_url(task, "reviews/benchmark"))
+
     first_result = fetched_benchmark["results"][0]
     assert first_result["positive_review_count"] == 1
     assert first_result["positive_user_review_count"] == 1
@@ -61,20 +59,17 @@ async def test_review_benchmarks(test_client: IntegrationTestClient):
     # The output will match the first run, so we should get 2 positive reviews
     test_client.mock_vertex_call(parts=[{"text": '{"greeting": "Hello James!"}'}], model=Model.GEMINI_1_5_PRO_002)
 
-    v = await test_client.create_version(task, {"model": Model.GEMINI_1_5_PRO_002})
+    v = await test_client.create_version(task, {"model": Model.GEMINI_1_5_PRO_002}, autowait=True)
     assert v["iteration"] == 2, "sanity"
-    result_or_raise(
-        await test_client.int_api_client.patch(
-            task_schema_url(task, "reviews/benchmark"),
-            json={"add_versions": [2]},
-        ),
+    await test_client.patch(
+        task_schema_url(task, "reviews/benchmark"),
+        json={"add_versions": [2]},
     )
 
     await test_client.wait_for_completed_tasks()
 
-    fetched_benchmark = result_or_raise(
-        await test_client.int_api_client.get(task_schema_url(task, "reviews/benchmark")),
-    )
+    fetched_benchmark = await test_client.get(task_schema_url(task, "reviews/benchmark"))
+    assert len(fetched_benchmark["results"]) == 2
     first_result = fetched_benchmark["results"][0]
     assert first_result["positive_review_count"] == 1, "no new positive reviews for first version"
     second_result = fetched_benchmark["results"][1]
@@ -84,11 +79,10 @@ async def test_review_benchmarks(test_client: IntegrationTestClient):
     test_client.mock_vertex_call(model=Model.GEMINI_1_5_FLASH_002)
     test_client.mock_ai_review(outcome="unsure")
     v = await test_client.create_version(task, {"model": Model.GEMINI_1_5_FLASH_002})
-    result_or_raise(
-        await test_client.int_api_client.patch(
-            task_schema_url(task, "reviews/benchmark"),
-            json={"add_versions": [3]},
-        ),
+
+    await test_client.patch(
+        task_schema_url(task, "reviews/benchmark"),
+        json={"add_versions": [3]},
     )
 
     await test_client.wait_for_completed_tasks()

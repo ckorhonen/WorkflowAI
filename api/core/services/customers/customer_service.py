@@ -3,8 +3,9 @@ import json
 import logging
 import os
 import re
+from collections.abc import AsyncIterator, Callable
 from contextlib import contextmanager
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from typing import NamedTuple
 
 from pydantic import BaseModel
@@ -21,12 +22,15 @@ from core.domain.events import (
     MetaAgentChatMessagesSent,
     TaskSchemaCreatedEvent,
 )
+from core.domain.task_info import PublicTaskInfo
+from core.domain.tenant_data import PublicOrganizationData
 from core.services.users.user_service import OrganizationDetails, UserDetails, UserService
 from core.storage import ObjectNotFoundException
 from core.storage.backend_storage import BackendStorage
 from core.storage.slack.slack_api_client import SlackApiClient
 from core.storage.slack.utils import get_slack_hyperlink
 from core.utils.background import add_background_task
+from core.utils.coroutines import capture_errors
 
 _logger = logging.getLogger(__name__)
 
@@ -136,7 +140,8 @@ class CustomerService:
         self._storage = storage
         self._user_service = user_service
 
-    def _channel_name(self, slug: str, uid: int):
+    @classmethod
+    def _channel_name(cls, slug: str, uid: int):
         prefix = "customer" if ENV_NAME == "prod" else f"customer-{ENV_NAME}"
         if slug:
             # Remove any non-alphanumeric characters
@@ -201,9 +206,23 @@ class CustomerService:
         if user:
             components.append(f"User: {user.name} ({user.email})")
         if org:
-            components.append(f"Organization: {org.name})")
+            components.append(f"Organization: {org.name}")
 
         await clt.set_channel_purpose(channel_id, "\n".join(components))
+
+        if clerk_link := self._clerk_link(org_id=org.id if org else None, owner_id=user.id if user else None):
+            await clt.set_channel_topic(channel_id, clerk_link)
+
+    @classmethod
+    def _clerk_link(cls, org_id: str | None, owner_id: str | None) -> str | None:
+        dashboard = os.environ.get("CLERK_DASHBOARD_PREFIX")
+        if not dashboard:
+            return None
+        if owner_id:
+            return f"{dashboard}/users/{owner_id}"
+        if org_id:
+            return f"{dashboard}/organizations/{org_id}"
+        return None
 
     async def _on_channel_created(
         self,
@@ -211,11 +230,12 @@ class CustomerService:
         slug: str,
         org_id: str | None,
         owner_id: str | None,
-        invite_users: bool = True,
     ):
         with self._slack_client() as clt:
-            if invite_users and (invitees := os.environ.get("SLACK_BOT_INVITEES")):
-                await clt.invite_users(channel_id, invitees.split(","))
+            # We only invite users when the channel is not for an anonymous user
+            if (org_id or owner_id) and (invitees := os.environ.get("SLACK_BOT_INVITEES")):
+                with capture_errors(_logger, "Failed to invite users to channel"):
+                    await clt.invite_users(channel_id, invitees.split(","))
 
             if not slug or org_id:
                 # That can happen for anonymous users for example
@@ -224,7 +244,13 @@ class CustomerService:
             user = await self._user_service.get_user(owner_id) if owner_id else None
             org = await self._user_service.get_organization(org_id) if org_id else None
 
-            await self._update_channel_purpose(clt, channel_id, org.slug if org else slug, user, org)
+            await self._update_channel_purpose(
+                clt,
+                channel_id,
+                org.slug if org else slug,
+                user,
+                org,
+            )
 
             if user:
                 assessment = await CustomerAssessmentService.run_customer_assessment(user.email)
@@ -248,8 +274,9 @@ class CustomerService:
                         },
                     )
 
+    @classmethod
     @contextmanager
-    def _slack_client(self):
+    def _slack_client(cls):
         bot_token = os.environ.get("SLACK_BOT_TOKEN")
         if not bot_token:
             _logger.warning("SLACK_BOT_TOKEN is not set, skipping message sending")
@@ -266,7 +293,6 @@ class CustomerService:
             await clt.send_message(channel_id, {"text": message})
 
     async def handle_customer_migrated(self, from_user_id: str | None, from_anon_id: str | None):
-        # TODO: rename slack channel
         org = await self._get_organization()
         if not org.slack_channel_id:
             _logger.warning("No slack channel id found for organization", extra={"org_uid": org.uid, "slug": org.slug})
@@ -281,7 +307,6 @@ class CustomerService:
                 org.slug,
                 org.org_id,
                 org.owner_id,
-                invite_users=False,  # We don't need to invite staff users again, as they should already be in the channel
             ),
         )
 
@@ -327,6 +352,49 @@ class CustomerService:
     async def send_became_active(self, task_id: str):
         message = f"Task {task_id} became active"
         await self._send_message(message)
+
+    @classmethod
+    async def build_daily_report(
+        cls,
+        user_service: UserService,
+        today: date,
+        active_task_fetcher: Callable[[datetime], AsyncIterator[tuple[PublicOrganizationData, list[PublicTaskInfo]]]],
+    ):
+        yesterday = datetime.combine(today - timedelta(days=1), time(0, 0), tzinfo=timezone.utc)
+
+        count = await user_service.count_registrations(since=yesterday)
+        active_tasks = [a async for a in active_task_fetcher(yesterday) if a[0].slug != "workflowai"]
+
+        parts = [
+            f"**Daily report for {today}**",
+            f"Total registrations: **{count}**",
+            f"Active tenants (Org with runs from API or SDK in the last 24h): **{len(active_tasks)}**",
+            f"Active agents: (Agents with runs from API or SDK in the last 24h): **{sum(len(tasks) for _, tasks in active_tasks)}**",
+            "",
+        ]
+
+        for org, ts in active_tasks:
+            parts.append("-------")
+            parts.append(f"**{org.slug}** (#{cls._channel_name(org.slug, org.uid)})")
+            parts.extend(f" - {t.name}: ({WORKFLOWAI_APP_URL}/{org.slug}/agents/{t.task_id})" for t in ts)
+
+        return "\n".join(parts)
+
+    @classmethod
+    async def send_daily_report(
+        cls,
+        user_service: UserService,
+        today: date,
+        active_task_fetcher: Callable[[datetime], AsyncIterator[tuple[PublicOrganizationData, list[PublicTaskInfo]]]],
+    ):
+        customers_channel = os.environ.get("SLACK_CUSTOMERS_CHANNEL_ID")
+        if not customers_channel:
+            _logger.info("SLACK_CUSTOMERS_CHANNEL_ID is not set, skipping daily report")
+            return
+
+        with cls._slack_client() as clt:
+            report = await cls.build_daily_report(user_service, today, active_task_fetcher)
+            await clt.send_message(customers_channel, {"text": report})
 
     async def build_daily_user_digest(self) -> DailyUserDigest:
         class AgentStat(BaseModel):

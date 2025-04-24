@@ -1,5 +1,5 @@
 import { Loader2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useLocalStorage } from 'usehooks-ts';
 import { useRedirectWithParams } from '@/lib/queryString';
 import { useParsedSearchParams } from '@/lib/queryString';
@@ -106,15 +106,15 @@ export function SideBySideTable(props: SideBySideTableProps) {
   }, [versions]);
 
   const [savedLeftVersionId, setSavedLeftVersionId] = useLocalStorage(
-    `savedLeftVersionId-${taskId}`,
+    `savedLeftVersionId-${taskId}-${taskSchemaId}`,
     selectedLeftVersionId
   );
   const [savedRightVersionId, setSavedRightVersionId] = useLocalStorage(
-    `savedRightVersionId-${taskId}`,
+    `savedRightVersionId-${taskId}-${taskSchemaId}`,
     selectedRightVersionId
   );
   const [savedRightModelId, setSavedRightModelId] = useLocalStorage(
-    `savedRightModelId-${taskId}`,
+    `savedRightModelId-${taskId}-${taskSchemaId}`,
     selectedRightModelId
   );
 
@@ -146,11 +146,17 @@ export function SideBySideTable(props: SideBySideTableProps) {
     let defaultLeftVersionId: string | undefined = deployedVersion?.id ?? versions[0].id;
 
     // Default Right Version
-    let defaultRightVersionId: string | undefined = deployedVersion
-      ? defaultLeftVersionId === versions[0].id
-        ? versions[1].id
-        : versions[0].id
-      : versions[1].id;
+    let defaultRightVersionId: string | undefined = undefined;
+
+    if (deployedVersion) {
+      if (defaultLeftVersionId === deployedVersion.id) {
+        defaultRightVersionId = versions.length > 1 ? versions[1].id : undefined;
+      } else {
+        defaultRightVersionId = versions[0].id;
+      }
+    } else {
+      defaultRightVersionId = versions.length > 1 ? versions[1].id : undefined;
+    }
 
     // Default Right Model
     let defaultRightModelId: string | undefined = undefined;
@@ -214,7 +220,7 @@ export function SideBySideTable(props: SideBySideTableProps) {
         setSelectedRightModelId={setSelectedRightModelId}
         page={page}
       />
-      <div className='flex flex-col w-full flex-1 overflow-y-auto' id='side-by-side-table'>
+      <div className='flex flex-col w-full flex-1 overflow-y-auto scrollbar-hide' id='side-by-side-table'>
         <SideBySideTableStatsRow
           tenant={tenant}
           taskId={taskId}
