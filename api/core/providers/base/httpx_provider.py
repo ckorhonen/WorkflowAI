@@ -182,6 +182,13 @@ class HTTPXProvider(AbstractProvider[ProviderConfigVar, dict[str, Any]], Generic
 
                     self.logger.exception(err, extra={"response": response.text})
                 raise err
+            case 402:
+                # Payment required, let's raise an invalid config so the provider pipeline knows to go to the next provider
+                raise InvalidProviderConfig(
+                    f"Payment required for provider {self._config_id}",
+                    response=response,
+                    capture=True,
+                )
             case 408:
                 raise self._provider_timeout_error(response)
             case 429:

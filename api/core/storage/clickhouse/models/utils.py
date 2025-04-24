@@ -52,7 +52,12 @@ MAX_UINT_16 = 65535
 MAX_UINT_32 = 4_294_967_295
 
 
-def validate_int(max_value: int, log_name: str | None = None, warning: bool = True) -> AfterValidator:
+def validate_int(
+    max_value: int,
+    log_name: str | None = None,
+    warning: bool = True,
+    unsigned: bool = True,
+) -> AfterValidator:
     def _cap(v: int | None) -> int | None:
         if v is None:
             return None
@@ -65,6 +70,15 @@ def validate_int(max_value: int, log_name: str | None = None, warning: bool = Tr
                     extra={"value": v, "max_value": max_value},
                 )
             return max_value
+        if unsigned and v < 0:
+            if not log_name:
+                raise ValueError(f"Found negative value {v} < 0")
+            if warning:
+                logging.getLogger(__name__).warning(
+                    f"Found negative value {log_name}",  # noqa: G004
+                    extra={"value": v},
+                )
+            return 0
         return v
 
     return AfterValidator(_cap)
