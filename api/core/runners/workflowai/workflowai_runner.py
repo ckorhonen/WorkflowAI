@@ -448,7 +448,6 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         input_copy = deepcopy(input)
         input_schema = self.task_input_schema()
         output_schema = self.task_output_schema()
-        image_options = await self._extract_image_options(input, input_schema, output_schema)
 
         input_schema, input_copy, files = extract_files(input_schema, input_copy)
 
@@ -474,6 +473,10 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         else:
             download_duration = 0
             has_inlined_files = False
+
+        # Extracting image options after files. If the user provides a mask, it will be in image options
+        # and should be treated like a regular file
+        image_options = await self._extract_image_options(input, input_schema, output_schema)
 
         instructions = self._options.instructions
         if instructions is not None:
