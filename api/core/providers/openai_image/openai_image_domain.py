@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -58,7 +58,7 @@ class OpenAIImageResponse(BaseModel):
         def to_file(self, content_type: str) -> File:
             return File(data=self.b64_json, content_type=content_type)
 
-    data: List[Data] = Field(description="The list of generated images.")
+    data: list[Data] = Field(description="The list of generated images.")
 
     class Usage(BaseModel):
         total_tokens: int = Field(description="The total number of tokens used in the request.")

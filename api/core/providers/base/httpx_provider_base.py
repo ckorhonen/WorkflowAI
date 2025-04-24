@@ -153,6 +153,11 @@ class HTTPXProviderBase(AbstractProvider[ProviderConfigVar, ProviderRequestVar])
 
     @abstractmethod
     async def _execute_request(self, request: ProviderRequestVar, options: ProviderOptions) -> Response:
+        """Execute request is expected to raise a status error if needed."""
+        # TODO: this is a bit misleading but that's because for now
+        # the httpx status error is handled in _open_client which is also used
+        # when streaming in httpx_provider.py. We should likely separate the error
+        # handling to avoid this confusion.
         pass
 
     @abstractmethod
@@ -177,7 +182,6 @@ class HTTPXProviderBase(AbstractProvider[ProviderConfigVar, ProviderRequestVar])
         try:
             response = await self._execute_request(request, options)
             add_background_task(self._extract_and_log_rate_limits(response, options=options))
-            response.raise_for_status()
             response_status_200 = True
             return self._parse_response(
                 response,

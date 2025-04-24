@@ -176,12 +176,14 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
         headers = await self._request_headers(request, url, options.model)
 
         async with self._open_client(url) as client:
-            return await client.post(
+            response = await client.post(
                 url,
                 json=request,
                 headers=headers,
                 timeout=options.timeout,
             )
+            response.raise_for_status()
+            return response
 
     async def wrap_sse(self, raw: AsyncIterator[bytes], termination_chars: bytes = b"\n\n"):
         async for chunk in standard_wrap_sse(raw, termination_chars, self.logger):

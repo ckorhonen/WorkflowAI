@@ -128,13 +128,15 @@ class OpenAIImageProvider(HTTPXProviderBase[OpenAIImageConfig, OpenAIImageReques
         )
 
         async with self._open_client(url) as client:
-            return await client.post(
+            response = await client.post(
                 url,
                 # Probably have to send the mask and image as files
                 headers={"Authorization": f"Bearer {self._config.api_key}"},
                 json=request.model_dump(mode="json", exclude_none=True, by_alias=True),
                 timeout=options.timeout,
             )
+            response.raise_for_status()
+            return response
 
     @override
     def _parse_response(
