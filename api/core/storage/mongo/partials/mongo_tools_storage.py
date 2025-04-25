@@ -10,11 +10,10 @@ from core.storage.mongo.partials.base_partial_storage import PartialStorage
 from core.storage.tools_storage import ToolsStorage
 
 
-class MongoToolsStorage(PartialStorage[CustomToolDocument], ToolsStorage]):
+class MongoToolsStorage(PartialStorage[CustomToolDocument], ToolsStorage):
     def __init__(self, tenant_tuple: Tuple[str, int], collection: AsyncCollection):
         self._tenant, _ = tenant_tuple
         self._collection = collection
-
 
     async def list_tools(self) -> list[CustomTool]:
         cursor = self._find({})
