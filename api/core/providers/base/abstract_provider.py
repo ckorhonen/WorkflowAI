@@ -243,6 +243,16 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
     def get_model_provider_data(self, model: Model):
         return get_model_provider_data(self.name(), model)
 
+    def _calculate_image_output_cost(
+        self,
+        model_provider_data: ModelProviderData,
+        llm_usage: LLMUsage,
+    ) -> float | None:
+        if not model_provider_data.image_output_price or not llm_usage.completion_image_count:
+            return None
+
+        return model_provider_data.image_output_price.cost_per_image * llm_usage.completion_image_count
+
     async def _compute_llm_completion_cost(
         self,
         model: Model,
@@ -278,6 +288,8 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
         )
 
         llm_usage.prompt_cost_usd += prompt_image_cost_usd + prompt_audio_cost_usd
+        if image_output_cost_usd := self._calculate_image_output_cost(model_provider_data, llm_usage):
+            llm_usage.completion_cost_usd += image_output_cost_usd
 
     async def compute_llm_completion_usage(
         self,

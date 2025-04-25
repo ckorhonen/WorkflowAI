@@ -198,6 +198,12 @@ class HTTPXProviderBase(AbstractProvider[ProviderConfigVar, ProviderRequestVar])
     ) -> StructuredOutput:
         pass
 
+    def _assign_usage_from_structured_output(self, raw_completion: RawCompletion, structured_output: StructuredOutput):
+        if raw_completion.usage.completion_image_count is None:
+            raw_completion.usage.completion_image_count = (
+                len(structured_output.files) if structured_output.files else None
+            )
+
     @override
     async def _single_complete(
         self,
@@ -210,12 +216,14 @@ class HTTPXProviderBase(AbstractProvider[ProviderConfigVar, ProviderRequestVar])
             response = await self._execute_request(request, options)
             response.raise_for_status()
             add_background_task(self._extract_and_log_rate_limits(response, options=options))
-            return self._parse_response(
+            parsed_response = self._parse_response(
                 response,
                 output_factory=output_factory,
                 raw_completion=raw_completion,
                 request=request,
             )
+            self._assign_usage_from_structured_output(raw_completion, parsed_response)
+            return parsed_response
 
     def _failed_generation_error_wrapper(self, raw_completion: str, error_msg: str, retry: bool = False):
         # Check for content moderation rejection patterns in the response text.

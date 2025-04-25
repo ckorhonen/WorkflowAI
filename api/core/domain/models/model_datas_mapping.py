@@ -1301,6 +1301,67 @@ def _build_model_datas():
             supports_tool_calling=True,
             supports_structured_output=True,
         ),
+        Model.IMAGEN_3_0_LATEST: LatestModel(
+            model=Model.IMAGEN_3_0_002,
+            display_name="Imagen 3.0 (latest)",
+        ),
+        Model.IMAGEN_3_0_002: ModelData(
+            display_name="Imagen 3.0 (002)",
+            supports_json_mode=False,
+            supports_input_image=False,
+            supports_input_pdf=False,
+            supports_input_audio=False,
+            supports_output_text=False,
+            supports_output_image=True,
+            max_tokens_data=MaxTokensData(
+                max_tokens=480,
+                source="https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/imagen-api",
+            ),
+            provider_for_pricing=Provider.GOOGLE_IMAGEN,
+            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
+            release_date=date(2025, 1, 23),
+            quality_index=600,  # TODO: Update the quality index
+            provider_name=DisplayedProvider.GOOGLE.value,
+            supports_tool_calling=False,
+        ),
+        Model.IMAGEN_3_0_001: ModelData(
+            display_name="Imagen 3.0 (001)",
+            supports_json_mode=False,
+            supports_input_image=False,
+            supports_input_pdf=False,
+            supports_input_audio=False,
+            supports_output_text=False,
+            supports_output_image=True,
+            max_tokens_data=MaxTokensData(
+                max_tokens=480,
+                source="https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/imagen-api",
+            ),
+            provider_for_pricing=Provider.GOOGLE_IMAGEN,
+            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
+            release_date=date(2024, 7, 31),
+            quality_index=600,  # TODO: Update the quality index
+            provider_name=DisplayedProvider.GOOGLE.value,
+            supports_tool_calling=False,
+        ),
+        Model.IMAGEN_3_0_FAST_001: ModelData(
+            display_name="Imagen 3.0 ⚡ (001)",
+            supports_json_mode=False,
+            supports_input_image=False,
+            supports_input_pdf=False,
+            supports_input_audio=False,
+            supports_output_text=False,
+            supports_output_image=True,
+            max_tokens_data=MaxTokensData(
+                max_tokens=480,
+                source="https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/imagen-api",
+            ),
+            provider_for_pricing=Provider.GOOGLE_IMAGEN,
+            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
+            release_date=date(2024, 7, 31),
+            quality_index=600,  # TODO: Update the quality index
+            provider_name=DisplayedProvider.GOOGLE.value,
+            supports_tool_calling=False,
+        ),
         **mistral_models(),
     }
 

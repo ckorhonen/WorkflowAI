@@ -106,6 +106,10 @@ class ModelProviderData(BaseModel):
         default=None,
         description="The cost per image for the model, if applicable.",
     )
+    image_output_price: ImageFixedPrice | None = Field(
+        default=None,
+        description="The cost per image output for the model, if applicable.",
+    )
 
     audio_price: AudioPricePerToken | AudioPricePerSecond | None = Field(
         default=None,

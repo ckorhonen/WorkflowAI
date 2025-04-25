@@ -1224,6 +1224,39 @@ XAI_PROVIDER_DATA: ProviderDataByModel = {
     ),
 }
 
+GOOGLE_IMAGEN_PROVIDER_DATA: ProviderDataByModel = {
+    Model.IMAGEN_3_0_FAST_001: ModelProviderData(
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=0,
+            completion_cost_per_token=0,
+            source="https://ai.google.dev/gemini-api/docs/pricing#imagen-3",
+        ),
+        image_output_price=ImageFixedPrice(
+            cost_per_image=0.03,
+        ),
+    ),
+    Model.IMAGEN_3_0_001: ModelProviderData(
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=0,
+            completion_cost_per_token=0,
+            source="https://ai.google.dev/gemini-api/docs/pricing#imagen-3",
+        ),
+        image_output_price=ImageFixedPrice(
+            cost_per_image=0.03,
+        ),
+    ),
+    Model.IMAGEN_3_0_002: ModelProviderData(
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=0,
+            completion_cost_per_token=0,
+            source="https://ai.google.dev/gemini-api/docs/pricing#imagen-3",
+        ),
+        image_output_price=ImageFixedPrice(
+            cost_per_image=0.03,
+        ),
+    ),
+}
+
 type ProviderModelDataMapping = dict[Provider, ProviderDataByModel]
 
 # Pricing and lifecycle data for each model / provider couple

@@ -1066,7 +1066,7 @@ class TestComplete:
         location_iter = iter(location_responses)
 
         with patch(
-            "core.providers.google.google_provider.GoogleProvider._get_random_region",
+            "core.providers.google.vertex_base_config.VertexBaseConfig._get_random_region",
             side_effect=lambda _: next(location_iter),  # pyright: ignore [reportUnknownLambdaType]
         ):
             result = await google_provider.complete(
@@ -1106,7 +1106,7 @@ class TestComplete:
         location_iter = iter(location_responses)
 
         with patch(
-            "core.providers.google.google_provider.GoogleProvider._get_random_region",
+            "core.providers.google.vertex_base_config.VertexBaseConfig._get_random_region",
             side_effect=lambda _: next(location_iter),  # pyright: ignore [reportUnknownLambdaType]
         ):
             with pytest.raises(ProviderError, match="No available regions left to retry."):
