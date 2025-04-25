@@ -11,7 +11,7 @@ export type ToolboxTab = {
 
 export const tabs: ToolboxTab[] = [
   {
-    tools: ['@search-google', '@perplexity-sonar-pro'],
+    tools: ['@perplexity-sonar-pro', '@search-google'],
     name: 'Search',
     iconOff: <GlobeSearchRegular className='w-[18px] h-[18px]' />,
     iconOn: <GlobeSearchFilled className='w-[18px] h-[18px] text-indigo-700' />,
