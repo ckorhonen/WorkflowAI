@@ -213,7 +213,7 @@ class RunsSearchService:
 
     @classmethod
     def _fields_from_schema(cls, field: SearchField, schema: dict[str, Any]):
-        for key, field_type in JsonSchema(schema).fields_iterator([]):
+        for key, field_type, _ in JsonSchema(schema).fields_iterator([]):
             suggestions: list[Any] | None = None
 
             match field_type:

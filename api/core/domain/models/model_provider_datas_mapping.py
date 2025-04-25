@@ -891,6 +891,18 @@ GOOGLE_GEMINI_API_PROVIDER_DATA: ProviderDataByModel = {
             source="https://ai.google.dev/gemini-api/docs/pricing#2_0flash_lite",
         ),
     ),
+    Model.GEMINI_2_0_FLASH_EXP: ModelProviderData(
+        # Exp models are free
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=0,
+            completion_cost_per_token=0,
+            completion_image_cost_per_token=0,
+            source="https://ai.google.dev/gemini-api/docs/pricing#2_0flash_lite",
+        ),
+        image_price=ImageFixedPrice(
+            cost_per_image=0,
+        ),
+    ),
     Model.GEMINI_2_0_FLASH_001: ModelProviderData(
         text_price=TextPricePerToken(
             prompt_cost_per_token=0.10 * ONE_MILLION_TH,

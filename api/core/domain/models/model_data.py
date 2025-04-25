@@ -104,7 +104,7 @@ class FinalModelData(ModelData):
         # This should never happen, we have tests for that
         raise ValueError(f"Provider {self.provider_for_pricing} not found for model {self.display_name}")
 
-    def is_not_supported_reason(
+    def is_not_supported_reason(  # noqa: C901
         self,
         task_typology: TaskTypology,
     ) -> str | None:
@@ -136,6 +136,9 @@ class FinalModelData(ModelData):
             return f"{self.display_name} does not support output audio"
         if task_typology.output.has_pdf:
             return f"{self.display_name} does not support output pdf"
+
+        if task_typology.output.has_text and not self.supports_output_text:
+            return f"{self.display_name} only supports data outputs"
         return None
 
 

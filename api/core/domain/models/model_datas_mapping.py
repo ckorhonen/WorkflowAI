@@ -189,6 +189,7 @@ def _build_model_datas():
             supports_output_image=True,
             supports_input_pdf=False,
             supports_input_audio=False,
+            supports_output_text=False,
             supports_structured_output=False,
             max_tokens_data=MaxTokensData(
                 # gpt-image-1 does not really have a context window it seems
@@ -587,7 +588,26 @@ def _build_model_datas():
         ),
         Model.GEMINI_2_5_PRO_EXP_0325: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0325),
         Model.GEMINI_2_0_PRO_EXP: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0325),
-        Model.GEMINI_2_0_FLASH_EXP: DeprecatedModel(replacement_model=Model.GEMINI_2_0_FLASH_001),
+        Model.GEMINI_2_0_FLASH_EXP: ModelData(
+            display_name="Gemini 2.0 Flash Exp (Image Generation)",
+            supports_json_mode=True,
+            supports_input_image=True,
+            supports_input_pdf=True,
+            supports_input_audio=True,
+            supports_output_image=True,
+            supports_structured_output=False,
+            max_tokens_data=MaxTokensData(
+                max_tokens=1048576,
+                max_output_tokens=8_192,
+                source="https://ai.google.dev/gemini-api/docs/models/gemini#gemini-2.0-flash",
+            ),
+            provider_for_pricing=Provider.GOOGLE_GEMINI,
+            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
+            release_date=date(2025, 2, 5),
+            quality_index=718,
+            provider_name=DisplayedProvider.GOOGLE.value,
+            supports_tool_calling=True,
+        ),
         Model.GEMINI_2_0_FLASH_LATEST: LatestModel(
             model=Model.GEMINI_2_0_FLASH_001,
             display_name="Gemini 2.0 Flash (latest)",

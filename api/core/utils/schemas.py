@@ -327,19 +327,25 @@ class JsonSchema:
         for nav in navigators:
             nav(self, obj=obj)
 
-    def fields_iterator(self, prefix: list[str]) -> Iterator[tuple[list[str], FieldType]]:
+    def fields_iterator(
+        self,
+        prefix: list[str],
+        dive: Callable[[Self], bool] = lambda _: True,
+    ) -> Iterator[tuple[list[str], FieldType, Self]]:
         t = self.type
         if not t:
             return
         if prefix:
-            yield prefix, t
+            yield prefix, t, self
+        if not dive(self):
+            return
         match t:
             case "object":
                 for key in self.schema.get("properties", {}).keys():
-                    yield from self.child_schema(key).fields_iterator(prefix=[*prefix, key])
+                    yield from self.child_schema(key).fields_iterator(prefix=[*prefix, key], dive=dive)
             case "array":
                 # Assuming array only has one item
-                yield from self.child_schema(0).fields_iterator(prefix=[*prefix, "[]"])
+                yield from self.child_schema(0).fields_iterator(prefix=[*prefix, "[]"], dive=dive)
             case _:
                 pass
 

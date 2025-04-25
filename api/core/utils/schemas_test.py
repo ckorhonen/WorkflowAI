@@ -918,7 +918,7 @@ class TestFieldIterator:
     def test_extract_event_output(self):
         schema = JsonSchema(fixtures_json("jsonschemas", "extract_event_output.json"))
 
-        fields = {".".join(k): v for k, v in schema.fields_iterator([])}
+        fields = {".".join(k): v for k, v, _ in schema.fields_iterator([])}
 
         assert fields == {
             "title": "string",
@@ -949,7 +949,7 @@ class TestFieldIterator:
             },
         )
 
-        fields = {".".join(k): v for k, v in schema.fields_iterator([])}
+        fields = {".".join(k): v for k, v, _ in schema.fields_iterator([])}
         assert fields == {
             "name": "string",
             "age": "integer",
@@ -959,7 +959,7 @@ class TestFieldIterator:
             "validated_input": "boolean",
         }
 
-    def test_array(self):
+    def test_file(self):
         schema = JsonSchema(
             {
                 "type": "object",
@@ -1000,7 +1000,7 @@ class TestFieldIterator:
                 },
             },
         )
-        fields = {".".join(k): v for k, v in schema.fields_iterator([])}
+        fields = {".".join(k): v for k, v, _ in schema.fields_iterator([])}
         assert fields == {
             "audio_file": "object",
             "audio_file.name": "string",
@@ -1010,6 +1010,15 @@ class TestFieldIterator:
             "image_file.name": "string",
             "image_file.content_type": "string",
             "image_file.data": "string",
+        }
+
+        # Without diving into the File schema
+        fields = {
+            ".".join(k): v for k, v, _ in schema.fields_iterator([], dive=lambda r: r.followed_ref_name != "File")
+        }
+        assert fields == {
+            "audio_file": "object",
+            "image_file": "object",
         }
 
     def test_nullable(self):
@@ -1034,7 +1043,7 @@ class TestFieldIterator:
                 "type": "object",
             },
         )
-        fields = {".".join(k): v for k, v in schema.fields_iterator([])}
+        fields = {".".join(k): v for k, v, _ in schema.fields_iterator([])}
         assert fields == {
             "inital_task_instructions": "string",
         }
