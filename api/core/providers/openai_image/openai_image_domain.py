@@ -101,15 +101,15 @@ class OpenAIImageResponse(BaseModel):
             text_tokens: int | None = Field(default=None, description="The number of text tokens used in the prompt.")
             image_tokens: int | None = Field(default=None, description="The number of image tokens used in the prompt.")
 
-        input_token_details: InputTokenDetails | None = Field(
+        input_tokens_details: InputTokenDetails | None = Field(
             default=None,
             description="The details of the input tokens used in the request.",
         )
 
         def assign(self, usage: LLMUsage):
-            if self.input_token_details:
-                usage.prompt_token_count = self.input_token_details.text_tokens
-                usage.prompt_image_token_count = self.input_token_details.image_tokens
+            if self.input_tokens_details:
+                usage.prompt_token_count = self.input_tokens_details.text_tokens
+                usage.prompt_image_token_count = self.input_tokens_details.image_tokens
             usage.completion_image_token_count = self.output_tokens
 
     usage: Usage | None = Field(default=None, description="The usage details of the request.")
