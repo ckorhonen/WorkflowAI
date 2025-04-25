@@ -5,7 +5,6 @@ from bson import ObjectId
 from core.domain.tool import CustomTool
 from core.storage import ObjectNotFoundException
 from core.storage.mongo.models.custom_tool_document import CustomToolDocument
-from core.storage.mongo.models.pyobjectid import PyObjectID
 from core.storage.mongo.mongo_types import AsyncCollection
 from core.storage.mongo.utils import dump_model
 from core.storage.tools_storage import ToolsStorage
@@ -55,22 +54,15 @@ class MongoToolsStorage(ToolsStorage):
         )
 
     async def update_tool(self, id: str, name: str, description: str, input_schema: dict[str, Any]) -> CustomTool:
-        existing_doc = await self._collection.find_one({**self._tenant_filter(), "_id": ObjectId(id)})
-        if not existing_doc:
-            raise ObjectNotFoundException(f"Tool with ID '{id}' not found")
-        updated_doc = CustomToolDocument.from_domain(
-            tenant=self._tenant,
-            tool=CustomTool(
-                name=name,
-                description=description,
-                parameters=input_schema,
-            ),
-        )
-        # Ensure the _id is preserved
-        updated_doc.id = PyObjectID(str(id))
-        result = await self._collection.replace_one(
+        result = await self._collection.update_one(
             {**self._tenant_filter(), "_id": ObjectId(id)},
-            dump_model(updated_doc),
+            {
+                "$set": {
+                    "name": name,
+                    "description": description,
+                    "parameters": input_schema,
+                },
+            },
         )
         if result.matched_count == 0:
             raise ObjectNotFoundException(f"Tool with ID '{id}' not found")
