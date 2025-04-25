@@ -37,7 +37,7 @@ export function ReadonlyValueTextContent(props: ReadonlyValueTextContentProps) {
       )}
     >
       <div
-        className={cx('flex-1', !!truncateText && 'overflow-hidden')}
+        className={cx('flex-1 whitespace-pre-wrap', !!truncateText && 'overflow-hidden')}
         style={{
           display: !!truncateText ? '-webkit-box' : 'block',
           WebkitLineClamp: !!truncateText ? truncateText : undefined,
