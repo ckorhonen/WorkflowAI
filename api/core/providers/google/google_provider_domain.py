@@ -578,6 +578,7 @@ class CompletionRequest(BaseModel):
             thinkingBudget: int | None = None
 
         thinking_config: ThinkingConfig | None = None
+        responseModalities: list[Literal["TEXT", "IMAGE"]] | None = None
 
     generationConfig: GenerationConfig
 

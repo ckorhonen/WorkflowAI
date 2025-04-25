@@ -32,6 +32,7 @@ from core.domain.run_output import RunOutput
 from core.domain.structured_output import StructuredOutput
 from core.domain.task_group_properties import FewShotConfiguration, FewShotExample, TaskGroupProperties
 from core.domain.task_run_reply import RunReply
+from core.domain.task_typology import TaskTypology
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.tenant_data import ProviderSettings
 from core.domain.tool import Tool
@@ -52,12 +53,12 @@ from core.runners.workflowai.tool_cache import ToolCache
 from core.runners.workflowai.utils import (
     FileWithKeyPath,
     ToolCallRecursionError,
+    assign_files,
     cleanup_provider_json,
     convert_pdf_to_images,
-    count_image_fields,
     download_file,
     extract_files,
-    possible_file_keypaths,
+    remove_files_from_schema,
     sanitize_model_and_provider,
     split_tools,
 )
@@ -85,6 +86,13 @@ MAX_TOOL_CALL_ITERATIONS = 10
 class BuildUserMessageContentResult(NamedTuple):
     content: str
     should_remove_input_schema: bool
+
+
+class PreparedOutputSchema(NamedTuple):
+    prepared_schema: dict[str, Any]
+    # Images are removed from the schema since they are handled separately
+    min_file_count: int = 0
+    max_file_count: int | None = None
 
 
 class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
@@ -141,18 +149,18 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         )
 
         self._typology = self.task.typology()
+        self._prepared_output_schema = self._prepare_output_schema(
+            deepcopy(self.task.output_schema.json_schema),
+            self.properties.is_chain_of_thought_enabled or False,
+            self.is_tool_use_enabled,
+            self._typology,
+        )
 
     @override
     def version(self) -> str:
         # This version is not super important since the templates are versioned
         # separately
         return "v0.1.0"
-
-    def task_input_schema(self) -> dict[str, Any]:
-        return self.task.input_schema.json_schema
-
-    def task_output_schema(self) -> dict[str, Any]:
-        return self._prepare_output_schema(self.task.output_schema.json_schema)
 
     def _all_tools(self) -> Iterable[Tool]:
         return (
@@ -336,7 +344,10 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         sanitized = sanitize_template_name(
             self._options.template_name,
             is_tool_use_enabled=self.is_tool_use_enabled,
-            is_structured_generation_enabled=is_structured_generation_enabled,
+            # a bit hacky but we templates that have structured generation enabled do
+            # not show the output schema
+            is_structured_generation_enabled=is_structured_generation_enabled
+            or not self._prepared_output_schema.prepared_schema.get("properties"),
             supports_input_schema=data.support_input_schema,
         )
         return provider.sanitize_template(sanitized)
@@ -407,24 +418,29 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         output_schema: dict[str, Any],
     ) -> ImageOptions | None:
         """Extract the image options from the input and remove it from the input if possible"""
+        base = self.properties.image_options
+        if self._prepared_output_schema.min_file_count:
+            if not base:
+                base = ImageOptions()
+            if not base.image_count:
+                base.image_count = self._prepared_output_schema.min_file_count
+
         input_parameters = input.get("options")
         if not input_parameters:
-            return None
+            return base
         try:
             option_ref = input_schema.get("properties", {}).get("options", {}).get("$ref")
         except Exception:
             # that can happen for weird schemas
-            return None
+            return base
         if option_ref != "#/$defs/ImageOptions":
-            return None
+            return base
 
         try:
-            image_parameters = ImageOptions.model_validate(input_parameters)
+            base_dumped = base.model_dump(exclude_none=True) if base else {}
+            image_parameters = ImageOptions.model_validate({**base_dumped, **input_parameters})
         except Exception:
-            return None
-
-        if image_parameters.image_count is None:
-            image_parameters.image_count = count_image_fields(output_schema)
+            return base
 
         del input["options"]
         return image_parameters
@@ -446,8 +462,8 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
 
         start_time = time.time()
         input_copy = deepcopy(input)
-        input_schema = self.task_input_schema()
-        output_schema = self.task_output_schema()
+        input_schema = self.task.input_schema.json_schema
+        output_schema = self._prepared_output_schema.prepared_schema
 
         input_schema, input_copy, files = extract_files(input_schema, input_copy)
 
@@ -476,7 +492,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
 
         # Extracting image options after files. If the user provides a mask, it will be in image options
         # and should be treated like a regular file
-        image_options = await self._extract_image_options(input, input_schema, output_schema)
+        image_options = await self._extract_image_options(input_copy, input_schema, output_schema)
 
         instructions = self._options.instructions
         if instructions is not None:
@@ -638,19 +654,8 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             await self._external_tool_cache.values() if include_tool_calls else None
         )
 
-        # TODO: test
         if output.files:
-            # The structured output generated files so we need to apply them
-            keypaths = possible_file_keypaths(self.task_output_schema(), len(output.files))
-            if len(keypaths) != len(output.files):
-                logger.warning(
-                    "The number of files in the structured output does not match the number of keypaths",
-                    extra={"run_id": self._run_id, "expected": len(keypaths), "actual": len(output.files)},
-                )
-            for idx, keypath in enumerate(keypaths):
-                # TODO: We should probably handle errors here, but not sure what to
-                # do if the keypath is invalid
-                set_at_keypath(output.output, keypath, output.files[idx].model_dump(mode="json"))
+            assign_files(self.task.output_schema.json_schema, output.files, output.output)
 
         return RunOutput(
             task_output=output.output,
@@ -805,15 +810,30 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         user_message = Message(role=Message.Role.USER, tool_call_results=tool_results, content="")
         return [*messages, user_message]
 
-    def _prepare_output_schema(self, output_schema: dict[str, Any]) -> dict[str, Any]:
-        if self.properties.is_chain_of_thought_enabled:
+    @classmethod
+    def _prepare_output_schema(
+        cls,
+        output_schema: dict[str, Any],
+        is_chain_of_thought_enabled: bool,
+        is_tool_use_enabled: bool,
+        typology: TaskTypology,
+    ) -> PreparedOutputSchema:
+        if is_chain_of_thought_enabled:
             add_reasoning_steps_to_schema(output_schema)
 
         # We only need to add the tool schema in the output if we are not using native tools
-        if self.is_tool_use_enabled:
+        if is_tool_use_enabled:
             add_agent_run_result_to_schema(output_schema)  # status must be at the 'top'
 
-        return output_schema
+        if typology.output.is_text_only:
+            return PreparedOutputSchema(prepared_schema=output_schema)
+
+        min_file_count, max_file_count = remove_files_from_schema(output_schema)
+        return PreparedOutputSchema(
+            prepared_schema=output_schema,
+            min_file_count=min_file_count,
+            max_file_count=max_file_count,
+        )
 
     def _check_tool_calling_support(self, model_data: FinalModelData):
         if self.is_tool_use_enabled is False:
@@ -835,7 +855,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             model=model_data.model,
             temperature=self._options.temperature,
             max_tokens=self._options.max_tokens,
-            output_schema=self.task_output_schema(),
+            output_schema=self._prepared_output_schema.prepared_schema,
             task_name=self.task.name,
             structured_generation=is_structured_generation_enabled,
             tenant=self.task.tenant,

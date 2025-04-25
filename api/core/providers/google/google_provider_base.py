@@ -20,6 +20,7 @@ from core.domain.errors import (
     ProviderRateLimitError,
     UnknownProviderError,
 )
+from core.domain.fields.file import File
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_usage import LLMCompletionUsage, LLMUsage
 from core.domain.message import Message
@@ -146,19 +147,23 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
             else None
         )
 
+        generation_config = CompletionRequest.GenerationConfig(
+            temperature=options.temperature,
+            # TODO[max-tokens]: Set the max token from the context data
+            maxOutputTokens=options.max_tokens,
+            responseMimeType="application/json"
+            if (model_data.supports_json_mode and not options.enabled_tools)
+            # Google does not allow setting the response mime type at all when using tools.
+            else "text/plain",
+            thinking_config=thinking_config,
+        )
+        if messages[0].image_options and messages[0].image_options.image_count:
+            generation_config.responseModalities = ["IMAGE", "TEXT"]
+
         completion_request = CompletionRequest(
             systemInstruction=system_message,
             contents=user_messages,
-            generationConfig=CompletionRequest.GenerationConfig(
-                temperature=options.temperature,
-                # TODO[max-tokens]: Set the max token from the context data
-                maxOutputTokens=options.max_tokens,
-                responseMimeType="application/json"
-                if (model_data.supports_json_mode and not options.enabled_tools)
-                # Google does not allow setting the response mime type at all when using tools.
-                else "text/plain",
-                thinking_config=thinking_config,
-            ),
+            generationConfig=generation_config,
             safetySettings=self._safety_settings(),
         )
 
@@ -231,31 +236,38 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
                 msg="Model returned a MAX_TOKENS finish reason. The max number of tokens as specified in the request was reached.",
             )
 
-        try:
-            content = response.candidates[0].content
-            if not content:
-                self.logger.warning("No content found in first candidate", extra={"response": response.model_dump()})
-                return ""
-
-            parts = content.parts
-            if not parts:
-                self.logger.warning("No parts found in first candidate", extra={"response": response.model_dump()})
-                return ""
-
-            txt = parts[0].text
-            if len(parts) > 1:
-                # More than one part means the model has returned a reasoning step
-                index = 1 if parts[0].thought else 0
-                txt = parts[index].text
-
-        except IndexError as e:
-            self.logger.warning("Empty content found in response", extra={"response": response.model_dump()})
-            raise e
-        if not txt:
-            if not parts[0].functionCall:
-                self.logger.warning("Empty content found in response", extra={"response": response.model_dump()})
+        content = response.candidates[0].content
+        if not content:
+            self.logger.warning("No content found in first candidate", extra={"response": response.model_dump()})
             return ""
-        return txt
+        parts = content.parts
+        if not parts:
+            self.logger.warning("No parts found in first candidate", extra={"response": response.model_dump()})
+            return ""
+        index = 0
+        if len(parts) > 1 and parts[0].thought:
+            # More than one part means the model has returned a reasoning step
+            index = 1
+        return parts[index].text or ""
+
+    @override
+    def _extract_files(self, response: CompletionResponse) -> list[File] | None:
+        if not response.candidates:
+            return None
+        candidate = response.candidates[0]
+        if not candidate.content:
+            return None
+
+        files = [
+            File(
+                content_type=part.inlineData.mimeType,
+                data=part.inlineData.data,
+            )
+            for part in candidate.content.parts
+            if part.inlineData
+        ]
+
+        return files or None
 
     @override
     def _extract_usage(self, response: CompletionResponse) -> LLMUsage | None:
