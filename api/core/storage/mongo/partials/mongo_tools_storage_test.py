@@ -16,12 +16,8 @@ class TestMongoToolsStorage(unittest.TestCase):
         self.storage = MongoToolsStorage(self.tenant_tuple, self.collection)
 
     def test_tenant_filter(self):
-        result = self.storage._tenant_filter()  # type: ignore[reportPrivateUsage]
-        self.assertEqual(result, {"tenant": "test_tenant"})
-
-    def test_tenant_uid_filter(self):
-        result = self.storage._tenant_filter()  # type: ignore[reportPrivateUsage]
-        self.assertEqual(result, {"tenant": "test_tenant"})
+        result = self.storage._tenant_filter({"foo": "bar"})  # type: ignore[reportPrivateUsage]
+        self.assertEqual(result, {"foo": "bar", "tenant": "test_tenant"})
 
     async def test_list_tools(self):
         # Setup mock tool data
