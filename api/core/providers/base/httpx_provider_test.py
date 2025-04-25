@@ -279,7 +279,7 @@ class TestParseResponse:
         raw_completion = RawCompletion(response="", usage=LLMUsage())
 
         with pytest.raises(UnknownProviderError):
-            mocked_provider._parse_response(response, Mock(), raw_completion)  # pyright: ignore[reportPrivateUsage]
+            mocked_provider._parse_response(response, Mock(), raw_completion, {})  # pyright: ignore[reportPrivateUsage]
 
         assert raw_completion.response == "Arf arf"
 
@@ -292,7 +292,7 @@ class TestParseResponse:
         raw_completion = RawCompletion(response="", usage=LLMUsage())
 
         with pytest.raises(FailedGenerationError):
-            mocked_provider._parse_response(response, Mock(), raw_completion)  # pyright: ignore[reportPrivateUsage]
+            mocked_provider._parse_response(response, Mock(), raw_completion, {})  # pyright: ignore[reportPrivateUsage]
 
         assert raw_completion.response == "hello"
         mocked_provider.mock._extract_content_str.assert_called_once_with(DummyResponseModel(content="hello"))
@@ -306,7 +306,7 @@ class TestParseResponse:
 
         raw_completion = RawCompletion(response="", usage=LLMUsage())
 
-        output = mocked_provider._parse_response(response, _output_factory, raw_completion=raw_completion)  # pyright: ignore[reportPrivateUsage]
+        output = mocked_provider._parse_response(response, _output_factory, raw_completion=raw_completion, request={})  # pyright: ignore[reportPrivateUsage]
         assert output == {"hello": "world"}
         assert raw_completion.response == '{"hello": "world"}'
 
@@ -346,7 +346,7 @@ class TestParseResponse:
 
         # Parse response should re-raise the exception
         with pytest.raises(raised_cls):
-            mocked_provider._parse_response(response, _output_factory, raw_completion=raw_completion)  # pyright: ignore[reportPrivateUsage]
+            mocked_provider._parse_response(response, _output_factory, raw_completion=raw_completion, request={})  # pyright: ignore[reportPrivateUsage]
 
         # In all use cases we should call extract usage and set the completion
         mocked_provider.mock._extract_usage.assert_called_once_with(DummyResponseModel(content=text))
@@ -587,6 +587,7 @@ class TestNativeToolCalls:
             response,
             lambda x, _: StructuredOutput(output=json.loads(x)),
             raw_completion=raw_completion,
+            request={},
         )
         expected_tool_calls = [ToolCallRequestWithID(id="tool-123", tool_name="dummy_tool", tool_input_dict={})]
         assert output.output == {"hello": "world"}

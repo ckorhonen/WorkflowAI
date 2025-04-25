@@ -1917,6 +1917,49 @@ class TestMultiProviderConfigs:
         # We only called anthropic once
         assert len(httpx_mock.get_requests(url="https://api.anthropic.com/v1/messages")) == 1
 
+        await test_client.wait_for_completed_tasks()
+
+        run = await test_client.fetch_run(task, run_id=res["id"])
+        assert run["metadata"]["workflowai.providers"] == ["anthropic", "amazon_bedrock"]
+
+    async def test_fallback_on_payment_required(
+        self,
+        test_client: IntegrationTestClient,
+        multi_provider_factory: LocalProviderFactory,
+        httpx_mock: HTTPXMock,
+    ):
+        # First config returns an invalid config (here payment required but would be the same with 401 or 403)
+        httpx_mock.add_response(
+            url="https://api.anthropic.com/v1/messages",
+            method="POST",
+            status_code=402,
+        )
+
+        # But we fallback to the next anthropic provider
+        httpx_mock.add_response(
+            url="https://api.anthropic.com/v1/messages",
+            method="POST",
+            json=fixtures_json("anthropic", "completion.json"),
+        )
+
+        task = await test_client.create_task(output_schema={"properties": {}})
+
+        res = await test_client.run_task_v1(
+            task,
+            model=Model.CLAUDE_3_5_SONNET_20241022,
+            use_cache="never",
+            autowait=False,
+        )
+        assert res
+
+        # We only called anthropic once
+        assert len(httpx_mock.get_requests(url="https://api.anthropic.com/v1/messages")) == 2
+
+        await test_client.wait_for_completed_tasks()
+
+        run = await test_client.fetch_run(task, run_id=res["id"])
+        assert run["metadata"]["workflowai.providers"] == ["anthropic", "anthropic"]
+
 
 async def test_invalid_base64_data(test_client: IntegrationTestClient):
     """Check that we handle invalid base64 data correctly by returning an error immediately"""

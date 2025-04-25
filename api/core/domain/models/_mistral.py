@@ -19,7 +19,6 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             display_name="Mistral Large 2 (24-07)",
             supports_json_mode=True,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -42,7 +41,6 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             display_name="Mistral Large 2 (24-11)",
             supports_json_mode=True,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -65,7 +63,6 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             display_name="PixTral Large (24-11)",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -84,7 +81,6 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             display_name="PixTral (12B-2409)",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -102,7 +98,6 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             display_name="MiniStral (3B-2410)",
             supports_json_mode=True,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -120,7 +115,6 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             display_name="MiniStral (8B-2410)",
             supports_json_mode=True,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -142,7 +136,6 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             display_name="Mistral Small (25-03)",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -161,7 +154,6 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             display_name="Mistral Small (25-01)",
             supports_json_mode=True,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -180,7 +172,6 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             display_name="Mistral Small (24-09)",
             supports_json_mode=True,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -199,7 +190,6 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             display_name="Mistral Saba (25-02)",
             supports_json_mode=True,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -217,7 +207,6 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             display_name="CodeStral Mamba (25-01)",
             supports_json_mode=True,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -235,7 +224,6 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             display_name="CodeStral Mamba (24-07)",
             supports_json_mode=True,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(

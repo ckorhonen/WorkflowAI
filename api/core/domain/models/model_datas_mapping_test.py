@@ -8,7 +8,7 @@ from core.domain.models import Model, Provider
 from core.domain.models.model_data_supports import ModelDataSupports
 from core.domain.models.model_provider_data import ModelProviderData
 from core.domain.models.utils import get_model_provider_data
-from core.domain.task_typology import TaskTypology
+from core.domain.task_typology import SchemaTypology, TaskTypology
 from core.providers.amazon_bedrock.amazon_bedrock_provider import AmazonBedrockProvider
 from core.providers.fireworks.fireworks_provider import FireworksAIProvider
 from core.providers.google.google_provider import GoogleProvider
@@ -305,35 +305,15 @@ class TestModelAvailability:
         "typology",
         [
             pytest.param(
-                TaskTypology(
-                    has_image_in_input=False,
-                    has_multiple_images_in_input=False,
-                    has_audio_in_input=False,
-                ),
+                TaskTypology(input=SchemaTypology(has_image=False, has_audio=False)),
                 id="text",
             ),
             pytest.param(
-                TaskTypology(
-                    has_image_in_input=True,
-                    has_multiple_images_in_input=False,
-                    has_audio_in_input=False,
-                ),
+                TaskTypology(input=SchemaTypology(has_image=True, has_audio=False)),
                 id="image",
             ),
             pytest.param(
-                TaskTypology(
-                    has_image_in_input=True,
-                    has_multiple_images_in_input=True,
-                    has_audio_in_input=False,
-                ),
-                id="multiple_images",
-            ),
-            pytest.param(
-                TaskTypology(
-                    has_image_in_input=False,
-                    has_multiple_images_in_input=False,
-                    has_audio_in_input=True,
-                ),
+                TaskTypology(input=SchemaTypology(has_image=False, has_audio=True)),
                 id="audio",
             ),
         ],

@@ -67,7 +67,7 @@ def setup_logs() -> bool:
         from core.utils.logs_json import CappedJsonFormatter
 
         logHandler = logging.StreamHandler()
-        formatter = CappedJsonFormatter(max_length=400)
+        formatter = CappedJsonFormatter(max_length=1000)
         logHandler.setFormatter(formatter)
         logger.addHandler(logHandler)
 

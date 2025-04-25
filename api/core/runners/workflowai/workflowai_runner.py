@@ -20,6 +20,7 @@ from core.domain.errors import (
     MaxToolCallIterationError,
     ModelDoesNotSupportMode,
 )
+from core.domain.fields.image_options import ImageOptions
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.message import Message
 from core.domain.metrics import send_gauge
@@ -53,8 +54,10 @@ from core.runners.workflowai.utils import (
     ToolCallRecursionError,
     cleanup_provider_json,
     convert_pdf_to_images,
+    count_image_fields,
     download_file,
     extract_files,
+    possible_file_keypaths,
     sanitize_model_and_provider,
     split_tools,
 )
@@ -136,6 +139,8 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             self.internal_tools,
             self.properties.enabled_tools,
         )
+
+        self._typology = self.task.typology()
 
     @override
     def version(self) -> str:
@@ -264,32 +269,19 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
                 msg=f"{model_data.display_name} does not support audio.",
             )
 
-    def _assert_support_for_multiple_images_input(self, model_data: ModelData):
-        if not model_data.supports_multiple_images_in_input:
-            raise ModelDoesNotSupportMode(
-                title="This model does not support multiple images in input",
-                msg=f"{model_data.display_name} does not support multiple images in input.",
-            )
-
     def _check_support_for_files(self, model_data: ModelData, files: Sequence[FileWithKeyPath]):
         # We check for support here to allow bypassing some providers in the pipeline
         # Some providers may support different modes
         # The model settings should be optimistic, at worst the provider will return with an error
 
-        images_count = 0
-
         for file in files:
             if file.is_image:
-                images_count += 1
                 self._assert_support_for_image_input(model_data)
             if file.is_pdf:
                 self._assert_support_for_pdf_input(model_data)
             if file.is_audio:
                 self._assert_support_for_audio_input(model_data)
             # TODO: Add more content-type checks as needed
-
-        if images_count > 1:
-            self._assert_support_for_multiple_images_input(model_data)
 
     async def _convert_pdf_to_images(
         self,
@@ -408,6 +400,35 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
 
         return rendered
 
+    async def _extract_image_options(
+        self,
+        input: TaskInputDict,
+        input_schema: dict[str, Any],
+        output_schema: dict[str, Any],
+    ) -> ImageOptions | None:
+        """Extract the image options from the input and remove it from the input if possible"""
+        input_parameters = input.get("options")
+        if not input_parameters:
+            return None
+        try:
+            option_ref = input_schema.get("properties", {}).get("options", {}).get("$ref")
+        except Exception:
+            # that can happen for weird schemas
+            return None
+        if option_ref != "#/$defs/ImageOptions":
+            return None
+
+        try:
+            image_parameters = ImageOptions.model_validate(input_parameters)
+        except Exception:
+            return None
+
+        if image_parameters.image_count is None:
+            image_parameters.image_count = count_image_fields(output_schema)
+
+        del input["options"]
+        return image_parameters
+
     async def _build_messages(
         self,
         template_name: TemplateName,
@@ -453,6 +474,10 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             download_duration = 0
             has_inlined_files = False
 
+        # Extracting image options after files. If the user provides a mask, it will be in image options
+        # and should be treated like a regular file
+        image_options = await self._extract_image_options(input, input_schema, output_schema)
+
         instructions = self._options.instructions
         if instructions is not None:
             instructions = provider.sanitize_agent_instructions(instructions)
@@ -487,6 +512,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
                     output_schema=output_schema,
                 ),
                 role=Message.Role.SYSTEM,
+                image_options=image_options,
             ),
         ]
         if user_message_content.content or files:
@@ -611,6 +637,21 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         external_tools: Sequence[ToolCallRequestWithID] | None = (
             await self._external_tool_cache.values() if include_tool_calls else None
         )
+
+        # TODO: test
+        if output.files:
+            # The structured output generated files so we need to apply them
+            keypaths = possible_file_keypaths(self.task_output_schema(), len(output.files))
+            if len(keypaths) != len(output.files):
+                logger.warning(
+                    "The number of files in the structured output does not match the number of keypaths",
+                    extra={"run_id": self._run_id, "expected": len(keypaths), "actual": len(output.files)},
+                )
+            for idx, keypath in enumerate(keypaths):
+                # TODO: We should probably handle errors here, but not sure what to
+                # do if the keypath is invalid
+                set_at_keypath(output.output, keypath, output.files[idx].model_dump(mode="json"))
+
         return RunOutput(
             task_output=output.output,
             tool_calls=internal_tools or None,
@@ -812,13 +853,24 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         template_name = self._pick_template(provider, model_data_copy, is_structured_generation_enabled)
         return provider, template_name, provider_options, model_data_copy
 
-    async def _stream_task_output_from_messages(
+    async def _stream_task_output_from_messages(  # noqa: C901
         self,
         provider: AbstractProvider[Any, Any],
         options: ProviderOptions,
         messages: list[Message],
     ):
+        # TODO: this should really not be here but instead built when computing options
+        # in _build_provider_data
         options.enabled_tools = list(self._all_tools())
+
+        # For now we don't stream images
+        streamable = not self._typology.output.is_text_only and provider.is_streamable(
+            options.model,
+            options.enabled_tools,
+        )
+        if streamable:
+            yield (await self._build_task_output_from_messages(provider, options, messages))
+            return
 
         if not provider.is_streamable(options.model, options.enabled_tools):
             yield (await self._build_task_output_from_messages(provider, options, messages))

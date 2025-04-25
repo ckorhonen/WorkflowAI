@@ -7,6 +7,11 @@ from core.domain.models._mistral import mistral_models
 from .model_data import DeprecatedModel, FinalModelData, LatestModel, MaxTokensData, ModelData
 
 
+def _char_to_token(char_count: int) -> int:
+    # Approx 4 characters per token
+    return int(round(char_count / 4))
+
+
 def _build_model_datas():
     models = {
         Model.GPT_4O_LATEST: LatestModel(
@@ -18,7 +23,6 @@ def _build_model_datas():
             display_name="GPT-4o (2024-11-20)",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_structured_output=True,
@@ -39,7 +43,6 @@ def _build_model_datas():
             display_name="GPT-4o (2024-08-06)",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_structured_output=True,
@@ -65,7 +68,6 @@ def _build_model_datas():
             display_name="GPT-4.1 (2025-04-14)",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_structured_output=True,
@@ -91,7 +93,6 @@ def _build_model_datas():
             display_name="GPT-4.1 Mini (2025-04-14)",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_structured_output=True,
@@ -117,7 +118,6 @@ def _build_model_datas():
             display_name="GPT-4.1 Nano (2025-04-14)",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_structured_output=True,
@@ -138,7 +138,6 @@ def _build_model_datas():
             display_name="GPT-4.5-preview (2025-02-27)",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_structured_output=True,
@@ -167,7 +166,6 @@ def _build_model_datas():
             display_name="GPT-4o mini (2024-07-18)",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_structured_output=True,
@@ -184,6 +182,27 @@ def _build_model_datas():
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
         ),
+        Model.GPT_IMAGE_1: ModelData(
+            display_name="GPT Image 1",
+            supports_json_mode=False,
+            supports_input_image=True,
+            supports_output_image=True,
+            supports_input_pdf=False,
+            supports_input_audio=False,
+            supports_structured_output=False,
+            max_tokens_data=MaxTokensData(
+                # gpt-image-1 does not really have a context window it seems
+                # But the input max is 32_000 characters
+                max_tokens=_char_to_token(32_000),
+                source="https://platform.openai.com/docs/models",
+            ),
+            provider_for_pricing=Provider.OPEN_AI_IMAGE,
+            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
+            release_date=date(2025, 4, 23),
+            quality_index=611,  # TODO: a bit difficult to estimate here
+            provider_name=DisplayedProvider.OPEN_AI.value,
+            supports_tool_calling=False,
+        ),
         Model.GPT_3_5_TURBO_0125: DeprecatedModel(replacement_model=Model.GPT_4O_MINI_2024_07_18),
         Model.GPT_3_5_TURBO_1106: DeprecatedModel(replacement_model=Model.GPT_4O_MINI_2024_07_18),
         Model.GPT_4_1106_VISION_PREVIEW: DeprecatedModel(replacement_model=Model.GPT_4O_2024_11_20),
@@ -191,7 +210,6 @@ def _build_model_datas():
             display_name="GPT-4o (Audio Preview 2024-12-17)",
             supports_json_mode=True,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             support_input_schema=False,
             supports_input_audio=True,
@@ -214,7 +232,6 @@ def _build_model_datas():
             display_name="o1-preview (2024-09-12)",
             supports_json_mode=False,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -234,7 +251,6 @@ def _build_model_datas():
             display_name="o1-mini (2024-09-12)",
             supports_json_mode=False,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -266,7 +282,6 @@ def _build_model_datas():
             display_name="o3-mini (2025-01-31) - High reasoning effort",
             supports_json_mode=False,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_structured_output=True,
@@ -287,7 +302,6 @@ def _build_model_datas():
             display_name="o3-mini (2025-01-31) - Medium reasoning effort",
             supports_json_mode=False,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_structured_output=True,
@@ -308,7 +322,6 @@ def _build_model_datas():
             display_name="o3-mini (2025-01-31) - Low reasoning effort",
             supports_json_mode=False,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_structured_output=True,
@@ -341,7 +354,6 @@ def _build_model_datas():
             display_name="o4-mini (2025-04-16) - High reasoning effort",
             supports_json_mode=False,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_structured_output=True,
@@ -362,7 +374,6 @@ def _build_model_datas():
             display_name="o4-mini (2025-04-16) - Medium reasoning effort",
             supports_json_mode=False,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_structured_output=True,
@@ -383,7 +394,6 @@ def _build_model_datas():
             display_name="o4-mini (2025-04-16) - Low reasoning effort",
             supports_json_mode=False,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_structured_output=True,
@@ -416,7 +426,6 @@ def _build_model_datas():
             display_name="o3 (2025-04-16) - High reasoning effort",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=False,
             supports_structured_output=True,
@@ -437,7 +446,6 @@ def _build_model_datas():
             display_name="o3 (2025-04-16) - Medium reasoning effort",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=False,
             supports_structured_output=True,
@@ -458,7 +466,6 @@ def _build_model_datas():
             display_name="o3 (2025-04-16) - Low reasoning effort",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=False,
             supports_structured_output=True,
@@ -481,7 +488,6 @@ def _build_model_datas():
             display_name="Gemini 2.0 Flash-Lite (001)",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=True,
             supports_structured_output=False,
@@ -501,7 +507,6 @@ def _build_model_datas():
             display_name="Gemini 2.0 Flash (001)",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=True,
             supports_structured_output=False,  # Model supports structured outputs, but we did not activate this feature for Google  yet
@@ -522,7 +527,6 @@ def _build_model_datas():
             display_name="Gemini 2.5 Flash Preview (0417)",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=True,
             supports_structured_output=False,
@@ -544,7 +548,6 @@ def _build_model_datas():
             display_name="Gemini 2.5 Flash Thinking Preview (0417)",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=True,
             supports_structured_output=False,
@@ -566,7 +569,6 @@ def _build_model_datas():
             display_name="Gemini 2.5 Pro Preview (0325)",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=True,
             supports_structured_output=False,
@@ -606,7 +608,6 @@ def _build_model_datas():
             display_name="Gemini 1.5 Pro (002)",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=True,
             supports_structured_output=False,  # Model supports structured outputs, but we did not activate this feature for Google  yet
@@ -627,7 +628,6 @@ def _build_model_datas():
             display_name="Gemini 1.5 Pro (001)",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=True,
             supports_structured_output=False,  # Model supports structured outputs, but we did not activate this feature for Google  yet
@@ -659,7 +659,6 @@ def _build_model_datas():
             display_name="Claude 3.7 Sonnet (2025-02-19)",
             supports_json_mode=False,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -682,7 +681,6 @@ def _build_model_datas():
             display_name="Claude 3.5 Sonnet (2024-10-22)",
             supports_json_mode=False,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -702,7 +700,6 @@ def _build_model_datas():
             display_name="Gemini 1.5 Flash (002)",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=True,
             supports_structured_output=False,  # Model supports structured outputs, but we did not activate this feature for Google  yet
@@ -723,7 +720,6 @@ def _build_model_datas():
             display_name="Gemini 1.5 Flash (001)",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=True,
             supports_structured_output=False,  # Model supports structured outputs, but we did not activate this feature for Google  yet
@@ -751,7 +747,6 @@ def _build_model_datas():
             display_name="o1 (2024-12-17) - Medium reasoning effort",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_structured_output=True,
@@ -771,7 +766,6 @@ def _build_model_datas():
             display_name="o1 (2024-12-17) - High reasoning effort",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_structured_output=True,
@@ -791,7 +785,6 @@ def _build_model_datas():
             display_name="o1 (2024-12-17) - Low reasoning effort",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_structured_output=True,
@@ -811,7 +804,6 @@ def _build_model_datas():
             display_name="Claude 3.5 Sonnet (2024-06-20)",
             supports_json_mode=False,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=False,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -831,7 +823,6 @@ def _build_model_datas():
             display_name="Claude 3 Opus (2024-02-29)",
             supports_json_mode=False,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=False,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -851,7 +842,6 @@ def _build_model_datas():
             display_name="Claude 3 Haiku (2024-03-07)",
             supports_json_mode=False,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=False,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -874,7 +864,6 @@ def _build_model_datas():
             display_name="Claude 3.5 Haiku (2024-10-22)",
             supports_json_mode=True,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -896,7 +885,6 @@ def _build_model_datas():
             display_name="Llama 3.1 (405B)",
             supports_json_mode=False,  # 405b does not support JSON mode for now https://www.together.ai/blog/meta-llama-3-1
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -915,7 +903,6 @@ def _build_model_datas():
             display_name="Llama 3.3 (70B)",
             supports_json_mode=True,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_structured_output=True,
@@ -935,7 +922,6 @@ def _build_model_datas():
             display_name="Llama 3.1 (70B)",
             supports_json_mode=True,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -954,7 +940,6 @@ def _build_model_datas():
             display_name="Llama 3.1 (8B)",
             supports_json_mode=True,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_structured_output=True,
@@ -983,7 +968,6 @@ def _build_model_datas():
             display_name="Gemini 1.5 Flash (8B)",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=True,
             supports_structured_output=False,  # Model supports structured output but we did not activate for Gemini yet
@@ -1004,7 +988,6 @@ def _build_model_datas():
             display_name="Qwen QWQ (32B)",
             supports_json_mode=True,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_structured_output=True,
@@ -1027,7 +1010,6 @@ def _build_model_datas():
             display_name="Llama 4 Maverick",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -1047,7 +1029,6 @@ def _build_model_datas():
             display_name="Llama 4 Scout",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -1068,7 +1049,6 @@ def _build_model_datas():
             display_name="Llama 4 Maverick ⚡",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=False,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -1088,7 +1068,6 @@ def _build_model_datas():
             display_name="Llama 4 Scout ⚡",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=False,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -1109,7 +1088,6 @@ def _build_model_datas():
             display_name="DeepSeek V3 (24-12) (US hosted)",
             supports_json_mode=True,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -1130,7 +1108,6 @@ def _build_model_datas():
             display_name="DeepSeek R1 (25-01) (US hosted)",
             supports_json_mode=True,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_structured_output=False,  # To access the thinking, we have to disable the structured output
@@ -1150,7 +1127,6 @@ def _build_model_datas():
             display_name="DeepSeek R1 Basic (25-01) (US hosted)",
             supports_json_mode=True,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_structured_output=False,  # To access the thinking, we have to disable the structured output
@@ -1170,7 +1146,6 @@ def _build_model_datas():
             display_name="DeepSeek V3 (03-24) (US hosted)",
             supports_json_mode=True,
             supports_input_image=False,
-            supports_multiple_images_in_input=False,
             supports_input_pdf=False,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -1195,7 +1170,6 @@ def _build_model_datas():
             display_name="Grok 3 (beta)",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -1215,7 +1189,6 @@ def _build_model_datas():
             display_name="Grok 3 Fast (beta)",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -1235,7 +1208,6 @@ def _build_model_datas():
             display_name="Grok 3 Mini (beta) - High reasoning effort",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -1255,7 +1227,6 @@ def _build_model_datas():
             display_name="Grok 3 Mini (beta) - Low reasoning effort",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -1275,7 +1246,6 @@ def _build_model_datas():
             display_name="Grok 3 Mini Fast (beta) - High reasoning effort",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
@@ -1295,7 +1265,6 @@ def _build_model_datas():
             display_name="Grok 3 Mini Fast (beta) - Low reasoning effort",
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(

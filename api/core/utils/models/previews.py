@@ -49,11 +49,21 @@ class _Agg:
         else:
             self.append(value)
 
-    def _append_file(self, content_type: str, url: str | None, storage_url: str | None):
-        if url and not url.startswith("https://"):
+    @classmethod
+    def _file_preview(cls, d: dict[str, Any]):
+        content_type = d.get("content_type")
+        if not content_type or not isinstance(content_type, str):
+            return None
+
+        if (storage_url := d.get("storage_url")) and isinstance(storage_url, str):
             url = storage_url
-        if not url:
+        elif (url := d.get("url")) and isinstance(url, str):
+            url = url
+        elif (data := d.get("data")) and isinstance(data, str):
+            # Not displaying any data here
             url = ""
+        else:
+            return None
 
         match content_type.split("/")[0]:
             case "image":
@@ -62,13 +72,14 @@ class _Agg:
                 prefix = "audio"
             case _:
                 prefix = "file"
-        self.append(f"[[{prefix}:{url}]]", cut_on_max_len=False)
+
+        return f"[[{prefix}:{url}]]"
 
     def _append_dict(self, d: dict[str, Any], brackets: bool):
         # For simplification, we consider that any dict
         # with a "content_type" key is a file and should have a specific preview
-        if "content_type" in d and ("url" in d or "data" in d or "storage_url" in d):
-            self._append_file(d["content_type"], d.get("url"), d.get("storage_url"))
+        if file_preview := self._file_preview(d):
+            self.append(file_preview, cut_on_max_len=False)
             return
         if brackets:
             self.append("{")

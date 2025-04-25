@@ -106,7 +106,7 @@ class SerializableTaskVariant(BaseModel):
         return compute_obj_hash(self.output_schema.sanitize(output))
 
     def typology(self) -> TaskTypology:
-        return TaskTypology.from_schema(self.input_schema.json_schema)
+        return TaskTypology.from_schema(self.input_schema.json_schema, self.output_schema.json_schema)
 
     @property
     def id_tuple(self) -> TaskTuple:

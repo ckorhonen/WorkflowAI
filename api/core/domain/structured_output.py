@@ -1,6 +1,7 @@
 from typing import NamedTuple
 
 from core.domain.agent_run_result import AgentRunResult
+from core.domain.fields.file import File
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.tool_call import ToolCallRequestWithID
 from core.domain.types import TaskOutputDict
@@ -17,3 +18,5 @@ class StructuredOutput(NamedTuple):
 
     # An opportunity for a LLM to add reasoning steps to the output
     reasoning_steps: list[InternalReasoningStep] | None = None
+
+    files: list[File] | None = None

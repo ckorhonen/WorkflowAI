@@ -21,9 +21,11 @@ from .utils import (
     _process_ref,  # pyright: ignore[reportPrivateUsage]
     cleanup_provider_json,
     convert_pdf_to_images,
+    count_image_fields,
     download_file,
     extract_files,
     is_schema_containing_legacy_file,
+    possible_file_keypaths,
     split_tools,
 )
 
@@ -527,3 +529,93 @@ class TestCleanupProviderJson:
         raw_json = '{"blabla":["Pr\\u0000e9paration de commande"]}'
         raw_obj = json.loads(raw_json)
         assert cleanup_provider_json(raw_obj) == {"blabla": ["Préparation de commande"]}
+
+
+class TestPossibleFileKeypaths:
+    def test_single_file(self):
+        schema: dict[str, Any] = {"properties": {"file": {"$ref": "#/$defs/File"}}, "$defs": {"File": {}}}
+        assert possible_file_keypaths(schema, 1) == [["file"]]
+
+    def test_file_list(self):
+        schema: dict[str, Any] = {
+            "properties": {
+                "files": {"type": "array", "items": {"$ref": "#/$defs/File"}},
+            },
+            "$defs": {"File": {}},
+        }
+        assert possible_file_keypaths(schema, 2) == [["files", 0], ["files", 1]]
+
+    def test_2_files(self):
+        schema: dict[str, Any] = {
+            "properties": {
+                "file1": {"$ref": "#/$defs/File"},
+                "file2": {"$ref": "#/$defs/File"},
+            },
+            "$defs": {"File": {}},
+        }
+        assert possible_file_keypaths(schema, 2) == [["file1"], ["file2"]]
+
+    def test_file_then_list(self):
+        schema: dict[str, Any] = {
+            "properties": {
+                "file": {"$ref": "#/$defs/File"},
+                "files": {"type": "array", "items": {"$ref": "#/$defs/File"}},
+            },
+            "$defs": {"File": {}},
+        }
+
+        assert possible_file_keypaths(schema, 3) == [["file"], ["files", 0], ["files", 1]]
+
+
+class TestCountImageFields:
+    def test_single_image_field(self):
+        schema = {
+            "properties": {
+                "image": {"$ref": "#/$defs/Image"},
+            },
+            "$defs": {
+                "Image": {
+                    "type": "object",
+                    "properties": {
+                        "url": {"type": "string"},
+                    },
+                },
+            },
+        }
+        assert count_image_fields(schema) == 1
+
+    def test_image_array(self):
+        schema = {
+            "properties": {
+                "images": {
+                    "type": "array",
+                    "items": {"$ref": "#/$defs/Image"},
+                },
+            },
+            "$defs": {
+                "Image": {
+                    "type": "object",
+                    "properties": {
+                        "url": {"type": "string"},
+                    },
+                },
+            },
+        }
+        assert count_image_fields(schema) == 1
+
+    def test_two_image_fields(self):
+        schema = {
+            "properties": {
+                "profile_image": {"$ref": "#/$defs/Image"},
+                "cover_image": {"$ref": "#/$defs/Image"},
+            },
+            "$defs": {
+                "Image": {
+                    "type": "object",
+                    "properties": {
+                        "url": {"type": "string"},
+                    },
+                },
+            },
+        }
+        assert count_image_fields(schema) == 2

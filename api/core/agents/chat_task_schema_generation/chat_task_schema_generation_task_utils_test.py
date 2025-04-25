@@ -22,7 +22,7 @@ from .chat_task_schema_generation_task_utils import (
 @pytest.mark.parametrize(
     "field, expected_schema",
     [
-        (  # Input Object field with String field with description and examples
+        pytest.param(  # Input Object field with String field with description and examples
             InputObjectFieldConfig(
                 name="test_string",
                 fields=[
@@ -42,8 +42,9 @@ from .chat_task_schema_generation_task_utils import (
                 },
                 "type": "object",
             },
+            id="input string field and example",
         ),
-        (  # Output Object field with String field with description and examples
+        pytest.param(  # Output Object field with String field with description and examples
             OutputObjectFieldConfig(
                 name="test_string",
                 fields=[
@@ -64,8 +65,9 @@ from .chat_task_schema_generation_task_utils import (
                 },
                 "type": "object",
             },
+            id="output string field and example",
         ),
-        (  # Input object field with String field without description and examples
+        pytest.param(  # Input object field with String field without description and examples
             InputObjectFieldConfig(
                 name="test_string",
                 fields=[
@@ -83,8 +85,9 @@ from .chat_task_schema_generation_task_utils import (
                 },
                 "type": "object",
             },
+            id="input string field without description and examples",
         ),
-        (  # Output object field with String field without description and examples
+        pytest.param(  # Output object field with String field without description and examples
             OutputObjectFieldConfig(
                 name="test_string",
                 fields=[
@@ -101,8 +104,9 @@ from .chat_task_schema_generation_task_utils import (
                 },
                 "type": "object",
             },
+            id="output string field without description and examples",
         ),
-        (  # Image file in input
+        pytest.param(  # Image file in input
             InputObjectFieldConfig(
                 name="test_object",
                 fields=[InputGenericFieldConfig(name="input_image", type=InputSchemaFieldType.IMAGE_FILE)],
@@ -111,66 +115,13 @@ from .chat_task_schema_generation_task_utils import (
                 "type": "object",
                 "properties": {
                     "input_image": {
-                        "$ref": "#/$defs/File",
-                        "format": "image",
-                    },
-                },
-                "$defs": {
-                    "File": {
-                        "properties": {
-                            "content_type": {
-                                "anyOf": [
-                                    {
-                                        "type": "string",
-                                    },
-                                    {
-                                        "type": "null",
-                                    },
-                                ],
-                                "default": None,
-                                "description": "The content type of the file",
-                                "examples": [
-                                    "image/png",
-                                    "image/jpeg",
-                                    "audio/wav",
-                                    "application/pdf",
-                                ],
-                                "title": "Content Type",
-                            },
-                            "data": {
-                                "anyOf": [
-                                    {
-                                        "type": "string",
-                                    },
-                                    {
-                                        "type": "null",
-                                    },
-                                ],
-                                "default": None,
-                                "description": "The base64 encoded data of the file",
-                                "title": "Data",
-                            },
-                            "url": {
-                                "anyOf": [
-                                    {
-                                        "type": "string",
-                                    },
-                                    {
-                                        "type": "null",
-                                    },
-                                ],
-                                "default": None,
-                                "description": "The URL of the image",
-                                "title": "Url",
-                            },
-                        },
-                        "title": "File",
-                        "type": "object",
+                        "$ref": "#/$defs/Image",
                     },
                 },
             },
+            id="image file in input",
         ),
-        (  # Datetime local in output
+        pytest.param(  # Datetime local in output
             OutputObjectFieldConfig(
                 name="test_object",
                 fields=[
@@ -213,40 +164,45 @@ from .chat_task_schema_generation_task_utils import (
                     },
                 },
             },
+            id="datetime local in output",
         ),
-        (  # Input Datetime field
+        pytest.param(  # Input Datetime field
             InputGenericFieldConfig(
                 name="test_datetime",
                 description="A test datetime field",
                 type=InputSchemaFieldType.DATETIME,
             ),
             {"type": "string", "format": "date-time", "description": "A test datetime field"},
+            id="input datetime field",
         ),
-        (  # Output Datetime field
+        pytest.param(  # Output Datetime field
             OutputGenericFieldConfig(
                 name="test_datetime",
                 description="A test datetime field",
                 type=OutputSchemaFieldType.DATETIME,
             ),
             {"type": "string", "format": "date-time", "description": "A test datetime field"},
+            id="output datetime field",
         ),
-        (  # Input Date Field
+        pytest.param(  # Input Date Field
             InputGenericFieldConfig(
                 name="test_date",
                 description="A test date field",
                 type=InputSchemaFieldType.DATE,
             ),
             {"type": "string", "format": "date", "description": "A test date field"},
+            id="input date field",
         ),
-        (  # Output Date Field
+        pytest.param(  # Output Date Field
             OutputGenericFieldConfig(
                 name="test_date",
                 description="A test date field",
                 type=OutputSchemaFieldType.DATE,
             ),
             {"type": "string", "format": "date", "description": "A test date field"},
+            id="output date field",
         ),
-        (  # Enum field
+        pytest.param(  # Enum field
             EnumFieldConfig(
                 name="test_enum",
                 description="A test enum field",
@@ -257,15 +213,17 @@ from .chat_task_schema_generation_task_utils import (
                 "type": "string",
                 "enum": ["value1", "value2"],
             },
+            id="enum field",
         ),
-        (  # Enum field without description
+        pytest.param(  # Enum field without description
             EnumFieldConfig(
                 name="test_enum",
                 values=["value1", "value2"],
             ),
             {"type": "string", "enum": ["value1", "value2"]},
+            id="enum field without description",
         ),
-        (  # Array field
+        pytest.param(  # Array field
             InputArrayFieldConfig(
                 name="test_array",
                 items=InputGenericFieldConfig(
@@ -281,22 +239,25 @@ from .chat_task_schema_generation_task_utils import (
                     "type": "string",
                 },
             },
+            id="array field",
         ),
-        (  # Array field without description
+        pytest.param(  # Array field without description
             InputArrayFieldConfig(
                 name="test_array",
                 items=InputGenericFieldConfig(name="item1", type=InputSchemaFieldType.STRING),
             ),
             {"type": "array", "items": {"type": "string"}},
+            id="array field without description",
         ),
-        (  # Output array without description
+        pytest.param(  # Output array without description
             OutputArrayFieldConfig(
                 name="test_array",
                 items=OutputStringFieldConfig(name="item1"),
             ),
             {"type": "array", "items": {"type": "string"}},
+            id="output array without description",
         ),
-        (  # Input Datetime field wrapped
+        pytest.param(  # Input Datetime field wrapped
             InputObjectFieldConfig(
                 name="test_datetime",
                 fields=[
@@ -317,8 +278,9 @@ from .chat_task_schema_generation_task_utils import (
                     },
                 },
             },
+            id="input datetime field wrapped",
         ),
-        (  # Output Datetime field wrapped
+        pytest.param(  # Output Datetime field wrapped
             OutputObjectFieldConfig(
                 name="test_datetime",
                 fields=[
@@ -339,8 +301,9 @@ from .chat_task_schema_generation_task_utils import (
                     },
                 },
             },
+            id="output datetime field wrapped",
         ),
-        (  # Input Date Field wrapped
+        pytest.param(  # Input Date Field wrapped
             InputObjectFieldConfig(
                 name="test_date",
                 fields=[
@@ -361,8 +324,9 @@ from .chat_task_schema_generation_task_utils import (
                     },
                 },
             },
+            id="input date field wrapped",
         ),
-        (  # Output Date Field wrapped
+        pytest.param(  # Output Date Field wrapped
             OutputObjectFieldConfig(
                 name="test_date",
                 fields=[
@@ -383,8 +347,9 @@ from .chat_task_schema_generation_task_utils import (
                     },
                 },
             },
+            id="output date field wrapped",
         ),
-        (  # Enum field wrapped in InputObjectFieldConfig
+        pytest.param(  # Enum field wrapped in InputObjectFieldConfig
             InputObjectFieldConfig(
                 name="test_enum",
                 fields=[
@@ -405,8 +370,9 @@ from .chat_task_schema_generation_task_utils import (
                     },
                 },
             },
+            id="enum field wrapped in InputObjectFieldConfig",
         ),
-        (  # Enum field without description wrapped
+        pytest.param(  # Enum field without description wrapped
             InputObjectFieldConfig(
                 name="test_enum",
                 fields=[
@@ -425,8 +391,9 @@ from .chat_task_schema_generation_task_utils import (
                     },
                 },
             },
+            id="enum field without description wrapped",
         ),
-        (  # Input Array field wrapped
+        pytest.param(  # Input Array field wrapped
             InputObjectFieldConfig(
                 name="test_array_wrapper",
                 fields=[
@@ -452,8 +419,9 @@ from .chat_task_schema_generation_task_utils import (
                     },
                 },
             },
+            id="input array field wrapped",
         ),
-        (  # Input Array field without description wrapped
+        pytest.param(  # Input Array field without description wrapped
             InputObjectFieldConfig(
                 name="test_array_wrapper",
                 fields=[
@@ -472,8 +440,9 @@ from .chat_task_schema_generation_task_utils import (
                     },
                 },
             },
+            id="input array field without description wrapped",
         ),
-        (  # Output array without description wrapped
+        pytest.param(  # Output array without description wrapped
             OutputObjectFieldConfig(
                 name="test_array_wrapper",
                 fields=[
@@ -492,8 +461,9 @@ from .chat_task_schema_generation_task_utils import (
                     },
                 },
             },
+            id="output array without description wrapped",
         ),
-        (  # Complex nested input structure
+        pytest.param(  # Complex nested input structure
             InputObjectFieldConfig(
                 name="complex_input",
                 fields=[
@@ -549,7 +519,7 @@ from .chat_task_schema_generation_task_utils import (
                                         "type": "object",
                                         "properties": {
                                             "filename": {"type": "string"},
-                                            "file": {"$ref": "#/$defs/File", "format": "image"},
+                                            "file": {"$ref": "#/$defs/Image"},
                                         },
                                     },
                                 },
@@ -557,36 +527,10 @@ from .chat_task_schema_generation_task_utils import (
                         },
                     },
                 },
-                "$defs": {
-                    "File": {
-                        "properties": {
-                            "content_type": {
-                                "anyOf": [{"type": "string"}, {"type": "null"}],
-                                "default": None,
-                                "description": "The content type of the file",
-                                "examples": ["image/png", "image/jpeg", "audio/wav", "application/pdf"],
-                                "title": "Content Type",
-                            },
-                            "data": {
-                                "anyOf": [{"type": "string"}, {"type": "null"}],
-                                "default": None,
-                                "description": "The base64 encoded data of the file",
-                                "title": "Data",
-                            },
-                            "url": {
-                                "anyOf": [{"type": "string"}, {"type": "null"}],
-                                "default": None,
-                                "description": "The URL of the image",
-                                "title": "Url",
-                            },
-                        },
-                        "title": "File",
-                        "type": "object",
-                    },
-                },
             },
+            id="complex nested input structure",
         ),
-        (  # Complex nested output structure
+        pytest.param(  # Complex nested output structure
             OutputObjectFieldConfig(
                 name="complex_output",
                 fields=[
@@ -656,8 +600,9 @@ from .chat_task_schema_generation_task_utils import (
                     },
                 },
             },
+            id="complex nested output structure",
         ),
-        (  # Input Object field with String field without name
+        pytest.param(  # Input Object field with String field without name
             OutputObjectFieldConfig(
                 name="test_string",
                 fields=[
@@ -696,6 +641,7 @@ from .chat_task_schema_generation_task_utils import (
                 },
                 "type": "object",
             },
+            id="input object field with String field without name",
         ),
     ],
 )

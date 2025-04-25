@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime, timezone
 from typing import Any, Generator
+from unittest import mock
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
@@ -26,7 +27,9 @@ from core.agents.chat_task_schema_generation.chat_task_schema_generation_task im
     InputGenericFieldConfig,
     InputObjectFieldConfig,
     InputSchemaFieldType,
+    OutputGenericFieldConfig,
     OutputObjectFieldConfig,
+    OutputSchemaFieldType,
     OutputStringFieldConfig,
 )
 from core.agents.extract_company_info_from_domain_task import ExtractCompanyInfoFromDomainTaskOutput, Product
@@ -1924,3 +1927,33 @@ async def test_fetch_previous_task_inputs(
         assert mock_storage.task_runs.list_runs_for_memory_id.call_args.kwargs["memory_id"] == "some_memory_id"
     else:
         mock_storage.task_runs.list_runs_for_memory_id.assert_not_called()
+
+
+class TestBuildAgentSchema:
+    def test_files_in_input_output(self, internal_tasks_service: InternalTasksService):
+        input_schema = InputObjectFieldConfig(
+            type="object",
+            fields=[InputGenericFieldConfig(name="input_field", type=InputSchemaFieldType.IMAGE_FILE)],
+        )
+        output_schema = OutputObjectFieldConfig(
+            type="object",
+            fields=[OutputGenericFieldConfig(name="output_field", type=OutputSchemaFieldType.IMAGE_FILE)],
+        )
+
+        agent = internal_tasks_service._build_agent_schema("hello", input_schema, output_schema, partial=False)  # pyright: ignore[reportPrivateUsage]
+        assert agent.input_json_schema == {
+            "$defs": {
+                "Image": mock.ANY,
+            },
+            "type": "object",
+            "properties": {
+                "input_field": {"$ref": "#/$defs/Image"},
+            },
+        }
+        assert agent.output_json_schema == {
+            "$defs": {
+                "Image": mock.ANY,
+            },
+            "type": "object",
+            "properties": {"output_field": {"$ref": "#/$defs/Image"}},
+        }
