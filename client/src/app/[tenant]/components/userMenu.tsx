@@ -1,3 +1,4 @@
+import { ArrowSwapRegular } from '@fluentui/react-icons';
 import { Building, ChevronsUpDown, LogOut, LucideIcon, Settings } from 'lucide-react';
 import { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/Avatar/Avatar';
@@ -8,14 +9,15 @@ import { DISABLE_AUTHENTICATION } from '@/lib/constants';
 import { User } from '@/types/user';
 
 type UserMenuCommandProps = {
-  lucideIcon: LucideIcon;
+  lucideIcon?: LucideIcon;
   label: string;
+  icon?: React.ReactNode;
   onSelect: () => void;
   tooltip?: string;
 };
 
 function UserMenuCommand(props: UserMenuCommandProps) {
-  const { lucideIcon: Icon, label, onSelect, tooltip } = props;
+  const { lucideIcon: LucideIcon, label, icon, onSelect, tooltip } = props;
 
   return (
     <CommandItem onSelect={onSelect} className='cursor-pointer flex items-center gap-3 text-gray-700 font-lato'>
@@ -28,7 +30,8 @@ function UserMenuCommand(props: UserMenuCommandProps) {
         tooltipClassName='whitespace-pre-line'
       >
         <div className='flex items-center gap-2'>
-          <Icon size={16} strokeWidth={1.5} />
+          {LucideIcon && <LucideIcon size={16} strokeWidth={1.5} />}
+          {icon && icon}
           <span className='text-[13px] font-normal'>{label}</span>
         </div>
       </SimpleTooltip>
@@ -41,11 +44,12 @@ type UserMenuProps = {
   orgState: 'selected' | 'available' | 'unavailable' | undefined;
   openUserProfile?: () => void;
   openOrganizationProfile?: () => void;
+  switchOrganizations?: () => void;
   signOut?: () => void;
 };
 
 export function UserMenu(props: UserMenuProps) {
-  const { user, orgState, openUserProfile, openOrganizationProfile, signOut } = props;
+  const { user, orgState, openUserProfile, openOrganizationProfile, switchOrganizations, signOut } = props;
   const [open, setOpen] = useState(false);
   const email = user?.email;
 
@@ -69,7 +73,7 @@ export function UserMenu(props: UserMenuProps) {
           </div>
         </div>
       </PopoverTrigger>
-      <PopoverContent className='w-[auto] min-w-[220px] p-1 rounded-[2px]'>
+      <PopoverContent className='w-[auto] min-w-[220px] p-1 rounded-[2px] m-1'>
         <Command>
           <CommandList>
             {orgState === 'unavailable' && openOrganizationProfile && (
@@ -84,23 +88,42 @@ export function UserMenu(props: UserMenuProps) {
               </>
             )}
 
-            {orgState === 'available' && openOrganizationProfile && (
+            {orgState === 'available' && (
               <>
-                <UserMenuCommand
-                  lucideIcon={Building}
-                  label='Select an organization'
-                  onSelect={openOrganizationProfile}
-                  tooltip={'Join an organization to start\ncollaborating with your team.'}
-                />
-                <CommandSeparator />
+                {openOrganizationProfile && (
+                  <>
+                    <UserMenuCommand
+                      lucideIcon={Building}
+                      label='Select an organization'
+                      onSelect={openOrganizationProfile}
+                      tooltip={'Join an organization to start\ncollaborating with your team.'}
+                    />
+                    <CommandSeparator />
+                  </>
+                )}
               </>
             )}
 
             {openUserProfile && (
               <UserMenuCommand lucideIcon={Settings} label='Manage account' onSelect={openUserProfile} />
             )}
-            {openOrganizationProfile && orgState === 'selected' && (
-              <UserMenuCommand lucideIcon={Building} label='Organization settings' onSelect={openOrganizationProfile} />
+            {orgState === 'selected' && (
+              <>
+                {openOrganizationProfile && (
+                  <UserMenuCommand
+                    lucideIcon={Building}
+                    label='Organization settings'
+                    onSelect={openOrganizationProfile}
+                  />
+                )}
+                {switchOrganizations && (
+                  <UserMenuCommand
+                    icon={<ArrowSwapRegular className='w-4 h-4' />}
+                    label='Switch Organizations'
+                    onSelect={switchOrganizations}
+                  />
+                )}
+              </>
             )}
             {signOut && <UserMenuCommand lucideIcon={LogOut} label='Sign out' onSelect={signOut} />}
           </CommandList>
