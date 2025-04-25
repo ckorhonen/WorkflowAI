@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 from core.domain.fields.file import File
 from core.domain.fields.image_options import ImageBackground, ImageFormat, ImageOptions, ImageQuality, ImageShape
+from core.domain.llm_usage import LLMUsage
 from core.domain.models.models import Model
 
 
@@ -82,8 +83,6 @@ class OpenAIImageRequest(BaseModel):
 
 
 class OpenAIImageResponse(BaseModel):
-    created: int = Field(description="The Unix timestamp of when the image was created.")
-
     class Data(BaseModel):
         url: Optional[str] = Field(default=None, description="The URL of the generated image.")
         b64_json: Optional[str] = Field(default=None, description="The base64-encoded JSON of the generated image.")
@@ -94,15 +93,23 @@ class OpenAIImageResponse(BaseModel):
     data: list[Data] = Field(description="The list of generated images.")
 
     class Usage(BaseModel):
-        total_tokens: int = Field(description="The total number of tokens used in the request.")
-        input_tokens: int = Field(description="The number of tokens used in the prompt.")
-        output_tokens: int = Field(description="The number of tokens used in the completion.")
+        total_tokens: int | None = Field(default=None, description="The total number of tokens used in the request.")
+        input_tokens: int | None = Field(default=None, description="The number of tokens used in the prompt.")
+        output_tokens: int | None = Field(default=None, description="The number of tokens used in the completion.")
 
         class InputTokenDetails(BaseModel):
-            text_tokens: int = Field(description="The number of text tokens used in the prompt.")
-            image_tokens: int = Field(description="The number of image tokens used in the prompt.")
+            text_tokens: int | None = Field(default=None, description="The number of text tokens used in the prompt.")
+            image_tokens: int | None = Field(default=None, description="The number of image tokens used in the prompt.")
 
-        input_token_details: InputTokenDetails = Field(
-            ...,
+        input_token_details: InputTokenDetails | None = Field(
+            default=None,
             description="The details of the input tokens used in the request.",
         )
+
+        def assign(self, usage: LLMUsage):
+            if self.input_token_details:
+                usage.prompt_token_count = self.input_token_details.text_tokens
+                usage.prompt_image_token_count = self.input_token_details.image_tokens
+            usage.completion_image_token_count = self.output_tokens
+
+    usage: Usage | None = Field(default=None, description="The usage details of the request.")
