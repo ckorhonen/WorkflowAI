@@ -23,7 +23,7 @@ class CustomerSuccessHelperChatAgentOutput(BaseModel):
         )
         conversation_id: int | None = Field(
             default=None,
-            description="The conversation to reply to, this field MUST be provided except you want to start a blank conversation, in this case it can be empty. ",
+            description="The conversation to reply to, this field MUST be provided except you want to start a blank conversation, in this case it can be empty. If you want to reply in the same thread as another e-mail present its message you need to reuse its conversation ID.",
         )
         subject: str | None = Field(
             default=None,
