@@ -14,11 +14,11 @@ class ToolsService:
     async def get_tool_by_id(self, id: str) -> CustomTool:
         return await self.storage.tools.get_tool_by_id(id)
 
-    async def create_tool(self, name: str, description: str, input_schema: dict[str, Any]) -> CustomTool:
-        return await self.storage.tools.create_tool(name, description, input_schema)
+    async def create_tool(self, name: str, description: str, parameters: dict[str, Any]) -> CustomTool:
+        return await self.storage.tools.create_tool(name, description, parameters)
 
-    async def update_tool(self, id: str, name: str, description: str, input_schema: dict[str, Any]) -> CustomTool:
-        return await self.storage.tools.update_tool(id, name, description, input_schema)
+    async def update_tool(self, id: str, name: str, description: str, parameters: dict[str, Any]) -> CustomTool:
+        return await self.storage.tools.update_tool(id, name, description, parameters)
 
     async def delete_tool(self, id: str) -> None:
         await self.storage.tools.delete_tool(id)

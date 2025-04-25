@@ -28,12 +28,12 @@ class TestMongoToolsStorage(unittest.TestCase):
         tool1: CustomToolDocument = CustomToolDocument(
             name="tool1",
             description="Test tool 1",
-            input_schema={},
+            parameters={},
         )
         tool2: CustomToolDocument = CustomToolDocument(
             name="tool2",
             description="Test tool 2",
-            input_schema={},
+            parameters={},
         )
 
         # Mock the find method to return our test data
@@ -55,7 +55,7 @@ class TestMongoToolsStorage(unittest.TestCase):
         tool_data: CustomToolDocument = CustomToolDocument(
             name="test_tool",
             description="A test tool",
-            input_schema={},
+            parameters={},
         )
 
         # Mock the find_one method to return our test data
@@ -126,7 +126,7 @@ class TestMongoToolsStorage(unittest.TestCase):
         updated_doc: CustomToolDocument = CustomToolDocument(
             name="updated_tool",
             description="Updated description",
-            input_schema={},
+            parameters={},
         )
         self.collection.find_one_and_update.return_value = updated_doc
 
