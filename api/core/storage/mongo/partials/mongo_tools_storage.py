@@ -12,8 +12,7 @@ from core.storage.tools_storage import ToolsStorage
 
 class MongoToolsStorage(PartialStorage[CustomToolDocument], ToolsStorage):
     def __init__(self, tenant_tuple: Tuple[str, int], collection: AsyncCollection):
-        self._tenant, _ = tenant_tuple
-        self._collection = collection
+        super().__init__(tenant_tuple, collection, CustomToolDocument)
 
     async def list_tools(self) -> list[CustomTool]:
         cursor = self._find({})
@@ -31,9 +30,13 @@ class MongoToolsStorage(PartialStorage[CustomToolDocument], ToolsStorage):
         return tool_doc.to_domain()
 
     async def create_tool(self, name: str, description: str, input_schema: dict[str, Any]) -> CustomTool:
-        existing = await self._find_one({"name": name})
-        if existing:
-            raise ValueError(f"Tool with name '{name}' already exists")
+        try:
+            existing = await self._find_one({"name": name})
+            return existing.to_domain()
+        except ObjectNotFoundException:
+            # Tool does not exist, create it
+            pass
+
         tool_doc = CustomToolDocument.from_domain(
             tenant=self._tenant,
             tool=CustomTool(
