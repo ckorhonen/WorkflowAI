@@ -1,7 +1,7 @@
 import { CheckmarkCircleRegular, DismissCircleRegular } from '@fluentui/react-icons';
 import { Button } from '@/components/ui/Button';
 import { TenantData } from '@/types/workflowAI';
-import { InfoLabel } from './InfoLabel';
+import { PaymentsFailedInfoLabel } from './PaymentsFailedInfoLabel';
 
 type AutomaticPaymentsSectionProps = {
   automaticPaymentsFailure: string | undefined;
@@ -11,6 +11,7 @@ type AutomaticPaymentsSectionProps = {
     'automatic_payment_enabled' | 'automatic_payment_threshold' | 'automatic_payment_balance_to_maintain'
   >;
   onEnableAutoRecharge: () => void;
+  onUpdatePaymentMethod: () => void;
 };
 
 function EnabledAutomaticPaymentsSection(
@@ -40,7 +41,13 @@ function EnabledAutomaticPaymentsSection(
 }
 
 export function AutomaticPaymentsSection(props: AutomaticPaymentsSectionProps) {
-  const { organizationSettings, onEnableAutoRecharge, automaticPaymentsFailure, hasPaymentMethod } = props;
+  const {
+    organizationSettings,
+    onEnableAutoRecharge,
+    automaticPaymentsFailure,
+    hasPaymentMethod,
+    onUpdatePaymentMethod,
+  } = props;
 
   const isAutomaticPaymentsEnabled = organizationSettings.automatic_payment_enabled;
 
@@ -48,9 +55,9 @@ export function AutomaticPaymentsSection(props: AutomaticPaymentsSectionProps) {
     <div className='flex flex-col px-4 py-2 gap-1'>
       <div className='text-gray-900 font-medium text-[13px]'>Automatic Payments</div>
       {automaticPaymentsFailure && (
-        <InfoLabel
-          text={`Auto Recharge payment failed:\n${automaticPaymentsFailure}\nYou may run out of credits soon. Please update your payment method.`}
+        <PaymentsFailedInfoLabel
           className='py-3 flex w-full whitespace-pre-line'
+          onUpdatePaymentMethod={onUpdatePaymentMethod}
         />
       )}
       {isAutomaticPaymentsEnabled && !automaticPaymentsFailure ? (
