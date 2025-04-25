@@ -32,13 +32,16 @@ export function LatencyOutputValueRow({
     variant = 'empty';
   } else if (typeof minimumValue !== 'number') {
     variant = 'default';
-  } else if (minimumValue === value) {
-    variant = 'bestValue';
   } else {
-    const scale = Math.floor((10 * value) / minimumValue) / 10;
-    noteContent = `${scale}x`;
-    if (currentAIModel && minimumCostAIModel) {
-      noteTitle = `It is ${scale}x slower to run this AI agent on ${currentAIModel.name} than ${minimumCostAIModel.name}`;
+    const formattedValue = `${minimumValue.toFixed(1)}s`;
+    if (displayValue === formattedValue) {
+      variant = 'bestValue';
+    } else {
+      const scale = Math.floor((10 * value) / minimumValue) / 10;
+      noteContent = `${scale}x`;
+      if (currentAIModel && minimumCostAIModel) {
+        noteTitle = `It is ${scale}x slower to run this AI agent on ${currentAIModel.name} than ${minimumCostAIModel.name}`;
+      }
     }
   }
 

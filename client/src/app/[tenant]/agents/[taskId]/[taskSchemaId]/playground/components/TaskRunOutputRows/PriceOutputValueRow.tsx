@@ -54,18 +54,23 @@ export function PriceOutputValueRow(props: PriceOutputValueRowProps) {
     variant = 'empty';
   } else if (typeof minimumValue !== 'number') {
     variant = 'default';
-  } else if (minimumValue === value) {
-    variant = 'bestValue';
   } else {
-    noteContent = getScaleDisplayValue(value, minimumValue);
-    noteTitle = (
-      <PriceOutputNote
-        currentAIModel={currentAIModel}
-        minimumCostAIModel={minimumCostAIModel}
-        taskRun={taskRun}
-        minimumCostTaskRun={minimumCostTaskRun}
-      />
-    );
+    const formattedValue = formatFractionalCurrency(value);
+    const formattedMinimumValue = formatFractionalCurrency(minimumValue);
+
+    if (formattedMinimumValue === formattedValue) {
+      variant = 'bestValue';
+    } else {
+      noteContent = getScaleDisplayValue(value, minimumValue);
+      noteTitle = (
+        <PriceOutputNote
+          currentAIModel={currentAIModel}
+          minimumCostAIModel={minimumCostAIModel}
+          taskRun={taskRun}
+          minimumCostTaskRun={minimumCostTaskRun}
+        />
+      );
+    }
   }
 
   return (
