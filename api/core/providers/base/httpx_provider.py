@@ -127,6 +127,7 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
         native_tool_calls = self._safe_extract("native tool calls", response_model, self._extract_native_tool_calls)
         reasoning_steps = self._safe_extract("reasoning steps", response_model, self._extract_reasoning_steps)
         files = self._safe_extract("files", response_model, self._extract_files)
+        raised_exception: Exception | None = None
 
         try:
             content_str = self._extract_content_str(response_model)
@@ -136,22 +137,22 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
             raw_completion.response = content_str
             e.set_response(response)
             raise e
-        except Exception:
+        except Exception as e:
             self.logger.exception("Error extracting content", extra={"response": response.text})
             raw_completion.response = content_str
-            content_str = ""
+            raised_exception = e
         finally:
             usage = self._extract_usage(response_model)
             raw_completion.response = content_str
             if usage:
                 raw_completion.usage = usage
 
-        if not content_str and not native_tool_calls and not files:
+        if (raised_exception or not content_str) and not native_tool_calls and not files:
             raise self._failed_generation_error_wrapper(
                 content_str,
                 "Generation returned an empty response",
                 retry=True,
-            )
+            ) from raised_exception
 
         return self._build_structured_output(
             output_factory,

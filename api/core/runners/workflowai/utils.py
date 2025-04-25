@@ -216,6 +216,19 @@ def remove_files_from_schema(schema: dict[str, Any]) -> tuple[int, int | None]:
     return min_file_count, max_file_count
 
 
+def _replace_keypath_arr_idx(keypath: list[str], idx: int):
+    # We replace the last [] in the array
+    out: list[str | int] = []
+    found = False
+    for k in reversed(keypath):
+        if k == "[]":
+            out.insert(0, idx if not found else 0)
+            found = True
+            continue
+        out.insert(0, k)
+    return out
+
+
 def assign_files(schema: dict[str, Any], files: list[File], output: TaskOutputDict):
     for key, _, child in JsonSchema(schema).fields_iterator(
         prefix=[],
@@ -227,10 +240,10 @@ def assign_files(schema: dict[str, Any], files: list[File], output: TaskOutputDi
         if "[]" in key:
             # We are in a list, so we append to the last item of the list
             # We finish all the available files, we could try and be smarter here but not for now
-            for f in files:
+            for i, f in enumerate(files):
                 set_at_keypath(
                     output,
-                    [-1 if k == "[]" else k for k in key],
+                    _replace_keypath_arr_idx(key, i),
                     f.model_dump(mode="json", exclude_none=True),
                 )
             return None

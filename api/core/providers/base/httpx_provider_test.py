@@ -352,6 +352,28 @@ class TestParseResponse:
         mocked_provider.mock._extract_usage.assert_called_once_with(DummyResponseModel(content=text))
         assert raw_completion.usage == LLMUsage(prompt_token_count=100)
 
+    def test_extract_usage_on_empty_content(
+        self,
+        mocked_provider: MockedProvider,
+    ):
+        """Check that the usage is properly extracted even on an unknown error"""
+        mocked_provider.mock._extract_usage.return_value = LLMUsage(prompt_token_count=100)
+
+        response = Mock(spec=Response)
+        response.json.return_value = {"content": ""}
+        response.text = """{"content": ""}"""
+        response.status_code = 200
+
+        raw_completion = RawCompletion(response="", usage=LLMUsage())
+
+        # Parse response should re-raise the exception
+        with pytest.raises(FailedGenerationError):
+            mocked_provider._parse_response(response, _output_factory, raw_completion=raw_completion, request={})  # pyright: ignore[reportPrivateUsage]
+
+        # In all use cases we should call extract usage and set the completion
+        mocked_provider.mock._extract_usage.assert_called_once_with(DummyResponseModel(content=""))
+        assert raw_completion.usage == LLMUsage(prompt_token_count=100)
+
 
 class TestReadErrors:
     async def test_fail_on_single_read_error(self, httpx_mock: HTTPXMock):
