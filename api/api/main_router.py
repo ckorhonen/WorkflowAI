@@ -40,6 +40,7 @@ def _tenant_router():
         task_groups,
         task_schemas,
         tasks,
+        tools_router,
         transcriptions,
         upload,
     )
@@ -61,6 +62,7 @@ def _tenant_router():
     tenant_router.include_router(payments.router, deprecated=True, include_in_schema=False)
     tenant_router.include_router(meta_agent.router, tags=[RouteTags.PROMPT_ENGINEER_AGENT])
     tenant_router.include_router(new_tool_agent.router, tags=[RouteTags.NEW_TOOL_AGENT])
+    tenant_router.include_router(tools_router.router, tags=[RouteTags.TOOLS])
     return tenant_router
 
 

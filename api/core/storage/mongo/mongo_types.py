@@ -48,6 +48,13 @@ class AsyncCollection(Protocol):
         hint: str | None = None,
     ) -> UpdateResult: ...
 
+    async def replace_one(
+        self,
+        filter: dict[str, Any],
+        update: UpdateType,
+        upsert: bool = False,
+    ) -> UpdateResult: ...
+
     async def update_many(
         self,
         filter: dict[str, Any],
