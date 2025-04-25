@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 
 from api.dependencies.services import ToolsServiceDep
 from api.dependencies.task_info import TaskInfoDep
-from api.routers.view_models.tools_view_models import ToolParamsRequest, ToolResponse
+from api.schemas.tools_schema import ToolParamsRequest, ToolResponse
 from core.storage import ObjectNotFoundException
 
 router = APIRouter(prefix="/agents/{task_id}/tools")
