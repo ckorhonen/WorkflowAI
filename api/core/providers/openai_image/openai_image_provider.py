@@ -200,6 +200,8 @@ class OpenAIImageProvider(HTTPXProviderBase[OpenAIImageConfig, OpenAIImageReques
             res.set_response(response)
             raise res
         response_model = OpenAIImageResponse.model_validate(raw)
+        if response_model.usage:
+            response_model.usage.assign(raw_completion.usage)
         content_type = request.content_type
         files = [d.to_file(content_type) for d in response_model.data]
         return StructuredOutput(output={}, files=files)

@@ -9,9 +9,12 @@ import pytest_asyncio
 from fastapi import FastAPI, Request
 from freezegun import freeze_time
 from httpx import ASGITransport, AsyncClient
+from pydantic import BaseModel
 
+from core.domain.llm_completion import LLMCompletion
 from core.domain.task_info import TaskInfo
 from core.domain.task_io import SerializableTaskIO
+from core.domain.task_run_reply import RunReply
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.tenant_data import PublicOrganizationData
 from core.domain.users import User
@@ -587,3 +590,28 @@ def mock_user_service() -> AsyncMock:
     from core.services.users.user_service import UserService
 
     return AsyncMock(spec=UserService)
+
+
+@pytest.fixture()
+def mock_builder_context():
+    class MockBuilderContext(BaseModel):
+        id: str = ""
+        llm_completions: list[LLMCompletion]
+        config_id: str | None
+        reply: RunReply | None = None
+
+        def add_metadata(self, key: str, value: Any) -> None:
+            pass
+
+        def get_metadata(self, key: str) -> Any | None:
+            return None
+
+        def record_file_download_seconds(self, seconds: float) -> None:
+            pass
+
+    from core.runners.builder_context import builder_context
+
+    ctx = MockBuilderContext(llm_completions=[], config_id=None)
+    builder_context.set(ctx)
+
+    yield ctx
