@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from copy import deepcopy
 from typing import Any, Callable, Iterable, NamedTuple, Optional
 
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 from typing_extensions import override
 
 from api.services.providers_service import shared_provider_factory
@@ -414,8 +414,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
     async def _extract_image_options(
         self,
         input: TaskInputDict,
-        input_schema: dict[str, Any],
-        output_schema: dict[str, Any],
+        delete_keys: bool,
     ) -> ImageOptions | None:
         """Extract the image options from the input and remove it from the input if possible"""
         base = self.properties.image_options
@@ -425,27 +424,21 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             if not base.image_count:
                 base.image_count = self._prepared_output_schema.min_file_count
 
-        input_parameters = input.get("options")
-        if not input_parameters:
-            return base
+        # We consider that input can contain the same fields as ImageOptions
         try:
-            option_ref = input_schema.get("properties", {}).get("options", {}).get("$ref")
-        except Exception:
-            # that can happen for weird schemas
-            return base
-        if option_ref != "#/$defs/ImageOptions":
+            extracted_options = ImageOptions.model_validate(input)
+        except ValidationError:
             return base
 
-        try:
-            base_dumped = base.model_dump(exclude_none=True) if base else {}
-            image_parameters = ImageOptions.model_validate({**base_dumped, **input_parameters})
-        except Exception:
-            return base
+        # In case of validation, we can check which key was actually extracted
+        extracted_keys = extracted_options.model_dump(exclude_unset=True, exclude_defaults=True)
 
-        del input_schema["properties"]["options"]
-        input_schema.get("$defs", {}).pop("ImageOptions", None)
-        del input["options"]
-        return image_parameters
+        if delete_keys:
+            # We can remove the corresponding fields from the input since they are already used
+            for key in extracted_keys:
+                input.pop(key, None)
+
+        return extracted_options
 
     async def _build_messages(
         self,
@@ -494,7 +487,14 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
 
         # Extracting image options after files. If the user provides a mask, it will be in image options
         # and should be treated like a regular file
-        image_options = await self._extract_image_options(input_copy, input_schema, output_schema)
+        # We only delete keys if the instructions are not templated. This is to provide a consistent behavior
+        # between running with pure image models like imagen that really don't like JSON and more
+        # flexible ones like the new Gemini preview. This is ok since we are moving to using templated
+        # instructions over our current way to handle a json input
+        image_options = await self._extract_image_options(
+            input_copy,
+            delete_keys=not self._options.has_templated_instructions,
+        )
 
         instructions = self._options.instructions
         if instructions is not None:

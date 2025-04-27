@@ -52,7 +52,6 @@ const REGULAR_FIELD_TYPES: SelectableFieldType[] = [
   'image',
   'audio',
   'document',
-  'image-options',
 ];
 
 type SchemaTypeSelectorProps = {

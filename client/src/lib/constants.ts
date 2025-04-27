@@ -14,7 +14,6 @@ export const IMAGE_REF_NAME = 'Image';
 export const AUDIO_REF_NAME = 'Audio';
 export const PDF_REF_NAME = 'PDF';
 export const FILE_REF_NAME = 'File';
-export const IMAGE_OPTIONS_REF_NAME = 'ImageOptions';
 export const FILE_REF_NAMES = [IMAGE_REF_NAME, AUDIO_REF_NAME, PDF_REF_NAME, FILE_REF_NAME];
 
 export const LEGACY_TASK_RUN_RUN_BY_METADATA_KEY = 'runBy';
