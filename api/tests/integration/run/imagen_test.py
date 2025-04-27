@@ -45,6 +45,7 @@ async def test_imagen_provider(test_client: IntegrationTestClient):
     assert run
 
     assert run["task_output"]["image"]["data"] == "aGVsbG8="
+    assert run["cost_usd"] == 0.03
 
     requests = test_client.httpx_mock.get_requests(url=_imagen_url)
     assert requests and len(requests) == 1

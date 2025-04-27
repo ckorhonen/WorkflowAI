@@ -33,7 +33,9 @@ class LLMCompletion(BaseModel):
     )
 
     def incur_cost(self) -> bool:
-        return not (self.response is None and self.usage.completion_token_count == 0)
+        return not (
+            self.response is None and self.usage.completion_token_count == 0 and self.usage.completion_image_count == 0
+        )
 
     def to_messages(self) -> list[Message]:
         # Convert the LLMCompletion to a list of messages

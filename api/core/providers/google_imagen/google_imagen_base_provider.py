@@ -42,7 +42,7 @@ class GoogleImagenBaseProvider(HTTPXProviderBase[ProviderConfigVar, GoogleImagen
         messages: list[dict[str, Any]],
         model: Model,
     ) -> float:
-        raise NotImplementedError("_compute_prompt_token_count should not be called for OpenAI Image")
+        return 0
 
     @override
     @classmethod
@@ -51,7 +51,7 @@ class GoogleImagenBaseProvider(HTTPXProviderBase[ProviderConfigVar, GoogleImagen
         response: str,
         model: Model,
     ) -> int:
-        raise NotImplementedError("_compute_completion_token_count should not be called for OpenAI Image")
+        return 0
 
     # TODO: deprecate this method
     @override

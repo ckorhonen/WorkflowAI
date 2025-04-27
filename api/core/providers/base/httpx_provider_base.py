@@ -200,9 +200,7 @@ class HTTPXProviderBase(AbstractProvider[ProviderConfigVar, ProviderRequestVar])
 
     def _assign_usage_from_structured_output(self, raw_completion: RawCompletion, structured_output: StructuredOutput):
         if raw_completion.usage.completion_image_count is None:
-            raw_completion.usage.completion_image_count = (
-                len(structured_output.files) if structured_output.files else None
-            )
+            raw_completion.usage.completion_image_count = len(structured_output.files) if structured_output.files else 0
 
     @override
     async def _single_complete(
