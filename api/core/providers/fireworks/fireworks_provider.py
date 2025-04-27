@@ -559,18 +559,7 @@ class FireworksAIProvider(HTTPXProvider[FireworksConfig, CompletionResponse]):
                 return TemplateName.V2_NATIVE_TOOL_USE
             case TemplateName.V2_STRUCTURED_GENERATION:
                 return TemplateName.V2_DEFAULT
-            case (
-                TemplateName.V1
-                | TemplateName.NO_OUTPUT_SCHEMA
-                | TemplateName.WITH_TOOL_USE
-                | TemplateName.WITH_TOOL_USE_AND_NO_OUTPUT_SCHEMA
-                | TemplateName.V2_DEFAULT
-                | TemplateName.V2_TOOL_USE
-                | TemplateName.V2_DEFAULT_NO_INPUT_SCHEMA
-                | TemplateName.V2_TOOL_USE_NO_INPUT_SCHEMA
-                | TemplateName.V2_NATIVE_TOOL_USE
-                | TemplateName.V2_NATIVE_TOOL_USE_NO_INPUT_SCHEMA
-            ):
+            case _:
                 return template
 
     @override
