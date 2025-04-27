@@ -1271,7 +1271,7 @@ class TestInit:
 
 
 @pytest.fixture()
-def patched_provider_factory(mock_provider_factory: Mock, patched_runner: WorkflowAIRunner):
+def mock_provider_factory_full(mock_provider_factory: Mock):
     from core.providers.base.abstract_provider import AbstractProvider
 
     def _mock_provider(name: Provider):
@@ -1284,6 +1284,7 @@ def patched_provider_factory(mock_provider_factory: Mock, patched_runner: Workfl
         return m
 
     google = _mock_provider(Provider.GOOGLE)
+    google_imagen = _mock_provider(Provider.GOOGLE_IMAGEN)
     gemini = _mock_provider(Provider.GOOGLE_GEMINI)
     openai = _mock_provider(Provider.OPEN_AI)
     anthropic = _mock_provider(Provider.ANTHROPIC)
@@ -1303,6 +1304,8 @@ def patched_provider_factory(mock_provider_factory: Mock, patched_runner: Workfl
             return bedrock
         if provider == Provider.AZURE_OPEN_AI:
             return azure_openai
+        if provider == Provider.GOOGLE_IMAGEN:
+            return google_imagen
         assert False, "Invalid provider"
 
     mock_provider_factory.get_provider.side_effect = _side_effect
@@ -1313,6 +1316,12 @@ def patched_provider_factory(mock_provider_factory: Mock, patched_runner: Workfl
     mock_provider_factory.anthropic = anthropic
     mock_provider_factory.bedrock = bedrock
     mock_provider_factory.azure_openai = azure_openai
+    mock_provider_factory.google_imagen = google_imagen
+
+    return mock_provider_factory
+
+
+def patched_provider_factory(mock_provider_factory: Mock, patched_runner: WorkflowAIRunner):
     with patch.object(patched_runner, "provider_factory", new=mock_provider_factory):
         yield mock_provider_factory
 
@@ -2486,6 +2495,42 @@ class TestExtractAllInternalKeys:
         patched_logger.exception.assert_not_called()
 
 
+# TODO: merge with _build_runner
+def _build_runner2(
+    mock_provider_factory: Mock,
+    input_schema: dict[str, Any],
+    output_schema: dict[str, Any],
+    instructions: str,
+    model: Model,
+    has_templated_instructions: bool = False,
+):
+    runner = WorkflowAIRunner(
+        task=SerializableTaskVariant(
+            id="test",
+            task_id="h",
+            task_schema_id=1,
+            name="test",
+            description="test",
+            input_schema=SerializableTaskIO.from_json_schema(
+                input_schema,
+                streamline=True,
+            ),
+            output_schema=SerializableTaskIO.from_json_schema(
+                output_schema,
+                streamline=True,
+            ),
+        ),
+        options=WorkflowAIRunnerOptions(
+            instructions=instructions,
+            model=model,
+            has_templated_instructions=has_templated_instructions,
+            provider=None,
+        ),
+    )
+    runner.provider_factory = mock_provider_factory
+    return runner
+
+
 class TestRun:
     async def test_requires_downloading_file(
         self,
@@ -2581,6 +2626,91 @@ class TestRun:
             "tenant": "tenant1",
             "status": "success",
         }
+
+    async def test_templated_instructions(self, mock_provider_factory_full: Mock):
+        """Check that the input schema is not sent when templated instructions are used with all fields"""
+        runner = _build_runner2(
+            mock_provider_factory_full,
+            {
+                "type": "object",
+                "properties": {
+                    "description": {"type": "string"},
+                    "count": {"type": "integer"},
+                },
+            },
+            {"type": "object", "properties": {"greeting": {"type": "string"}}},
+            "Generate a greeting of {{count}} {{description}}",
+            Model.GPT_41_LATEST,
+            has_templated_instructions=True,
+        )
+
+        mock_provider_factory_full.openai.complete.return_value = StructuredOutput(
+            output={"greeting": "Hello, world!"},
+        )
+
+        builder = await runner.task_run_builder(
+            {"description": "A beautiful sunset over a calm ocean", "count": 1},
+            start_time=0,
+        )
+
+        run = await runner.run(builder)
+
+        assert run.task_output == {"greeting": "Hello, world!"}
+
+        messages = mock_provider_factory_full.openai.complete.call_args_list[0].args[0]
+        assert len(messages) == 2
+        assert (
+            messages[0].content
+            == "<instructions>\nGenerate a greeting of 1 A beautiful sunset over a calm ocean\n</instructions>"
+        )
+        assert messages[1].content == "Follow the instructions"
+
+    async def test_image_output(self, mock_provider_factory_full: Mock):
+        runner = _build_runner2(
+            mock_provider_factory_full,
+            {
+                "type": "object",
+                "properties": {
+                    "description": {"type": "string"},
+                    "options": {"$ref": "#/$defs/ImageOptions"},
+                },
+            },
+            {"type": "object", "properties": {"image": {"$ref": "#/$defs/Image"}}},
+            "Generate an image of {{description}}",
+            Model.IMAGEN_3_0_002,
+            has_templated_instructions=True,
+        )
+
+        builder = await runner.task_run_builder(
+            {"description": "A beautiful sunset over a calm ocean", "options": {"shape": "square"}},
+            start_time=0,
+        )
+
+        mock_provider_factory_full.google_imagen.complete.return_value = StructuredOutput(
+            output={},
+            files=[
+                File(
+                    data="hello",
+                    content_type="image/png",
+                ),
+            ],
+        )
+
+        run = await runner.run(builder)
+        assert run.task_output == {
+            "image": {
+                "data": "hello",
+                "content_type": "image/png",
+            },
+        }
+
+        messages = mock_provider_factory_full.google_imagen.complete.call_args_list[0].args[0]
+        assert len(messages) == 2
+        assert (
+            messages[0].content
+            == "<instructions>\nGenerate an image of A beautiful sunset over a calm ocean\n</instructions>"
+        )
+        assert messages[1].content == "Follow the instructions"
 
 
 def test_check_tool_calling_support_tool_enabled_model_not_supporting_tool_calling(

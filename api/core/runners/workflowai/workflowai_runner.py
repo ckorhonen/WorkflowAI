@@ -442,6 +442,8 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         except Exception:
             return base
 
+        del input_schema["properties"]["options"]
+        input_schema.get("$defs", {}).pop("ImageOptions", None)
         del input["options"]
         return image_parameters
 
@@ -462,7 +464,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
 
         start_time = time.time()
         input_copy = deepcopy(input)
-        input_schema = self.task.input_schema.json_schema
+        input_schema = deepcopy(self.task.input_schema.json_schema)
         output_schema = self._prepared_output_schema.prepared_schema
 
         input_schema, input_copy, files = extract_files(input_schema, input_copy)

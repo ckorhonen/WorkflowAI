@@ -21,6 +21,7 @@ from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.utils import get_provider_config_env
 from core.providers.openai_image.openai_image_config import OpenAIImageConfig
 from core.providers.openai_image.openai_image_domain import OpenAIImageRequest, OpenAIImageResponse
+from core.runners.workflowai.templates import TemplateName
 from core.runners.workflowai.utils import FileWithKeyPath
 
 _logger = logging.getLogger(__name__)
@@ -183,6 +184,12 @@ class OpenAIImageProvider(HTTPXProviderBase[OpenAIImageConfig, OpenAIImageReques
             )
             response.raise_for_status()
             return response
+
+    @override
+    def sanitize_template(self, template: TemplateName):
+        # Forcing the absence of schema.
+        # Imagen behaves weirdly when the schema is present.
+        return TemplateName.V2_NO_INPUT_OR_OUTPUT_SCHEMA
 
     @override
     def _parse_response(

@@ -17,6 +17,7 @@ from core.providers.base.httpx_provider_base import HTTPXProviderBase
 from core.providers.base.models import RawCompletion, StandardMessage
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.google_imagen.google_imagen_domain import GoogleImagenRequest, GoogleImagenResponse
+from core.runners.workflowai.templates import TemplateName
 from core.runners.workflowai.utils import FileWithKeyPath
 
 _logger = logging.getLogger(__name__)
@@ -71,6 +72,12 @@ class GoogleImagenBaseProvider(HTTPXProviderBase[ProviderConfigVar, GoogleImagen
     @classmethod
     def standardize_messages(cls, messages: list[dict[str, Any]]) -> list[StandardMessage]:
         return []
+
+    @override
+    def sanitize_template(self, template: TemplateName):
+        # Forcing the absence of schema.
+        # Imagen behaves weirdly when the schema is present.
+        return TemplateName.V2_NO_INPUT_OR_OUTPUT_SCHEMA
 
     @override
     async def _prepare_completion(

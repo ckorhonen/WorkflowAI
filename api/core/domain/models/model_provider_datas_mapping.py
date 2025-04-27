@@ -1264,6 +1264,7 @@ MODEL_PROVIDER_DATAS: ProviderModelDataMapping = {
     # ------------------------------------------------------------------------------------------------
     # Google Vertex AI
     Provider.GOOGLE: GOOGLE_PROVIDER_DATA,
+    Provider.GOOGLE_IMAGEN: GOOGLE_IMAGEN_PROVIDER_DATA,
     # ------------------------------------------------------------------------------------------------
     # OpenAI
     Provider.OPEN_AI: OPENAI_PROVIDER_DATA,
