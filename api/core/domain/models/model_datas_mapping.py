@@ -1308,7 +1308,7 @@ def _build_model_datas():
         Model.IMAGEN_3_0_002: ModelData(
             display_name="Imagen 3.0 (002)",
             supports_json_mode=False,
-            supports_input_image=False,
+            supports_input_image=True,
             supports_input_pdf=False,
             supports_input_audio=False,
             supports_output_text=False,

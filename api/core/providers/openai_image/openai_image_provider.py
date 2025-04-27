@@ -6,7 +6,9 @@ from json import JSONDecodeError
 from typing import Any, AsyncGenerator, override
 
 from httpx import Response
+from pydantic import ValidationError
 
+from core.domain.errors import ContentModerationError, ProviderError
 from core.domain.fields.file import File
 from core.domain.fields.image_options import ImageOptions
 from core.domain.llm_completion import LLMCompletion
@@ -20,7 +22,7 @@ from core.providers.base.models import RawCompletion, StandardMessage
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.utils import get_provider_config_env
 from core.providers.openai_image.openai_image_config import OpenAIImageConfig
-from core.providers.openai_image.openai_image_domain import OpenAIImageRequest, OpenAIImageResponse
+from core.providers.openai_image.openai_image_domain import OpenAIImageError, OpenAIImageRequest, OpenAIImageResponse
 from core.runners.workflowai.templates import TemplateName
 from core.runners.workflowai.utils import FileWithKeyPath
 
@@ -190,6 +192,23 @@ class OpenAIImageProvider(HTTPXProviderBase[OpenAIImageConfig, OpenAIImageReques
         # Forcing the absence of schema.
         # Imagen behaves weirdly when the schema is present.
         return TemplateName.V2_NO_INPUT_OR_OUTPUT_SCHEMA
+
+    @override
+    def _unknown_error(self, response: Response) -> ProviderError:
+        try:
+            raw = response.json()
+            error = OpenAIImageError.model_validate(raw)
+        except (JSONDecodeError, ValidationError):
+            _logger.exception("Failed to parse OpenAI Image response as JSON")
+            return super()._unknown_error(response)
+
+        if error.error.code == "moderation_blocked":
+            return ContentModerationError(
+                error.error.message or "The image was blocked by OpenAI's moderation system.",
+            )
+        return ProviderError(
+            error.error.message or "An unknown error occurred while generating the image.",
+        )
 
     @override
     def _parse_response(

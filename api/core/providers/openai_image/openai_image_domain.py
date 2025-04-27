@@ -113,3 +113,13 @@ class OpenAIImageResponse(BaseModel):
             usage.completion_image_token_count = self.output_tokens
 
     usage: Usage | None = Field(default=None, description="The usage details of the request.")
+
+
+class OpenAIImageError(BaseModel):
+    class Error(BaseModel):
+        message: str | None
+        type: str | None
+        param: str | None
+        code: str | None
+
+    error: Error = Field(description="The error details.")
