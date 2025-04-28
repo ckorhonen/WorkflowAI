@@ -107,8 +107,22 @@ class ToolOutputExampleRequest(BaseModel):
         description="The input of the tool to generate an example output for, if any",
     )
 
+    previous_run_id: str | None = Field(
+        default=None,
+        description="The id of the previous run to use in case of a follow-up request",
+    )
+
+    new_user_message: str | None = Field(
+        default=None,
+        description="The new user message to use in case of a follow-up request",
+    )
+
 
 class ToolOutputExampleResponse(BaseModel):
+    assistant_answer: str | None = Field(
+        default=None,
+        description="The assistant answer to the user message",
+    )
     output_string: str | None = Field(
         default=None,
         description="The example output for the tool, if the tool output is a string",
@@ -116,6 +130,10 @@ class ToolOutputExampleResponse(BaseModel):
     output_json: dict[str, Any] | None = Field(
         default=None,
         description="The example output for the tool, if the tool output is an object",
+    )
+    run_id: str | None = Field(
+        default=None,
+        description="The id of the run",
     )
 
 
@@ -131,11 +149,15 @@ async def stream_tool_output_example(
             tool_name=request.tool.name,
             tool_description=request.tool.description,
             tool_input=request.tool_input,
+            previous_run_id=request.previous_run_id,
+            new_user_message=request.new_user_message,
         ):
             yield format_model_for_sse(
                 ToolOutputExampleResponse(
+                    assistant_answer=chunk.assistant_answer,
                     output_string=chunk.example_tool_output_string,
                     output_json=chunk.example_tool_output_json,
+                    run_id=chunk.run_id,
                 ),
             )
 

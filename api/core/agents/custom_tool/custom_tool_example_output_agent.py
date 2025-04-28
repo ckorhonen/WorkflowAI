@@ -1,4 +1,3 @@
-from collections.abc import AsyncIterator
 from typing import Any
 
 import workflowai
@@ -21,6 +20,10 @@ class ToolOuptutExampleAgentInput(BaseModel):
 
 
 class ToolOutputExampleAgentOutput(BaseModel):
+    assistant_answer: str | None = Field(
+        default=None,
+        description="The assistant answer to the user message",
+    )
     example_tool_output_string: str | None = Field(
         default=None,
         description="The example output for the tool, if the tool output is a string",
@@ -54,6 +57,6 @@ INSTRUCTIONS = """You are a tool output simulation expert, specialized in genera
         instructions=INSTRUCTIONS,
     ),
 )
-def tool_output_example_agent(
-    task_input: ToolOuptutExampleAgentInput,
-) -> AsyncIterator[ToolOutputExampleAgentOutput]: ...
+async def tool_output_example_agent(
+    input: ToolOuptutExampleAgentInput,
+) -> workflowai.Run[ToolOutputExampleAgentOutput]: ...

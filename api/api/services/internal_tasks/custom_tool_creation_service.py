@@ -3,6 +3,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from pydantic import ValidationError
+from workflowai import Run
 
 from core.agents.custom_tool.custom_tool_creation_agent import (
     CustomToolCreationAgentInput,
@@ -20,6 +21,10 @@ from core.agents.custom_tool.custom_tool_example_output_agent import (
 from core.domain.fields.custom_tool_creation_chat_message import CustomToolCreationChatMessage
 
 _logger = logging.getLogger(__name__)
+
+
+class ToolOutputExampleAgentOutputWithRunId(ToolOutputExampleAgentOutput):
+    run_id: str
 
 
 class CustomToolService:
@@ -69,12 +74,28 @@ class CustomToolService:
         tool_name: str,
         tool_description: str,
         tool_input: dict[str, Any] | None,
-    ) -> AsyncIterator[ToolOutputExampleAgentOutput]:
-        async for output in tool_output_example_agent(
-            ToolOuptutExampleAgentInput(
-                tool_name=tool_name,
-                tool_description=tool_description,
-                tool_input=tool_input,
-            ),
-        ):
-            yield output
+        previous_run_id: str | None,
+        new_user_message: str | None,
+    ) -> AsyncIterator[ToolOutputExampleAgentOutputWithRunId]:
+        if previous_run_id and new_user_message:
+            # TODO: fix typing in SDK to get Run[AgentOutput] instead of None
+            follow_up_output: Run[ToolOutputExampleAgentOutput] = await tool_output_example_agent.reply(  # type: ignore
+                previous_run_id,
+                new_user_message,
+            )
+            yield ToolOutputExampleAgentOutputWithRunId(
+                run_id=follow_up_output.id,
+                **follow_up_output.output.model_dump(),
+            )
+        else:
+            async for first_output in tool_output_example_agent.stream(
+                ToolOuptutExampleAgentInput(
+                    tool_name=tool_name,
+                    tool_description=tool_description,
+                    tool_input=tool_input,
+                ),
+            ):
+                yield ToolOutputExampleAgentOutputWithRunId(
+                    run_id=first_output.id,
+                    **first_output.output.model_dump(),
+                )
