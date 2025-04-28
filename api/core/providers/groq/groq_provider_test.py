@@ -105,7 +105,7 @@ class TestStream:
                     "role": "user",
                 },
             ],
-            "response_format": {"type": "json_object"},
+            "response_format": {"type": "text"},
             "stream": True,
             "temperature": 0.0,
         }
@@ -177,7 +177,7 @@ class TestComplete:
                     "role": "user",
                 },
             ],
-            "response_format": {"type": "json_object"},
+            "response_format": {"type": "text"},
             "stream": False,
             "temperature": 0.0,
         }
@@ -223,7 +223,7 @@ class TestComplete:
                     "role": "user",
                 },
             ],
-            "response_format": {"type": "json_object"},
+            "response_format": {"type": "text"},
             "stream": False,
             "temperature": 0.0,
         }
