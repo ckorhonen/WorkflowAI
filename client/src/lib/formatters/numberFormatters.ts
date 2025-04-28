@@ -39,3 +39,16 @@ export function formatNumber(value: number | null | undefined) {
 
   return new Intl.NumberFormat('en-US').format(value);
 }
+
+export function formatFractionalCurrencyAsNumber(value: number | null | undefined) {
+  if (typeof value !== 'number') {
+    return null;
+  }
+
+  if (Math.abs(value) >= 0.0001) {
+    return Number(value.toFixed(4));
+  }
+  // For small numbers, we need to preserve significant digits
+  const significantDigits = Math.max(1, -Math.floor(Math.log10(Math.abs(value))) + 1);
+  return Number(value.toFixed(significantDigits));
+}

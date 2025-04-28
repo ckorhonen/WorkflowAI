@@ -1,4 +1,4 @@
-import { formatFractionalCurrency } from '@/lib/formatters/numberFormatters';
+import { formatFractionalCurrency, formatFractionalCurrencyAsNumber } from '@/lib/formatters/numberFormatters';
 import { TaskRun } from '@/types/task_run';
 import { ModelResponse } from '@/types/workflowAI';
 import { BaseOutputValueRow, TBaseOutputValueRowVariant } from './BaseOutputValueRow';
@@ -15,8 +15,8 @@ type HoverTextProps = {
 };
 function PriceOutputNote(props: HoverTextProps) {
   const { currentAIModel, minimumCostAIModel, taskRun, minimumCostTaskRun } = props;
-  const value = taskRun?.cost_usd;
-  const minimumValue = minimumCostTaskRun?.cost_usd;
+  const value = formatFractionalCurrencyAsNumber(taskRun?.cost_usd);
+  const minimumValue = formatFractionalCurrencyAsNumber(minimumCostTaskRun?.cost_usd);
 
   if (typeof value !== 'number' || typeof minimumValue !== 'number') {
     return <></>;
@@ -55,13 +55,16 @@ export function PriceOutputValueRow(props: PriceOutputValueRowProps) {
   } else if (typeof minimumValue !== 'number') {
     variant = 'default';
   } else {
-    const formattedValue = formatFractionalCurrency(value);
-    const formattedMinimumValue = formatFractionalCurrency(minimumValue);
+    const formattedValueText = formatFractionalCurrency(value);
+    const formattedMinimumValueText = formatFractionalCurrency(minimumValue);
 
-    if (formattedMinimumValue === formattedValue) {
+    if (formattedMinimumValueText === formattedValueText) {
       variant = 'bestValue';
     } else {
-      noteContent = getScaleDisplayValue(value, minimumValue);
+      const formattedValueNumber = formatFractionalCurrencyAsNumber(value) ?? value;
+      const formattedMinimumValueNumber = formatFractionalCurrencyAsNumber(minimumValue) ?? minimumValue;
+
+      noteContent = getScaleDisplayValue(formattedValueNumber, formattedMinimumValueNumber);
       noteTitle = (
         <PriceOutputNote
           currentAIModel={currentAIModel}
