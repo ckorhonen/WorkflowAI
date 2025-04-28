@@ -66,6 +66,46 @@ def _build_runner(
     )
 
 
+# TODO: merge with _build_runner
+def _build_runner2(
+    mock_provider_factory: Mock,
+    input_schema: dict[str, Any],
+    output_schema: dict[str, Any],
+    instructions: str,
+    model: Model,
+    has_templated_instructions: bool = False,
+    is_chain_of_thought_enabled: bool | None = None,
+    enabled_tools: list[ToolKind | Tool] | None = None,
+):
+    runner = WorkflowAIRunner(
+        task=SerializableTaskVariant(
+            id="test",
+            task_id="h",
+            task_schema_id=1,
+            name="test",
+            description="test",
+            input_schema=SerializableTaskIO.from_json_schema(
+                input_schema,
+                streamline=True,
+            ),
+            output_schema=SerializableTaskIO.from_json_schema(
+                output_schema,
+                streamline=True,
+            ),
+        ),
+        options=WorkflowAIRunnerOptions(
+            instructions=instructions,
+            model=model,
+            has_templated_instructions=has_templated_instructions,
+            is_chain_of_thought_enabled=is_chain_of_thought_enabled,
+            enabled_tools=enabled_tools,
+            provider=None,
+        ),
+    )
+    runner.provider_factory = mock_provider_factory
+    return runner
+
+
 @pytest.fixture
 def mock_provider():
     mock = Mock(spec=AbstractProvider)
@@ -1741,8 +1781,7 @@ class TestBuildProviderData:
 
     async def test_build_provider_data_with_chain_of_thought_and_tools(
         self,
-        patched_runner: WorkflowAIRunner,
-        patched_provider_factory: Mock,
+        mock_provider_factory_full: Mock,
     ) -> None:
         """
         Test that build_provider_data adapts the output_schema to include reasoning steps (COT)
@@ -1754,9 +1793,17 @@ class TestBuildProviderData:
         from core.domain.models.model_data import FinalModelData, MaxTokensData
 
         # Enable chain of thought and tool usage
-        patched_runner.properties.is_chain_of_thought_enabled = True
-        patched_runner.properties.enabled_tools = [ToolKind.WEB_SEARCH_GOOGLE]
-        patched_runner._check_tool_calling_support = Mock()  # pyright: ignore[reportPrivateUsage]
+        runner = _build_runner2(
+            mock_provider_factory_full,
+            {},
+            {"properties": {}},
+            "test",
+            Model.GPT_4O_MINI_2024_07_18,
+            is_chain_of_thought_enabled=True,
+            enabled_tools=[ToolKind.WEB_SEARCH_GOOGLE],
+        )
+
+        runner._check_tool_calling_support = Mock()  # pyright: ignore[reportPrivateUsage]
 
         model_data = FinalModelData(
             model=Model.GPT_4O_MINI_2024_07_18,
@@ -1777,8 +1824,8 @@ class TestBuildProviderData:
         )
 
         # Act: build provider data
-        provider, _, provider_options, _ = patched_runner._build_provider_data(  # pyright: ignore[reportPrivateUsage]
-            patched_provider_factory.openai,
+        provider, _, provider_options, _ = runner._build_provider_data(  # pyright: ignore[reportPrivateUsage]
+            mock_provider_factory_full.openai,
             model_data,
             is_structured_generation_enabled=True,
         )
@@ -2496,42 +2543,6 @@ class TestExtractAllInternalKeys:
         patched_logger.exception.assert_not_called()
 
 
-# TODO: merge with _build_runner
-def _build_runner2(
-    mock_provider_factory: Mock,
-    input_schema: dict[str, Any],
-    output_schema: dict[str, Any],
-    instructions: str,
-    model: Model,
-    has_templated_instructions: bool = False,
-):
-    runner = WorkflowAIRunner(
-        task=SerializableTaskVariant(
-            id="test",
-            task_id="h",
-            task_schema_id=1,
-            name="test",
-            description="test",
-            input_schema=SerializableTaskIO.from_json_schema(
-                input_schema,
-                streamline=True,
-            ),
-            output_schema=SerializableTaskIO.from_json_schema(
-                output_schema,
-                streamline=True,
-            ),
-        ),
-        options=WorkflowAIRunnerOptions(
-            instructions=instructions,
-            model=model,
-            has_templated_instructions=has_templated_instructions,
-            provider=None,
-        ),
-    )
-    runner.provider_factory = mock_provider_factory
-    return runner
-
-
 class TestRun:
     async def test_requires_downloading_file(
         self,
@@ -2673,18 +2684,22 @@ class TestRun:
                 "type": "object",
                 "properties": {
                     "description": {"type": "string"},
-                    "options": {"$ref": "#/$defs/ImageOptions"},
+                    "shape": {"type": "string"},
                 },
             },
             {"type": "object", "properties": {"image": {"$ref": "#/$defs/Image"}}},
-            "Generate an image of {{description}}",
+            "Generate a {{shape}} image of {{description}}",
             Model.IMAGEN_3_0_002,
             has_templated_instructions=True,
         )
 
         builder = await runner.task_run_builder(
-            {"description": "A beautiful sunset over a calm ocean", "options": {"shape": "square"}},
+            {"description": "A beautiful sunset over a calm ocean", "shape": "square"},
             start_time=0,
+        )
+
+        mock_provider_factory_full.google_imagen.sanitize_template.side_effect = (
+            lambda _: TemplateName.V2_NO_INPUT_OR_OUTPUT_SCHEMA  # pyright: ignore[reportUnknownLambdaType]
         )
 
         mock_provider_factory_full.google_imagen.complete.return_value = StructuredOutput(
@@ -2707,10 +2722,7 @@ class TestRun:
 
         messages = mock_provider_factory_full.google_imagen.complete.call_args_list[0].args[0]
         assert len(messages) == 2
-        assert (
-            messages[0].content
-            == "<instructions>\nGenerate an image of A beautiful sunset over a calm ocean\n</instructions>"
-        )
+        assert messages[0].content == "Generate a square image of A beautiful sunset over a calm ocean"
         assert messages[1].content == "Follow the instructions"
 
 

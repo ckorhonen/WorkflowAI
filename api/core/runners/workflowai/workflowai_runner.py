@@ -431,7 +431,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             return base
 
         # In case of validation, we can check which key was actually extracted
-        extracted_keys = extracted_options.model_dump(exclude_unset=True, exclude_defaults=True)
+        extracted_keys = extracted_options.model_dump(exclude_unset=True)
 
         if delete_keys:
             # We can remove the corresponding fields from the input since they are already used
