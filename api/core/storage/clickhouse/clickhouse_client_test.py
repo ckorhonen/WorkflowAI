@@ -696,6 +696,21 @@ class TestAggregateTaskMetadataFields:
         }
         assert fields == {"a": ["1", "2", "b"], "c": ["d"], "e": ["f"]}
 
+    async def test_max_runs(self, clickhouse_client: ClickhouseClient):
+        models = [
+            _ck_run(metadata={"a": "b"}),
+            _ck_run(metadata={"a": "1", "c": "d"}),
+            _ck_run(metadata={"a": "2", "c": "d", "e": "f"}),
+        ]
+        await clickhouse_client.insert_models("runs", models, {"async_insert": 0, "wait_for_async_insert": 0})
+        fields = {
+            k: sorted(v)
+            async for k, v in clickhouse_client.aggregate_task_metadata_fields(("", 1), "workflowai.", max_values=1)
+        }
+        assert len(fields) == 1
+        assert len(fields["a"]) == 1
+        assert fields["a"][0] in {"b", "1", "2"}
+
 
 def _qs(task_uid: int = 1, exp: list[int] = [1, 2, 3, 4, 5], **kwargs: Any):
     # TODO: it would be nice to return pytest.param here but it creates discovery errors where computing a simple id

@@ -275,7 +275,12 @@ class ClickhouseClient(TaskRunStorage):
             return result[0]
 
     @override
-    async def aggregate_task_metadata_fields(self, task_id: TaskTuple, exclude_prefix: str | None = None):
+    async def aggregate_task_metadata_fields(
+        self,
+        task_id: TaskTuple,
+        exclude_prefix: str | None = None,
+        max_values: int = 300,
+    ):
         date = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d")
         sql = f"""
         SELECT
@@ -289,6 +294,7 @@ class ClickhouseClient(TaskRunStorage):
             FROM runs
             WHERE tenant_uid = {self.tenant_uid} AND created_at_date >= '{date}' AND task_uid = {task_id[1]}
             {f"AND key NOT LIKE '{exclude_prefix}%'" if exclude_prefix else ""}
+            LIMIT {max_values}
         )
         GROUP BY key
         """

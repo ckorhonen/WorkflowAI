@@ -263,7 +263,8 @@ class RunsSearchService:
                 field_name=SearchField.METADATA,
                 type="string",
                 operators=SearchOperator.string_operators(),
-                suggestions=suggestions,
+                # We only return the first 30 suggestions to avoid overwhelming the frontend
+                suggestions=suggestions[:30],
                 key_path=field,
             )
             async for field, suggestions in storage.aggregate_task_metadata_fields(
