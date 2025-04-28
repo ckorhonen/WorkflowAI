@@ -123,10 +123,11 @@ NOTIFICATION_SUMMARIES_FEATURE = FeatureWithImage(
 )
 
 
-GENERATE_IMAGE_FEATURE = BaseFeature(
+GENERATE_IMAGE_FEATURE = FeatureWithImage(
     name="Generate an Image - powered by GPT-Image from OpenAI",
     description="Generate an image based on a text prompt using GPT-Image from OpenAI.",
     specifications="Input: a prompt string - field name “prompt”. Output: a generated image - field name “image”.",
+    image_url="https://workflowai.blob.core.windows.net/workflowai-public/landing-page-features/image-generation.png",
 )
 
 
