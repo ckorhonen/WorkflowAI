@@ -122,6 +122,14 @@ NOTIFICATION_SUMMARIES_FEATURE = FeatureWithImage(
     image_url="https://workflowai.blob.core.windows.net/workflowai-public/landing-page-features/apple-notification-summary.png",
 )
 
+
+GENERATE_IMAGE_FEATURE = BaseFeature(
+    name="Generate an Image - powered by GPT-Image from OpenAI",
+    description="Generate an image based on a text prompt using GPT-Image from OpenAI.",
+    specifications="Input: a prompt string - field name “prompt”. Output: a generated image - field name “image”.",
+)
+
+
 FEATURES_MAPPING: list[FeatureSection] = [
     FeatureSection(
         name="Categories",
@@ -134,6 +142,7 @@ FEATURES_MAPPING: list[FeatureSection] = [
             FeatureTag(
                 name="Featured",
                 features=[
+                    GENERATE_IMAGE_FEATURE,
                     GENERATE_PRODUCT_DESCRIPTIONS_BASED_ON_IMAGE_FEATURE,
                     SUMMARIZE_PDF_CONTENT_FEATURE,
                     GENERATE_VERSIONS_OF_SOCIAL_MEDIA_POSTS_FEATURE,
@@ -633,6 +642,7 @@ FEATURES_MAPPING: list[FeatureSection] = [
             FeatureTag(
                 name="Image",
                 features=[
+                    GENERATE_IMAGE_FEATURE,
                     BaseFeature(
                         name="Generate Description Based on Image",
                         description="Create detailed product descriptions automatically from images. This feature analyzes uploaded product photos and generates accurate text descriptions, saving time on content creation while ensuring consistent product information.",
