@@ -312,34 +312,6 @@ class TestExtractContentStr:
         groq_provider.logger.warning.assert_not_called()  # type: ignore
 
 
-class TestHandleErrorStatusCode:
-    @pytest.fixture
-    def provider(self):
-        return GroqProvider()
-
-    def test_413_status_code(self, provider: GroqProvider):
-        response = Response(413, text="Request Entity Too Large")
-        with pytest.raises(MaxTokensExceededError, match="Max tokens exceeded"):
-            provider._handle_error_status_code(response)  # pyright: ignore [reportPrivateUsage]
-
-    def test_max_tokens_exceeded_error_message(self, provider: GroqProvider):
-        response = Response(400, json={"error": {"message": "Please reduce the length of the messages or completion."}})
-        with pytest.raises(MaxTokensExceededError):
-            provider._handle_error_status_code(response)  # pyright: ignore [reportPrivateUsage]
-
-    def test_other_error_message(self, provider: GroqProvider):
-        response = Response(400, json={"error": {"message": "Some other error occurred."}})
-
-        # No error is raised
-        provider._handle_error_status_code(response)  # pyright: ignore [reportPrivateUsage]
-
-    def test_unparseable_error_message(self, provider: GroqProvider):
-        response = Response(400, text="Unparseable error message")
-
-        # No error is raised
-        provider._handle_error_status_code(response)  # pyright: ignore [reportPrivateUsage]
-
-
 class TestSanitizeModelData:
     def test_sanitize_model_data(self, groq_provider: GroqProvider):
         model_data = ModelData(
@@ -483,3 +455,22 @@ class TestUnknownError:
         e = unknown_error_fn(payload)
         assert isinstance(e, ProviderBadRequestError)
         assert e.capture is False
+
+    def test_413_status_code(self, unknown_error_fn: Callable[[str | dict[str, Any], int], ProviderError]):
+        e = unknown_error_fn("Request Entity Too Large", 413)
+        assert isinstance(e, MaxTokensExceededError)
+        assert str(e) == "Max tokens exceeded"
+
+    def test_max_tokens_exceeded_error_message(self, unknown_error_fn: Callable[[str | dict[str, Any]], ProviderError]):
+        e = unknown_error_fn({"error": {"message": "Please reduce the length of the messages or completion."}})
+        assert isinstance(e, MaxTokensExceededError)
+
+    def test_other_error_message(self, unknown_error_fn: Callable[[str | dict[str, Any]], ProviderError]):
+        e = unknown_error_fn({"error": {"message": "Some other error occurred."}})
+        assert isinstance(e, UnknownProviderError)
+        assert e.capture is True
+
+    def test_unparseable_error_message(self, unknown_error_fn: Callable[[str | dict[str, Any]], ProviderError]):
+        e = unknown_error_fn("Unparseable error message")
+        assert isinstance(e, UnknownProviderError)
+        assert e.capture is True
