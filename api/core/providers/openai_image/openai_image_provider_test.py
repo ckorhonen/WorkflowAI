@@ -98,5 +98,7 @@ class TestComplete:
         messages = [
             Message(role=Message.Role.USER, content="A beautiful image of a cat"),
         ]
-        with pytest.raises(ContentModerationError):
+        with pytest.raises(ContentModerationError) as e:
             await openai_image_provider.complete(messages, _provider_options(), output_factory=_output_factory)
+        assert not e.value.capture
+        assert e.value.store_task_run

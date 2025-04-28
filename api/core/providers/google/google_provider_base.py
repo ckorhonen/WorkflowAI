@@ -221,7 +221,6 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
             if response.promptFeedback and response.promptFeedback.blockReason:
                 raise ContentModerationError(
                     f"The model blocked the generation with reason '{response.promptFeedback.blockReason}'",
-                    capture=False,
                 )
             # Otherwise not sure what's going on
             self.logger.warning(

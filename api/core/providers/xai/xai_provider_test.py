@@ -581,6 +581,8 @@ class TestComplete:
         assert response.error.code == "content_moderation"
         assert response.error.status_code == 400
         assert response.error.message == "Model refused to generate a response: I'm sorry, I can't assist with that."
+        assert e.value.capture is False
+        assert e.value.store_task_run is True
 
     @pytest.mark.skip(reason="Not sure about content moderation for now")
     async def test_complete_content_moderation(self, httpx_mock: HTTPXMock):

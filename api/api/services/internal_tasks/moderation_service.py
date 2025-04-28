@@ -85,7 +85,7 @@ class ModerationService:
             else:
                 message = f"{user_and_org_str} created a task that is breaching terms ({reason_str}): {task_str}"
 
-            error = ContentModerationError(message)
+            error = ContentModerationError(message, capture=True)
             capture_content_moderation_error(error, tenant, task_id)
 
     async def run_task_run_moderation_process(
@@ -124,5 +124,5 @@ class ModerationService:
         if result.is_breaching_terms:
             reason_str: str = result.term_breaching_category.value if result.term_breaching_category else ""
             message = f"{user_and_org_str} created a task run that is breaching terms ({reason_str}): {task_run_str}"
-            error = ContentModerationError(message)
+            error = ContentModerationError(message, capture=True)
             capture_content_moderation_error(error, tenant, task_id)
