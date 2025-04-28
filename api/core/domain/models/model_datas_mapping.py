@@ -203,6 +203,7 @@ def _build_model_datas():
             quality_index=611,  # TODO: a bit difficult to estimate here
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=False,
+            is_default=True,
         ),
         Model.GPT_3_5_TURBO_0125: DeprecatedModel(replacement_model=Model.GPT_4O_MINI_2024_07_18),
         Model.GPT_3_5_TURBO_1106: DeprecatedModel(replacement_model=Model.GPT_4O_MINI_2024_07_18),
@@ -1304,6 +1305,7 @@ def _build_model_datas():
         Model.IMAGEN_3_0_LATEST: LatestModel(
             model=Model.IMAGEN_3_0_002,
             display_name="Imagen 3.0 (latest)",
+            is_default=True,
         ),
         Model.IMAGEN_3_0_002: ModelData(
             display_name="Imagen 3.0 (002)",
