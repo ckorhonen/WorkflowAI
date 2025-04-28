@@ -332,6 +332,7 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
     _INVALID_FILE_SEARCH_STRINGS = [
         "the document has no pages",
         "unable to process input image",
+        "url_unreachable-unreachable_5xx",
     ]
 
     @classmethod

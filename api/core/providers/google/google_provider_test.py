@@ -1287,6 +1287,7 @@ class TestHandleStatusCode:
             "URL_TIMEOUT-TIMEOUT_FETCHPROXY",
             "URL_UNREACHABLE-UNREACHABLE_NO_RESPONSE",
             "URL_REJECTED-REJECTED_RPC_APP_ERROR",
+            "URL_UNREACHABLE-UNREACHABLE_5xx",
         ],
     )
     def test_timeout_when_fetching_file(self, google_provider: GoogleProvider, message: str):
