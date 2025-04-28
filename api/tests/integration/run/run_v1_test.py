@@ -2020,3 +2020,33 @@ async def test_invalid_unicode_chars(test_client: IntegrationTestClient):
     # It would be nice to test with invalid surrogates, but it is hard to reproduce a failing payload
     fetched = await test_client.fetch_run(task, run_id=res["id"])
     assert fetched["task_output"]["greeting"] == expected_str, "invalid output from fetch"
+
+
+async def test_with_raw_code_in_template(test_client: IntegrationTestClient):
+    """Check that when we have a partial template we don't fail runs. This is to allow having instructions that look
+    like a template but are not since our template parsing is not perfect for now"""
+    task = await test_client.create_task()
+    test_client.mock_openai_call()
+
+    version = await test_client.create_version_v1(
+        task,
+        version_properties={
+            "model": Model.GPT_41_NANO_2025_04_14,
+            "instructions": "Please generate a valid jinja template. Using variables like {{ i_am_a_variable_not_in_the_input }}!"
+            "Please generate a valid jinja template. Using variables like {% raw %}{{ i_am_a_variable_not_in_the_input }}, {%if invalid_condition %}{% endraw %}!",
+        },
+    )
+
+    res = await test_client.run_task_v1(task, model=Model.GPT_4O_2024_11_20, version=version["id"])
+    assert res
+    assert res["task_output"]["greeting"] == "Hello James!"
+
+    request = test_client.httpx_mock.get_request(url=openai_endpoint())
+    assert request
+    payload = json.loads(request.content)["messages"]
+    assert len(payload) == 2
+    # Instructions are passed in the first message
+    assert (
+        "Please generate a valid jinja template. Using variables like {{ i_am_a_variable_not_in_the_input }}, {%if invalid_condition %}!"
+        in payload[0]["content"]
+    )
