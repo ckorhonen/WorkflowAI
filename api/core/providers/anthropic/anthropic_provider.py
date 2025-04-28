@@ -315,21 +315,33 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
         if not payload.error.message:
             return None
 
-        match payload.error.message.lower():
+        error_cls = ProviderBadRequestError
+        message = payload.error.message
+        capture = True
+
+        match message.lower():
             case msg if "invalid base64 data" in msg:
-                return ProviderBadRequestError(
-                    msg=payload.error.message,
-                    response=response,
-                    capture=True,
-                )
+                # We are still capturing this error, it should be caught upstream
+                # and not sent to the provider
+                pass
+            case msg if "image exceeds" in msg:
+                # Not capturing since the umage is just too large
+                capture = False
+                message = "Image exceeds the maximum size"
+            case msg if "image does not match the provided media type" in msg:
+                # Not capturing since the image is just too large
+                capture = False
+                message = "Image does not match the provided media type"
             case msg if "prompt is too long" in msg:
-                return MaxTokensExceededError(
-                    msg=payload.error.message,
-                    response=response,
-                )
+                error_cls = MaxTokensExceededError
+                capture = False
             case _:
                 pass
-        return None
+        return error_cls(
+            msg=message,
+            response=response,
+            capture=capture,
+        )
 
     @override
     def _unknown_error(self, response: Response) -> ProviderError:

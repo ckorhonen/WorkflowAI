@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from typing import Any, cast
 
 import pytest
@@ -11,6 +12,7 @@ from core.domain.errors import (
     FailedGenerationError,
     MaxTokensExceededError,
     ProviderBadRequestError,
+    ProviderError,
     ProviderInternalError,
 )
 from core.domain.fields.file import File
@@ -888,7 +890,19 @@ def test_extract_content_str_max_tokens() -> None:
 
 
 class TestUnknownError:
-    def test_unknown_error(self, anthropic_provider: AnthropicProvider):
+    @pytest.fixture
+    def unknown_error_fn(self, anthropic_provider: AnthropicProvider):
+        # Wrapper to avoid having to silence the private warning
+        # and instantiate the response
+        def _build_unknown_error(payload: str | dict[str, Any], status_code: int = 400):
+            if isinstance(payload, dict):
+                payload = json.dumps(payload)
+            res = Response(status_code=status_code, text=payload)
+            return anthropic_provider._unknown_error(res)  # pyright: ignore[reportPrivateUsage]
+
+        return _build_unknown_error
+
+    def test_unknown_error(self, unknown_error_fn: Callable[[dict[str, Any]], ProviderError]):
         payload = {
             "error": {
                 "message": "messages.1.content.1.image.source.base64: invalid base64 data",
@@ -896,14 +910,13 @@ class TestUnknownError:
             },
             "type": "error",
         }
-        response = Response(status_code=400, text=json.dumps(payload))
-        err = anthropic_provider._unknown_error(response)  # pyright: ignore[reportPrivateUsage]
+        err = unknown_error_fn(payload)
 
         assert isinstance(err, ProviderBadRequestError)
         assert str(err) == "messages.1.content.1.image.source.base64: invalid base64 data"
         assert err.capture
 
-    def test_unknown_error_max_tokens_exceeded(self, anthropic_provider: AnthropicProvider):
+    def test_unknown_error_max_tokens_exceeded(self, unknown_error_fn: Callable[[dict[str, Any]], ProviderError]):
         payload = {
             "error": {
                 "message": "prompt is too long: 201135 tokens > 200000 maximum",
@@ -911,9 +924,22 @@ class TestUnknownError:
             },
             "type": "error",
         }
-        response = Response(status_code=400, text=json.dumps(payload))
-        err = anthropic_provider._unknown_error(response)  # pyright: ignore[reportPrivateUsage]
+        err = unknown_error_fn(payload)
 
         assert isinstance(err, MaxTokensExceededError)
         assert str(err) == "prompt is too long: 201135 tokens > 200000 maximum"
+        assert not err.capture
+
+    def test_image_too_large(self, unknown_error_fn: Callable[[dict[str, Any]], ProviderError]):
+        payload = {
+            "error": {
+                "message": "messages.1.content.1.image.source.base64: image exceeds 5 MB maximum: 6746560 bytes > 5242880 bytes",
+                "type": "invalid_request_error",
+            },
+            "type": "error",
+        }
+        err = unknown_error_fn(payload)
+
+        assert isinstance(err, ProviderBadRequestError)
+        assert str(err) == "Image exceeds the maximum size"
         assert not err.capture
