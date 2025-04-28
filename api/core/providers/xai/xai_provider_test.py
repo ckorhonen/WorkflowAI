@@ -13,6 +13,7 @@ from core.domain.errors import (
     ModelDoesNotSupportMode,
     ProviderError,
     ProviderInternalError,
+    ProviderInvalidFileError,
     StructuredGenerationError,
     UnknownProviderError,
 )
@@ -840,3 +841,10 @@ class TestUnknownError:
             "error": 'Unsupported content-type encountered when downloading image. The only supported content types are ["image/jpeg", "image/jpg", "image/png"]',
         }
         assert isinstance(unknown_error_fn(payload, 412), ModelDoesNotSupportMode)
+
+    def test_wrong_content(self, unknown_error_fn: Callable[[dict[str, Any]], ProviderError]):
+        payload = {
+            "code": "Client specified an invalid argument",
+            "error": "Downloaded response does not contain a valid JPG or PNG image",
+        }
+        assert isinstance(unknown_error_fn(payload), ProviderInvalidFileError)

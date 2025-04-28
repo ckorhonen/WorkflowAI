@@ -11,6 +11,7 @@ from core.domain.errors import (
     MaxTokensExceededError,
     ModelDoesNotSupportMode,
     ProviderError,
+    ProviderInvalidFileError,
     UnknownProviderError,
 )
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
@@ -321,9 +322,12 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
 
     def _invalid_argument_error(self, payload: XAIError, response: Response) -> ProviderError:
         message = payload.error
-        match message:
+        lower_msg = message.lower()
+        match lower_msg:
             case m if "maximum prompt length" in m:
                 error_cls = MaxTokensExceededError
+            case m if "response does not contain a valid jpg or png image" in m:
+                error_cls = ProviderInvalidFileError
             case _:
                 error_cls = UnknownProviderError
         return error_cls(msg=message, response=response)
