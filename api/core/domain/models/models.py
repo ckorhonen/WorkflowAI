@@ -15,6 +15,7 @@ class Model(StrEnum):
     GPT_41_LATEST = "gpt-4.1-latest"
     GEMINI_2_0_FLASH_LATEST = "gemini-2.0-flash-latest"
     CLAUDE_3_7_SONNET_LATEST = "claude-3-7-sonnet-latest"
+    IMAGEN_3_0_LATEST = "imagen-3.0-generate-latest"
 
     # --------------------------------------------------------------------------
     # OpenAI Models
@@ -97,7 +98,7 @@ class Model(StrEnum):
     GEMINI_1_0_PRO_001 = "gemini-1.0-pro-001"
     GEMINI_1_0_PRO_VISION_001 = "gemini-1.0-pro-vision-001"
 
-    IMAGEN_3_0_LATEST = "imagen-3.0-generate-latest"
+    # IMAGEN_3_0_LATEST = "imagen-3.0-generate-latest"
     IMAGEN_3_0_002 = "imagen-3.0-generate-002"
     IMAGEN_3_0_001 = "imagen-3.0-generate-001"
     IMAGEN_3_0_FAST_001 = "imagen-3.0-fast-generate-001"
