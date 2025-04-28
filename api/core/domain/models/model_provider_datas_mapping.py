@@ -597,20 +597,21 @@ GROQ_PROVIDER_DATA: ProviderDataByModel = {
         # native tools calls are not implemented on Groq for now as we will decommssion the provider for now.
         # see [WOR-1968: Disable `Groq` ?](https://linear.app/workflowai/issue/WOR-1968/disable-groq)
     ),
-    Model.LLAMA_3_1_70B: ModelProviderData(
-        text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_000_59,
-            completion_cost_per_token=0.000_000_79,
-            source="https://console.groq.com/settings/billing",
-        ),
-        lifecycle_data=LifecycleData(
-            sunset_date=datetime.date(year=2024, month=12, day=20),
-            source="https://console.groq.com/docs/deprecations",
-            post_sunset_replacement_model=Model.LLAMA_3_3_70B,
-        ),
-        # native tools calls are not implemented on Groq for now as we will decommssion the provider for now.
-        # see [WOR-1968: Disable `Groq` ?](https://linear.app/workflowai/issue/WOR-1968/disable-groq)
-    ),
+    #
+    # Model.LLAMA_3_1_70B: ModelProviderData(
+    #     text_price=TextPricePerToken(
+    #         prompt_cost_per_token=0.000_000_59,
+    #         completion_cost_per_token=0.000_000_79,
+    #         source="https://console.groq.com/settings/billing",
+    #     ),
+    #     lifecycle_data=LifecycleData(
+    #         sunset_date=datetime.date(year=2024, month=12, day=20),
+    #         source="https://console.groq.com/docs/deprecations",
+    #         post_sunset_replacement_model=Model.LLAMA_3_3_70B,
+    #     ),
+    #     # native tools calls are not implemented on Groq for now as we will decommssion the provider for now.
+    #     # see [WOR-1968: Disable `Groq` ?](https://linear.app/workflowai/issue/WOR-1968/disable-groq)
+    # ),
     # Model.LLAMA_3_2_3B_PREVIEW: ModelProviderData(
     #     text_price=TextPricePerToken(
     #         prompt_cost_per_token=0.000_000_06,
@@ -654,6 +655,13 @@ GROQ_PROVIDER_DATA: ProviderDataByModel = {
         text_price=TextPricePerToken(
             prompt_cost_per_token=0.11 / 1_000_000,
             completion_cost_per_token=0.34 / 1_000_000,
+            source="https://groq.com/pricing/",
+        ),
+    ),
+    Model.QWEN_QWQ_32B: ModelProviderData(
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=0.29 * ONE_MILLION_TH,
+            completion_cost_per_token=0.39 * ONE_MILLION_TH,
             source="https://groq.com/pricing/",
         ),
     ),
