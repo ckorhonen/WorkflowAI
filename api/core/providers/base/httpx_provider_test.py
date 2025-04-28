@@ -527,17 +527,27 @@ class TestOperationTimeout:
         assert e.value.code == "timeout"
 
 
-class TestFailedGenerationErrorWrapper:
-    async def test_failed_generation_error_wrapper(self, mocked_provider: MockedProvider):
+class TestInvalidJSONError:
+    async def test_invalid_json_error(self, mocked_provider: MockedProvider):
         completion = "Bedrock returned a non-JSON response that we don't handle"
 
-        error = mocked_provider._failed_generation_error_wrapper(completion, "Generation does not contain a valid JSON")  # pyright: ignore[reportPrivateUsage]
+        error = mocked_provider._invalid_json_error(  # pyright: ignore[reportPrivateUsage]
+            Mock(),
+            None,
+            completion,
+            "Generation does not contain a valid JSON",
+        )
         assert isinstance(error, FailedGenerationError)
         assert error.args[0] == "Generation does not contain a valid JSON"  # type: ignore
 
-    async def test_failed_generation_error_wrapper_content_moderation(self, mocked_provider: MockedProvider):
+    async def test_invalid_json_error_content_moderation(self, mocked_provider: MockedProvider):
         completion = "I apologize, but I do not feel comfortable responding to this request as it is inappropriate."
-        error = mocked_provider._failed_generation_error_wrapper(completion, "Generation does not contain a valid JSON")  # pyright: ignore[reportPrivateUsage]
+        error = mocked_provider._invalid_json_error(  # pyright: ignore[reportPrivateUsage]
+            Mock(),
+            None,
+            completion,
+            "Generation does not contain a valid JSON",
+        )
         assert isinstance(error, ContentModerationError)
         assert error.retry is False
         assert error.provider_error == completion

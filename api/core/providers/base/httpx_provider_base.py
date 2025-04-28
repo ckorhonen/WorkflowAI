@@ -52,8 +52,27 @@ class ParsedResponse(NamedTuple):
 # TODO: The fact that the HTTPXProvider class uses a plain dict as a request is blocking for OpenAIImageProvider
 # Ultimately HTTPXProvider should also use a templated request type
 class HTTPXProviderBase(AbstractProvider[ProviderConfigVar, ProviderRequestVar]):
-    def _invalid_json_error(self, response: Response, exception: Exception, content_str: str) -> Exception:
-        return self._failed_generation_error_wrapper(content_str, "Response does not contain a valid JSON", retry=True)
+    def _invalid_json_error(
+        self,
+        response: Response,
+        exception: Exception | None,
+        raw_completion: str,
+        error_msg: str,
+        retry: bool = False,
+    ) -> Exception:
+        moderation_patterns = ["inappropriate", "offensive"]
+        if "apologize" in raw_completion.lower() and any(
+            pattern in raw_completion.lower() for pattern in moderation_patterns
+        ):
+            return ContentModerationError(retry=retry, provider_error=raw_completion)
+
+        # Ok to have a wide catch since this is only called on failed generation
+        if "sorry" in raw_completion.lower():
+            return FailedGenerationError(
+                msg=f"Model refused to generate a response: {raw_completion}",
+                response=response,
+            )
+        return FailedGenerationError(msg=error_msg, raw_completion=raw_completion, retry=retry)
 
     def _provider_rate_limit_error(self, response: Response):
         return ProviderRateLimitError(retry_after=10, response=response)
@@ -222,17 +241,6 @@ class HTTPXProviderBase(AbstractProvider[ProviderConfigVar, ProviderRequestVar])
             )
             self._assign_usage_from_structured_output(raw_completion, parsed_response)
             return parsed_response
-
-    def _failed_generation_error_wrapper(self, raw_completion: str, error_msg: str, retry: bool = False):
-        # Check for content moderation rejection patterns in the response text.
-        # Some providers (e.g. Bedrock) may return HTTP 200 but indicate content
-        # rejection through apologetic messages in the response text.
-        moderation_patterns = ["inappropriate", "offensive"]
-        if "apologize" in raw_completion.lower() and any(
-            pattern in raw_completion.lower() for pattern in moderation_patterns
-        ):
-            return ContentModerationError(retry=retry, provider_error=raw_completion)
-        return FailedGenerationError(msg=error_msg, raw_completion=raw_completion, retry=retry)
 
     def _handle_chunk_output(self, context: StreamingContext, content: str) -> bool:
         updates = context.streamer.process_chunk(content)

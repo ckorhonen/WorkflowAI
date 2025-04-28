@@ -8,8 +8,6 @@ from pydantic import BaseModel
 from typing_extensions import override
 
 from core.domain.errors import (
-    ContentModerationError,
-    FailedGenerationError,
     InternalError,
     JSONSchemaValidationError,
     ProviderError,
@@ -148,9 +146,11 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
                 raw_completion.usage = usage
 
         if (raised_exception or not content_str) and not native_tool_calls and not files:
-            raise self._failed_generation_error_wrapper(
-                content_str,
-                "Generation returned an empty response",
+            raise self._invalid_json_error(
+                response,
+                raised_exception,
+                raw_completion=content_str,
+                error_msg="Generation returned an empty response",
                 retry=True,
             ) from raised_exception
 
@@ -248,17 +248,6 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
         if files:
             output = output._replace(files=files)
         return output
-
-    def _failed_generation_error_wrapper(self, raw_completion: str, error_msg: str, retry: bool = False):
-        # Check for content moderation rejection patterns in the response text.
-        # Some providers (e.g. Bedrock) may return HTTP 200 but indicate content
-        # rejection through apologetic messages in the response text.
-        moderation_patterns = ["inappropriate", "offensive"]
-        if "apologize" in raw_completion.lower() and any(
-            pattern in raw_completion.lower() for pattern in moderation_patterns
-        ):
-            return ContentModerationError(retry=retry, provider_error=raw_completion)
-        return FailedGenerationError(msg=error_msg, raw_completion=raw_completion, retry=retry)
 
     def _handle_chunk_output(self, context: StreamingContext, content: str) -> bool:
         updates = context.streamer.process_chunk(content)
@@ -359,7 +348,9 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
                         json_str = extract_json_str(streaming_context.streamer.raw_completion)
                     except ValueError:
                         if not streaming_context.tool_calls:
-                            raise self._failed_generation_error_wrapper(
+                            raise self._invalid_json_error(
+                                response,
+                                None,
                                 streaming_context.streamer.raw_completion,
                                 "Generation does not contain a valid JSON",
                                 retry=True,
@@ -373,7 +364,9 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
                             streaming_context.tool_calls,
                         )
                     except JSONSchemaValidationError as e:
-                        raise self._failed_generation_error_wrapper(
-                            streaming_context.streamer.raw_completion,
-                            str(e),
+                        raise self._invalid_json_error(
+                            response=response,
+                            exception=e,
+                            raw_completion=streaming_context.streamer.raw_completion,
+                            error_msg=str(e),
                         )
