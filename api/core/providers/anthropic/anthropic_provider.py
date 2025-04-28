@@ -328,6 +328,10 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
                 # Not capturing since the umage is just too large
                 capture = False
                 message = "Image exceeds the maximum size"
+            case msg if "image does not match the provided media type" in msg:
+                # Not capturing since the image is just too large
+                capture = False
+                message = "Image does not match the provided media type"
             case msg if "prompt is too long" in msg:
                 error_cls = MaxTokensExceededError
                 capture = False
