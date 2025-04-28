@@ -9,6 +9,7 @@ from core.domain.errors import (
     ContentModerationError,
     FailedGenerationError,
     MaxTokensExceededError,
+    ModelDoesNotSupportMode,
     ProviderError,
     UnknownProviderError,
 )
@@ -336,10 +337,20 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
                 case "Client specified an invalid argument":
                     return self._invalid_argument_error(payload, response)
                 case _:
-                    return UnknownProviderError(
-                        msg=payload.error or f"Unknown error status {response.status_code}",
-                        response=response,
-                    )
+                    pass
+
+            lowed_msg = payload.error.lower()
+
+            if "unsupported content-type encountered when downloading image" in lowed_msg:
+                return ModelDoesNotSupportMode(
+                    msg=payload.error or f"Unknown error status {response.status_code}",
+                    response=response,
+                )
+
+            return UnknownProviderError(
+                msg=payload.error or f"Unknown error status {response.status_code}",
+                response=response,
+            )
         except Exception:
             self.logger.exception("failed to parse XAI error response", extra={"response": response.text})
         return UnknownProviderError(msg=f"Unknown error status {response.status_code}", response=response)

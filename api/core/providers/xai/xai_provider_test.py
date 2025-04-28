@@ -10,6 +10,7 @@ from pytest_httpx import HTTPXMock, IteratorStream
 from core.domain.errors import (
     ContentModerationError,
     MaxTokensExceededError,
+    ModelDoesNotSupportMode,
     ProviderError,
     ProviderInternalError,
     StructuredGenerationError,
@@ -818,10 +819,10 @@ class TestUnknownError:
     def unknown_error_fn(self, xai_provider: XAIProvider):
         # Wrapper to avoid having to silence the private warning
         # and instantiate the response
-        def _build_unknown_error(payload: str | dict[str, Any]):
+        def _build_unknown_error(payload: str | dict[str, Any], status_code: int = 400):
             if isinstance(payload, dict):
                 payload = json.dumps(payload)
-            res = Response(status_code=400, text=payload)
+            res = Response(status_code=status_code, text=payload)
             return xai_provider._unknown_error(res)  # pyright: ignore[reportPrivateUsage]
 
         return _build_unknown_error
@@ -832,3 +833,10 @@ class TestUnknownError:
             "error": "This model's maximum prompt length is 131072 but the request contains 144543 tokens.",
         }
         assert isinstance(unknown_error_fn(payload), MaxTokensExceededError)
+
+    def test_model_does_not_support_mode(self, unknown_error_fn: Callable[[dict[str, Any], int], ProviderError]):
+        payload = {
+            "code": "The system is not in a state required for the operation's execution",
+            "error": 'Unsupported content-type encountered when downloading image. The only supported content types are ["image/jpeg", "image/jpg", "image/png"]',
+        }
+        assert isinstance(unknown_error_fn(payload, 412), ModelDoesNotSupportMode)
