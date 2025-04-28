@@ -333,6 +333,7 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
         "the document has no pages",
         "unable to process input image",
         "url_unreachable-unreachable_5xx",
+        "url_rejected",
     ]
 
     @classmethod
