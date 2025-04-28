@@ -93,6 +93,7 @@ class ModelDataSupportsOverride(BaseModel):
     supports_structured_output: bool | None = None
     support_input_schema: bool | None = None
     supports_output_image: bool | None = None
+    supports_output_text: bool | None = None
 
     def override(self, data: _T) -> _T:
         return data.model_copy(update=self.model_dump(exclude_none=True))
@@ -104,6 +105,10 @@ class ModelProviderData(BaseModel):
     image_price: ImageFixedPrice | None = Field(
         default=None,
         description="The cost per image for the model, if applicable.",
+    )
+    image_output_price: ImageFixedPrice | None = Field(
+        default=None,
+        description="The cost per image output for the model, if applicable.",
     )
 
     audio_price: AudioPricePerToken | AudioPricePerSecond | None = Field(

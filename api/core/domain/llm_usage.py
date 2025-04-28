@@ -24,6 +24,7 @@ class LLMCompletionUsage(BaseModel):
     completion_cost_usd: Optional[float] = None
     reasoning_token_count: Optional[float] = None
     completion_image_token_count: Optional[float] = None
+    completion_image_count: Optional[int] = None
 
 
 class LLMUsage(LLMPromptUsage, LLMCompletionUsage):

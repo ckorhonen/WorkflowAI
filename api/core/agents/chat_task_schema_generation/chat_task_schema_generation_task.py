@@ -47,7 +47,6 @@ class InputSchemaFieldType(Enum):
     URL = "url"
     EMAIL = "email"
     HTML = "html"
-    IMAGE_GENERATION_OPTIONS = "image_generation_options"
 
 
 class OutputSchemaFieldType(Enum):
@@ -344,7 +343,7 @@ INSTRUCTIONS = """Step 1 (only if there is no existing_agent_schema):
     - All fields are optional by default.
     - When an explicit timezone is required for the agent in the output (for example: repeating events at the same time on different days, daylight saving time ambiguities, etc.), you can use the "datetime_local" type that includes date, local_time, and timezone.
     - Be very careful not propagating things from the 'existing_agent_schema', that should not belong in the 'new_agent_schema', like the 'examples' for non-string fields.
-    - Image generation is supported. When generating one or multiple images, add an 'image_generation_options' field named "options" to the input schema.
+    - Image generation is supported. When generating images, do not add additional fields to the output unless explicitly asked by the user. If the user asks to generate an array of images, add an 'image_count' field to the input schema. If explicitly asked, you can also add a 'mask' Image field to the input schema.
     - Audio generation, and file generation in general, is not supported. Always refer to the InputSchemaFieldType and OutputSchemaFieldType, respectively.
     - 'document_file' allows to support indistinctively text (txt, json, csv, etc), images and pdfs file.
     - If 'available_tools_description' is provided, consider how these tools might be utilized in the agent and adjust the schema accordingly.

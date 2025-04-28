@@ -248,16 +248,6 @@ class FireworksAIProvider(HTTPXProvider[FireworksConfig, CompletionResponse]):
         return ""
 
     @override
-    def _invalid_json_error(self, response: Response, exception: Exception, content_str: str):
-        # TODO: check if this is needed
-        if "sorry" in content_str.lower():
-            return FailedGenerationError(
-                msg=f"Model refused to generate a response: {content_str}",
-                response=response,
-            )
-        return super()._invalid_json_error(response, exception, content_str)
-
-    @override
     def _extract_usage(self, response: CompletionResponse) -> LLMUsage | None:
         return response.usage.to_domain()
 
@@ -559,18 +549,7 @@ class FireworksAIProvider(HTTPXProvider[FireworksConfig, CompletionResponse]):
                 return TemplateName.V2_NATIVE_TOOL_USE
             case TemplateName.V2_STRUCTURED_GENERATION:
                 return TemplateName.V2_DEFAULT
-            case (
-                TemplateName.V1
-                | TemplateName.NO_OUTPUT_SCHEMA
-                | TemplateName.WITH_TOOL_USE
-                | TemplateName.WITH_TOOL_USE_AND_NO_OUTPUT_SCHEMA
-                | TemplateName.V2_DEFAULT
-                | TemplateName.V2_TOOL_USE
-                | TemplateName.V2_DEFAULT_NO_INPUT_SCHEMA
-                | TemplateName.V2_TOOL_USE_NO_INPUT_SCHEMA
-                | TemplateName.V2_NATIVE_TOOL_USE
-                | TemplateName.V2_NATIVE_TOOL_USE_NO_INPUT_SCHEMA
-            ):
+            case _:
                 return template
 
     @override

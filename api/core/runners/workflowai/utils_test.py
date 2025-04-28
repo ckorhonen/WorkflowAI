@@ -12,6 +12,7 @@ from core.domain.consts import FILE_DEFS
 from core.domain.errors import InvalidFileError
 from core.domain.fields.file import File
 from core.domain.tool import Tool
+from core.domain.types import TaskOutputDict
 from core.runners.workflowai.internal_tool import InternalTool
 from core.tools import ToolKind
 from tests.utils import fixture_bytes
@@ -19,13 +20,13 @@ from tests.utils import fixture_bytes
 from .utils import (
     FileWithKeyPath,
     _process_ref,  # pyright: ignore[reportPrivateUsage]
+    assign_files,
     cleanup_provider_json,
     convert_pdf_to_images,
-    count_image_fields,
     download_file,
     extract_files,
     is_schema_containing_legacy_file,
-    possible_file_keypaths,
+    remove_files_from_schema,
     split_tools,
 )
 
@@ -531,91 +532,178 @@ class TestCleanupProviderJson:
         assert cleanup_provider_json(raw_obj) == {"blabla": ["Préparation de commande"]}
 
 
-class TestPossibleFileKeypaths:
-    def test_single_file(self):
-        schema: dict[str, Any] = {"properties": {"file": {"$ref": "#/$defs/File"}}, "$defs": {"File": {}}}
-        assert possible_file_keypaths(schema, 1) == [["file"]]
+def _file_defs(name: str = "File"):
+    return {
+        "$defs": {
+            name: {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string"},
+                },
+            },
+        },
+    }
 
-    def test_file_list(self):
+
+class TestAssignFiles:
+    def test_assign_single_file(self):
+        schema: dict[str, Any] = {
+            "properties": {
+                "file": {"$ref": "#/$defs/File"},
+            },
+            **_file_defs(),
+        }
+        files = [File(data="file1", content_type="text/plain")]
+        output: TaskOutputDict = {}
+
+        assert not assign_files(schema, files, output)
+        assert output == {"file": {"data": "file1", "content_type": "text/plain"}}
+
+    def test_assign_file_list(self):
         schema: dict[str, Any] = {
             "properties": {
                 "files": {"type": "array", "items": {"$ref": "#/$defs/File"}},
             },
-            "$defs": {"File": {}},
+            **_file_defs(),
         }
-        assert possible_file_keypaths(schema, 2) == [["files", 0], ["files", 1]]
+        files = [
+            File(data="file1", content_type="text/plain"),
+            File(data="file2", content_type="text/plain"),
+        ]
+        output: TaskOutputDict = {"files": []}
 
-    def test_2_files(self):
+        assert not assign_files(schema, files, output)
+        assert output == {
+            "files": [
+                {"data": "file1", "content_type": "text/plain"},
+                {"data": "file2", "content_type": "text/plain"},
+            ],
+        }
+
+    def test_assign_multiple_file_fields(self):
         schema: dict[str, Any] = {
             "properties": {
                 "file1": {"$ref": "#/$defs/File"},
                 "file2": {"$ref": "#/$defs/File"},
             },
-            "$defs": {"File": {}},
+            **_file_defs(),
         }
-        assert possible_file_keypaths(schema, 2) == [["file1"], ["file2"]]
+        files = [
+            File(data="file1", content_type="text/plain"),
+            File(data="file2", content_type="text/plain"),
+        ]
+        output: TaskOutputDict = {}
 
-    def test_file_then_list(self):
+        assert not assign_files(schema, files, output)
+        assert output == {
+            "file1": {"data": "file1", "content_type": "text/plain"},
+            "file2": {"data": "file2", "content_type": "text/plain"},
+        }
+
+    def test_assign_mixed_file_fields(self):
+        schema: dict[str, Any] = {
+            "properties": {
+                "single_file": {"$ref": "#/$defs/File"},
+                "file_list": {"type": "array", "items": {"$ref": "#/$defs/File"}},
+            },
+            **_file_defs(),
+        }
+        files = [
+            File(data="single", content_type="text/plain"),
+            File(data="list1", content_type="text/plain"),
+            File(data="list2", content_type="text/plain"),
+        ]
+        output: TaskOutputDict = {}
+
+        assert not assign_files(schema, files, output)
+        assert output == {
+            "single_file": {"data": "single", "content_type": "text/plain"},
+            "file_list": [
+                {"data": "list1", "content_type": "text/plain"},
+                {"data": "list2", "content_type": "text/plain"},
+            ],
+        }
+
+    @pytest.fixture()
+    def schema_with_object_with_file_field(self) -> dict[str, Any]:
+        return {
+            "properties": {
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "file": {"$ref": "#/$defs/File"},
+                            "description": {"type": "string"},
+                        },
+                    },
+                },
+            },
+            **_file_defs(),
+        }
+
+    def test_list_of_object_with_file_field(self, schema_with_object_with_file_field: dict[str, Any]):
+        files = [
+            File(data="1", content_type="text/plain"),
+            File(data="2", content_type="text/plain"),
+        ]
+        output: TaskOutputDict = {}
+        remaining_files = assign_files(schema_with_object_with_file_field, files, output)
+        assert not remaining_files
+        assert output == {
+            "files": [
+                {"file": {"data": "1", "content_type": "text/plain"}},
+                {"file": {"data": "2", "content_type": "text/plain"}},
+            ],
+        }
+
+    def test_list_of_object_with_file_field_prefilled(self, schema_with_object_with_file_field: dict[str, Any]):
+        files = [
+            File(data="1", content_type="text/plain"),
+            File(data="2", content_type="text/plain"),
+        ]
+        output: TaskOutputDict = {
+            "files": [
+                {"description": "file1"},
+                {"description": "file2"},
+            ],
+        }
+        remaining_files = assign_files(schema_with_object_with_file_field, files, output)
+        assert not remaining_files
+        assert output == {
+            "files": [
+                {"file": {"data": "1", "content_type": "text/plain"}, "description": "file1"},
+                {"file": {"data": "2", "content_type": "text/plain"}, "description": "file2"},
+            ],
+        }
+
+
+class TestRemoveFilesFromSchema:
+    def test_remove_files_from_schema(self):
         schema: dict[str, Any] = {
             "properties": {
                 "file": {"$ref": "#/$defs/File"},
+            },
+            **_file_defs(),
+        }
+
+        min_file_count, max_file_count = remove_files_from_schema(schema)
+        assert min_file_count == 1
+        assert max_file_count == 1
+
+        assert schema["properties"] == {}
+
+    # TODO: we should add more tests here
+    def test_remove_files_from_schema_with_array(self):
+        schema: dict[str, Any] = {
+            "properties": {
                 "files": {"type": "array", "items": {"$ref": "#/$defs/File"}},
             },
-            "$defs": {"File": {}},
+            **_file_defs(),
         }
 
-        assert possible_file_keypaths(schema, 3) == [["file"], ["files", 0], ["files", 1]]
+        min_file_count, max_file_count = remove_files_from_schema(schema)
+        assert min_file_count == 1
+        assert max_file_count is None
 
-
-class TestCountImageFields:
-    def test_single_image_field(self):
-        schema = {
-            "properties": {
-                "image": {"$ref": "#/$defs/Image"},
-            },
-            "$defs": {
-                "Image": {
-                    "type": "object",
-                    "properties": {
-                        "url": {"type": "string"},
-                    },
-                },
-            },
-        }
-        assert count_image_fields(schema) == 1
-
-    def test_image_array(self):
-        schema = {
-            "properties": {
-                "images": {
-                    "type": "array",
-                    "items": {"$ref": "#/$defs/Image"},
-                },
-            },
-            "$defs": {
-                "Image": {
-                    "type": "object",
-                    "properties": {
-                        "url": {"type": "string"},
-                    },
-                },
-            },
-        }
-        assert count_image_fields(schema) == 1
-
-    def test_two_image_fields(self):
-        schema = {
-            "properties": {
-                "profile_image": {"$ref": "#/$defs/Image"},
-                "cover_image": {"$ref": "#/$defs/Image"},
-            },
-            "$defs": {
-                "Image": {
-                    "type": "object",
-                    "properties": {
-                        "url": {"type": "string"},
-                    },
-                },
-            },
-        }
-        assert count_image_fields(schema) == 2
+        assert schema["properties"] == {}

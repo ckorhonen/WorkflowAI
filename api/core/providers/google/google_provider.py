@@ -1,26 +1,16 @@
-import base64
-import json
-import random
 from typing import Any, Literal
 
-from pydantic import BaseModel, field_validator
 from typing_extensions import override
 
-from core.domain.errors import (
-    InvalidProviderConfig,
-    UnknownProviderError,
-)
 from core.domain.llm_usage import LLMUsage
 from core.domain.models import Model, Provider
-from core.providers.base.utils import get_provider_config_env
-from core.providers.google import google_provider_auth
 from core.providers.google.google_provider_base import GoogleProviderBase
 from core.providers.google.google_provider_domain import (
-    BLOCK_THRESHOLD,
     GOOGLE_CHARS_PER_TOKEN,
     PER_TOKEN_MODELS,
     message_or_system_message,
 )
+from core.providers.google.vertex_base_config import VertexBaseConfig
 
 # Models are global by default
 _MIXED_REGION_MODELS = {
@@ -40,58 +30,20 @@ _VERTEX_API_REGION_METADATA_KEY = "workflowai.vertex_api_region"
 _VERTEX_API_EXCLUDED_REGIONS_METADATA_KEY = "workflowai.vertex_api_excluded_regions"
 
 
-class GoogleProviderConfig(BaseModel):
+class GoogleProviderConfig(VertexBaseConfig):
     provider: Literal[Provider.GOOGLE] = Provider.GOOGLE
-
-    vertex_project: str
-    vertex_credentials: str
-    vertex_location: list[str]
-
-    default_block_threshold: BLOCK_THRESHOLD | None = None
-
-    def __str__(self):
-        return (
-            f"GoogleProviderConfig(project={self.vertex_project}, location={self.vertex_location[0]}, credentials=****)"
-        )
-
-    @field_validator("vertex_location", mode="before")
-    @classmethod
-    def sanitize_vertex_location(cls, data: Any) -> Any:
-        if isinstance(data, str):
-            return data.split(",")
-        return data
 
 
 class GoogleProvider(GoogleProviderBase[GoogleProviderConfig]):
-    def _get_random_region(self, choices: list[str]) -> str:
-        return random.choice(choices)
-
-    def all_available_regions(self):
-        return set(self._config.vertex_location)
-
     def get_vertex_location(self, model: Model) -> str:
         if model not in _MIXED_REGION_MODELS:
             return self._config.vertex_location[0]
 
-        used_regions = self._get_metadata(_VERTEX_API_EXCLUDED_REGIONS_METADATA_KEY)
-        excluded_regions: set[str] = set(used_regions.split(",")) if used_regions else set()
-        region = self._get_metadata(_VERTEX_API_REGION_METADATA_KEY)
-        if region and region not in excluded_regions:
-            excluded_regions.add(region)
-            self._add_metadata(_VERTEX_API_EXCLUDED_REGIONS_METADATA_KEY, ",".join(excluded_regions))
-        choices = list(self.all_available_regions() - set(excluded_regions))
-
-        if len(choices) == 0:
-            raise UnknownProviderError("No available regions left to retry.", extra={"choices": choices})
-        return self._get_random_region(choices)
+        return self._config.get_random_location(self._get_metadata, self._add_metadata)
 
     @override
     async def _request_headers(self, request: dict[str, Any], url: str, model: Model) -> dict[str, str]:
-        token = await google_provider_auth.get_token(self._config.vertex_credentials)
-        return {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {token}",
-        }
+        return await self._config.get_request_headers()
 
     _MODEL_STR_OVERRIDES = {
         Model.LLAMA_3_2_90B: "llama-3.2-90b-vision-instruct-maas",
@@ -107,7 +59,6 @@ class GoogleProvider(GoogleProviderBase[GoogleProviderConfig]):
     @override
     def _request_url(self, model: Model, stream: bool) -> str:
         location = self.get_vertex_location(model)
-        self._add_metadata(_VERTEX_API_REGION_METADATA_KEY, location)
 
         PUBLISHER_OVERRIDES = {
             Model.LLAMA_3_1_405B: "meta",
@@ -126,7 +77,7 @@ class GoogleProvider(GoogleProviderBase[GoogleProviderConfig]):
     @override
     @classmethod
     def required_env_vars(cls) -> list[str]:
-        return ["GOOGLE_VERTEX_AI_PROJECT_ID", "GOOGLE_VERTEX_AI_LOCATION", "GOOGLE_VERTEX_AI_CREDENTIALS"]
+        return VertexBaseConfig.required_env_vars()
 
     @override
     @classmethod
@@ -136,12 +87,7 @@ class GoogleProvider(GoogleProviderBase[GoogleProviderConfig]):
     @override
     @classmethod
     def _default_config(cls, index: int) -> GoogleProviderConfig:
-        return GoogleProviderConfig(
-            vertex_project=get_provider_config_env("GOOGLE_VERTEX_AI_PROJECT_ID", index),
-            vertex_credentials=get_provider_config_env("GOOGLE_VERTEX_AI_CREDENTIALS", index),
-            vertex_location=get_provider_config_env("GOOGLE_VERTEX_AI_LOCATION", index).split(","),
-            default_block_threshold="BLOCK_NONE",
-        )
+        return GoogleProviderConfig.default(index)
 
     @override
     def default_model(self) -> Model:
@@ -149,37 +95,7 @@ class GoogleProvider(GoogleProviderBase[GoogleProviderConfig]):
 
     @classmethod
     def sanitize_config(cls, config: GoogleProviderConfig) -> GoogleProviderConfig:
-        credentials = config.vertex_credentials
-        if not credentials.startswith("{"):
-            # Credentials are not a JSON string. We assume they are base64 encoded
-            # the frontend sends b64 encoded credentials
-            if credentials.startswith("data:application/json;base64,"):
-                credentials = credentials[29:]
-            try:
-                credentials = base64.b64decode(credentials).decode("utf-8")
-            except ValueError:
-                raise InvalidProviderConfig("Invalid base64 encoded credentials")
-
-        try:
-            raw_json = json.loads(credentials)
-        except json.JSONDecodeError:
-            raise InvalidProviderConfig("Vertex credentials are not a json payload")
-
-        if not isinstance(raw_json, dict):
-            raise InvalidProviderConfig("Vertex credentials are not a json object")
-
-        # Check if the project matches the project in the config
-        if raw_json.get("project_id") != config.vertex_project:  # pyright: ignore [reportUnknownMemberType]
-            raise InvalidProviderConfig("Vertex credentials project_id does not match the project in the config")
-
-        if "private_key" not in raw_json:
-            raise InvalidProviderConfig("Vertex credentials are missing a private_key")
-
-        return GoogleProviderConfig(
-            vertex_project=config.vertex_project,
-            vertex_credentials=credentials,
-            vertex_location=config.vertex_location,
-        )
+        return config.sanitize()
 
     def _compute_prompt_token_count_per_token(self, messages: list[dict[str, Any]], model: Model) -> float:
         token_count = 0

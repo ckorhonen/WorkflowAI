@@ -3,6 +3,7 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
+from core.domain.fields.image_options import ImageOptions
 from core.domain.models import Model, Provider
 from core.domain.task_group_properties import FewShotExample
 from core.domain.tool import Tool
@@ -43,3 +44,5 @@ class WorkflowAIRunnerOptions(BaseModel):
     is_structured_generation_enabled: bool | None = None
 
     has_templated_instructions: bool | None = None
+
+    image_options: ImageOptions | None = None

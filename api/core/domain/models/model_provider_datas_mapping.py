@@ -891,6 +891,18 @@ GOOGLE_GEMINI_API_PROVIDER_DATA: ProviderDataByModel = {
             source="https://ai.google.dev/gemini-api/docs/pricing#2_0flash_lite",
         ),
     ),
+    Model.GEMINI_2_0_FLASH_EXP: ModelProviderData(
+        # Exp models are free
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=0,
+            completion_cost_per_token=0,
+            completion_image_cost_per_token=0,
+            source="https://ai.google.dev/gemini-api/docs/pricing#2_0flash_lite",
+        ),
+        image_price=ImageFixedPrice(
+            cost_per_image=0,
+        ),
+    ),
     Model.GEMINI_2_0_FLASH_001: ModelProviderData(
         text_price=TextPricePerToken(
             prompt_cost_per_token=0.10 * ONE_MILLION_TH,
@@ -1212,6 +1224,39 @@ XAI_PROVIDER_DATA: ProviderDataByModel = {
     ),
 }
 
+GOOGLE_IMAGEN_PROVIDER_DATA: ProviderDataByModel = {
+    Model.IMAGEN_3_0_FAST_001: ModelProviderData(
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=0,
+            completion_cost_per_token=0,
+            source="https://ai.google.dev/gemini-api/docs/pricing#imagen-3",
+        ),
+        image_output_price=ImageFixedPrice(
+            cost_per_image=0.03,
+        ),
+    ),
+    Model.IMAGEN_3_0_001: ModelProviderData(
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=0,
+            completion_cost_per_token=0,
+            source="https://ai.google.dev/gemini-api/docs/pricing#imagen-3",
+        ),
+        image_output_price=ImageFixedPrice(
+            cost_per_image=0.03,
+        ),
+    ),
+    Model.IMAGEN_3_0_002: ModelProviderData(
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=0,
+            completion_cost_per_token=0,
+            source="https://ai.google.dev/gemini-api/docs/pricing#imagen-3",
+        ),
+        image_output_price=ImageFixedPrice(
+            cost_per_image=0.03,
+        ),
+    ),
+}
+
 type ProviderModelDataMapping = dict[Provider, ProviderDataByModel]
 
 # Pricing and lifecycle data for each model / provider couple
@@ -1219,6 +1264,7 @@ MODEL_PROVIDER_DATAS: ProviderModelDataMapping = {
     # ------------------------------------------------------------------------------------------------
     # Google Vertex AI
     Provider.GOOGLE: GOOGLE_PROVIDER_DATA,
+    Provider.GOOGLE_IMAGEN: GOOGLE_IMAGEN_PROVIDER_DATA,
     # ------------------------------------------------------------------------------------------------
     # OpenAI
     Provider.OPEN_AI: OPENAI_PROVIDER_DATA,

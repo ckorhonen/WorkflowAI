@@ -60,10 +60,14 @@ class JsonSchema:
         schema: Union[RawJsonSchema, dict[str, Any]],
         defs: Optional[dict[str, "RawJsonSchema"]] = None,
         is_nullable: bool = False,
+        # TODO: it's a bit convoluted but the parent property is only set
+        # when the schema is created from a child schema, not when using sub_schema
+        parent: tuple["JsonSchema", str | int] | None = None,
     ) -> None:
         self.schema = schema
         self.defs = defs or schema.get("$defs", {})
         self.is_nullable = is_nullable
+        self.parent = parent
 
     @property
     def type(self) -> Optional[FieldType]:
@@ -230,11 +234,12 @@ class JsonSchema:
         follow_refs: bool = True,
     ) -> Self:
         """Get a direct sub schema based on a key"""
-        return self.sub_schema([key], splat_nulls=splat_nulls, follow_refs=follow_refs)
+        return self.sub_schema([key], splat_nulls=splat_nulls, follow_refs=follow_refs, parent=(self, key))
 
     def child_iterator(self, splat_nulls: bool = True, follow_refs: bool = True):
         if self.type == "object":
-            for key in self.schema.get("properties", dict[str, Any]()).keys():
+            # Copying the keys to allow for modifications
+            for key in list(self.schema.get("properties", dict[str, Any]()).keys()):
                 yield key, self.child_schema(key, splat_nulls, follow_refs)
             return
         if self.type == "array":
@@ -267,6 +272,7 @@ class JsonSchema:
         keypath: str = "",
         splat_nulls: bool = True,
         follow_refs: bool = True,
+        parent: tuple["JsonSchema", str | int] | None = None,
     ) -> Self:
         """
         Get a sub schema based on a list of keys or a keypath
@@ -297,7 +303,7 @@ class JsonSchema:
             schema, is_nullable = self.splat_nulls(schema)
         if follow_refs:
             schema = self._follow_ref(schema, self.defs)
-        return self.__class__(schema, self.defs, is_nullable)
+        return self.__class__(schema, self.defs, is_nullable, parent)
 
     def get(self, key: str, default: Any = None) -> Any:
         if key in self:
@@ -327,21 +333,64 @@ class JsonSchema:
         for nav in navigators:
             nav(self, obj=obj)
 
-    def fields_iterator(self, prefix: list[str]) -> Iterator[tuple[list[str], FieldType]]:
+    def fields_iterator(
+        self,
+        prefix: list[str],
+        dive: Callable[[Self], bool] = lambda _: True,
+    ) -> Iterator[tuple[list[str], FieldType, Self]]:
         t = self.type
         if not t:
             return
         if prefix:
-            yield prefix, t
+            yield prefix, t, self
+        if not dive(self):
+            return
         match t:
             case "object":
-                for key in self.schema.get("properties", {}).keys():
-                    yield from self.child_schema(key).fields_iterator(prefix=[*prefix, key])
+                for key in list(self.schema.get("properties", {}).keys()):
+                    yield from self.child_schema(key).fields_iterator(prefix=[*prefix, key], dive=dive)
             case "array":
                 # Assuming array only has one item
-                yield from self.child_schema(0).fields_iterator(prefix=[*prefix, "[]"])
+                yield from self.child_schema(0).fields_iterator(prefix=[*prefix, "[]"], dive=dive)
             case _:
                 pass
+
+    def _remove_property(self, key: str, recursive: bool):
+        properties = self.schema.get("properties")
+        if not properties:
+            return
+        properties.pop(key, None)
+        if required := self.schema.get("required"):
+            required.remove(key)
+
+        if not properties and recursive:
+            self.remove_from_parent(recursive=recursive)
+
+    def _remove_item(self, key: int, recursive: bool):
+        items = self.schema.get("items")
+        if not items:
+            return
+        if isinstance(items, list):
+            items.pop(key)
+            if not items and recursive:
+                self.remove_from_parent(recursive=recursive)
+            return
+
+        self.schema.pop("items")
+        if recursive:
+            self.remove_from_parent(recursive=recursive)
+
+    def remove_from_parent(self, recursive: bool = True):
+        if not self.parent:
+            return
+
+        if isinstance(self.parent[1], str):
+            self.parent[0]._remove_property(self.parent[1], recursive=recursive)
+            return
+
+        if isinstance(self.parent[1], int):  # pyright: ignore[reportUnnecessaryIsInstance]
+            self.parent[0]._remove_item(self.parent[1], recursive=recursive)
+            return
 
 
 def strip_json_schema_metadata_keys(

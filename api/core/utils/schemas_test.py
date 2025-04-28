@@ -918,7 +918,7 @@ class TestFieldIterator:
     def test_extract_event_output(self):
         schema = JsonSchema(fixtures_json("jsonschemas", "extract_event_output.json"))
 
-        fields = {".".join(k): v for k, v in schema.fields_iterator([])}
+        fields = {".".join(k): v for k, v, _ in schema.fields_iterator([])}
 
         assert fields == {
             "title": "string",
@@ -949,7 +949,7 @@ class TestFieldIterator:
             },
         )
 
-        fields = {".".join(k): v for k, v in schema.fields_iterator([])}
+        fields = {".".join(k): v for k, v, _ in schema.fields_iterator([])}
         assert fields == {
             "name": "string",
             "age": "integer",
@@ -959,7 +959,7 @@ class TestFieldIterator:
             "validated_input": "boolean",
         }
 
-    def test_array(self):
+    def test_file(self):
         schema = JsonSchema(
             {
                 "type": "object",
@@ -1000,7 +1000,7 @@ class TestFieldIterator:
                 },
             },
         )
-        fields = {".".join(k): v for k, v in schema.fields_iterator([])}
+        fields = {".".join(k): v for k, v, _ in schema.fields_iterator([])}
         assert fields == {
             "audio_file": "object",
             "audio_file.name": "string",
@@ -1010,6 +1010,15 @@ class TestFieldIterator:
             "image_file.name": "string",
             "image_file.content_type": "string",
             "image_file.data": "string",
+        }
+
+        # Without diving into the File schema
+        fields = {
+            ".".join(k): v for k, v, _ in schema.fields_iterator([], dive=lambda r: r.followed_ref_name != "File")
+        }
+        assert fields == {
+            "audio_file": "object",
+            "image_file": "object",
         }
 
     def test_nullable(self):
@@ -1034,7 +1043,7 @@ class TestFieldIterator:
                 "type": "object",
             },
         )
-        fields = {".".join(k): v for k, v in schema.fields_iterator([])}
+        fields = {".".join(k): v for k, v, _ in schema.fields_iterator([])}
         assert fields == {
             "inital_task_instructions": "string",
         }
@@ -1367,3 +1376,245 @@ class TestSchemaNeedsExplaination:
     def test_schema_needs_explanation(self, schema: dict[str, Any], expected: bool):
         result = schema_needs_explanation(schema)
         assert result == expected
+
+
+class TestRemoveFromParent:
+    def test_remove_from_parent_object(self):
+        schema = JsonSchema(
+            {
+                "type": "object",
+                "properties": {"name": {"type": "string"}},
+            },
+        )
+
+        child = schema.child_schema("name")
+        child.remove_from_parent()
+        assert schema.schema == {"type": "object", "properties": {}}
+
+    def test_remove_from_parent_array(self):
+        schema = JsonSchema(
+            {
+                "type": "object",
+                "properties": {"name": {"type": "array", "items": {"type": "string"}}},
+            },
+        )
+
+        child = schema.child_schema("name").child_schema(0)
+        # child.remove_from_parent(recursive=False)
+        # assert schema.schema == {"type": "object", "properties": {"name": {"type": "array"}}}
+        child.remove_from_parent(recursive=True)
+        assert schema.schema == {"type": "object", "properties": {}}
+
+    def test_remove_from_parent_nested_object(self):
+        schema = JsonSchema(
+            {
+                "type": "object",
+                "properties": {
+                    "user": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "age": {"type": "integer"},
+                        },
+                    },
+                },
+            },
+        )
+
+        child = schema.child_schema("user").child_schema("name")
+        child.remove_from_parent(recursive=False)
+        assert schema.schema == {
+            "type": "object",
+            "properties": {
+                "user": {
+                    "type": "object",
+                    "properties": {
+                        "age": {"type": "integer"},
+                    },
+                },
+            },
+        }
+
+    def test_remove_from_parent_nested_array(self):
+        schema = JsonSchema(
+            {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "string"},
+                                "value": {"type": "number"},
+                            },
+                        },
+                    },
+                },
+            },
+        )
+
+        child = schema.child_schema("items").child_schema(0).child_schema("id")
+        child.remove_from_parent(recursive=False)
+        assert schema.schema == {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "value": {"type": "number"},
+                        },
+                    },
+                },
+            },
+        }
+
+    def test_remove_from_parent_with_required(self):
+        schema = JsonSchema(
+            {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "age": {"type": "integer"},
+                },
+                "required": ["name", "age"],
+            },
+        )
+
+        child = schema.child_schema("name")
+        child.remove_from_parent(recursive=False)
+        assert schema.schema == {
+            "type": "object",
+            "properties": {
+                "age": {"type": "integer"},
+            },
+            "required": ["age"],
+        }
+
+    def test_remove_from_parent_with_refs(self):
+        schema = JsonSchema(
+            {
+                "type": "object",
+                "properties": {
+                    "file": {
+                        "$ref": "#/$defs/File",
+                    },
+                },
+                "$defs": {
+                    "File": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "content": {"type": "string"},
+                        },
+                    },
+                },
+            },
+        )
+
+        child = schema.child_schema("file").child_schema("name")
+        child.remove_from_parent(recursive=False)
+        assert schema.schema == {
+            "type": "object",
+            "properties": {
+                "file": {
+                    "$ref": "#/$defs/File",
+                },
+            },
+            "$defs": {
+                "File": {
+                    "type": "object",
+                    "properties": {
+                        "content": {"type": "string"},
+                    },
+                },
+            },
+        }
+
+    def test_remove_from_parent_with_one_of(self):
+        schema = JsonSchema(
+            {
+                "type": "object",
+                "properties": {
+                    "choice": {
+                        "oneOf": [
+                            {"type": "string"},
+                            {"type": "number"},
+                        ],
+                    },
+                },
+            },
+        )
+
+        child = schema.child_schema("choice")
+        child.remove_from_parent(recursive=False)
+        assert schema.schema == {
+            "type": "object",
+            "properties": {},
+        }
+
+    def test_remove_from_parent_with_array_of_objects(self):
+        schema = JsonSchema(
+            {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": [
+                            {"type": "string"},
+                            {"type": "number"},
+                        ],
+                    },
+                },
+            },
+        )
+
+        child = schema.child_schema("items").child_schema(0)
+        child.remove_from_parent(recursive=False)
+        assert schema.schema == {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": [
+                        {"type": "number"},
+                    ],
+                },
+            },
+        }
+
+    def test_remove_from_parent_with_additional_properties(self):
+        schema = JsonSchema(
+            {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                },
+                "additionalProperties": True,
+            },
+        )
+
+        child = schema.child_schema("name")
+        child.remove_from_parent(recursive=False)
+        assert schema.schema == {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": True,
+        }
+
+    def test_remove_from_parent_with_empty_properties(self):
+        schema = JsonSchema(
+            {
+                "type": "object",
+                "properties": {},
+            },
+        )
+
+        # This should not raise an error
+        schema.remove_from_parent(recursive=False)
+        assert schema.schema == {
+            "type": "object",
+            "properties": {},
+        }

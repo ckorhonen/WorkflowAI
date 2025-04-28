@@ -8,12 +8,11 @@ from pydantic import BaseModel
 from typing_extensions import override
 
 from core.domain.errors import (
-    ContentModerationError,
-    FailedGenerationError,
     InternalError,
     JSONSchemaValidationError,
     ProviderError,
 )
+from core.domain.fields.file import File
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
@@ -28,6 +27,7 @@ from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import StreamingContext, ToolCallRequestBuffer
 from core.utils.background import add_background_task
 from core.utils.dicts import InvalidKeyPathError, set_at_keypath_str
+from core.utils.generics import T
 from core.utils.json_utils import extract_json_str
 from core.utils.streams import standard_wrap_sse
 
@@ -64,6 +64,9 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
     def _extract_content_str(self, response: ResponseModel) -> str:
         pass
 
+    def _extract_files(self, response: ResponseModel) -> list[File] | None:
+        return None
+
     def _extract_reasoning_steps(self, response: ResponseModel) -> list[InternalReasoningStep] | None:
         return None
 
@@ -88,6 +91,18 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
         """Extract the raw prompt from the request JSON"""
         return request_json["messages"]
 
+    def _safe_extract(
+        self,
+        log: str,
+        response_model: ResponseModel,
+        extractor: Callable[[ResponseModel], T],
+    ) -> T | None:
+        try:
+            return extractor(response_model)
+        except Exception:
+            self.logger.exception(f"Error extracting {log}")  # noqa: G004
+            return None
+
     @override
     def _parse_response(
         self,
@@ -107,11 +122,12 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
         # Initialize content_str with the response text so that
         # if we raise an error, we have the original response text
         content_str = response.text
-        native_tool_calls = []
-        reasoning_steps = []
+        native_tool_calls = self._safe_extract("native tool calls", response_model, self._extract_native_tool_calls)
+        reasoning_steps = self._safe_extract("reasoning steps", response_model, self._extract_reasoning_steps)
+        files = self._safe_extract("files", response_model, self._extract_files)
+        raised_exception: Exception | None = None
+
         try:
-            native_tool_calls = self._extract_native_tool_calls(response_model)
-            reasoning_steps = self._extract_reasoning_steps(response_model)
             content_str = self._extract_content_str(response_model)
             content_str = extract_json_str(content_str)
         except ProviderError as e:
@@ -120,22 +136,30 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
             e.set_response(response)
             raise e
         except Exception as e:
+            self.logger.exception("Error extracting content", extra={"response": response.text})
             raw_completion.response = content_str
-
-            if len(native_tool_calls) == 0:
-                raise self._invalid_json_error(response, e, content_str) from e
-            # If there are native tool calls, we don't care if the text answer is empty or a valid JSON or not.
+            raised_exception = e
         finally:
             usage = self._extract_usage(response_model)
             raw_completion.response = content_str
             if usage:
                 raw_completion.usage = usage
 
+        if (raised_exception or not content_str) and not native_tool_calls and not files:
+            raise self._invalid_json_error(
+                response,
+                raised_exception,
+                raw_completion=content_str,
+                error_msg="Generation returned an empty response",
+                retry=True,
+            ) from raised_exception
+
         return self._build_structured_output(
             output_factory,
             content_str,
             reasoning_steps,
             native_tools_calls=native_tool_calls,
+            files=files,
         )
 
     @classmethod
@@ -206,6 +230,7 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
         raw: str,
         reasoning_steps: list[InternalReasoningStep] | None = None,
         native_tools_calls: list[ToolCallRequestWithID] | None = None,
+        files: list[File] | None = None,
     ):
         try:
             output = output_factory(raw, False)
@@ -220,18 +245,9 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
             output = output._replace(reasoning_steps=reasoning_steps)
         if native_tools_calls:
             output = output._replace(tool_calls=native_tools_calls + (output.tool_calls or []))
+        if files:
+            output = output._replace(files=files)
         return output
-
-    def _failed_generation_error_wrapper(self, raw_completion: str, error_msg: str, retry: bool = False):
-        # Check for content moderation rejection patterns in the response text.
-        # Some providers (e.g. Bedrock) may return HTTP 200 but indicate content
-        # rejection through apologetic messages in the response text.
-        moderation_patterns = ["inappropriate", "offensive"]
-        if "apologize" in raw_completion.lower() and any(
-            pattern in raw_completion.lower() for pattern in moderation_patterns
-        ):
-            return ContentModerationError(retry=retry, provider_error=raw_completion)
-        return FailedGenerationError(msg=error_msg, raw_completion=raw_completion, retry=retry)
 
     def _handle_chunk_output(self, context: StreamingContext, content: str) -> bool:
         updates = context.streamer.process_chunk(content)
@@ -332,7 +348,9 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
                         json_str = extract_json_str(streaming_context.streamer.raw_completion)
                     except ValueError:
                         if not streaming_context.tool_calls:
-                            raise self._failed_generation_error_wrapper(
+                            raise self._invalid_json_error(
+                                response,
+                                None,
                                 streaming_context.streamer.raw_completion,
                                 "Generation does not contain a valid JSON",
                                 retry=True,
@@ -346,7 +364,9 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
                             streaming_context.tool_calls,
                         )
                     except JSONSchemaValidationError as e:
-                        raise self._failed_generation_error_wrapper(
-                            streaming_context.streamer.raw_completion,
-                            str(e),
+                        raise self._invalid_json_error(
+                            response=response,
+                            exception=e,
+                            raw_completion=streaming_context.streamer.raw_completion,
+                            error_msg=str(e),
                         )

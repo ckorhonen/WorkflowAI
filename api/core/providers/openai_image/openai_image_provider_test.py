@@ -3,6 +3,7 @@ import base64
 import pytest
 from pytest_httpx import HTTPXMock
 
+from core.domain.errors import ContentModerationError
 from core.domain.fields.file import File
 from core.domain.message import Message
 from core.domain.models.models import Model
@@ -51,7 +52,7 @@ class TestComplete:
                     "input_tokens": 10,
                     "output_tokens": 20,
                     "total_tokens": 30,
-                    "input_token_details": {
+                    "input_tokens_details": {
                         "text_tokens": 10,
                         "image_tokens": 20,
                     },
@@ -76,3 +77,26 @@ class TestComplete:
         assert mock_builder_context.llm_completions[0].usage.prompt_image_token_count == 20
 
         assert mock_builder_context.llm_completions[0].usage.cost_usd == approx(5e-05)
+
+    async def test_image_generation_moderation_blocked(
+        self,
+        openai_image_provider: OpenAIImageProvider,
+        httpx_mock: HTTPXMock,
+    ):
+        httpx_mock.add_response(
+            url="https://api.openai.com/v1/images/generations",
+            status_code=400,
+            json={
+                "error": {
+                    "message": "Your request was rejected as a result of our safety system. Your request may contain content that is not allowed by our safety system.",
+                    "type": "user_error",
+                    "param": None,
+                    "code": "moderation_blocked",
+                },
+            },
+        )
+        messages = [
+            Message(role=Message.Role.USER, content="A beautiful image of a cat"),
+        ]
+        with pytest.raises(ContentModerationError):
+            await openai_image_provider.complete(messages, _provider_options(), output_factory=_output_factory)

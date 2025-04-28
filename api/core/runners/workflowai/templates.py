@@ -3,6 +3,7 @@ from enum import StrEnum
 from typing import NamedTuple
 
 
+# TODO: use jinja2 templates instead of complext template picking
 class TemplateName(StrEnum):
     # Legacy templates (keys can't be changed, since we store those values in the database in old groups)
     V1 = "v1"
@@ -25,6 +26,7 @@ class TemplateName(StrEnum):
     V2_STRUCTURED_GENERATION_AND_NATIVE_TOOL_USE_NO_INPUT_SCHEMA = (
         "v2_structured_generation_and_native_tool_use_no_input_schema"
     )
+    V2_NO_INPUT_OR_OUTPUT_SCHEMA = "v2_no_input_or_output_schema"
 
 
 DEPRECATED_TEMPLATES = {
@@ -126,6 +128,12 @@ _with_structured_generation_and_native_tool_use_no_input_schema_system = """<ins
 
 Before actually computing the output, you can use the any of the available tools to help you."""
 
+_no_input_or_output_schema_system = """{{instructions}}"""
+_no_input_or_output_schema_user = """Input is:
+```json
+{{input_data}}
+```{{examples}}"""
+
 
 class TemplateConfig(NamedTuple):
     system_template: str
@@ -155,6 +163,10 @@ TEMPLATES = {
     TemplateName.V2_STRUCTURED_GENERATION_AND_NATIVE_TOOL_USE_NO_INPUT_SCHEMA: TemplateConfig(
         _with_structured_generation_and_native_tool_use_no_input_schema_system,
         _v2_user_message,
+    ),
+    TemplateName.V2_NO_INPUT_OR_OUTPUT_SCHEMA: TemplateConfig(
+        _no_input_or_output_schema_system,
+        _no_input_or_output_schema_user,
     ),
 }
 

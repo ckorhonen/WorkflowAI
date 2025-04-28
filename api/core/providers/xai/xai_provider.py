@@ -186,16 +186,6 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
         return ""
 
     @override
-    def _invalid_json_error(self, response: Response, exception: Exception, content_str: str):
-        # TODO: check if this is needed
-        if "sorry" in content_str.lower():
-            return FailedGenerationError(
-                msg=f"Model refused to generate a response: {content_str}",
-                response=response,
-            )
-        return super()._invalid_json_error(response, exception, content_str)
-
-    @override
     def _extract_usage(self, response: CompletionResponse) -> LLMUsage | None:
         return response.usage.to_domain() if response.usage else None
 
