@@ -334,6 +334,7 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
         "unable to process input image",
         "url_unreachable-unreachable_5xx",
         "url_rejected",
+        "url_roboted",
     ]
 
     @classmethod
@@ -376,6 +377,8 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
                 error_cls = ProviderInvalidFileError
             case lower_msg if any(m in lower_msg for m in cls._INVALID_FILE_SEARCH_STRINGS):
                 error_cls = ProviderInvalidFileError
+            case lower_msg if "you can only include" in lower_msg:
+                error_cls = ModelDoesNotSupportMode
             case _:
                 return
         raise error_cls(error_msg, response=response, capture=capture)
