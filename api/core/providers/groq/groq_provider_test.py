@@ -11,6 +11,7 @@ from httpx import Response
 from pytest_httpx import HTTPXMock, IteratorStream
 
 from core.domain.errors import (
+    FailedGenerationError,
     MaxTokensExceededError,
     ProviderBadRequestError,
     ProviderError,
@@ -108,7 +109,7 @@ class TestStream:
                     "role": "user",
                 },
             ],
-            "response_format": {"type": "json_object"},
+            "response_format": {"type": "text"},
             "stream": True,
             "temperature": 0.0,
         }
@@ -180,7 +181,7 @@ class TestComplete:
                     "role": "user",
                 },
             ],
-            "response_format": {"type": "json_object"},
+            "response_format": {"type": "text"},
             "stream": False,
             "temperature": 0.0,
         }
@@ -226,7 +227,7 @@ class TestComplete:
                     "role": "user",
                 },
             ],
-            "response_format": {"type": "json_object"},
+            "response_format": {"type": "text"},
             "stream": False,
             "temperature": 0.0,
         }
@@ -277,6 +278,24 @@ class TestComplete:
         assert o.tool_calls is not None
         assert o.tool_calls[0].tool_name == "get_current_time"
         assert o.tool_calls[0].tool_input_dict == {"timezone": "America/New_York"}
+
+    async def test_complete_failed_generation(self, httpx_mock: HTTPXMock, groq_provider: GroqProvider):
+        httpx_mock.add_response(
+            url="https://api.groq.com/openai/v1/chat/completions",
+            json=fixtures_json("groq", "failed_generation.json"),
+            status_code=400,
+        )
+
+        with pytest.raises(FailedGenerationError):
+            await groq_provider.complete(
+                [Message(role=Message.Role.USER, content="Hello")],
+                options=ProviderOptions(
+                    model=Model.LLAMA_4_MAVERICK_BASIC,
+                    max_tokens=10,
+                    temperature=0,
+                ),
+                output_factory=lambda x, _: StructuredOutput(json.loads(x) if x else {}),
+            )
 
 
 class TestStandardizeMessages:

@@ -25,7 +25,6 @@ from core.providers.groq.groq_domain import (
     GroqError,
     GroqMessage,
     GroqToolDescription,
-    JSONResponseFormat,
     StreamedResponse,
     TextResponseFormat,
 )
@@ -95,7 +94,8 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
             temperature=options.temperature,
             max_tokens=options.max_tokens,
             stream=stream,
-            response_format=JSONResponseFormat() if not options.enabled_tools else TextResponseFormat(),
+            # Looks like JSONResponseFormat does not work great on Groq
+            response_format=TextResponseFormat(),
             tools=[GroqToolDescription.from_domain(t) for t in options.enabled_tools]
             if options.enabled_tools
             else None,
@@ -270,6 +270,11 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
 
             if error_message == "Please reduce the length of the messages or completion.":
                 return MaxTokensExceededError("Max tokens exceeded")
+            if payload.error.code == "json_validate_failed":
+                return FailedGenerationError(
+                    msg="Model did not generate a valid JSON response",
+                    capture=True,
+                )
             if payload.error.type == "invalid_request_error":
                 return self._invalid_request_error(payload, response)
 
