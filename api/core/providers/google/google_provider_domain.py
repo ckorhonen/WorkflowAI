@@ -21,6 +21,7 @@ from core.providers.base.models import (
     TextContentDict,
     ToolCallRequestDict,
     ToolCallResultDict,
+    role_domain_to_standard,
 )
 from core.tools import ToolKind
 from core.utils.audio import audio_duration_seconds
@@ -325,9 +326,9 @@ class GoogleMessage(BaseModel):
             role = Message.Role.USER
 
         if len(content) == 1 and content[0]["type"] == "text":
-            return {"role": role.to_standard(), "content": content[0]["text"]}
+            return {"role": role_domain_to_standard(role), "content": content[0]["text"]}
 
-        return {"role": role.to_standard(), "content": content}
+        return {"role": role_domain_to_standard(role), "content": content}
 
 
 class GoogleSystemMessage(BaseModel):

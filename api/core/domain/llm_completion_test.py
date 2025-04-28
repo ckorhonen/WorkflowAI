@@ -1,5 +1,7 @@
 from typing import Any
 
+import pytest
+
 from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import Message
@@ -101,3 +103,52 @@ class TestLLMCompletionToMessages:
                 ],
             ),
         ]
+
+
+class TestIncurCost:
+    @pytest.mark.parametrize(
+        ("response", "completion_token_count", "completion_image_count"),
+        [
+            pytest.param("Hello back!", None, None, id="usage not computed"),
+            pytest.param("", None, None, id="usage not computed but empty response"),
+            pytest.param(None, 10, 0, id="no response but completion tokens"),
+            pytest.param(None, 0, 1, id="no response but completion image"),
+        ],
+    )
+    def test_incur_cost(
+        self,
+        response: str,
+        completion_token_count: int | None,
+        completion_image_count: int | None,
+    ):
+        completion = _llm_completion(
+            messages=[{"role": "user", "content": "Hello world"}],
+            response=response,
+            usage=LLMUsage(
+                completion_token_count=completion_token_count,
+                completion_image_count=completion_image_count,
+            ),
+        )
+        assert completion.incur_cost()
+
+    @pytest.mark.parametrize(
+        ("response", "completion_token_count", "completion_image_count"),
+        [
+            pytest.param(None, 0, 0, id="no response and no completion tokens and no completion images"),
+        ],
+    )
+    def test_no_incur_cost(
+        self,
+        response: str,
+        completion_token_count: int | None,
+        completion_image_count: int | None,
+    ):
+        completion = _llm_completion(
+            messages=[{"role": "user", "content": "Hello world"}],
+            response=response,
+            usage=LLMUsage(
+                completion_token_count=completion_token_count,
+                completion_image_count=completion_image_count,
+            ),
+        )
+        assert not completion.incur_cost()

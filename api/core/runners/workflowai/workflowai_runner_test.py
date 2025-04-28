@@ -1321,9 +1321,10 @@ def mock_provider_factory_full(mock_provider_factory: Mock):
     return mock_provider_factory
 
 
-def patched_provider_factory(mock_provider_factory: Mock, patched_runner: WorkflowAIRunner):
-    with patch.object(patched_runner, "provider_factory", new=mock_provider_factory):
-        yield mock_provider_factory
+@pytest.fixture()
+def patched_provider_factory(mock_provider_factory_full: Mock, patched_runner: WorkflowAIRunner):
+    with patch.object(patched_runner, "provider_factory", new=mock_provider_factory_full):
+        yield mock_provider_factory_full
 
 
 class TestBuildTaskOutput:

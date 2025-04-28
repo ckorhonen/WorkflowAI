@@ -20,3 +20,9 @@ class StructuredOutput(NamedTuple):
     reasoning_steps: list[InternalReasoningStep] | None = None
 
     files: list[File] | None = None
+
+    @property
+    def number_of_images(self) -> int:
+        if not self.files:
+            return 0
+        return len([f for f in self.files if f.is_image])

@@ -88,6 +88,7 @@ def test_assign_raw_completion():
         completion_token_count=100,
         prompt_cost_usd=0.1,
         completion_cost_usd=0.1,
+        completion_image_count=0,
     )
     raw_completion = RawCompletion(
         response="test",
@@ -97,9 +98,12 @@ def test_assign_raw_completion():
     AbstractProvider._assign_raw_completion(  # pyright: ignore [reportPrivateUsage]
         raw_completion,
         llm_completion,
-        tool_calls=[
-            ToolCallRequestWithID(tool_name="test", tool_input_dict={"test": "test"}),
-        ],
+        output=StructuredOutput(
+            output={},
+            tool_calls=[
+                ToolCallRequestWithID(tool_name="test", tool_input_dict={"test": "test"}),
+            ],
+        ),
     )
     assert llm_completion.usage == usage
 

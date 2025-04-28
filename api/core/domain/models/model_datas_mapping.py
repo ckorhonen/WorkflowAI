@@ -1323,6 +1323,7 @@ def _build_model_datas():
             quality_index=600,  # TODO: Update the quality index
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=False,
+            latest_model=Model.IMAGEN_3_0_LATEST,
         ),
         Model.IMAGEN_3_0_001: ModelData(
             display_name="Imagen 3.0 (001)",
@@ -1342,6 +1343,7 @@ def _build_model_datas():
             quality_index=600,  # TODO: Update the quality index
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=False,
+            latest_model=Model.IMAGEN_3_0_LATEST,
         ),
         Model.IMAGEN_3_0_FAST_001: ModelData(
             display_name="Imagen 3.0 ⚡ (001)",
