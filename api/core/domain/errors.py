@@ -578,7 +578,7 @@ class ContentModerationError(ProviderError):
     code = "content_moderation"
     default_status_code = 400
     default_message = "Content moderation"
-    default_capture = True
+    default_capture = False
     default_store_task_run = True
 
 

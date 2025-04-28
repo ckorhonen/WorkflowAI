@@ -221,7 +221,6 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
             if response.promptFeedback and response.promptFeedback.blockReason:
                 raise ContentModerationError(
                     f"The model blocked the generation with reason '{response.promptFeedback.blockReason}'",
-                    capture=False,
                 )
             # Otherwise not sure what's going on
             self.logger.warning(
@@ -333,6 +332,7 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
     _INVALID_FILE_SEARCH_STRINGS = [
         "the document has no pages",
         "unable to process input image",
+        "url_unreachable-unreachable_5xx",
     ]
 
     @classmethod

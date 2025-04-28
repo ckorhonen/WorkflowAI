@@ -9,7 +9,9 @@ from core.domain.errors import (
     ContentModerationError,
     FailedGenerationError,
     MaxTokensExceededError,
+    ModelDoesNotSupportMode,
     ProviderError,
+    ProviderInvalidFileError,
     UnknownProviderError,
 )
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
@@ -320,9 +322,12 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
 
     def _invalid_argument_error(self, payload: XAIError, response: Response) -> ProviderError:
         message = payload.error
-        match message:
+        lower_msg = message.lower()
+        match lower_msg:
             case m if "maximum prompt length" in m:
                 error_cls = MaxTokensExceededError
+            case m if "response does not contain a valid jpg or png image" in m:
+                error_cls = ProviderInvalidFileError
             case _:
                 error_cls = UnknownProviderError
         return error_cls(msg=message, response=response)
@@ -336,10 +341,20 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
                 case "Client specified an invalid argument":
                     return self._invalid_argument_error(payload, response)
                 case _:
-                    return UnknownProviderError(
-                        msg=payload.error or f"Unknown error status {response.status_code}",
-                        response=response,
-                    )
+                    pass
+
+            lowed_msg = payload.error.lower()
+
+            if "unsupported content-type encountered when downloading image" in lowed_msg:
+                return ModelDoesNotSupportMode(
+                    msg=payload.error or f"Unknown error status {response.status_code}",
+                    response=response,
+                )
+
+            return UnknownProviderError(
+                msg=payload.error or f"Unknown error status {response.status_code}",
+                response=response,
+            )
         except Exception:
             self.logger.exception("failed to parse XAI error response", extra={"response": response.text})
         return UnknownProviderError(msg=f"Unknown error status {response.status_code}", response=response)

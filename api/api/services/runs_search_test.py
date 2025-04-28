@@ -129,6 +129,21 @@ class TestSchemasSearchField:
             assert any(f.field_name == field.value for f in fields), f"Field {field.value} not found"
 
 
+class TestMetadataFieldsSearchField:
+    async def test_metadata_fields_search_field(self, mock_storage: Mock):
+        mock_storage.task_runs.aggregate_task_metadata_fields.return_value = mock_aiter(
+            ("field_1", [f"value_{i}" for i in range(100)]),
+            ("field_2", ["value_3", "value_4"]),
+        )
+        fields = await RunsSearchService._task_metadata_fields(mock_storage.task_runs, ("test_task", 1))  # pyright: ignore [reportPrivateUsage]
+        assert len(fields) == 2
+        field_1 = fields[0]
+        assert field_1.field_name == "metadata"
+        assert field_1.key_path == "field_1"
+        assert field_1.suggestions
+        assert len(field_1.suggestions) == 30
+
+
 class TestVersionSearchField:
     def test_version_search_field(self):
         majors = [MajorMinor(1, 2), MajorMinor(2, 3), MajorMinor(1, 0)]
