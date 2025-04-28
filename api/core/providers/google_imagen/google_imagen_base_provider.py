@@ -169,6 +169,8 @@ class GoogleImagenBaseProvider(HTTPXProviderBase[ProviderConfigVar, GoogleImagen
             res.set_response(response)
             raise res
         response_model = GoogleImagenResponse.model_validate(raw)
+        if not response_model.predictions:
+            raise self._invalid_json_error(response, None, response.text, "No predictions found in the response")
         return StructuredOutput(output={}, files=response_model.to_files())
 
     @override

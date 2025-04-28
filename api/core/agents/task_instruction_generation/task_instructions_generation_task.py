@@ -38,15 +38,21 @@ INSTRUCTIONS = """When audio files are in input DO NOT mention "audio", just ref
     Keep in mind that the tools in 'available_tools_description' are available: You can include those tools in the instructions when pertinent. Always refer to the tools as '@tool_name'
     When the instruction must include parts of content you really can not redact yourself, use [the context required from the user], ex: "[Insert your SOPs here]. Take into account the likely length of the content the user will insert. If the content is long, prefer putting line breaks before and after the [Insert ...]. Always include square brackets in this case.
 
-    # Migrating user prompts
-    When the user has passed in its messages a well-formed prompt, you MUST generate instructions that are identical to the initial user prompt. The only exception is if the user has passed templating elements (ex: variable injection, ifs) you must convert the instructions to jinja2 format and use the variables present in 'task.input_json_schema.json_schema'
+# When the output_json_schema refers to images
+- make sure the task_instructions explicitly refer to generating an image
+- make sure the task_instructions are a jinja2 template that contains all variables in the input_json_schema
 
-    ## Jinja2 cheat sheet
-    inject variable with: {{ variable_name }}
-    conditions:
-    {% if condition %}
-    some text
-    {% endif %}"""
+# Migrating user prompts
+When the user has passed in its messages a well-formed prompt, you MUST generate instructions that are identical to the initial user prompt. The only exception is if the user has passed templating elements (ex: variable injection, ifs) you must convert the instructions to jinja2 format and use the variables present in 'task.input_json_schema.json_schema'
+
+## Jinja2 cheat sheet
+{% raw %}
+inject variable with: {{ variable_name }}
+conditions:
+{% if condition %}
+some text
+{% endif %}
+{% endraw %}"""
 
 VERSION = workflowai.VersionProperties(
     model=workflowai.Model.CLAUDE_3_7_SONNET_20250219,

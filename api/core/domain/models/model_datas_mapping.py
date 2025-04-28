@@ -609,6 +609,7 @@ def _build_model_datas():
             quality_index=718,
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
+            is_default=True,
         ),
         Model.GEMINI_2_0_FLASH_LATEST: LatestModel(
             model=Model.GEMINI_2_0_FLASH_001,

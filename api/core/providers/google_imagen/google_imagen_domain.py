@@ -57,7 +57,9 @@ class GoogleImagenResponse(BaseModel):
         mimeType: str
         bytesBase64Encoded: str
 
-    predictions: list[Image]
+    predictions: list[Image] | None = None
 
     def to_files(self) -> list[File]:
+        if not self.predictions:
+            return []
         return [File(data=image.bytesBase64Encoded, content_type=image.mimeType) for image in self.predictions]
