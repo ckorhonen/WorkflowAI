@@ -22,7 +22,7 @@ class DetectCompanyDomainTaskOutput(BaseModel):
     )
 
 
-@workflowai.agent(id="detect-company-domain", model=Model.GEMINI_2_0_FLASH_EXP)
+@workflowai.agent(id="detect-company-domain", model=Model.GEMINI_2_0_FLASH_LATEST)
 async def run_detect_company_domain_task(input: DetectCompanyDomainTaskInput) -> DetectCompanyDomainTaskOutput:
     """You are a domain detection specialist tasked with identifying company domains from conversations.
 

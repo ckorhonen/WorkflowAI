@@ -36,7 +36,7 @@ class ExtractCompanyInfoFromDomainTaskOutput(BaseModel):
     products: list[Product] | None = None
 
 
-@workflowai.agent(id="extract-company-info-from-domain", model=Model.GEMINI_2_0_FLASH_EXP)
+@workflowai.agent(id="extract-company-info-from-domain", model=Model.GEMINI_2_0_FLASH_LATEST)
 async def _extract_company_info_from_domain(
     input: ExtractCompanyInfoFromDomainTaskInput,
 ) -> ExtractCompanyInfoFromDomainTaskOutput:

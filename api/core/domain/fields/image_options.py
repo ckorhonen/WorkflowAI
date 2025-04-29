@@ -23,3 +23,13 @@ class ImageOptions(BaseModel):
         description="The number of images to generate. By default the number of images depends on the number "
         "of image fields in the output schema",
     )
+
+    def __str__(self) -> str:
+        components = [
+            f"Generate {self.image_count} images",
+            f"with the shape {self.shape}",
+            f"and {self.format} format",
+        ]
+        if self.background != "auto":
+            components.append(f"The background should be {self.background}")
+        return " ".join(components)

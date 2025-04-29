@@ -871,6 +871,22 @@ class TestExtractStreamDelta:
 
         assert "MAX_TOKENS" in str(e.value)
 
+    def test_extract_stream_delta_malformed_function_call(self, google_provider: GoogleProvider):
+        sse_event_malformed_function_call = json.dumps(
+            {
+                "candidates": [
+                    {"content": {"parts": [{"text": "Hello, world!"}], "role": "model"}},
+                    {"finishReason": "MALFORMED_FUNCTION_CALL"},
+                ],
+            },
+        ).encode()
+        with pytest.raises(ProviderBadRequestError):
+            google_provider._extract_stream_delta(  # pyright: ignore [reportPrivateUsage]
+                sse_event_malformed_function_call,
+                RawCompletion(response="", usage=LLMUsage()),
+                {},
+            )
+
     def test_extract_stream_delta_empty_response(self, google_provider: GoogleProvider):
         sse_event_empty = json.dumps({"candidates": []}).encode()
 

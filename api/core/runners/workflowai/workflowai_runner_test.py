@@ -20,6 +20,7 @@ from core.domain.errors import (
     StructuredGenerationError,
 )
 from core.domain.fields.file import File
+from core.domain.fields.image_options import ImageOptions
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.message import Message
 from core.domain.metrics import Metric
@@ -2694,7 +2695,7 @@ class TestRun:
         )
 
         builder = await runner.task_run_builder(
-            {"description": "A beautiful sunset over a calm ocean", "shape": "square"},
+            {"description": "A beautiful sunset over a calm ocean", "shape": "landscape"},
             start_time=0,
         )
 
@@ -2722,7 +2723,8 @@ class TestRun:
 
         messages = mock_provider_factory_full.google_imagen.complete.call_args_list[0].args[0]
         assert len(messages) == 2
-        assert messages[0].content == "Generate a square image of A beautiful sunset over a calm ocean"
+        assert messages[0].content == "Generate a landscape image of A beautiful sunset over a calm ocean"
+        assert messages[0].image_options == ImageOptions(image_count=1, shape="landscape")
         assert messages[1].content == "Follow the instructions"
 
 
