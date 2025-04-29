@@ -23,7 +23,7 @@ from core.domain.errors import (
 )
 from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
 from core.domain.models.model_data import ModelData
 from core.domain.models.model_datas_mapping import MODEL_DATAS
@@ -677,7 +677,7 @@ async def test_complete_500(httpx_mock: HTTPXMock):
 
     with pytest.raises(ProviderInternalError) as e:
         await provider.complete(
-            [Message(role=Message.Role.USER, content="Hello")],
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.GEMINI_1_5_PRO_001, max_tokens=10, temperature=0),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
         )
@@ -1013,7 +1013,7 @@ class TestComplete:
         )
 
         o = await google_provider.complete(
-            messages=[Message(role=Message.Role.USER, content="Hello")],
+            messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.GEMINI_1_5_PRO_001, max_tokens=10, temperature=0),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
         )
@@ -1046,7 +1046,7 @@ class TestComplete:
         )
 
         o = await google_provider.complete(
-            messages=[Message(role=Message.Role.USER, content="Hello")],
+            messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.GEMINI_1_5_PRO_001, max_tokens=10, temperature=0),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
         )
@@ -1086,7 +1086,7 @@ class TestComplete:
             side_effect=lambda _: next(location_iter),  # pyright: ignore [reportUnknownLambdaType]
         ):
             result = await google_provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.GEMINI_1_5_PRO_001, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )
@@ -1127,7 +1127,7 @@ class TestComplete:
         ):
             with pytest.raises(ProviderError, match="No available regions left to retry."):
                 await google_provider.complete(
-                    [Message(role=Message.Role.USER, content="Hello")],
+                    [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                     options=ProviderOptions(model=Model.GEMINI_1_5_PRO_001, max_tokens=10, temperature=0),
                     output_factory=lambda x, _: StructuredOutput(json.loads(x)),
                 )
@@ -1365,7 +1365,7 @@ class TestHandleStatusCode:
 class TestBuildRequest:
     def test_build_request_with_max_output_tokens(self, google_provider: GoogleProvider):
         request = google_provider._build_request(  # pyright: ignore [reportPrivateUsage]
-            messages=[Message(role=Message.Role.USER, content="Hello")],
+            messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.GEMINI_1_5_PRO_001, max_tokens=10, temperature=0),
             stream=False,
         )
@@ -1374,7 +1374,7 @@ class TestBuildRequest:
 
     def test_build_request_without_max_output_tokens(self, google_provider: GoogleProvider):
         request = google_provider._build_request(  # pyright: ignore [reportPrivateUsage]
-            messages=[Message(role=Message.Role.USER, content="Hello")],
+            messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.GEMINI_1_5_PRO_001, temperature=0),
             stream=False,
         )
@@ -1408,7 +1408,7 @@ class TestStream:
         cs = [
             c
             async for c in google_provider.stream(
-                messages=[Message(role=Message.Role.USER, content="Hello")],
+                messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.GEMINI_1_5_PRO_001, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
                 partial_output_factory=lambda x: StructuredOutput(x),

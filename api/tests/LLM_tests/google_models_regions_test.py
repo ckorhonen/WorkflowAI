@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model
 from core.domain.structured_output import StructuredOutput
 from core.providers.base.provider_options import ProviderOptions
@@ -28,8 +28,8 @@ class TestModelsAvailabeInRegions:
             question = """What is the capital of Germany?"""
             res = await provider.complete(
                 messages=[
-                    Message(role=Message.Role.SYSTEM, content=instructions),
-                    Message(role=Message.Role.USER, content=question),
+                    MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content=instructions),
+                    MessageDeprecated(role=MessageDeprecated.Role.USER, content=question),
                 ],
                 options=ProviderOptions(model=model, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput({"capital": x}),

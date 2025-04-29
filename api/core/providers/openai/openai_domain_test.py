@@ -5,7 +5,7 @@ import pytest
 
 from core.domain.errors import FailedGenerationError, ProviderError, UnpriceableRunError
 from core.domain.fields.file import File
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model
 from core.providers.base.models import StandardMessage, ToolCallResultDict
 from core.providers.openai.openai_domain import (
@@ -165,13 +165,13 @@ class TestOpenAIMessageWithAudio:
 
 class TestOpenAIMessageFromDomain:
     def test_text_before_files(self):
-        message = Message(
+        message = MessageDeprecated(
             content="Hello",
             files=[
                 File(content_type="image/png", data="image_data"),
                 File(content_type="audio/wav", data="audio_data"),
             ],
-            role=Message.Role.USER,
+            role=MessageDeprecated.Role.USER,
         )
         openai_message = OpenAIMessage.from_domain(message, is_system_allowed=True)
         assert isinstance(openai_message.content, list)

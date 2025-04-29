@@ -19,7 +19,7 @@ from core.domain.errors import (
     UnknownProviderError,
 )
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
 from core.domain.models.model_data import MaxTokensData, ModelData
 from core.domain.models.model_datas_mapping import DisplayedProvider
@@ -84,8 +84,8 @@ class TestStream:
 
         streamer = provider.stream(
             [
-                Message(
-                    role=Message.Role.USER,
+                MessageDeprecated(
+                    role=MessageDeprecated.Role.USER,
                     content="Hello",
                 ),
             ],
@@ -124,7 +124,7 @@ class TestStream:
         provider = GroqProvider()
 
         streamer = provider.stream(
-            [Message(role=Message.Role.USER, content="Hello")],
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.LLAMA_3_1_70B, max_tokens=10, temperature=0),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             partial_output_factory=lambda x: StructuredOutput(x),
@@ -158,8 +158,8 @@ class TestComplete:
 
         o = await provider.complete(
             [
-                Message(
-                    role=Message.Role.USER,
+                MessageDeprecated(
+                    role=MessageDeprecated.Role.USER,
                     content="Hello",
                 ),
             ],
@@ -204,8 +204,8 @@ class TestComplete:
 
         o = await provider.complete(
             [
-                Message(
-                    role=Message.Role.USER,
+                MessageDeprecated(
+                    role=MessageDeprecated.Role.USER,
                     content="Hello",
                 ),
             ],
@@ -243,7 +243,7 @@ class TestComplete:
 
         with pytest.raises(ProviderInternalError) as e:
             await provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.LLAMA_3_1_70B, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )
@@ -258,7 +258,7 @@ class TestComplete:
         )
 
         o = await groq_provider.complete(
-            [Message(role=Message.Role.USER, content="Hello")],
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(
                 model=Model.LLAMA_4_MAVERICK_BASIC,
                 max_tokens=10,
@@ -288,7 +288,7 @@ class TestComplete:
 
         with pytest.raises(FailedGenerationError):
             await groq_provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(
                     model=Model.LLAMA_4_MAVERICK_BASIC,
                     max_tokens=10,
@@ -362,7 +362,7 @@ class TestFinishReasonLength:
         provider = GroqProvider()
         with pytest.raises(MaxTokensExceededError) as e:
             await provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.LLAMA_3_1_70B, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )
@@ -401,7 +401,7 @@ class TestPrepareCompletion:
     async def test_role_before_content(self, groq_provider: GroqProvider):
         """Test that the 'role' key appears before 'content' in the prepared request."""
         request = groq_provider._build_request(  # pyright: ignore[reportPrivateUsage]
-            messages=[Message(role=Message.Role.USER, content="Hello")],
+            messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.LLAMA_3_1_70B, max_tokens=10, temperature=0),
             stream=False,
         )
@@ -424,7 +424,7 @@ class TestPrepareCompletion:
 class TestBuildRequest:
     def test_build_request_with_max_tokens(self, groq_provider: GroqProvider):
         request = groq_provider._build_request(  # pyright: ignore[reportPrivateUsage]
-            messages=[Message(role=Message.Role.USER, content="Hello")],
+            messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.LLAMA_3_1_70B, max_tokens=10, temperature=0),
             stream=False,
         )
@@ -435,7 +435,7 @@ class TestBuildRequest:
 
     def test_build_request_without_max_tokens(self, groq_provider: GroqProvider):
         request = groq_provider._build_request(  # pyright: ignore[reportPrivateUsage]
-            messages=[Message(role=Message.Role.USER, content="Hello")],
+            messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.LLAMA_3_1_70B, temperature=0),
             stream=False,
         )

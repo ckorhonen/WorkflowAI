@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from core.domain.errors import InvalidRunOptionsError
-from core.domain.message import File, Message
+from core.domain.message import File, MessageDeprecated
 from core.domain.models import Model
 from core.providers.google.google_provider_domain import (
     Blob,
@@ -29,7 +29,7 @@ from tests.utils import fixture_bytes
 class TestGoogleMessageFromDomain:
     def test_with_text(self):
         # Test with text content
-        text_message = Message(role=Message.Role.USER, content="Hello, world!")
+        text_message = MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello, world!")
         google_message = GoogleMessage.from_domain(text_message)
         assert len(google_message.parts) == 1
         assert google_message.parts[0].text == "Hello, world!"
@@ -37,8 +37,8 @@ class TestGoogleMessageFromDomain:
 
         # Test with image content
         image_data = base64.b64encode(b"fake_image_data").decode()
-        image_message = Message(
-            role=Message.Role.USER,
+        image_message = MessageDeprecated(
+            role=MessageDeprecated.Role.USER,
             content="Check this image:",
             files=[File(data=image_data, content_type="image/png")],
         )
@@ -51,15 +51,15 @@ class TestGoogleMessageFromDomain:
         assert google_message.role == "user"
 
         # Test assistant message
-        assistant_message = Message(role=Message.Role.ASSISTANT, content="I'm here to help!")
+        assistant_message = MessageDeprecated(role=MessageDeprecated.Role.ASSISTANT, content="I'm here to help!")
         google_message = GoogleMessage.from_domain(assistant_message)
         assert len(google_message.parts) == 1
         assert google_message.parts[0].text == "I'm here to help!"
         assert google_message.role == "model"
 
     def test_file_url(self):
-        text_message = Message(
-            role=Message.Role.USER,
+        text_message = MessageDeprecated(
+            role=MessageDeprecated.Role.USER,
             content="Hello, world!",
             files=[File(url="https://example.com/image.png", content_type="image/png")],
         )
@@ -74,7 +74,7 @@ class TestGoogleMessageFromDomain:
     @pytest.mark.ffmpeg
     async def test_with_file_audio(self):
         # Test with text content
-        text_message = Message(role=Message.Role.USER, content="Hello, world!")
+        text_message = MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello, world!")
         google_message = GoogleMessage.from_domain(text_message)
         assert len(google_message.parts) == 1
         assert google_message.parts[0].text == "Hello, world!"
@@ -83,8 +83,8 @@ class TestGoogleMessageFromDomain:
         # Test with audio data
         audio_data = base64.b64encode(fixture_bytes("files", "sample.mp3")).decode()
 
-        audio_message = Message(
-            role=Message.Role.USER,
+        audio_message = MessageDeprecated(
+            role=MessageDeprecated.Role.USER,
             content="Check this audio:",
             files=[File(data=audio_data, content_type="audio/mpeg")],
         )
@@ -100,7 +100,7 @@ class TestGoogleMessageFromDomain:
         assert await google_message.audio_duration_seconds() == 10.043
 
         # Test assistant message
-        assistant_message = Message(role=Message.Role.ASSISTANT, content="I'm here to help!")
+        assistant_message = MessageDeprecated(role=MessageDeprecated.Role.ASSISTANT, content="I'm here to help!")
         google_message = GoogleMessage.from_domain(assistant_message)
         assert len(google_message.parts) == 1
         assert google_message.parts[0].text == "I'm here to help!"
@@ -116,8 +116,8 @@ class TestGoogleMessageFromDomain:
             tool_input_dict={"msg": "Hello from native tool"},
             result="Native tool execution successful",
         )
-        message = Message(
-            role=Message.Role.USER,
+        message = MessageDeprecated(
+            role=MessageDeprecated.Role.USER,
             content="Run native tool call:",
             tool_call_requests=[dummy_req],
             tool_call_results=[dummy_res],
@@ -141,14 +141,14 @@ class TestGoogleMessageFromDomain:
 
 def test_GoogleSystemMessage_from_domain_file():
     # Test valid system message
-    system_message = Message(role=Message.Role.SYSTEM, content="You are a helpful assistant.")
+    system_message = MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="You are a helpful assistant.")
     anthropic_system_message = GoogleSystemMessage.from_domain(system_message)
     assert anthropic_system_message.parts[0].text == "You are a helpful assistant."
 
     # Test system message with image (should raise an error)
     image_data = base64.b64encode(b"fake_image_data").decode()
-    system_message_with_image = Message(
-        role=Message.Role.SYSTEM,
+    system_message_with_image = MessageDeprecated(
+        role=MessageDeprecated.Role.SYSTEM,
         content="System message with image",
         files=[File(data=image_data, content_type="image/png")],
     )

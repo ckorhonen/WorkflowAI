@@ -23,7 +23,7 @@ from core.domain.errors import (
 from core.domain.fields.file import File
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
 from core.domain.structured_output import StructuredOutput
 from core.domain.tool_call import ToolCallRequestWithID
@@ -38,7 +38,7 @@ from tests.utils import mock_aiter
 
 
 class DummyRequestModel(BaseModel):
-    messages: list[Message]
+    messages: list[MessageDeprecated]
 
 
 class DummyResponseModel(BaseModel):
@@ -75,7 +75,7 @@ class MockedProvider(HTTPXProvider[Any, Any]):
         return []
 
     @override
-    def _build_request(self, messages: list[Message], options: ProviderOptions, stream: bool) -> BaseModel:
+    def _build_request(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool) -> BaseModel:
         return self.mock._build_request(messages, options, stream)
 
     @override
@@ -467,7 +467,7 @@ class TestConnectErrors:
 
 class TestPrepareCompletion:
     async def test_prepare_completion_text_only(self, mocked_provider: MockedProvider):
-        messages = [Message(content="Hello", role=Message.Role.USER)]
+        messages = [MessageDeprecated(content="Hello", role=MessageDeprecated.Role.USER)]
 
         _, completion = await mocked_provider._prepare_completion(  # pyright: ignore[reportPrivateUsage]
             messages,
@@ -479,7 +479,11 @@ class TestPrepareCompletion:
         assert completion.usage.prompt_audio_duration_seconds == 0
 
     async def test_prepare_completion_with_image(self, mocked_provider: MockedProvider):
-        messages = [Message(content="Hello", role=Message.Role.USER, files=[File(url="https://example.com/image.png")])]
+        messages = [
+            MessageDeprecated(
+                content="Hello", role=MessageDeprecated.Role.USER, files=[File(url="https://example.com/image.png")],
+            ),
+        ]
         _, completion = await mocked_provider._prepare_completion(  # pyright: ignore[reportPrivateUsage]
             messages,
             ProviderOptions(model=Model.GPT_4O_2024_05_13),
@@ -490,7 +494,11 @@ class TestPrepareCompletion:
         assert completion.usage.prompt_audio_duration_seconds == 0
 
     async def test_prepare_completion_with_audio(self, mocked_provider: MockedProvider):
-        messages = [Message(content="Hello", role=Message.Role.USER, files=[File(url="https://example.com/audio.mp3")])]
+        messages = [
+            MessageDeprecated(
+                content="Hello", role=MessageDeprecated.Role.USER, files=[File(url="https://example.com/audio.mp3")],
+            ),
+        ]
         _, completion = await mocked_provider._prepare_completion(  # pyright: ignore[reportPrivateUsage]
             messages,
             ProviderOptions(model=Model.GPT_4O_2024_05_13),

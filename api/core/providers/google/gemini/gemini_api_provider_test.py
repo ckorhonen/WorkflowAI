@@ -10,7 +10,7 @@ from pytest_httpx import HTTPXMock, IteratorStream
 from core.domain.errors import MaxTokensExceededError, ProviderInternalError
 from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
 from core.domain.models.model_provider_datas_mapping import GOOGLE_GEMINI_API_PROVIDER_DATA
 from core.domain.structured_output import StructuredOutput
@@ -276,7 +276,7 @@ async def test_complete_500(httpx_mock: HTTPXMock):
 
     with pytest.raises(ProviderInternalError) as e:
         await provider.complete(
-            [Message(role=Message.Role.USER, content="Hello")],
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.GEMINI_1_5_PRO_001, max_tokens=10, temperature=0),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
         )
@@ -301,7 +301,7 @@ async def test_complete_max_tokens(httpx_mock: HTTPXMock):
 
     with pytest.raises(MaxTokensExceededError) as e:
         await provider.complete(
-            [Message(role=Message.Role.USER, content="Hello")],
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.GEMINI_1_5_PRO_001, max_tokens=10, temperature=0),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
         )
@@ -335,7 +335,7 @@ class TestPrepareCompletion:
         """Test that the 'role' key appears before 'content' in the prepared request."""
         provider = GoogleGeminiAPIProvider()
         request = provider._build_request(  # pyright: ignore[reportPrivateUsage]
-            messages=[Message(role=Message.Role.USER, content="Hello")],
+            messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.GEMINI_1_5_PRO_001, max_tokens=10, temperature=0),
             stream=False,
         )
@@ -398,7 +398,7 @@ class TestRequiresDownloadingFile:
 class TestBuildRequest:
     def test_build_request_with_max_output_tokens(self, gemini_provider: GoogleGeminiAPIProvider):
         request = gemini_provider._build_request(  # pyright: ignore [reportPrivateUsage]
-            messages=[Message(role=Message.Role.USER, content="Hello")],
+            messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.GEMINI_1_5_PRO_001, max_tokens=10, temperature=0),
             stream=False,
         )
@@ -407,7 +407,7 @@ class TestBuildRequest:
 
     def test_build_request_without_max_output_tokens(self, gemini_provider: GoogleGeminiAPIProvider):
         request = gemini_provider._build_request(  # pyright: ignore [reportPrivateUsage]
-            messages=[Message(role=Message.Role.USER, content="Hello")],
+            messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.GEMINI_1_5_PRO_001, temperature=0),
             stream=False,
         )
@@ -441,7 +441,7 @@ class TestStream:
         cs = [
             c
             async for c in gemini_provider.stream(
-                messages=[Message(role=Message.Role.USER, content="Hello")],
+                messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.GEMINI_1_5_PRO_001, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
                 partial_output_factory=lambda x: StructuredOutput(x),

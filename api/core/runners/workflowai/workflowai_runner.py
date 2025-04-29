@@ -22,7 +22,7 @@ from core.domain.errors import (
 )
 from core.domain.fields.image_options import ImageOptions
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.metrics import send_gauge
 from core.domain.models.model_data import FinalModelData, ModelData
 from core.domain.models.model_datas_mapping import MODEL_DATAS
@@ -352,7 +352,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         )
         return provider.sanitize_template(sanitized)
 
-    def _user_message_for_reply(self, reply: RunReply) -> Message:
+    def _user_message_for_reply(self, reply: RunReply) -> MessageDeprecated:
         if not reply.tool_calls and not reply.user_message:
             # Capturing because the error should have been handled earlier
             raise BadRequestError(
@@ -365,9 +365,9 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         if reply.user_message:
             content.append(reply.user_message)
 
-        message = Message(
+        message = MessageDeprecated(
             content="\n\n".join(content),
-            role=Message.Role.USER,
+            role=MessageDeprecated.Role.USER,
         )
 
         if reply.tool_calls:
@@ -450,7 +450,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         input: TaskInputDict,
         provider: AbstractProvider[Any, Any],
         model_data: ModelData,
-    ) -> list[Message]:
+    ) -> list[MessageDeprecated]:
         """
         Build a message array that will:
         - be passed to the _build_task_output function
@@ -524,22 +524,22 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             system_template = get_template_without_input_schema(template_name).system_template
 
         messages = [
-            Message(
+            MessageDeprecated(
                 content=self._system_message_content(
                     template=system_template,
                     instructions=instructions or "",
                     input_schema=input_schema,
                     output_schema=output_schema,
                 ),
-                role=Message.Role.SYSTEM,
+                role=MessageDeprecated.Role.SYSTEM,
                 image_options=image_options,
             ),
         ]
         if user_message_content.content or files:
             messages.append(
-                Message(
+                MessageDeprecated(
                     content=user_message_content.content,
-                    role=Message.Role.USER,
+                    role=MessageDeprecated.Role.USER,
                     files=files or None,
                 ),
             )
@@ -672,7 +672,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         self,
         provider: AbstractProvider[Any, Any],
         options: ProviderOptions,
-        messages: list[Message],
+        messages: list[MessageDeprecated],
     ) -> RunOutput:
         iteration_count = 0
         current_messages = messages
@@ -712,7 +712,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
     async def _safe_execute_tool(
         self,
         tool_call: ToolCallRequestWithID,
-        messages: list[Message],
+        messages: list[MessageDeprecated],
     ) -> tuple[ToolCall, bool]:
         # Detect the tool calls made in the context of the same HTTP request
         if res := (await self._internal_tool_cache.get(tool_call.tool_name, tool_call.tool_input_dict)):
@@ -751,7 +751,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
     async def _run_tool_calls(
         self,
         tool_calls: list[ToolCallRequestWithID],
-        messages: list[Message],
+        messages: list[MessageDeprecated],
     ) -> list[ToolCall]:
         if not tool_calls:
             return []
@@ -786,17 +786,19 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
     @classmethod
     def _append_tool_call_requests_to_messages(
         cls,
-        messages: list[Message],
+        messages: list[MessageDeprecated],
         tool_calls: list[ToolCallRequestWithID],
-    ) -> list[Message]:
-        assistant_message = Message(role=Message.Role.ASSISTANT, tool_call_requests=tool_calls, content="")
+    ) -> list[MessageDeprecated]:
+        assistant_message = MessageDeprecated(
+            role=MessageDeprecated.Role.ASSISTANT, tool_call_requests=tool_calls, content="",
+        )
         return [*messages, assistant_message]
 
     def append_tool_result_to_messages(
         self,
-        messages: list[Message],
+        messages: list[MessageDeprecated],
         tool_results: list[ToolCall],
-    ) -> list[Message]:
+    ) -> list[MessageDeprecated]:
         # TODO[tools]: not appending the assistant message for now, since the user
         # message contains the input and ouputs. Ultimately we should support let
         # the provider implementation decide how to handle tool calls:
@@ -811,7 +813,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         # if message := self._latest_assistant_message():
         #     messages.append(message)
 
-        user_message = Message(role=Message.Role.USER, tool_call_results=tool_results, content="")
+        user_message = MessageDeprecated(role=MessageDeprecated.Role.USER, tool_call_results=tool_results, content="")
         return [*messages, user_message]
 
     @classmethod
@@ -881,7 +883,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         self,
         provider: AbstractProvider[Any, Any],
         options: ProviderOptions,
-        messages: list[Message],
+        messages: list[MessageDeprecated],
     ):
         # TODO: this should really not be here but instead built when computing options
         # in _build_provider_data

@@ -2,7 +2,7 @@ from typing import Literal
 
 import pytest
 
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.providers.base.models import (
     AudioContentDict,
     DocumentContentDict,
@@ -21,17 +21,17 @@ class TestRoleFromStandard:
     @pytest.mark.parametrize(
         "role,expected",
         [
-            ("system", Message.Role.SYSTEM),
-            ("user", Message.Role.USER),
-            ("assistant", Message.Role.ASSISTANT),
-            (None, Message.Role.USER),
+            ("system", MessageDeprecated.Role.SYSTEM),
+            ("user", MessageDeprecated.Role.USER),
+            ("assistant", MessageDeprecated.Role.ASSISTANT),
+            (None, MessageDeprecated.Role.USER),
         ],
     )
-    def test_from_standard(self, role: Literal["system", "user", "assistant"] | None, expected: Message.Role):
+    def test_from_standard(self, role: Literal["system", "user", "assistant"] | None, expected: MessageDeprecated.Role):
         assert role_standard_to_domain(role) == expected
 
-    @pytest.mark.parametrize("role", Message.Role)
-    def test_sanity(self, role: Message.Role):
+    @pytest.mark.parametrize("role", MessageDeprecated.Role)
+    def test_sanity(self, role: MessageDeprecated.Role):
         assert role_standard_to_domain(role_domain_to_standard(role)) == role
 
 
@@ -42,7 +42,7 @@ class TestMessageFromStandard:
             "content": "Hello world",
         }
         message = message_standard_to_domain(standard_msg)
-        assert message.role == Message.Role.USER
+        assert message.role == MessageDeprecated.Role.USER
         assert message.content == "Hello world"
         assert message.files is None
 
@@ -58,7 +58,7 @@ class TestMessageFromStandard:
             "content": [text1, text2, image, doc, audio],
         }
         message = message_standard_to_domain(standard_msg)
-        assert message.role == Message.Role.ASSISTANT
+        assert message.role == MessageDeprecated.Role.ASSISTANT
         assert message.content == "First line\nSecond line"
         assert message.files is not None
         assert len(message.files) == 3
@@ -72,7 +72,7 @@ class TestMessageFromStandard:
             "content": "Hello world",
         }
         message = message_standard_to_domain(standard_msg)
-        assert message.role == Message.Role.USER  # Default role
+        assert message.role == MessageDeprecated.Role.USER  # Default role
         assert message.content == "Hello world"
 
     def test_from_standard_with_invalid_content_type(self):
@@ -86,7 +86,7 @@ class TestMessageFromStandard:
             "content": [text, invalid_content],  # type: ignore
         }
         message = message_standard_to_domain(standard_msg)
-        assert message.role == Message.Role.USER
+        assert message.role == MessageDeprecated.Role.USER
         assert message.content == "Valid text"
 
     def test_from_standard_with_malformed_content(self):
@@ -99,7 +99,7 @@ class TestMessageFromStandard:
             "content": [text, malformed_image],  # type: ignore
         }
         message = message_standard_to_domain(standard_msg)
-        assert message.role == Message.Role.USER
+        assert message.role == MessageDeprecated.Role.USER
         assert message.content == "Valid text"
         assert message.files is None  # Malformed content should be skipped
 
@@ -117,7 +117,7 @@ class TestMessageFromStandard:
             "content": [text, tool_call],
         }
         message = message_standard_to_domain(standard_msg)
-        assert message.role == Message.Role.ASSISTANT
+        assert message.role == MessageDeprecated.Role.ASSISTANT
         assert message.content == "Some text"
         assert message.tool_call_requests is not None
         assert len(message.tool_call_requests) == 1
@@ -141,7 +141,7 @@ class TestMessageFromStandard:
             "content": [text, tool_result],
         }
         message = message_standard_to_domain(standard_msg)
-        assert message.role == Message.Role.ASSISTANT
+        assert message.role == MessageDeprecated.Role.ASSISTANT
         assert message.content == "Some text"
         assert message.tool_call_results is not None
         assert len(message.tool_call_results) == 1

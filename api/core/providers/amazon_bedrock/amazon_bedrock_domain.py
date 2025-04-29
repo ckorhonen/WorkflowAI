@@ -7,7 +7,7 @@ from pydantic import BaseModel, BeforeValidator, Field, ValidationError
 from core.domain.errors import InternalError, InvalidRunOptionsError, ModelDoesNotSupportMode, UnpriceableRunError
 from core.domain.fields.file import File as DomainImage
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model
 from core.providers.base.models import (
     AudioContentDict,
@@ -31,10 +31,10 @@ AmazonBedrockRole = Literal["system", "user", "assistant"]
 AnthropicImageFormat = Literal["png", "jpeg", "gif", "webp"]
 
 
-MESSAGE_ROLE_X_ROLE_MAP: dict[Message.Role, AmazonBedrockRole] = {
-    Message.Role.SYSTEM: "assistant",
-    Message.Role.USER: "user",
-    Message.Role.ASSISTANT: "assistant",
+MESSAGE_ROLE_X_ROLE_MAP: dict[MessageDeprecated.Role, AmazonBedrockRole] = {
+    MessageDeprecated.Role.SYSTEM: "assistant",
+    MessageDeprecated.Role.USER: "user",
+    MessageDeprecated.Role.ASSISTANT: "assistant",
 }
 
 
@@ -147,7 +147,7 @@ class AmazonBedrockMessage(BaseModel):
     content: list[ContentBlock]
 
     @classmethod
-    def from_domain(cls, message: Message) -> Self:
+    def from_domain(cls, message: MessageDeprecated) -> Self:
         role = MESSAGE_ROLE_X_ROLE_MAP[message.role]
         content: list[ContentBlock] = []
 
@@ -221,7 +221,7 @@ class AmazonBedrockSystemMessage(BaseModel):
     text: str
 
     @classmethod
-    def from_domain(cls, message: Message) -> Self:
+    def from_domain(cls, message: MessageDeprecated) -> Self:
         if message.files:
             raise InvalidRunOptionsError("System messages cannot contain images")
 

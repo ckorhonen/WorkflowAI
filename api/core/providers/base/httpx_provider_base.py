@@ -26,7 +26,7 @@ from core.domain.errors import (
     UnknownProviderError,
 )
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.structured_output import StructuredOutput
 from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.abstract_provider import AbstractProvider, ProviderConfigVar, ProviderRequestVar, RawCompletion
@@ -183,7 +183,7 @@ class HTTPXProviderBase(AbstractProvider[ProviderConfigVar, ProviderRequestVar])
         yield shared_client_pool.get(url)
 
     @classmethod
-    def _initial_usage(cls, messages: list[Message]) -> LLMUsage:
+    def _initial_usage(cls, messages: list[MessageDeprecated]) -> LLMUsage:
         image_count = 0
         has_audio = False
         for m in messages:
@@ -270,7 +270,7 @@ class HTTPXProviderBase(AbstractProvider[ProviderConfigVar, ProviderRequestVar])
 
         try:
             await self.complete(
-                messages=[Message(role=Message.Role.USER, content="Respond with an empty json")],
+                messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Respond with an empty json")],
                 options=options,
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )

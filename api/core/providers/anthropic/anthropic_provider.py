@@ -14,7 +14,7 @@ from core.domain.errors import (
     UnpriceableRunError,
 )
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
 from core.domain.models.utils import get_model_data
 from core.domain.tool_call import ToolCallRequestWithID
@@ -58,7 +58,7 @@ class AnthropicConfig(BaseModel):
 
 class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
     @override
-    def _build_request(self, messages: list[Message], options: ProviderOptions, stream: bool) -> BaseModel:
+    def _build_request(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool) -> BaseModel:
         model_data = get_model_data(options.model)
         # Anthropic requires the max tokens to be set to the max generated tokens for the model
         # https://docs.anthropic.com/en/api/messages#body-max-tokens

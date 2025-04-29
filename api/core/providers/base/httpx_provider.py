@@ -16,7 +16,7 @@ from core.domain.fields.file import File
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model
 from core.domain.structured_output import StructuredOutput
 from core.domain.tool_call import ToolCallRequestWithID
@@ -45,7 +45,7 @@ class ParsedResponse(NamedTuple):
 
 class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generic[ProviderConfigVar, ResponseModel]):
     @abstractmethod
-    def _build_request(self, messages: list[Message], options: ProviderOptions, stream: bool) -> BaseModel:
+    def _build_request(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool) -> BaseModel:
         pass
 
     @abstractmethod
@@ -163,7 +163,7 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
         )
 
     @classmethod
-    def _initial_usage(cls, messages: list[Message]) -> LLMUsage:
+    def _initial_usage(cls, messages: list[MessageDeprecated]) -> LLMUsage:
         image_count = 0
         has_audio = False
         for m in messages:
@@ -180,7 +180,7 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
         return usage
 
     @override
-    async def _prepare_completion(self, messages: list[Message], options: ProviderOptions, stream: bool):
+    async def _prepare_completion(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool):
         request = self._build_request(messages, options, stream=stream)
         body = request.model_dump(mode="json", exclude_none=True, by_alias=True)
 

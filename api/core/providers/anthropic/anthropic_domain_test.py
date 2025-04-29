@@ -1,5 +1,5 @@
 from core.domain.fields.file import File
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.providers.anthropic.anthropic_domain import (
     AnthropicMessage,
@@ -13,8 +13,8 @@ from core.providers.anthropic.anthropic_domain import (
 
 
 def test_anthropic_message_from_domain_user() -> None:
-    domain_message = Message(
-        role=Message.Role.USER,
+    domain_message = MessageDeprecated(
+        role=MessageDeprecated.Role.USER,
         content="Hello, how are you?",
     )
 
@@ -26,8 +26,8 @@ def test_anthropic_message_from_domain_user() -> None:
 
 
 def test_anthropic_message_from_domain_assistant() -> None:
-    domain_message = Message(
-        role=Message.Role.ASSISTANT,
+    domain_message = MessageDeprecated(
+        role=MessageDeprecated.Role.ASSISTANT,
         content="I'm doing well, thank you!",
     )
 
@@ -100,8 +100,8 @@ def test_anthropic_message_to_standard_with_image_file() -> None:
 
 
 def test_anthropic_message_from_domain_text_before_files() -> None:
-    message = Message(
-        role=Message.Role.USER,
+    message = MessageDeprecated(
+        role=MessageDeprecated.Role.USER,
         content="Hello world",
         files=[File(data="test_data", content_type="image/png")],
     )
@@ -114,8 +114,8 @@ def test_anthropic_message_from_domain_text_before_files() -> None:
 
 
 def test_anthropic_message_from_domain_with_tool_call_requests() -> None:
-    message = Message(
-        role=Message.Role.ASSISTANT,
+    message = MessageDeprecated(
+        role=MessageDeprecated.Role.ASSISTANT,
         content="Let me check the weather for you.",
         tool_call_requests=[
             ToolCallRequestWithID(
@@ -142,8 +142,8 @@ def test_anthropic_message_from_domain_with_tool_call_requests() -> None:
 
 
 def test_anthropic_message_from_domain_with_tool_call_results() -> None:
-    message = Message(
-        role=Message.Role.USER,
+    message = MessageDeprecated(
+        role=MessageDeprecated.Role.USER,
         content="Here's what I found:",
         tool_call_results=[
             ToolCall(
@@ -171,8 +171,8 @@ def test_anthropic_message_from_domain_with_tool_call_results() -> None:
 
 
 def test_anthropic_message_from_domain_with_tool_call_error() -> None:
-    message = Message(
-        role=Message.Role.USER,
+    message = MessageDeprecated(
+        role=MessageDeprecated.Role.USER,
         content="I encountered an error:",
         tool_call_results=[
             ToolCall(

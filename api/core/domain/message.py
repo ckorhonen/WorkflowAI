@@ -8,7 +8,7 @@ from core.domain.fields.image_options import ImageOptions
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 
 
-class Message(BaseModel):
+class MessageDeprecated(BaseModel):
     class Role(StrEnum):
         SYSTEM = auto()
         USER = auto()

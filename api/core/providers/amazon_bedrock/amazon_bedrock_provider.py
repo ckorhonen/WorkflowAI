@@ -15,7 +15,7 @@ from core.domain.errors import (
     UnknownProviderError,
 )
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
 from core.domain.tool import Tool
 from core.domain.tool_call import ToolCallRequestWithID
@@ -56,16 +56,16 @@ _NON_STREAMING_WITH_TOOLS_MODELS = {
 
 class AmazonBedrockProvider(HTTPXProvider[AmazonBedrockConfig, CompletionResponse]):
     @override
-    def _build_request(self, messages: list[Message], options: ProviderOptions, stream: bool) -> BaseModel:
+    def _build_request(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool) -> BaseModel:
         system_message: AmazonBedrockSystemMessage | None = None
         user_messages: list[AmazonBedrockMessage] = []
 
         for message in messages:
-            if message.role == Message.Role.USER:
+            if message.role == MessageDeprecated.Role.USER:
                 user_messages.append(AmazonBedrockMessage.from_domain(message))
-            if message.role == Message.Role.ASSISTANT:
+            if message.role == MessageDeprecated.Role.ASSISTANT:
                 user_messages.append(AmazonBedrockMessage.from_domain(message))
-            if message.role == Message.Role.SYSTEM:
+            if message.role == MessageDeprecated.Role.SYSTEM:
                 if system_message is not None:
                     logger.warning(
                         "Only one system message is allowed in Amazon Bedrock",

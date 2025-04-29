@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from core.domain.fields.file import File
 from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.utils.fields import datetime_factory
 
@@ -108,15 +108,15 @@ class StandardMessage(TypedDict):
 _logger = logging.getLogger(__name__)
 
 
-def role_standard_to_domain(role: Literal["system", "user", "assistant"] | None) -> Message.Role:
+def role_standard_to_domain(role: Literal["system", "user", "assistant"] | None) -> MessageDeprecated.Role:
     if not role:
         _logger.warning("No role provided, using default role")
         # TODO: Using a default role, not the best solution
-        return Message.Role.USER
-    return Message.Role(role)
+        return MessageDeprecated.Role.USER
+    return MessageDeprecated.Role(role)
 
 
-def role_domain_to_standard(role: Message.Role) -> Literal["system", "user", "assistant"]:
+def role_domain_to_standard(role: MessageDeprecated.Role) -> Literal["system", "user", "assistant"]:
     return role.value  # type: ignore
 
 
@@ -124,7 +124,7 @@ def message_standard_to_domain(message: StandardMessage):
     role = role_standard_to_domain(message["role"])
     raw = message["content"]
     if isinstance(raw, str):
-        return Message(role=role, content=raw)
+        return MessageDeprecated(role=role, content=raw)
 
     content: list[str] = []
     files: list[File] = []
@@ -165,7 +165,7 @@ def message_standard_to_domain(message: StandardMessage):
         except KeyError:
             _logger.exception("Key error while parsing content", extra={"raw": message})
 
-    return Message(
+    return MessageDeprecated(
         role=role,
         content="\n".join(content),
         files=files or None,

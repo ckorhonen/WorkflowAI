@@ -17,7 +17,7 @@ from core.domain.errors import (
 from core.domain.fields.file import File
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.metrics import Metric
 from core.domain.models import Model, Provider
 from core.domain.models.model_data import FinalModelData, MaxTokensData
@@ -93,8 +93,8 @@ class TestBuildRequest:
             CompletionRequest,
             fireworks_provider._build_request(  # pyright: ignore [reportPrivateUsage]
                 messages=[
-                    Message(role=Message.Role.SYSTEM, content="Hello 1"),
-                    Message(role=Message.Role.USER, content="Hello"),
+                    MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="Hello 1"),
+                    MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello"),
                 ],
                 options=ProviderOptions(model=Model.LLAMA_3_3_70B, max_tokens=10, temperature=0),
                 stream=False,
@@ -121,8 +121,8 @@ class TestBuildRequest:
             CompletionRequest,
             fireworks_provider._build_request(  # pyright: ignore [reportPrivateUsage]
                 messages=[
-                    Message(role=Message.Role.SYSTEM, content="Hello 1"),
-                    Message(role=Message.Role.USER, content="Hello"),
+                    MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="Hello 1"),
+                    MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello"),
                 ],
                 options=ProviderOptions(model=Model.LLAMA_3_3_70B, temperature=0),
                 stream=False,
@@ -250,7 +250,7 @@ class TestStream:
         provider = FireworksAIProvider()
 
         streamer = provider.stream(
-            [Message(role=Message.Role.USER, content="Hello")],
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.DEEPSEEK_V3_0324, temperature=0),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             partial_output_factory=lambda x: StructuredOutput(x),
@@ -289,7 +289,7 @@ class TestStream:
         provider = FireworksAIProvider()
 
         streamer = provider.stream(
-            [Message(role=Message.Role.USER, content="Hello")],
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.LLAMA_3_3_70B, max_tokens=10, temperature=0),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             partial_output_factory=lambda x: StructuredOutput(x),
@@ -313,8 +313,8 @@ class TestComplete:
 
         o = await provider.complete(
             [
-                Message(
-                    role=Message.Role.USER,
+                MessageDeprecated(
+                    role=MessageDeprecated.Role.USER,
                     content="Hello",
                     files=[
                         File(data="data", content_type="image/png"),
@@ -369,7 +369,7 @@ class TestComplete:
 
         with pytest.raises(ProviderInternalError) as e:
             await provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.LLAMA_3_3_70B, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )
@@ -386,8 +386,8 @@ class TestComplete:
 
         o = await provider.complete(
             [
-                Message(
-                    role=Message.Role.USER,
+                MessageDeprecated(
+                    role=MessageDeprecated.Role.USER,
                     content="Hello",
                     files=[
                         File(data="data", content_type="image/png"),
@@ -471,8 +471,8 @@ class TestComplete:
 
         o = await fireworks_provider.complete(
             [
-                Message(
-                    role=Message.Role.USER,
+                MessageDeprecated(
+                    role=MessageDeprecated.Role.USER,
                     content="Hello",
                     files=[
                         File(data="data", content_type="image/png"),
@@ -505,7 +505,7 @@ class TestComplete:
         )
         with pytest.raises(MissingModelError):
             await fireworks_provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.LLAMA_3_3_70B, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )
@@ -980,7 +980,7 @@ class TestMaxTokensExceeded:
         provider = FireworksAIProvider()
         with pytest.raises(MaxTokensExceededError) as e:
             await provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.LLAMA_3_3_70B, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )
@@ -1002,7 +1002,7 @@ class TestMaxTokensExceeded:
         provider = FireworksAIProvider()
         with pytest.raises(MaxTokensExceededError) as e:
             async for _ in provider.stream(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.LLAMA_3_3_70B, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
                 partial_output_factory=lambda x: StructuredOutput(x),
@@ -1019,7 +1019,7 @@ class TestPrepareCompletion:
     async def test_role_before_content(self, fireworks_provider: FireworksAIProvider):
         """Test that the 'role' key appears before 'content' in the prepared request."""
         request = fireworks_provider._build_request(  # pyright: ignore[reportPrivateUsage]
-            messages=[Message(role=Message.Role.USER, content="Hello")],
+            messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.LLAMA_3_3_70B, max_tokens=10, temperature=0),
             stream=False,
         )
@@ -1043,8 +1043,8 @@ class TestFireworksAIProviderNativeToolCalls:
     def test_build_request_with_tool_calls(self) -> None:
         provider = FireworksAIProvider(config=FireworksConfig(provider=Provider.FIREWORKS, api_key="test"))
         messages = [
-            Message(
-                role=Message.Role.USER,
+            MessageDeprecated(
+                role=MessageDeprecated.Role.USER,
                 content="Test content",
                 tool_call_requests=[
                     ToolCallRequestWithID(

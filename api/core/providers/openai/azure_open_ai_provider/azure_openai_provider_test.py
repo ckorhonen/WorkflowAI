@@ -19,7 +19,7 @@ from core.domain.errors import (
 )
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
 from core.domain.structured_output import StructuredOutput
 from core.providers.base.models import RawCompletion, StandardMessage
@@ -101,8 +101,8 @@ class TestBuildRequest:
             CompletionRequest,
             azure_openai_provider._build_request(  # pyright: ignore [reportPrivateUsage]
                 messages=[
-                    Message(role=Message.Role.SYSTEM, content="Hello 1"),
-                    Message(role=Message.Role.USER, content="Hello"),
+                    MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="Hello 1"),
+                    MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello"),
                 ],
                 options=ProviderOptions(model=Model.GPT_4_TURBO_2024_04_09, max_tokens=10, temperature=0),
                 stream=False,
@@ -126,8 +126,8 @@ class TestBuildRequest:
             CompletionRequest,
             azure_openai_provider._build_request(  # pyright: ignore [reportPrivateUsage]
                 messages=[
-                    Message(role=Message.Role.SYSTEM, content="Hello 1"),
-                    Message(role=Message.Role.USER, content="Hello"),
+                    MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="Hello 1"),
+                    MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello"),
                 ],
                 options=ProviderOptions(model=Model.O1_PREVIEW_2024_09_12, max_tokens=10, temperature=0),
                 stream=False,
@@ -150,7 +150,7 @@ class TestBuildRequest:
         request = cast(
             CompletionRequest,
             azure_openai_provider._build_request(  # pyright: ignore [reportPrivateUsage]
-                messages=[Message(role=Message.Role.USER, content="Hello")],
+                messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.O1_2024_12_17_HIGH_REASONING_EFFORT, max_tokens=10, temperature=0),
                 stream=False,
             ),
@@ -170,7 +170,7 @@ class TestBuildRequest:
         request = cast(
             CompletionRequest,
             azure_openai_provider._build_request(  # pyright: ignore [reportPrivateUsage]
-                messages=[Message(role=Message.Role.USER, content="Hello")],
+                messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(
                     model=Model.O1_2024_12_17_MEDIUM_REASONING_EFFORT,
                     max_tokens=10,
@@ -194,7 +194,7 @@ class TestBuildRequest:
         request = cast(
             CompletionRequest,
             azure_openai_provider._build_request(  # pyright: ignore [reportPrivateUsage]
-                messages=[Message(role=Message.Role.USER, content="Hello")],
+                messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.O1_2024_12_17_LOW_REASONING_EFFORT, max_tokens=10, temperature=0),
                 stream=False,
             ),
@@ -289,7 +289,7 @@ class TestStream:
         mock_azure_openai_stream(httpx_mock, "gpt-4o-2024-11-20")
 
         streamer = azure_openai_provider.stream(
-            [Message(role=Message.Role.USER, content="Hello")],
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.GPT_4O_2024_11_20, max_tokens=10, temperature=0),
             output_factory=_output_factory,
             partial_output_factory=StructuredOutput,
@@ -331,7 +331,7 @@ class TestComplete:
 
         with pytest.raises(ContentModerationError):
             await azure_openai_provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.GPT_4O_2024_11_20, max_tokens=10, temperature=0),
                 output_factory=_output_factory,
             )
@@ -344,8 +344,8 @@ class TestComplete:
 
         chunk = await azure_openai_provider.complete(
             [
-                Message(
-                    role=Message.Role.USER,
+                MessageDeprecated(
+                    role=MessageDeprecated.Role.USER,
                     content="Hello",
                     files=[
                         File(data="data", content_type="image/png"),
@@ -397,7 +397,7 @@ class TestComplete:
 
         with pytest.raises(ProviderInternalError) as e:
             await azure_openai_provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.GPT_4O_2024_11_20, max_tokens=10, temperature=0),
                 output_factory=_output_factory,
             )
@@ -413,8 +413,8 @@ class TestComplete:
 
         chunk = await azure_openai_provider.complete(
             [
-                Message(
-                    role=Message.Role.USER,
+                MessageDeprecated(
+                    role=MessageDeprecated.Role.USER,
                     content="Hello",
                     files=[
                         File(data="data", content_type="image/png"),
@@ -479,7 +479,7 @@ class TestComplete:
 
         with pytest.raises(MaxTokensExceededError) as e:
             await azure_openai_provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.GPT_4O_2024_11_20, max_tokens=10, temperature=0),
                 output_factory=_output_factory,
             )
@@ -723,7 +723,7 @@ class TestPrepareCompletion:
         request = cast(
             CompletionRequest,
             azure_openai_provider._build_request(  # pyright: ignore[reportPrivateUsage]
-                messages=[Message(role=Message.Role.USER, content="Hello")],
+                messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.GPT_4O_2024_11_20, max_tokens=10, temperature=0),
                 stream=False,
             ),
@@ -830,7 +830,7 @@ class TestUnsupportedParameterError:
         )
         with pytest.raises(ModelDoesNotSupportMode):
             await azure_openai_provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.GPT_4O_2024_11_20, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )
@@ -849,7 +849,7 @@ class TestUnsupportedParameterError:
         )
         with pytest.raises(ModelDoesNotSupportMode):
             await azure_openai_provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.GPT_4O_2024_11_20, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )

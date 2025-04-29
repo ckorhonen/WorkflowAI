@@ -5,7 +5,7 @@ from pytest_httpx import HTTPXMock
 
 from core.domain.errors import ContentModerationError
 from core.domain.fields.file import File
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models.models import Model
 from core.domain.structured_output import StructuredOutput
 from core.providers.base.provider_options import ProviderOptions
@@ -30,7 +30,7 @@ def _output_factory(raw: str, partial: bool):
 class TestPrepareCompletion:
     async def test_no_options(self, openai_image_provider: OpenAIImageProvider):
         messages = [
-            Message(role=Message.Role.USER, content="A beautiful image of a cat"),
+            MessageDeprecated(role=MessageDeprecated.Role.USER, content="A beautiful image of a cat"),
         ]
         request, _ = await openai_image_provider._prepare_completion(messages, _provider_options(), False)  # pyright: ignore [reportPrivateUsage]
         assert request.prompt == "A beautiful image of a cat"
@@ -60,7 +60,7 @@ class TestComplete:
             },
         )
         messages = [
-            Message(role=Message.Role.USER, content="A beautiful image of a cat"),
+            MessageDeprecated(role=MessageDeprecated.Role.USER, content="A beautiful image of a cat"),
         ]
         completion = await openai_image_provider.complete(messages, _provider_options(), output_factory=_output_factory)
 
@@ -96,7 +96,7 @@ class TestComplete:
             },
         )
         messages = [
-            Message(role=Message.Role.USER, content="A beautiful image of a cat"),
+            MessageDeprecated(role=MessageDeprecated.Role.USER, content="A beautiful image of a cat"),
         ]
         with pytest.raises(ContentModerationError) as e:
             await openai_image_provider.complete(messages, _provider_options(), output_factory=_output_factory)
