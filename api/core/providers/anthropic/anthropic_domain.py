@@ -1,8 +1,15 @@
 from typing import Any, List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from httpx import Response
+from pydantic import BaseModel
 
-from core.domain.errors import InternalError
+from core.domain.errors import (
+    InternalError,
+    MaxTokensExceededError,
+    ProviderBadRequestError,
+    ServerOverloadedError,
+    UnknownProviderError,
+)
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import Message
@@ -90,6 +97,56 @@ class ToolResultContent(BaseModel):
             "error": None,
             "tool_input_dict": None,
         }
+
+
+class ErrorDetails(BaseModel):
+    message: str | None = None
+    code: str | None = None
+    type: str | None = None
+
+    def _invalid_request_error(self, response: Response | None):
+        if not self.message:
+            return None
+
+        error_cls = ProviderBadRequestError
+        message = self.message
+        capture = True
+
+        match message.lower():
+            case msg if "invalid base64 data" in msg:
+                # We are still capturing this error, it should be caught upstream
+                # and not sent to the provider
+                pass
+            case msg if "image exceeds" in msg:
+                # Not capturing since the umage is just too large
+                capture = False
+                message = "Image exceeds the maximum size"
+            case msg if "image does not match the provided media type" in msg:
+                # Not capturing since the image is just too large
+                capture = False
+                message = "Image does not match the provided media type"
+            case msg if "prompt is too long" in msg:
+                error_cls = MaxTokensExceededError
+                capture = False
+            case _:
+                pass
+        return error_cls(
+            msg=message,
+            response=response,
+            capture=capture,
+        )
+
+    def to_domain(self, response: Response | None):
+        match self.type:
+            case "invalid_request_error":
+                if e := self._invalid_request_error(response):
+                    return e
+            case "overloaded_error":
+                return ServerOverloadedError(self.message or "unknown", response=response, retry_after=10)
+
+            case _:
+                pass
+        return UnknownProviderError(self.message or "unknown", response=response)
 
 
 class AnthropicMessage(BaseModel):
@@ -261,6 +318,7 @@ class CompletionChunk(BaseModel):
         "message_delta",
         "message_stop",
         "ping",
+        "error",
     ]
     # For message_start
     message: Optional[dict[str, Any]] = None
@@ -271,6 +329,8 @@ class CompletionChunk(BaseModel):
     # For message_delta
     usage: Optional[Usage] = None
     index: Optional[int] = None
+
+    error: ErrorDetails | None = None
 
     def extract_delta(self) -> str:
         """Extract the text delta from the chunk"""
@@ -284,9 +344,4 @@ class CompletionChunk(BaseModel):
 class AnthropicErrorResponse(BaseModel):
     type: Literal["error"]
 
-    class ErrorDetails(BaseModel):
-        message: str | None = None
-        code: str | None = None
-        type: str | None = None
-
-    error: ErrorDetails = Field(default_factory=ErrorDetails)
+    error: ErrorDetails | None = None

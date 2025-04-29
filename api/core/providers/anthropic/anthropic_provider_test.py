@@ -14,6 +14,7 @@ from core.domain.errors import (
     ProviderBadRequestError,
     ProviderError,
     ProviderInternalError,
+    ServerOverloadedError,
 )
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
@@ -621,6 +622,19 @@ class TestExtractStreamDelta:
         )
         assert delta.content == ""
         assert raw_completion.usage == LLMUsage(prompt_token_count=100, completion_token_count=50)
+
+    def test_raised_error(self, anthropic_provider: AnthropicProvider):
+        with pytest.raises(ServerOverloadedError):
+            anthropic_provider._extract_stream_delta(  # pyright: ignore[reportPrivateUsage]
+                json.dumps(
+                    {
+                        "type": "error",
+                        "error": {"type": "overloaded_error", "message": "Server is overloaded"},
+                    },
+                ).encode(),
+                RawCompletion(response="", usage=LLMUsage()),
+                {},
+            )
 
     def test_content_block_start_with_tool(self, anthropic_provider: AnthropicProvider):
         raw_completion = RawCompletion(response="", usage=LLMUsage())

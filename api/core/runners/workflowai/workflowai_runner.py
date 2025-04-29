@@ -397,48 +397,52 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         input_schema: dict[str, Any],
     ):
         """Apply the instruction templating and remove the variables that were consumed by the template from
-        the input and input schema"""
-        rendered, variables = await self.template_manager.render_template(instructions, input)
+        the input and input schema. Keys used by the template are added to the used_input_keys set"""
+        return await self.template_manager.render_template(instructions, input)
+
+    async def _remove_keys_from_input(
+        self,
+        input_schema: dict[str, Any],
+        input: TaskInputDict,
+        used_input_keys: set[str],
+    ):
+        """Remove keys from the input and input schema. Only root keys are supported"""
         input_schema_properties: dict[str, Any] = input_schema.get("properties", {})
         input_schema_required: list[str] = input_schema.get("required", [])
-        for variable in variables:
-            input.pop(variable, None)
-            input_schema_properties.pop(variable, None)
+        for key in used_input_keys:
+            input.pop(key, None)
+            input_schema_properties.pop(key, None)
             try:
-                input_schema_required.remove(variable)
+                input_schema_required.remove(key)
             except ValueError:
                 pass
-
-        return rendered
 
     async def _extract_image_options(
         self,
         input: TaskInputDict,
-        delete_keys: bool,
-    ) -> ImageOptions | None:
-        """Extract the image options from the input and remove it from the input if possible"""
+    ) -> tuple[ImageOptions | None, set[str]]:
+        """Extract the image options from the input and remove it from the input if possible.
+        Returns the keys that were extracted from the input and that should be removed"""
         base = self.properties.image_options
-        if self._prepared_output_schema.min_file_count:
-            if not base:
-                base = ImageOptions()
-            if not base.image_count:
-                base.image_count = self._prepared_output_schema.min_file_count
+        if not self._prepared_output_schema.min_file_count:
+            # There are no images in the output, no need to extract anything
+            return None, set()
+
+        if not base:
+            base = ImageOptions()
+        if not base.image_count:
+            base.image_count = self._prepared_output_schema.min_file_count
 
         # We consider that input can contain the same fields as ImageOptions
         try:
             extracted_options = ImageOptions.model_validate(input)
         except ValidationError:
-            return base
+            return base, set()
 
         # In case of validation, we can check which key was actually extracted
         extracted_keys = extracted_options.model_dump(exclude_unset=True)
 
-        if delete_keys:
-            # We can remove the corresponding fields from the input since they are already used
-            for key in extracted_keys:
-                input.pop(key, None)
-
-        return extracted_options
+        return base.model_copy(update=extracted_keys), set(extracted_keys.keys())
 
     async def _build_messages(
         self,
@@ -487,25 +491,23 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
 
         # Extracting image options after files. If the user provides a mask, it will be in image options
         # and should be treated like a regular file
-        # We only delete keys if the instructions are not templated. This is to provide a consistent behavior
-        # between running with pure image models like imagen that really don't like JSON and more
-        # flexible ones like the new Gemini preview. This is ok since we are moving to using templated
-        # instructions over our current way to handle a json input
-        image_options = await self._extract_image_options(
-            input_copy,
-            delete_keys=not self._options.has_templated_instructions,
-        )
+        # Also extracting after instruction templating just in case the user has provided a templated
+        # instruction that mentions keys used in the image options
+        image_options, keys_to_remove1 = await self._extract_image_options(input_copy)
 
         instructions = self._options.instructions
         if instructions is not None:
             instructions = provider.sanitize_agent_instructions(instructions)
 
         if self._options.has_templated_instructions:
-            instructions = await self._apply_templated_instructions(
+            instructions, templated_keys = await self._apply_templated_instructions(
                 self._options.instructions or "",
                 input_copy,
                 input_schema,
             )
+            keys_to_remove1.update(templated_keys)
+
+        await self._remove_keys_from_input(input_schema=input_schema, input=input_copy, used_input_keys=keys_to_remove1)
 
         template_config = get_template_content(template_name)
 

@@ -34,11 +34,13 @@ from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ToolCallRequestBuffer
 from core.providers.google.google_provider_domain import (
     BLOCK_THRESHOLD,
+    Candidate,
     CompletionRequest,
     CompletionResponse,
     GoogleMessage,
     GoogleSystemMessage,
     HarmCategory,
+    Part,
     StreamedResponse,
     message_or_system_message,
     native_tool_name_to_internal,
@@ -160,6 +162,9 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
         if messages[0].image_options and messages[0].image_options.image_count:
             generation_config.responseModalities = ["IMAGE", "TEXT"]
 
+            # We also inline the image options in the last user message
+            user_messages[-1].parts.append(Part(text=str(messages[0].image_options)))
+
         completion_request = CompletionRequest(
             systemInstruction=system_message,
             contents=user_messages,
@@ -214,6 +219,24 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
             ]
         return None
 
+    @classmethod
+    def _check_finish_reason(cls, candidates: list[Candidate]):
+        for candidate in candidates:
+            match candidate.finishReason:
+                case "MAX_TOKENS":
+                    raise MaxTokensExceededError(
+                        msg="Model returned a MAX_TOKENS finish reason. The max number of tokens as specified in the request was reached.",
+                    )
+                case "MALFORMED_FUNCTION_CALL":
+                    raise ProviderBadRequestError(
+                        msg="Model returned a malformed function call finish reason",
+                        # Capturing so we can see why this happens
+                        capture=True,
+                        store_task_run=True,
+                    )
+                case _:
+                    pass
+
     @override
     def _extract_content_str(self, response: CompletionResponse) -> str:
         # No need to check for errors, it will be handled upstream in httpx provider
@@ -230,10 +253,7 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
             raise UnknownProviderError("No candidates found in response")
 
         # Check if we have a finish
-        if any(c.finishReason == "MAX_TOKENS" for c in response.candidates):
-            raise MaxTokensExceededError(
-                msg="Model returned a MAX_TOKENS finish reason. The max number of tokens as specified in the request was reached.",
-            )
+        self._check_finish_reason(response.candidates)
 
         content = response.candidates[0].content
         if not content:
@@ -470,11 +490,7 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
                 msg="Gemini API returned a RECITATION finish reason, see https://issuetracker.google.com/issues/331677495",
             )
 
-        for candidate in raw.candidates:
-            if candidate.finishReason == "MAX_TOKENS":
-                raise MaxTokensExceededError(
-                    msg="Model returned a MAX_TOKENS finish reason. The maximum number of tokens as specified in the request was reached.",
-                )
+        self._check_finish_reason(raw.candidates)
 
         if not raw.candidates or not raw.candidates[0] or not raw.candidates[0].content:
             return ParsedResponse("")

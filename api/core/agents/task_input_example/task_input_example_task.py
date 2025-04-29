@@ -65,7 +65,7 @@ INSTRUCTIONS = """The goal here is to a generate realistic, lengthy and articula
     id=TASK_INPUT_EXAMPLE_TASK_ID,
     version=workflowai.VersionProperties(
         instructions=INSTRUCTIONS,
-        model=Model.GEMINI_2_0_FLASH_EXP,  # For speed
+        model=Model.GEMINI_2_0_FLASH_LATEST,  # For speed
         temperature=0.7,  # For more diverse outputs
     ),
 )
@@ -78,7 +78,7 @@ async def run_task_input_example_task(
     id=TASK_INPUT_EXAMPLE_TASK_ID,
     version=workflowai.VersionProperties(
         instructions=INSTRUCTIONS,
-        model=Model.GEMINI_2_0_FLASH_EXP,  # For speed
+        model=Model.GEMINI_2_0_FLASH_LATEST,  # For speed
         temperature=0.7,  # For more diverse outputs
     ),
 )

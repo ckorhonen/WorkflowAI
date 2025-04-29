@@ -28,7 +28,7 @@ class TaskInputMigrationTaskOutput(BaseModel):
     )
 
 
-@agent(id="task-input-migration", model=Model.GEMINI_2_0_FLASH_EXP.value)
+@agent(id="task-input-migration", model=Model.GEMINI_2_0_FLASH_LATEST.value)
 async def run_task_input_migration_task(
     input: TaskInputMigrationTaskInput,
 ) -> TaskInputMigrationTaskOutput:
@@ -72,7 +72,7 @@ async def run_task_input_migration_task(
     ...
 
 
-@agent(id="task-input-migration", model=Model.GEMINI_2_0_FLASH_EXP.value)
+@agent(id="task-input-migration", model=Model.GEMINI_2_0_FLASH_LATEST.value)
 def stream_task_input_migration_task(
     input: TaskInputMigrationTaskInput,
 ) -> AsyncIterator[TaskInputMigrationTaskOutput]:

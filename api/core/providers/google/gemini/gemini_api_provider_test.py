@@ -327,10 +327,7 @@ def test_extract_stream_delta_max_tokens():
     with pytest.raises(MaxTokensExceededError) as e:
         provider._extract_stream_delta(sse_event_max_tokens, RawCompletion(response="", usage=LLMUsage()), {})  # pyright: ignore [reportPrivateUsage]
 
-    assert (
-        str(e.value)
-        == "Model returned a MAX_TOKENS finish reason. The maximum number of tokens as specified in the request was reached."
-    )
+    assert "MAX_TOKENS" in str(e.value)
 
 
 class TestPrepareCompletion:

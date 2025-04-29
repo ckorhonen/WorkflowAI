@@ -231,6 +231,7 @@ class InvalidFileError(DefaultError):
     code = "invalid_file"
     default_status_code = 400
     default_message = "File not available"
+    default_capture = False
 
     def __init__(
         self,
