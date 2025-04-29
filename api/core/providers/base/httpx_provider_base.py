@@ -119,7 +119,7 @@ class HTTPXProviderBase(AbstractProvider[ProviderConfigVar, ProviderRequestVar])
                 raise self._provider_rate_limit_error(response)
             case 500 | 520 | 530:
                 raise self._provider_internal_error(response)
-            case 502 | 503 | 522:
+            case 502 | 503 | 522 | 524:
                 raise self._provider_unavailable_error(response)
             case 529:
                 raise self._server_overloaded_error(response)
