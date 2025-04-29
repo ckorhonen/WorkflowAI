@@ -39,6 +39,7 @@ from core.providers.google.google_provider_domain import (
     GoogleMessage,
     GoogleSystemMessage,
     HarmCategory,
+    Part,
     StreamedResponse,
     message_or_system_message,
     native_tool_name_to_internal,
@@ -159,6 +160,9 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
         )
         if messages[0].image_options and messages[0].image_options.image_count:
             generation_config.responseModalities = ["IMAGE", "TEXT"]
+
+            # We also inline the image options in the last user message
+            user_messages[-1].parts.append(Part(text=str(messages[0].image_options)))
 
         completion_request = CompletionRequest(
             systemInstruction=system_message,
