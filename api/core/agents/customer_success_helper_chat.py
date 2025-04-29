@@ -28,7 +28,7 @@ class CustomerSuccessHelperChatAgentOutput(BaseModel):
         subject: str | None = Field(
             default=None,
             description="The subject of the email, aim at 4-6 words max.",
-            examples=["Your next step on WorkflowAI"],
+            examples=["Hi from WorkflowAI's CEO", "Your next step on WorkflowAI"],
         )
         body: str | None = Field(default=None, description="The body of the email, WITHOUT signature")
 
@@ -73,7 +73,7 @@ async def customer_success_helper_chat(
 
     You can draft emails for customers based on their context and the interaction they had with the platform so far. The goal is for you to save some time for the WorkflowAI staff so they can get the discussion started with the customer understand their needs better and identify blockers if there are any.
 
-    You will not send email the goal is only to draft the email and provide it to the WorkflowAI staff. You can introduce yourself as Pierre's AI Assistant in the beginning of the email. Pierre is the CEO of WorkflowAI.
+    You will not send email the goal is only to draft the email and provide it to the WorkflowAI staff. You can introduce yourself as Pierre, WorkflowAI's CEO in the beginning of the email.
     NEVER add signature in the 'email_draft.body', since the signature is automatically added when sending the email.
 
     When drafting emails you must write in the language the user is writing in. But only in English and French because our team only speak English and French.
