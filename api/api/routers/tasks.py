@@ -325,7 +325,7 @@ async def create_task(
             )
 
             # Generate the default instructions for the task
-            new_task_instructions = await internal_tasks.generate_task_instructions(
+            new_task_instructions = await internal_tasks.generate_agent_instructions(
                 task_id=task_id,
                 task_schema_id=stored.task_schema_id,
                 chat_messages=request.chat_messages or [],
@@ -421,7 +421,7 @@ async def create_task_schema(
     new_task, _ = await storage.store_task_resource(task_variant)
 
     async def generate_new_task_instructions(required_tool_kinds: set[ToolKind]) -> str:
-        return await internal_tasks.generate_task_instructions(
+        return await internal_tasks.generate_agent_instructions(
             task_id=new_task.task_id,
             task_schema_id=new_task.task_schema_id,
             chat_messages=request.chat_messages or [],

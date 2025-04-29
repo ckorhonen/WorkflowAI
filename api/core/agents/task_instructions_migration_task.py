@@ -1,5 +1,3 @@
-from typing import AsyncIterator
-
 import workflowai
 from pydantic import BaseModel, Field
 
@@ -7,7 +5,7 @@ from core.agents.chat_task_schema_generation.chat_task_schema_generation_task im
 from core.domain.fields.chat_message import ChatMessage
 
 
-class TaskInstructionsMigrationTaskInput(BaseModel):
+class AgentInstructionsMigrationInput(BaseModel):
     initial_task_schema: AgentSchemaJson = Field(description="The task to generate the instructions for")
     initial_task_instructions: str = Field(description="The initial instructions of the task")
 
@@ -21,7 +19,7 @@ class TaskInstructionsMigrationTaskInput(BaseModel):
     )
 
 
-class TaskInstructionsMigrationTaskOutput(BaseModel):
+class AgentInstructionsMigrationOutput(BaseModel):
     new_task_instructions: str = Field(default="", description="The new instructions on how to complete the task")
 
 
@@ -45,12 +43,6 @@ VERSION = workflowai.VersionProperties(
 
 
 @workflowai.agent(id="task-instructions-migration", version=VERSION)
-def stream_task_instructions_update(
-    input: TaskInstructionsMigrationTaskInput,
-) -> AsyncIterator[TaskInstructionsMigrationTaskOutput]: ...
-
-
-@workflowai.agent(id="task-instructions-migration", version=VERSION)
-async def update_task_instructions(
-    input: TaskInstructionsMigrationTaskInput,
-) -> TaskInstructionsMigrationTaskOutput: ...
+async def agent_instructions_migration(
+    input: AgentInstructionsMigrationInput,
+) -> AgentInstructionsMigrationOutput: ...

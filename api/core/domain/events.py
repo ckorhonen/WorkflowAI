@@ -203,8 +203,8 @@ class AIReviewCompletedEvent(TaskEvent):
     task_output_hash: str
 
 
-class TaskInstructionsGeneratedEvent(TaskEvent):
-    task_instructions: str
+class AgentInstructionsGeneratedEvent(TaskEvent):
+    agent_instructions: str
 
 
 class MetaAgentChatMessagesSent(Event):

@@ -58,7 +58,7 @@ from core.agents.input_generation_instructions_agent import (
     run_input_generation_instructions,
 )
 from core.agents.reformat_instructions_task import (
-    TaskInstructionsReformatingTaskInput,
+    AgentInstructionsReformatingInput,
     format_instructions,
 )
 from core.agents.task_description_generation_task import (
@@ -77,9 +77,8 @@ from core.agents.task_input_example.task_input_migration_task import (
     stream_task_input_migration_task,
 )
 from core.agents.task_instruction_generation.task_instructions_generation_task import (
-    TaskInstructionsGenerationTaskInput,
-    generate_task_instructions,
-    stream_task_instructions_generation,
+    AgentInstructionsGenerationTaskInput,
+    agent_instructions_redaction,
 )
 from core.agents.task_instruction_generation.task_schema_comparison_task import (
     TaskSchemaComparisonTask,
@@ -90,9 +89,8 @@ from core.agents.task_instruction_required_tools_picking.task_instructions_requi
     run_task_instructions_required_tools_picking,
 )
 from core.agents.task_instructions_migration_task import (
-    TaskInstructionsMigrationTaskInput,
-    stream_task_instructions_update,
-    update_task_instructions,
+    AgentInstructionsMigrationInput,
+    agent_instructions_migration,
 )
 from core.agents.update_correct_outputs_and_instructions import (
     PreviousEvaluationResult,
@@ -104,7 +102,7 @@ from core.deprecated.workflowai import WorkflowAI
 from core.domain.changelogs import VersionChangelog
 from core.domain.deprecated.task import Task, TaskInput, TaskOutput
 from core.domain.errors import FailedGenerationError, InternalError, JSONSchemaValidationError, UnparsableChunkError
-from core.domain.events import EventRouter, TaskInstructionsGeneratedEvent
+from core.domain.events import AgentInstructionsGeneratedEvent, EventRouter
 from core.domain.fields.chat_message import ChatMessage
 from core.domain.fields.file import File
 from core.domain.input_evaluation import InputEvaluation
@@ -428,7 +426,7 @@ class InternalTasksService:
                 # We have a valid final chunk, we can return
                 return
 
-    async def generate_task_instructions(
+    async def generate_agent_instructions(
         self,
         task_id: str,
         task_schema_id: int,
@@ -436,10 +434,10 @@ class InternalTasksService:
         task: AgentSchemaJson,
         required_tool_kinds: set[ToolKind],
     ) -> str:
-        task_instruction_generation_output = await generate_task_instructions(
-            TaskInstructionsGenerationTaskInput(
+        agent_instruction_generation_output = await agent_instructions_redaction(
+            AgentInstructionsGenerationTaskInput(
                 chat_messages=chat_messages,
-                task=TaskInstructionsGenerationTaskInput.Task(
+                agent=AgentInstructionsGenerationTaskInput.Agent(
                     name=task.agent_name,
                     input_json_schema=task.input_json_schema or {},
                     output_json_schema=task.output_json_schema or {},
@@ -447,69 +445,66 @@ class InternalTasksService:
                 available_tools_description=internal_tools_description(include=required_tool_kinds),
             ),
         )
-        task_instructions = task_instruction_generation_output.task_instructions
+        agent_instructions = agent_instruction_generation_output.agent_instructions
 
-        if not task_instructions:
+        if not agent_instructions:
             return ""
 
         self._event_router(
-            TaskInstructionsGeneratedEvent(
+            AgentInstructionsGeneratedEvent(
                 task_id=task_id,
                 task_schema_id=task_schema_id,
-                task_instructions=task_instructions,
+                agent_instructions=agent_instructions,
             ),
         )
 
-        task_reformating_output = await format_instructions(
-            TaskInstructionsReformatingTaskInput(inital_task_instructions=task_instructions),
+        agent_instructions_reformating_output = await format_instructions(
+            AgentInstructionsReformatingInput(inital_agent_instructions=agent_instructions),
         )
 
-        return task_reformating_output.reformated_task_instructions
+        return agent_instructions_reformating_output.reformated_agent_instructions
 
-    async def stream_task_instructions(
+    async def stream_agent_instructions(
         self,
         task_id: str,
         task_schema_id: int,
         chat_messages: list[ChatMessage],
-        task: AgentSchemaJson,
+        agent_schema: AgentSchemaJson,
         required_tool_kinds: set[ToolKind],
     ) -> AsyncIterator[str]:
-        task_input = TaskInstructionsGenerationTaskInput(
+        instrution_generation_input = AgentInstructionsGenerationTaskInput(
             chat_messages=chat_messages,
-            task=TaskInstructionsGenerationTaskInput.Task(
-                name=task.agent_name,
-                input_json_schema=task.input_json_schema or {},
-                output_json_schema=task.output_json_schema or {},
+            agent=AgentInstructionsGenerationTaskInput.Agent(
+                name=agent_schema.agent_name,
+                input_json_schema=agent_schema.input_json_schema or {},
+                output_json_schema=agent_schema.output_json_schema or {},
             ),
             available_tools_description=internal_tools_description(include=required_tool_kinds),
         )
 
         instructions_chunk = ""
-        async for chunk in stream_task_instructions_generation(
-            task_input,
+        async for chunk in agent_instructions_redaction.stream(
+            instrution_generation_input,
         ):
-            if hasattr(chunk, "task_instructions"):
-                instructions_chunk = chunk.task_instructions
+            if hasattr(chunk.output, "agent_instructions"):
+                instructions_chunk = chunk.output.agent_instructions
                 yield instructions_chunk or ""
 
         if not instructions_chunk:
             return
 
         self._event_router(
-            TaskInstructionsGeneratedEvent(
+            AgentInstructionsGeneratedEvent(
                 task_id=task_id,
                 task_schema_id=task_schema_id,
-                task_instructions=instructions_chunk,
+                agent_instructions=instructions_chunk,
             ),
         )
 
         instructions_formating_output = await format_instructions(
-            TaskInstructionsReformatingTaskInput(inital_task_instructions=instructions_chunk),
+            AgentInstructionsReformatingInput(inital_agent_instructions=instructions_chunk),
         )
-
-        # To avoid starting over from the beginning of the instructions, and because the reformating task is fast,
-        # we yield the result of the reformating task as an additional chunk.
-        yield instructions_formating_output.reformated_task_instructions
+        yield instructions_formating_output.reformated_agent_instructions
 
     async def update_task_instructions(
         self,
@@ -519,8 +514,8 @@ class InternalTasksService:
         chat_messages: list[ChatMessage],
         required_tool_kinds: set[ToolKind],
     ) -> str:
-        task_instruction_update_output = await update_task_instructions(
-            TaskInstructionsMigrationTaskInput(
+        task_instruction_update_output = await agent_instructions_migration(
+            AgentInstructionsMigrationInput(
                 initial_task_instructions=initial_task_instructions,
                 initial_task_schema=initial_task_schema,
                 chat_messages=chat_messages,
@@ -531,10 +526,10 @@ class InternalTasksService:
         task_instructions = task_instruction_update_output.new_task_instructions
 
         task_reformating_output = await format_instructions(
-            TaskInstructionsReformatingTaskInput(inital_task_instructions=task_instructions),
+            AgentInstructionsReformatingInput(inital_agent_instructions=task_instructions),
         )
 
-        return task_reformating_output.reformated_task_instructions
+        return task_reformating_output.reformated_agent_instructions
 
     async def stream_updated_instructions(
         self,
@@ -544,7 +539,7 @@ class InternalTasksService:
         chat_messages: list[ChatMessage],
         required_tool_kinds: set[ToolKind],
     ) -> AsyncIterator[str]:
-        task_input = TaskInstructionsMigrationTaskInput(
+        task_input = AgentInstructionsMigrationInput(
             initial_task_instructions=initial_task_instructions,
             initial_task_schema=initial_task_schema,
             chat_messages=chat_messages,
@@ -553,19 +548,19 @@ class InternalTasksService:
         )
 
         instructions_chunk = ""
-        async for chunk in stream_task_instructions_update(
+        async for chunk in agent_instructions_migration.stream(
             task_input,
         ):
-            if hasattr(chunk, "new_task_instructions"):
-                instructions_chunk = chunk.new_task_instructions
+            if hasattr(chunk.output, "new_task_instructions"):
+                instructions_chunk = chunk.output.new_task_instructions
                 yield instructions_chunk
 
         task_reformating_output = await format_instructions(
-            TaskInstructionsReformatingTaskInput(inital_task_instructions=instructions_chunk),
+            AgentInstructionsReformatingInput(inital_agent_instructions=instructions_chunk),
         )
         # To avoid starting over from the beginning of the instructions, and because the reformating task is fast,
         # we yield the result of the reformating task as an additional chunk.
-        yield task_reformating_output.reformated_task_instructions
+        yield task_reformating_output.reformated_agent_instructions
 
     async def stream_suggested_instructions(
         self,
@@ -575,11 +570,11 @@ class InternalTasksService:
         async def new_instructions_stream(
             required_tool_kinds: set[ToolKind],
         ):
-            async for chunk in self.stream_task_instructions(
+            async for chunk in self.stream_agent_instructions(
                 task_id=task.task_id,
                 task_schema_id=task.task_schema_id,
                 chat_messages=chat_messages,
-                task=AgentSchemaJson(
+                agent_schema=AgentSchemaJson(
                     agent_name=task.name,
                     input_json_schema=task.input_schema.model_dump(),
                     output_json_schema=task.output_schema.model_dump(),

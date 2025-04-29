@@ -365,7 +365,7 @@ async def test_create_task_schema_happy_path():
         ),
         required_tool_kinds={ToolKind.WEB_SEARCH_GOOGLE},
     )
-    internal_tasks_mock.generate_task_instructions.assert_not_called()
+    internal_tasks_mock.generate_agent_instructions.assert_not_called()
     group_service_mock.get_or_create_group.assert_called_once_with(
         task_id=task_id,
         task_schema_id=new_task.task_schema_id,
@@ -413,8 +413,8 @@ async def test_create_task_schema_first_schema():
     # Mock storage.task_variants.get_latest_task_variant
     storage_mock.task_variants.get_latest_task_variant.return_value = None
 
-    # Mock internal_tasks.generate_task_instructions
-    internal_tasks_mock.generate_task_instructions.return_value = "Generated instructions"
+    # Mock internal_tasks.generate_agent_instructions
+    internal_tasks_mock.generate_agent_instructions.return_value = "Generated instructions"
 
     internal_tasks_mock.get_required_tool_kinds.return_value = {ToolKind.WEB_SEARCH_GOOGLE}
 
@@ -431,7 +431,7 @@ async def test_create_task_schema_first_schema():
 
     # Assertions
     assert result == new_task
-    internal_tasks_mock.generate_task_instructions.assert_called_once_with(
+    internal_tasks_mock.generate_agent_instructions.assert_called_once_with(
         task_id=task_id,
         task_schema_id=1,
         chat_messages=[],
@@ -499,8 +499,8 @@ async def test_create_task_schema_no_previous_task(previous_group: TaskGroup | N
     # Mock storage.get_latest_group_iteration to return None
     storage_mock.task_groups.get_latest_group_iteration.return_value = previous_group
 
-    # Mock internal_tasks.generate_task_instructions
-    internal_tasks_mock.generate_task_instructions.return_value = "Generated instructions"
+    # Mock internal_tasks.generate_agent_instructions
+    internal_tasks_mock.generate_agent_instructions.return_value = "Generated instructions"
 
     internal_tasks_mock.get_required_tool_kinds.return_value = {ToolKind.WEB_SEARCH_GOOGLE}
 
@@ -517,7 +517,7 @@ async def test_create_task_schema_no_previous_task(previous_group: TaskGroup | N
 
     # Assertions
     assert result == new_task
-    internal_tasks_mock.generate_task_instructions.assert_called_once_with(
+    internal_tasks_mock.generate_agent_instructions.assert_called_once_with(
         task_id=task_id,
         task_schema_id=2,
         chat_messages=[],
@@ -585,8 +585,8 @@ async def test_create_task_schema_no_previous_instructions(previous_group: TaskG
     # Mock storage.get_latest_group_iteration to return None
     storage_mock.task_groups.get_latest_group_iteration.return_value = previous_group
 
-    # Mock internal_tasks.generate_task_instructions
-    internal_tasks_mock.generate_task_instructions.return_value = "Generated instructions"
+    # Mock internal_tasks.generate_agent_instructions
+    internal_tasks_mock.generate_agent_instructions.return_value = "Generated instructions"
 
     internal_tasks_mock.get_required_tool_kinds.return_value = {ToolKind.WEB_SEARCH_GOOGLE}
 
@@ -603,7 +603,7 @@ async def test_create_task_schema_no_previous_instructions(previous_group: TaskG
 
     # Assertions
     assert result == new_task
-    internal_tasks_mock.generate_task_instructions.assert_called_once_with(
+    internal_tasks_mock.generate_agent_instructions.assert_called_once_with(
         task_id=task_id,
         task_schema_id=2,
         chat_messages=[],
@@ -672,7 +672,7 @@ async def test_create_task_schema_skip_generation():
 
     # Assertions
     assert result == new_task
-    internal_tasks_mock.generate_task_instructions.assert_not_called()
+    internal_tasks_mock.generate_agent_instructions.assert_not_called()
     internal_tasks_mock.update_task_instructions.assert_not_called()
     group_service_mock.get_or_create_group.assert_not_called()
     event_router_mock.assert_called_once()

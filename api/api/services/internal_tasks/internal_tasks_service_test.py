@@ -36,7 +36,7 @@ from core.agents.extract_company_info_from_domain_task import ExtractCompanyInfo
 from core.agents.generate_task_preview import GenerateTaskPreviewTaskInput, GenerateTaskPreviewTaskOutput
 from core.agents.input_generation_instructions_agent import InputGenerationInstructionsOutput
 from core.agents.reformat_instructions_task import (
-    TaskInstructionsReformatingTaskInput,
+    AgentInstructionsReformatingInput,
     TaskInstructionsReformatingTaskOutput,
 )
 from core.agents.task_description_generation_task import (
@@ -52,15 +52,15 @@ from core.agents.task_input_example.task_input_migration_task import (
     TaskInputMigrationTaskOutput,
 )
 from core.agents.task_instruction_generation.task_instructions_generation_task import (
-    TaskInstructionsGenerationTaskInput,
-    TaskInstructionsGenerationTaskOutput,
+    AgentInstructionsGenerationTaskInput,
+    AgentInstructionsGenerationTaskOutput,
 )
 from core.agents.task_instruction_required_tools_picking.task_instructions_required_tools_picking_task import (
     TaskInstructionsRequiredToolsPickingTaskOutput,
 )
 from core.agents.task_instructions_migration_task import (
-    TaskInstructionsMigrationTaskInput,
-    TaskInstructionsMigrationTaskOutput,
+    AgentInstructionsMigrationInput,
+    AgentInstructionsMigrationOutput,
 )
 from core.domain.deprecated.task import Task
 from core.domain.errors import FailedGenerationError, JSONSchemaValidationError, UnparsableChunkError
@@ -185,7 +185,9 @@ def mock_format_instructions():
     with patch(
         "api.services.internal_tasks.internal_tasks_service.format_instructions",
         new_callable=AsyncMock,
-        return_value=TaskInstructionsReformatingTaskOutput(reformated_task_instructions="mock reformated instructions"),
+        return_value=TaskInstructionsReformatingTaskOutput(
+            reformated_agent_instructions="mock reformated instructions",
+        ),
     ) as mock:
         yield mock
 
@@ -415,21 +417,21 @@ class TestNewTask:
         }
         patched_officially_suggested_tools.assert_called_once_with()
 
-    async def test_generate_task_instructions(
+    async def test_generate_agent_instructions(
         self,
         mock_format_instructions: Mock,
         internal_tasks_service: InternalTasksService,
         patched_internal_tools_description: Mock,
     ):
-        # Test for the 'generate_task_instructions' method
+        # Test for the 'generate_agent_instructions' method
         with patch(
-            "api.services.internal_tasks.internal_tasks_service.generate_task_instructions",
+            "api.services.internal_tasks.internal_tasks_service.agent_instructions_redaction",
             new_callable=AsyncMock,
-            return_value=TaskInstructionsGenerationTaskOutput(
-                task_instructions="mock generated instructions",
+            return_value=AgentInstructionsGenerationTaskOutput(
+                agent_instructions="mock generated instructions",
             ),
-        ) as mock_generate_task_instructions:
-            task_instructions = await internal_tasks_service.generate_task_instructions(
+        ) as mock_generate_agent_instructions:
+            task_instructions = await internal_tasks_service.generate_agent_instructions(
                 task_id="test_task",
                 task_schema_id=1,
                 chat_messages=[UserChatMessage(content="mock user message")],
@@ -445,10 +447,10 @@ class TestNewTask:
             assert task_instructions == "mock reformated instructions"
 
             # Verify task instructions generation call
-            mock_generate_task_instructions.assert_awaited_once_with(
-                TaskInstructionsGenerationTaskInput(
+            mock_generate_agent_instructions.assert_awaited_once_with(
+                AgentInstructionsGenerationTaskInput(
                     chat_messages=[UserChatMessage(content="mock user message")],
-                    task=TaskInstructionsGenerationTaskInput.Task(
+                    agent=AgentInstructionsGenerationTaskInput.Agent(
                         name="mock name",
                         input_json_schema={"schema": "mock input_schema"},
                         output_json_schema={"schema": "mock output_schema"},
@@ -459,7 +461,7 @@ class TestNewTask:
 
             # Verify reformatting call
             mock_format_instructions.assert_awaited_once_with(
-                TaskInstructionsReformatingTaskInput(inital_task_instructions="mock generated instructions"),
+                AgentInstructionsReformatingInput(inital_agent_instructions="mock generated instructions"),
             )
             patched_internal_tools_description.assert_called_once_with(include={ToolKind.WEB_SEARCH_GOOGLE})
 
@@ -857,10 +859,12 @@ class TestTranscribeAudio:
 @pytest.fixture
 def mock_stream_task_instructions_generation():
     with patch(
-        "api.services.internal_tasks.internal_tasks_service.stream_task_instructions_generation",
+        "api.services.internal_tasks.internal_tasks_service.agent_instructions_redaction.stream",
         return_value=mock_aiter(
-            TaskInstructionsGenerationTaskOutput(
-                task_instructions="Initial instructions chunk.",
+            Mock(
+                output=AgentInstructionsGenerationTaskOutput(
+                    agent_instructions="Initial instructions chunk.",
+                ),
             ),
         ),
     ) as mock_stream_task_instructions_generation:
@@ -876,17 +880,17 @@ class TestInternalTasksService:
         patched_internal_tools_description: Mock,
     ):
         mock_format_instructions.return_value = TaskInstructionsReformatingTaskOutput(
-            reformated_task_instructions="Reformatted instructions.",
+            reformated_agent_instructions="Reformatted instructions.",
         )
 
         # Act
         instructions = [
             chunk
-            async for chunk in internal_tasks_service.stream_task_instructions(
+            async for chunk in internal_tasks_service.stream_agent_instructions(
                 task_id="test_task",
                 task_schema_id=1,
                 chat_messages=[UserChatMessage(content="User message")],
-                task=AgentSchemaJson(
+                agent_schema=AgentSchemaJson(
                     agent_name="TestTask",
                     input_json_schema={"schema": "input_schema"},
                     output_json_schema={"schema": "output_schema"},
@@ -903,9 +907,9 @@ class TestInternalTasksService:
 
         # Verify task instructions generation call
         mock_stream_task_instructions_generation.assert_called_once_with(
-            TaskInstructionsGenerationTaskInput(
+            AgentInstructionsGenerationTaskInput(
                 chat_messages=[UserChatMessage(content="User message")],
-                task=TaskInstructionsGenerationTaskInput.Task(
+                agent=AgentInstructionsGenerationTaskInput.Agent(
                     name="TestTask",
                     input_json_schema={"schema": "input_schema"},
                     output_json_schema={"schema": "output_schema"},
@@ -916,8 +920,8 @@ class TestInternalTasksService:
 
         # Verify reformatting call
         mock_format_instructions.assert_awaited_once_with(
-            TaskInstructionsReformatingTaskInput(
-                inital_task_instructions="Initial instructions chunk.",
+            AgentInstructionsReformatingInput(
+                inital_agent_instructions="Initial instructions chunk.",
             ),
         )
         patched_internal_tools_description.assert_called_once_with(include={ToolKind.WEB_SEARCH_GOOGLE})
@@ -938,10 +942,12 @@ def mock_run_task_instructions_required_tools_picking():
 @pytest.fixture
 def mock_stream_task_instructions_update():
     with patch(
-        "api.services.internal_tasks.internal_tasks_service.stream_task_instructions_update",
+        "api.services.internal_tasks.internal_tasks_service.agent_instructions_migration.stream",
         return_value=mock_aiter(
-            TaskInstructionsMigrationTaskOutput(
-                new_task_instructions="Updated instructions",
+            Mock(
+                output=AgentInstructionsMigrationOutput(
+                    new_task_instructions="Updated instructions",
+                ),
             ),
         ),
     ) as mock_stream_task_instructions_update:
@@ -982,12 +988,14 @@ class TestStreamSuggestedInstructions:
         chat_messages = [ChatMessage(role="USER", content="Migrate instructions")]
 
         mock_stream_task_instructions_generation.return_value = mock_aiter(
-            TaskInstructionsGenerationTaskOutput(
-                task_instructions="new instructions",
+            Mock(
+                output=AgentInstructionsGenerationTaskOutput(
+                    agent_instructions="new instructions",
+                ),
             ),
         )
         mock_format_instructions.return_value = TaskInstructionsReformatingTaskOutput(
-            reformated_task_instructions="Reformatted new instructions",
+            reformated_agent_instructions="Reformatted new instructions",
         )
         expected_outputs = [
             "new instructions",
@@ -1006,9 +1014,9 @@ class TestStreamSuggestedInstructions:
 
         # Verify task instructions generation call
         mock_stream_task_instructions_generation.assert_called_once_with(
-            TaskInstructionsGenerationTaskInput(
+            AgentInstructionsGenerationTaskInput(
                 chat_messages=chat_messages,
-                task=TaskInstructionsGenerationTaskInput.Task(
+                agent=AgentInstructionsGenerationTaskInput.Agent(
                     name=task_variant.name,
                     input_json_schema={"version": "1", "json_schema": task_variant.input_schema.json_schema},
                     output_json_schema={"version": "1", "json_schema": task_variant.output_schema.json_schema},
@@ -1020,8 +1028,8 @@ class TestStreamSuggestedInstructions:
 
         # Verify reformatting call
         mock_format_instructions.assert_called_once_with(
-            TaskInstructionsReformatingTaskInput(
-                inital_task_instructions="new instructions",
+            AgentInstructionsReformatingInput(
+                inital_agent_instructions="new instructions",
             ),
         )
 
@@ -1060,7 +1068,7 @@ class TestStreamSuggestedInstructions:
         )
 
         mock_format_instructions.return_value = TaskInstructionsReformatingTaskOutput(
-            reformated_task_instructions="Reformatted instructions",
+            reformated_agent_instructions="Reformatted instructions",
         )
 
         expected_outputs = [
@@ -1076,7 +1084,7 @@ class TestStreamSuggestedInstructions:
 
         # Verify task instructions migration call
         mock_stream_task_instructions_update.assert_called_once_with(
-            TaskInstructionsMigrationTaskInput(
+            AgentInstructionsMigrationInput(
                 initial_task_instructions="Old instructions",
                 initial_task_schema=AgentSchemaJson(
                     agent_name=former_task_variant.name,
@@ -1095,8 +1103,8 @@ class TestStreamSuggestedInstructions:
 
         # Verify reformatting call
         mock_format_instructions.assert_called_once_with(
-            TaskInstructionsReformatingTaskInput(
-                inital_task_instructions="Updated instructions",
+            AgentInstructionsReformatingInput(
+                inital_agent_instructions="Updated instructions",
             ),
         )
         patched_internal_tools_description.assert_called_once_with(include={ToolKind.WEB_SEARCH_GOOGLE})
@@ -1134,10 +1142,12 @@ class TestStreamSuggestedInstructions:
         # Mock the task instructions generation stream
         with (
             patch(
-                "api.services.internal_tasks.internal_tasks_service.stream_task_instructions_generation",
+                "api.services.internal_tasks.internal_tasks_service.agent_instructions_redaction.stream",
                 return_value=mock_aiter(
-                    TaskInstructionsGenerationTaskOutput(
-                        task_instructions="new instructions",
+                    Mock(
+                        output=AgentInstructionsGenerationTaskOutput(
+                            agent_instructions="new instructions",
+                        ),
                     ),
                 ),
             ) as mock_stream_task_instructions_generation,
@@ -1150,7 +1160,7 @@ class TestStreamSuggestedInstructions:
             ) as mock_run_task_instructions_required_tools_picking,
         ):
             mock_format_instructions.return_value = TaskInstructionsReformatingTaskOutput(
-                reformated_task_instructions="Reformatted new instructions",
+                reformated_agent_instructions="Reformatted new instructions",
             )
 
             expected_outputs = [
@@ -1166,9 +1176,9 @@ class TestStreamSuggestedInstructions:
 
             # Verify task instructions generation call
             mock_stream_task_instructions_generation.assert_called_once_with(
-                TaskInstructionsGenerationTaskInput(
+                AgentInstructionsGenerationTaskInput(
                     chat_messages=chat_messages,
-                    task=TaskInstructionsGenerationTaskInput.Task(
+                    agent=AgentInstructionsGenerationTaskInput.Agent(
                         name=task_variant.name,
                         input_json_schema={"version": "1", "json_schema": task_variant.input_schema.json_schema},
                         output_json_schema={"version": "1", "json_schema": task_variant.output_schema.json_schema},
@@ -1179,8 +1189,8 @@ class TestStreamSuggestedInstructions:
 
             # Verify reformatting call
             mock_format_instructions.assert_called_once_with(
-                TaskInstructionsReformatingTaskInput(
-                    inital_task_instructions="new instructions",
+                AgentInstructionsReformatingInput(
+                    inital_agent_instructions="new instructions",
                 ),
             )
             patched_internal_tools_description.assert_called_once_with(include={ToolKind.WEB_SEARCH_GOOGLE})
@@ -1221,10 +1231,12 @@ class TestStreamSuggestedInstructions:
         # Mock the task instructions generation stream
         with (
             patch(
-                "api.services.internal_tasks.internal_tasks_service.stream_task_instructions_generation",
+                "api.services.internal_tasks.internal_tasks_service.agent_instructions_redaction.stream",
                 return_value=mock_aiter(
-                    TaskInstructionsGenerationTaskOutput(
-                        task_instructions="new instructions",
+                    Mock(
+                        output=AgentInstructionsGenerationTaskOutput(
+                            agent_instructions="new instructions",
+                        ),
                     ),
                 ),
             ) as mock_stream_task_instructions_generation,
@@ -1237,7 +1249,7 @@ class TestStreamSuggestedInstructions:
             ) as mock_run_task_instructions_required_tools_picking,
         ):
             mock_format_instructions.return_value = TaskInstructionsReformatingTaskOutput(
-                reformated_task_instructions="Reformatted new instructions",
+                reformated_agent_instructions="Reformatted new instructions",
             )
 
             expected_outputs = [
@@ -1252,9 +1264,9 @@ class TestStreamSuggestedInstructions:
 
             # Verify task instructions generation call
             mock_stream_task_instructions_generation.assert_called_once_with(
-                TaskInstructionsGenerationTaskInput(
+                AgentInstructionsGenerationTaskInput(
                     chat_messages=chat_messages,
-                    task=TaskInstructionsGenerationTaskInput.Task(
+                    agent=AgentInstructionsGenerationTaskInput.Agent(
                         name=task_variant.name,
                         input_json_schema={"version": "1", "json_schema": task_variant.input_schema.json_schema},
                         output_json_schema={"version": "1", "json_schema": task_variant.output_schema.json_schema},
@@ -1265,8 +1277,8 @@ class TestStreamSuggestedInstructions:
 
             # Verify reformatting call
             mock_format_instructions.assert_called_once_with(
-                TaskInstructionsReformatingTaskInput(
-                    inital_task_instructions="new instructions",
+                AgentInstructionsReformatingInput(
+                    inital_agent_instructions="new instructions",
                 ),
             )
             patched_internal_tools_description.assert_called_once_with(include={ToolKind.WEB_SEARCH_GOOGLE})
@@ -1508,14 +1520,14 @@ class TestStreamTaskIterations:
     ):
         # Mock the task instructions update
         with patch(
-            "api.services.internal_tasks.internal_tasks_service.update_task_instructions",
+            "api.services.internal_tasks.internal_tasks_service.agent_instructions_migration",
             new_callable=AsyncMock,
-            return_value=TaskInstructionsMigrationTaskOutput(
+            return_value=AgentInstructionsMigrationOutput(
                 new_task_instructions="mock updated instructions",
             ),
         ) as mock_update_task_instructions:
             mock_format_instructions.return_value = TaskInstructionsReformatingTaskOutput(
-                reformated_task_instructions="mock reformated instructions",
+                reformated_agent_instructions="mock reformated instructions",
             )
 
             # Act
@@ -1532,7 +1544,7 @@ class TestStreamTaskIterations:
 
             # Verify task instructions update call
             mock_update_task_instructions.assert_awaited_once_with(
-                TaskInstructionsMigrationTaskInput(
+                AgentInstructionsMigrationInput(
                     initial_task_instructions="initial instructions",
                     initial_task_schema=AgentSchemaJson(agent_name="test"),
                     chat_messages=[UserChatMessage(content="test")],
@@ -1543,8 +1555,8 @@ class TestStreamTaskIterations:
 
             # Verify reformatting call
             mock_format_instructions.assert_awaited_once_with(
-                TaskInstructionsReformatingTaskInput(
-                    inital_task_instructions="mock updated instructions",
+                AgentInstructionsReformatingInput(
+                    inital_agent_instructions="mock updated instructions",
                 ),
             )
             patched_internal_tools_description.assert_called_once_with(include={ToolKind.WEB_SEARCH_GOOGLE})
