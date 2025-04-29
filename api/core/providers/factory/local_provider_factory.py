@@ -16,10 +16,14 @@ from core.providers.factory.abstract_provider_factory import AbstractProviderFac
 from core.providers.fireworks.fireworks_provider import FireworksAIProvider
 from core.providers.google.gemini.gemini_api_provider import GoogleGeminiAPIProvider
 from core.providers.google.google_provider import GoogleProvider
+from core.providers.google_imagen.google_imagen_vertex_provider import (
+    GoogleImagenVertexProvider,
+)
 from core.providers.groq.groq_provider import GroqProvider
 from core.providers.mistral.mistral_provider import MistralAIProvider
 from core.providers.openai.azure_open_ai_provider.azure_openai_provider import AzureOpenAIProvider
 from core.providers.openai.openai_provider import OpenAIProvider
+from core.providers.openai_image.openai_image_provider import OpenAIImageProvider
 from core.providers.xai.xai_provider import XAIProvider
 
 _provider_cls: list[type[AbstractProvider[Any, Any]]] = [
@@ -33,6 +37,8 @@ _provider_cls: list[type[AbstractProvider[Any, Any]]] = [
     GoogleGeminiAPIProvider,
     FireworksAIProvider,
     XAIProvider,
+    OpenAIImageProvider,
+    GoogleImagenVertexProvider,
 ]
 
 _logger = logging.getLogger("LocalProviderFactory")

@@ -51,6 +51,9 @@ def _set_keypath_inner(
         elif not isinstance(root, list):  # type: ignore
             raise InvalidKeyPathError(f"Cannot set keypath {key} on non-list object", extras={"root": root})
 
+        if key < 0:
+            key = max(0, len(root) + key + 1)
+
         if len(root) <= key:
             root.extend([None for _ in range(key - len(root) + 1)])
         root[key] = _set_keypath_inner(root[key], keys[1:], value)

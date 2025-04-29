@@ -32,7 +32,6 @@ from core.domain.models.model_provider_data import (
 from core.domain.models.utils import get_model_data, get_model_provider_data, get_provider_data_by_model
 from core.domain.structured_output import StructuredOutput
 from core.domain.tool import Tool
-from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.models import RawCompletion, StandardMessage
 from core.providers.base.provider_options import ProviderOptions
 from core.runners.builder_context import builder_context
@@ -73,7 +72,7 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
     def is_custom_config(self) -> bool:
         return self._config_id is not None
 
-    # TODO: remove
+    # TODO: remove, we should use the first mode available in the mapping
     @abstractmethod
     def default_model(self) -> Model:
         pass
@@ -243,6 +242,16 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
     def get_model_provider_data(self, model: Model):
         return get_model_provider_data(self.name(), model)
 
+    def _calculate_image_output_cost(
+        self,
+        model_provider_data: ModelProviderData,
+        llm_usage: LLMUsage,
+    ) -> float | None:
+        if not model_provider_data.image_output_price or not llm_usage.completion_image_count:
+            return None
+
+        return model_provider_data.image_output_price.cost_per_image * llm_usage.completion_image_count
+
     async def _compute_llm_completion_cost(
         self,
         model: Model,
@@ -278,6 +287,8 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
         )
 
         llm_usage.prompt_cost_usd += prompt_image_cost_usd + prompt_audio_cost_usd
+        if image_output_cost_usd := self._calculate_image_output_cost(model_provider_data, llm_usage):
+            llm_usage.completion_cost_usd += image_output_cost_usd
 
     async def compute_llm_completion_usage(
         self,
@@ -420,29 +431,27 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
         raise UnpriceableRunError(f"Unknown audio price type {type(model_provider_data.audio_price)}")
 
     @classmethod
+    def _assign_usage_from_output(cls, usage: LLMUsage, output: StructuredOutput):
+        if usage.completion_image_count is None:
+            if not output.files:
+                return
+            usage.completion_image_count = output.number_of_images
+
+    @classmethod
     def _assign_raw_completion(
         cls,
         raw_completion: RawCompletion,
         llm_completion: LLMCompletion,
-        tool_calls: list[ToolCallRequestWithID] | None = None,
+        output: StructuredOutput | None = None,
     ):
         llm_completion.duration_seconds = round((datetime_factory() - raw_completion.start_time).total_seconds(), 2)
-        llm_completion.tool_calls = tool_calls
+        llm_completion.tool_calls = output.tool_calls if output else None
         llm_completion.response = raw_completion.response
-        if raw_completion.usage.completion_token_count is not None:
-            llm_completion.usage.completion_token_count = raw_completion.usage.completion_token_count
-        if raw_completion.usage.completion_cost_usd is not None:
-            llm_completion.usage.completion_cost_usd = raw_completion.usage.completion_cost_usd
-        if raw_completion.usage.prompt_token_count is not None:
-            llm_completion.usage.prompt_token_count = raw_completion.usage.prompt_token_count
-        if raw_completion.usage.prompt_cost_usd is not None:
-            llm_completion.usage.prompt_cost_usd = raw_completion.usage.prompt_cost_usd
-        if raw_completion.usage.prompt_token_count_cached is not None:
-            llm_completion.usage.prompt_token_count_cached = raw_completion.usage.prompt_token_count_cached
-        if raw_completion.usage.model_context_window_size is not None:
-            llm_completion.usage.model_context_window_size = raw_completion.usage.model_context_window_size
-        if raw_completion.usage.reasoning_token_count is not None:
-            llm_completion.usage.reasoning_token_count = raw_completion.usage.reasoning_token_count
+
+        if output:
+            cls._assign_usage_from_output(raw_completion.usage, output)
+
+        raw_completion.apply_to(llm_completion)
 
     @abstractmethod
     async def _prepare_completion(
@@ -660,7 +669,7 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
                     raw_completion=raw_completion,
                     options=options,
                 )
-            self._assign_raw_completion(raw_completion, raw, tool_calls=output.tool_calls)
+            self._assign_raw_completion(raw_completion, raw, output=output)
             return output
         except ProviderError as e:
             self._prepare_provider_error(e, options)
@@ -727,7 +736,7 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
                         options=options,
                     ):
                         yield output
-                self._assign_raw_completion(raw_completion, raw, tool_calls=output.tool_calls if output else None)
+                self._assign_raw_completion(raw_completion, raw, output=output)
                 return
             except ProviderError as e:
                 self._prepare_provider_error(e, options)

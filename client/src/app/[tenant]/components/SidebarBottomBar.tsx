@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { SimpleTooltip } from '@/components/ui/Tooltip';
 import { useAuth, useAuthUI } from '@/lib/AuthContext';
 import { NEW_TASK_MODAL_OPEN, useQueryParamModal } from '@/lib/globalModal';
+import { useRedirectWithParams } from '@/lib/queryString';
 import { signUpRoute } from '@/lib/routeFormatter';
 import { CreditsSection } from './CreditsSection';
 import { UserMenu } from './userMenu';
@@ -22,7 +23,7 @@ export function SidebarLinks() {
       >
         <Button
           variant='newDesignText'
-          toRoute='https://discord.com/invite/qcsq8Kva'
+          toRoute='https://discord.gg/jSahs44g'
           rel='noopener noreferrer'
           target='_blank'
           icon={
@@ -105,6 +106,14 @@ export function SidebarBottomBar(props: SidebarBottomBarProps) {
 
   const { openUserProfile, openOrganizationProfile, signOut } = useAuthUI();
 
+  const redirectWithParams = useRedirectWithParams();
+
+  const switchOrganizations = useCallback(() => {
+    redirectWithParams({
+      path: '/organization/select',
+    });
+  }, [redirectWithParams]);
+
   return (
     <>
       {isLoggedOut ? (
@@ -145,6 +154,7 @@ export function SidebarBottomBar(props: SidebarBottomBarProps) {
                 orgState={orgState}
                 openUserProfile={openUserProfile}
                 openOrganizationProfile={openOrganizationProfile}
+                switchOrganizations={switchOrganizations}
                 signOut={signOut}
               />
               <CreditsSection isSignedIn={!!isSignedIn} />

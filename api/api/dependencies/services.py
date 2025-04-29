@@ -30,6 +30,7 @@ from api.services.run import RunService
 from api.services.runs import RunsService
 from api.services.runs_search import RunsSearchService
 from api.services.task_deployments import TaskDeploymentsService
+from api.services.tools_service import ToolsService
 from api.services.transcriptions import TranscriptionService
 from api.services.versions import VersionsService
 from core.deprecated.workflowai import WorkflowAI
@@ -284,3 +285,10 @@ def payment_system_service(
 
 
 PaymentSystemServiceDep = Annotated[PaymentSystemService, Depends(payment_system_service)]
+
+
+def tools_service(storage: StorageDep) -> ToolsService:
+    return ToolsService(storage)
+
+
+ToolsServiceDep = Annotated[ToolsService, Depends(tools_service)]

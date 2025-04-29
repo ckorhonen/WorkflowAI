@@ -16,12 +16,15 @@ class LLMPromptUsage(BaseModel):
     prompt_audio_token_count: Optional[float] = None
     prompt_audio_duration_seconds: Optional[float] = None
     prompt_image_count: Optional[int] = None
+    prompt_image_token_count: Optional[float] = None
 
 
 class LLMCompletionUsage(BaseModel):
     completion_token_count: Optional[float] = None
     completion_cost_usd: Optional[float] = None
     reasoning_token_count: Optional[float] = None
+    completion_image_token_count: Optional[float] = None
+    completion_image_count: Optional[int] = None
 
 
 class LLMUsage(LLMPromptUsage, LLMCompletionUsage):

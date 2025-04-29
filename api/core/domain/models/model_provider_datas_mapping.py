@@ -413,6 +413,18 @@ OPENAI_PROVIDER_DATA: ProviderDataByModel = {
     # ),
 }
 
+OPENAI_IMAGE_PROVIDER_DATA: ProviderDataByModel = {
+    Model.GPT_IMAGE_1: ModelProviderData(
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=5 * ONE_MILLION_TH,
+            prompt_image_cost_per_token=10 * ONE_MILLION_TH,
+            completion_cost_per_token=0,  # GPT Image 1 does not generate text
+            completion_image_cost_per_token=40 * ONE_MILLION_TH,
+            source="https://openai.com/api/pricing/",
+        ),
+    ),
+}
+
 AMAZON_BEDROCK_PROVIDER_DATA: ProviderDataByModel = {
     Model.CLAUDE_3_7_SONNET_20250219: ModelProviderData(
         text_price=TextPricePerToken(
@@ -585,20 +597,21 @@ GROQ_PROVIDER_DATA: ProviderDataByModel = {
         # native tools calls are not implemented on Groq for now as we will decommssion the provider for now.
         # see [WOR-1968: Disable `Groq` ?](https://linear.app/workflowai/issue/WOR-1968/disable-groq)
     ),
-    Model.LLAMA_3_1_70B: ModelProviderData(
-        text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_000_59,
-            completion_cost_per_token=0.000_000_79,
-            source="https://console.groq.com/settings/billing",
-        ),
-        lifecycle_data=LifecycleData(
-            sunset_date=datetime.date(year=2024, month=12, day=20),
-            source="https://console.groq.com/docs/deprecations",
-            post_sunset_replacement_model=Model.LLAMA_3_3_70B,
-        ),
-        # native tools calls are not implemented on Groq for now as we will decommssion the provider for now.
-        # see [WOR-1968: Disable `Groq` ?](https://linear.app/workflowai/issue/WOR-1968/disable-groq)
-    ),
+    #
+    # Model.LLAMA_3_1_70B: ModelProviderData(
+    #     text_price=TextPricePerToken(
+    #         prompt_cost_per_token=0.000_000_59,
+    #         completion_cost_per_token=0.000_000_79,
+    #         source="https://console.groq.com/settings/billing",
+    #     ),
+    #     lifecycle_data=LifecycleData(
+    #         sunset_date=datetime.date(year=2024, month=12, day=20),
+    #         source="https://console.groq.com/docs/deprecations",
+    #         post_sunset_replacement_model=Model.LLAMA_3_3_70B,
+    #     ),
+    #     # native tools calls are not implemented on Groq for now as we will decommssion the provider for now.
+    #     # see [WOR-1968: Disable `Groq` ?](https://linear.app/workflowai/issue/WOR-1968/disable-groq)
+    # ),
     # Model.LLAMA_3_2_3B_PREVIEW: ModelProviderData(
     #     text_price=TextPricePerToken(
     #         prompt_cost_per_token=0.000_000_06,
@@ -642,6 +655,13 @@ GROQ_PROVIDER_DATA: ProviderDataByModel = {
         text_price=TextPricePerToken(
             prompt_cost_per_token=0.11 / 1_000_000,
             completion_cost_per_token=0.34 / 1_000_000,
+            source="https://groq.com/pricing/",
+        ),
+    ),
+    Model.QWEN_QWQ_32B: ModelProviderData(
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=0.29 * ONE_MILLION_TH,
+            completion_cost_per_token=0.39 * ONE_MILLION_TH,
             source="https://groq.com/pricing/",
         ),
     ),
@@ -877,6 +897,18 @@ GOOGLE_GEMINI_API_PROVIDER_DATA: ProviderDataByModel = {
             prompt_cost_per_token=0.075 * ONE_MILLION_TH,
             completion_cost_per_token=0.30 * ONE_MILLION_TH,
             source="https://ai.google.dev/gemini-api/docs/pricing#2_0flash_lite",
+        ),
+    ),
+    Model.GEMINI_2_0_FLASH_EXP: ModelProviderData(
+        # Exp models are free
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=0,
+            completion_cost_per_token=0,
+            completion_image_cost_per_token=0,
+            source="https://ai.google.dev/gemini-api/docs/pricing#2_0flash_lite",
+        ),
+        image_price=ImageFixedPrice(
+            cost_per_image=0,
         ),
     ),
     Model.GEMINI_2_0_FLASH_001: ModelProviderData(
@@ -1200,6 +1232,39 @@ XAI_PROVIDER_DATA: ProviderDataByModel = {
     ),
 }
 
+GOOGLE_IMAGEN_PROVIDER_DATA: ProviderDataByModel = {
+    Model.IMAGEN_3_0_FAST_001: ModelProviderData(
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=0,
+            completion_cost_per_token=0,
+            source="https://ai.google.dev/gemini-api/docs/pricing#imagen-3",
+        ),
+        image_output_price=ImageFixedPrice(
+            cost_per_image=0.03,
+        ),
+    ),
+    Model.IMAGEN_3_0_001: ModelProviderData(
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=0,
+            completion_cost_per_token=0,
+            source="https://ai.google.dev/gemini-api/docs/pricing#imagen-3",
+        ),
+        image_output_price=ImageFixedPrice(
+            cost_per_image=0.03,
+        ),
+    ),
+    Model.IMAGEN_3_0_002: ModelProviderData(
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=0,
+            completion_cost_per_token=0,
+            source="https://ai.google.dev/gemini-api/docs/pricing#imagen-3",
+        ),
+        image_output_price=ImageFixedPrice(
+            cost_per_image=0.03,
+        ),
+    ),
+}
+
 type ProviderModelDataMapping = dict[Provider, ProviderDataByModel]
 
 # Pricing and lifecycle data for each model / provider couple
@@ -1207,9 +1272,11 @@ MODEL_PROVIDER_DATAS: ProviderModelDataMapping = {
     # ------------------------------------------------------------------------------------------------
     # Google Vertex AI
     Provider.GOOGLE: GOOGLE_PROVIDER_DATA,
+    Provider.GOOGLE_IMAGEN: GOOGLE_IMAGEN_PROVIDER_DATA,
     # ------------------------------------------------------------------------------------------------
     # OpenAI
     Provider.OPEN_AI: OPENAI_PROVIDER_DATA,
+    Provider.OPEN_AI_IMAGE: OPENAI_IMAGE_PROVIDER_DATA,
     # ------------------------------------------------------------------------------------------------
     # Amazon Bedrock
     Provider.AMAZON_BEDROCK: AMAZON_BEDROCK_PROVIDER_DATA,

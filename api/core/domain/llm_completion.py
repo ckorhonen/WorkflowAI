@@ -6,7 +6,6 @@ from core.domain.llm_usage import LLMUsage
 from core.domain.message import Message
 from core.domain.models import Provider
 from core.domain.tool_call import ToolCallRequestWithID
-from core.providers.base.models import StandardMessage
 
 
 class LLMCompletion(BaseModel):
@@ -33,13 +32,19 @@ class LLMCompletion(BaseModel):
     )
 
     def incur_cost(self) -> bool:
+        if self.usage.completion_image_count:
+            return True
         return not (self.response is None and self.usage.completion_token_count == 0)
 
     def to_messages(self) -> list[Message]:
+        # TODO: this really should not be here but we will eventually remove the standard messages so we
+        # can leave for now
+        from core.providers.base.models import StandardMessage, message_standard_to_domain
+
         # Convert the LLMCompletion to a list of messages
         # Warning: this will only work if the LLMCompletion messages has been converted to
         # a list of standard messages
-        base = [Message.from_standard(cast(StandardMessage, message)) for message in self.messages]
+        base = [message_standard_to_domain(cast(StandardMessage, message)) for message in self.messages]
 
         if self.tool_calls or self.response:
             base.append(

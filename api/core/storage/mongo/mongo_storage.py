@@ -39,6 +39,7 @@ from core.storage.mongo.partials.input_evaluations import MongoInputEvaluationSt
 from core.storage.mongo.partials.mongo_feedback import MongoFeedbackStorage
 from core.storage.mongo.partials.mongo_organizations import MongoOrganizationStorage
 from core.storage.mongo.partials.mongo_tasks import MongoTaskStorage
+from core.storage.mongo.partials.mongo_tools_storage import MongoToolsStorage
 from core.storage.mongo.partials.reviews import MongoReviewsStorage
 from core.storage.mongo.partials.reviews_benchmark import MongoReviewsBenchmarkStorage
 from core.storage.mongo.partials.task_deployments import MongoTaskDeploymentsStorage
@@ -201,6 +202,10 @@ class MongoStorage(BackendStorage):
         return self._get_collection("feedback")
 
     @property
+    def _tools_collection(self) -> AsyncCollection:
+        return self._get_collection("tools")
+
+    @property
     def _tenant_tuple(self):
         return (self._tenant, self._tenant_uid)
 
@@ -270,6 +275,10 @@ class MongoStorage(BackendStorage):
     @property
     def feedback(self):
         return MongoFeedbackStorage(self._tenant_tuple, self._feedback_collection)
+
+    @property
+    def tools(self):
+        return MongoToolsStorage(self._tenant_tuple, self._tools_collection)
 
     @override
     async def is_ready(self) -> bool:

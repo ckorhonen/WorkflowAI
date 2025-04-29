@@ -59,6 +59,7 @@ class OutputSchemaFieldType(Enum):
     URL = "url"
     EMAIL = "email"
     HTML = "html"
+    IMAGE_FILE = "image_file"
 
 
 class BaseFieldConfig(BaseModel):
@@ -342,7 +343,8 @@ INSTRUCTIONS = """Step 1 (only if there is no existing_agent_schema):
     - All fields are optional by default.
     - When an explicit timezone is required for the agent in the output (for example: repeating events at the same time on different days, daylight saving time ambiguities, etc.), you can use the "datetime_local" type that includes date, local_time, and timezone.
     - Be very careful not propagating things from the 'existing_agent_schema', that should not belong in the 'new_agent_schema', like the 'examples' for non-string fields.
-    - Image generation, audio generation, and file generation in general, is not supported. Always refer to the InputSchemaFieldType and OutputSchemaFieldType, respectively.
+    - Image generation is supported. When generating images, do not add additional fields to the output unless explicitly asked by the user. If the user asks to generate an array of images, add an 'image_count' field to the input schema. If explicitly asked, you can also add a 'mask' Image field to the input schema.
+    - Audio generation, and file generation in general, is not supported. Always refer to the InputSchemaFieldType and OutputSchemaFieldType, respectively.
     - 'document_file' allows to support indistinctively text (txt, json, csv, etc), images and pdfs file.
     - If 'available_tools_description' is provided, consider how these tools might be utilized in the agent and adjust the schema accordingly.
     - For cases where the agent requires static or infrequently updated context that does not vary from agent run to agent run, you do not need to include this context in the input schema. Instead, explain in the 'answer_to_user' that the agent instructions are the best place this context. Task instructions are outside of your scope and are generated afterwards by another agent, do not offer to update the instructions. Non-exhaustive examples of large and static content: FAQ knowledge base for customer service agents, Company policies or guidelines for compliance checking agents, Style guides for content creation agents, Standard operating procedures for process analysis agents, reference documentation for technical support agents, etc. As a rule of thumbs, input data that  is supposed to change every time the agent is run can go in the 'input_json_schema', input data that varies way rarely can go in the instructions.

@@ -24,6 +24,7 @@ type ManageCardsContentProps = {
   isAddCreditsButtonActive: boolean;
   deletePaymentMethod: () => Promise<void>;
   automaticPaymentsFailure: string | undefined;
+  onUpdatePaymentMethod: () => void;
 };
 
 export function ManageCardsContent(props: ManageCardsContentProps) {
@@ -43,6 +44,7 @@ export function ManageCardsContent(props: ManageCardsContentProps) {
     isAddCreditsButtonActive,
     deletePaymentMethod,
     automaticPaymentsFailure,
+    onUpdatePaymentMethod,
   } = props;
 
   if (showAddPaymentMethod) {
@@ -78,6 +80,7 @@ export function ManageCardsContent(props: ManageCardsContentProps) {
         automaticPaymentsFailure={automaticPaymentsFailure}
         organizationSettings={organizationSettings}
         onEnableAutoRecharge={() => setShowEnableAutoRecharge(true)}
+        onUpdatePaymentMethod={onUpdatePaymentMethod}
       />
       <BottomButtonBar
         tooltipText={!isPaymentMethodAvailable ? 'Add a Payment method before adding credits' : undefined}

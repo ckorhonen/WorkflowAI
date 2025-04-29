@@ -306,5 +306,6 @@ class GroqError(BaseModel):
         type: str | None = None
         param: str | None = None
         code: str = "unknown"
+        failed_generation: str | None = None
 
     error: Payload

@@ -1,7 +1,7 @@
 import logging
 from typing import Any, TypeAlias
 
-from core.domain.fields.file import File, FileKind
+from core.domain.fields.file import FileKind
 from core.domain.fields.local_date_time import DatetimeLocal
 from core.utils import strings
 
@@ -92,10 +92,19 @@ def _handle_object_field(
     }
 
 
-def _handle_file_field(file_kind: FileKind, defs: dict[str, Any]) -> dict[str, Any]:
+def _handle_file_field(file_kind: FileKind) -> dict[str, Any]:
     """Handle File field conversion."""
-    defs["File"] = File.model_json_schema()
-    return {"$ref": "#/$defs/File", "format": file_kind.value}
+    match file_kind:
+        case FileKind.IMAGE:
+            ref_name = "Image"
+        case FileKind.AUDIO:
+            ref_name = "Audio"
+        case FileKind.DOCUMENT:
+            ref_name = "File"
+        case FileKind.PDF:
+            ref_name = "PDF"
+
+    return {"$ref": f"#/$defs/{ref_name}"}
 
 
 def _handle_datetime_local_field(defs: dict[str, Any]) -> dict[str, Any]:
@@ -151,11 +160,13 @@ def _handle_generic_field(
     """Handle generic field types with special formats."""
     match field.type:
         case InputSchemaFieldType.IMAGE_FILE:
-            return _handle_file_field(FileKind.IMAGE, defs)
+            return _handle_file_field(FileKind.IMAGE)
+        case OutputSchemaFieldType.IMAGE_FILE:
+            return _handle_file_field(FileKind.IMAGE)
         case InputSchemaFieldType.AUDIO_FILE:
-            return _handle_file_field(FileKind.AUDIO, defs)
+            return _handle_file_field(FileKind.AUDIO)
         case InputSchemaFieldType.DOCUMENT_FILE:
-            return _handle_file_field(FileKind.DOCUMENT, defs)
+            return _handle_file_field(FileKind.DOCUMENT)
         case OutputSchemaFieldType.DATETIME_LOCAL:
             return _handle_datetime_local_field(defs)
         case _ if field.type is not None:

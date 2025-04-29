@@ -15,6 +15,7 @@ class Model(StrEnum):
     GPT_41_LATEST = "gpt-4.1-latest"
     GEMINI_2_0_FLASH_LATEST = "gemini-2.0-flash-latest"
     CLAUDE_3_7_SONNET_LATEST = "claude-3-7-sonnet-latest"
+    IMAGEN_3_0_LATEST = "imagen-3.0-generate-latest"
 
     # --------------------------------------------------------------------------
     # OpenAI Models
@@ -26,6 +27,7 @@ class Model(StrEnum):
     GPT_4O_2024_05_13 = "gpt-4o-2024-05-13"
     GPT_4O_MINI_LATEST = "gpt-4o-mini-latest"
     GPT_4O_MINI_2024_07_18 = "gpt-4o-mini-2024-07-18"
+    GPT_IMAGE_1 = "gpt-image-1"
     O3_LATEST_HIGH_REASONING_EFFORT = "o3-latest-high"
     O3_LATEST_MEDIUM_REASONING_EFFORT = "o3-latest-medium"
     O3_LATEST_LOW_REASONING_EFFORT = "o3-latest-low"
@@ -95,6 +97,11 @@ class Model(StrEnum):
     GEMINI_1_0_PRO_002 = "gemini-1.0-pro-002"
     GEMINI_1_0_PRO_001 = "gemini-1.0-pro-001"
     GEMINI_1_0_PRO_VISION_001 = "gemini-1.0-pro-vision-001"
+
+    # IMAGEN_3_0_LATEST = "imagen-3.0-generate-latest"
+    IMAGEN_3_0_002 = "imagen-3.0-generate-002"
+    IMAGEN_3_0_001 = "imagen-3.0-generate-001"
+    IMAGEN_3_0_FAST_001 = "imagen-3.0-fast-generate-001"
 
     # --------------------------------------------------------------------------
     # Claude Models

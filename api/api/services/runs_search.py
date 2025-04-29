@@ -213,7 +213,7 @@ class RunsSearchService:
 
     @classmethod
     def _fields_from_schema(cls, field: SearchField, schema: dict[str, Any]):
-        for key, field_type in JsonSchema(schema).fields_iterator([]):
+        for key, field_type, _ in JsonSchema(schema).fields_iterator([]):
             suggestions: list[Any] | None = None
 
             match field_type:
@@ -263,7 +263,8 @@ class RunsSearchService:
                 field_name=SearchField.METADATA,
                 type="string",
                 operators=SearchOperator.string_operators(),
-                suggestions=suggestions,
+                # We only return the first 30 suggestions to avoid overwhelming the frontend
+                suggestions=suggestions[:30],
                 key_path=field,
             )
             async for field, suggestions in storage.aggregate_task_metadata_fields(

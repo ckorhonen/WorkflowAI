@@ -7,9 +7,9 @@ import { Textarea } from '@/components/ui/Textarea';
 import { MajorVersion, ToolKind } from '@/types/workflowAI';
 import { InstructionsDiffViewer } from './components/InstructionsDiffViewer';
 import { MajorVersionCombobox } from './components/MajorVersionSelector/MajorVersionSelector';
+import { PlagroundParametersToolbox } from './components/Toolbox/playgroundParametersToolbox';
 import { RunTaskOptions } from './hooks/usePlaygroundPersistedState';
 import { calculateTextDiff } from './hooks/utils';
-import { PlagroundParametersToolbox } from './plagroundParametersToolbox';
 import { TitleWithHistoryControls } from './playgroundTitleWithHistoryControls';
 
 type PlaygroundParametersSelectorProps = {

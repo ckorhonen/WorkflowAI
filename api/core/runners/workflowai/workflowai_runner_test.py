@@ -20,6 +20,7 @@ from core.domain.errors import (
     StructuredGenerationError,
 )
 from core.domain.fields.file import File
+from core.domain.fields.image_options import ImageOptions
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.message import Message
 from core.domain.metrics import Metric
@@ -66,6 +67,46 @@ def _build_runner(
     )
 
 
+# TODO: merge with _build_runner
+def _build_runner2(
+    mock_provider_factory: Mock,
+    input_schema: dict[str, Any],
+    output_schema: dict[str, Any],
+    instructions: str,
+    model: Model,
+    has_templated_instructions: bool = False,
+    is_chain_of_thought_enabled: bool | None = None,
+    enabled_tools: list[ToolKind | Tool] | None = None,
+):
+    runner = WorkflowAIRunner(
+        task=SerializableTaskVariant(
+            id="test",
+            task_id="h",
+            task_schema_id=1,
+            name="test",
+            description="test",
+            input_schema=SerializableTaskIO.from_json_schema(
+                input_schema,
+                streamline=True,
+            ),
+            output_schema=SerializableTaskIO.from_json_schema(
+                output_schema,
+                streamline=True,
+            ),
+        ),
+        options=WorkflowAIRunnerOptions(
+            instructions=instructions,
+            model=model,
+            has_templated_instructions=has_templated_instructions,
+            is_chain_of_thought_enabled=is_chain_of_thought_enabled,
+            enabled_tools=enabled_tools,
+            provider=None,
+        ),
+    )
+    runner.provider_factory = mock_provider_factory
+    return runner
+
+
 @pytest.fixture
 def mock_provider():
     mock = Mock(spec=AbstractProvider)
@@ -94,7 +135,6 @@ def model_data():
         display_name="GPT-4o (2024-11-20)",
         supports_json_mode=True,
         supports_input_image=True,
-        supports_multiple_images_in_input=True,
         supports_input_pdf=False,
         supports_input_audio=False,
         supports_structured_output=True,
@@ -476,41 +516,6 @@ class TestBuildMessages:
         assert msgs[1].files[1].data
 
         mock_convert_from_bytes.assert_called_once()
-
-    async def test_run_with_unsupported_multiple_images(self, mock_provider: Mock, model_data: ModelData) -> None:
-        class PdfSummaryTaskInput(BaseModel):
-            files: list[File]
-
-        task = task_variant(input_model=PdfSummaryTaskInput, output_model=PdfSummaryTaskInput)
-
-        model_data.display_name = "Llama 3.2 (90B) Instruct"
-        model_data.supports_multiple_images_in_input = False
-
-        runner = _build_runner(task=task, model=Model.LLAMA_3_2_90B)
-
-        with pytest.raises(
-            ModelDoesNotSupportMode,
-            match=re.escape("Llama 3.2 (90B) Instruct does not support multiple images in input."),
-        ):
-            await runner._build_messages(  # pyright: ignore [reportPrivateUsage]
-                TemplateName.V2_DEFAULT,
-                {
-                    "files": [
-                        {"content_type": "image/png", "data": "some_data"},
-                        {"content_type": "image/png", "data": "some_data"},
-                    ],
-                },
-                mock_provider,
-                model_data,
-            )
-
-        # Should not raise with one image only
-        await runner._build_messages(  # pyright: ignore [reportPrivateUsage]
-            TemplateName.V2_DEFAULT,
-            {"files": [{"content_type": "image/png", "data": "some_data"}]},
-            mock_provider,
-            model_data,
-        )
 
     async def test_with_text_files(
         self,
@@ -1307,7 +1312,7 @@ class TestInit:
 
 
 @pytest.fixture()
-def patched_provider_factory(mock_provider_factory: Mock, patched_runner: WorkflowAIRunner):
+def mock_provider_factory_full(mock_provider_factory: Mock):
     from core.providers.base.abstract_provider import AbstractProvider
 
     def _mock_provider(name: Provider):
@@ -1320,6 +1325,7 @@ def patched_provider_factory(mock_provider_factory: Mock, patched_runner: Workfl
         return m
 
     google = _mock_provider(Provider.GOOGLE)
+    google_imagen = _mock_provider(Provider.GOOGLE_IMAGEN)
     gemini = _mock_provider(Provider.GOOGLE_GEMINI)
     openai = _mock_provider(Provider.OPEN_AI)
     anthropic = _mock_provider(Provider.ANTHROPIC)
@@ -1339,6 +1345,8 @@ def patched_provider_factory(mock_provider_factory: Mock, patched_runner: Workfl
             return bedrock
         if provider == Provider.AZURE_OPEN_AI:
             return azure_openai
+        if provider == Provider.GOOGLE_IMAGEN:
+            return google_imagen
         assert False, "Invalid provider"
 
     mock_provider_factory.get_provider.side_effect = _side_effect
@@ -1349,8 +1357,15 @@ def patched_provider_factory(mock_provider_factory: Mock, patched_runner: Workfl
     mock_provider_factory.anthropic = anthropic
     mock_provider_factory.bedrock = bedrock
     mock_provider_factory.azure_openai = azure_openai
-    with patch.object(patched_runner, "provider_factory", new=mock_provider_factory):
-        yield mock_provider_factory
+    mock_provider_factory.google_imagen = google_imagen
+
+    return mock_provider_factory
+
+
+@pytest.fixture()
+def patched_provider_factory(mock_provider_factory_full: Mock, patched_runner: WorkflowAIRunner):
+    with patch.object(patched_runner, "provider_factory", new=mock_provider_factory_full):
+        yield mock_provider_factory_full
 
 
 class TestBuildTaskOutput:
@@ -1732,7 +1747,6 @@ class TestBuildProviderData:
             supports_structured_output=True,
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=True,
             display_name="test",
@@ -1768,8 +1782,7 @@ class TestBuildProviderData:
 
     async def test_build_provider_data_with_chain_of_thought_and_tools(
         self,
-        patched_runner: WorkflowAIRunner,
-        patched_provider_factory: Mock,
+        mock_provider_factory_full: Mock,
     ) -> None:
         """
         Test that build_provider_data adapts the output_schema to include reasoning steps (COT)
@@ -1781,16 +1794,23 @@ class TestBuildProviderData:
         from core.domain.models.model_data import FinalModelData, MaxTokensData
 
         # Enable chain of thought and tool usage
-        patched_runner.properties.is_chain_of_thought_enabled = True
-        patched_runner.properties.enabled_tools = [ToolKind.WEB_SEARCH_GOOGLE]
-        patched_runner._check_tool_calling_support = Mock()  # pyright: ignore[reportPrivateUsage]
+        runner = _build_runner2(
+            mock_provider_factory_full,
+            {},
+            {"properties": {}},
+            "test",
+            Model.GPT_4O_MINI_2024_07_18,
+            is_chain_of_thought_enabled=True,
+            enabled_tools=[ToolKind.WEB_SEARCH_GOOGLE],
+        )
+
+        runner._check_tool_calling_support = Mock()  # pyright: ignore[reportPrivateUsage]
 
         model_data = FinalModelData(
             model=Model.GPT_4O_MINI_2024_07_18,
             supports_structured_output=True,
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=True,
             display_name="Test GPT-4O Mini",
@@ -1805,8 +1825,8 @@ class TestBuildProviderData:
         )
 
         # Act: build provider data
-        provider, _, provider_options, _ = patched_runner._build_provider_data(  # pyright: ignore[reportPrivateUsage]
-            patched_provider_factory.openai,
+        provider, _, provider_options, _ = runner._build_provider_data(  # pyright: ignore[reportPrivateUsage]
+            mock_provider_factory_full.openai,
             model_data,
             is_structured_generation_enabled=True,
         )
@@ -1841,7 +1861,6 @@ class TestBuildProviderData:
             supports_structured_output=True,
             supports_json_mode=True,
             supports_input_image=True,
-            supports_multiple_images_in_input=True,
             supports_input_pdf=True,
             supports_input_audio=True,
             display_name="Test GPT-4O Mini",
@@ -2620,6 +2639,93 @@ class TestRun:
             "tenant": "tenant1",
             "status": "success",
         }
+
+    async def test_templated_instructions(self, mock_provider_factory_full: Mock):
+        """Check that the input schema is not sent when templated instructions are used with all fields"""
+        runner = _build_runner2(
+            mock_provider_factory_full,
+            {
+                "type": "object",
+                "properties": {
+                    "description": {"type": "string"},
+                    "count": {"type": "integer"},
+                },
+            },
+            {"type": "object", "properties": {"greeting": {"type": "string"}}},
+            "Generate a greeting of {{count}} {{description}}",
+            Model.GPT_41_LATEST,
+            has_templated_instructions=True,
+        )
+
+        mock_provider_factory_full.openai.complete.return_value = StructuredOutput(
+            output={"greeting": "Hello, world!"},
+        )
+
+        builder = await runner.task_run_builder(
+            {"description": "A beautiful sunset over a calm ocean", "count": 1},
+            start_time=0,
+        )
+
+        run = await runner.run(builder)
+
+        assert run.task_output == {"greeting": "Hello, world!"}
+
+        messages = mock_provider_factory_full.openai.complete.call_args_list[0].args[0]
+        assert len(messages) == 2
+        assert (
+            messages[0].content
+            == "<instructions>\nGenerate a greeting of 1 A beautiful sunset over a calm ocean\n</instructions>"
+        )
+        assert messages[1].content == "Follow the instructions"
+
+    async def test_image_output(self, mock_provider_factory_full: Mock):
+        runner = _build_runner2(
+            mock_provider_factory_full,
+            {
+                "type": "object",
+                "properties": {
+                    "description": {"type": "string"},
+                    "shape": {"type": "string"},
+                },
+            },
+            {"type": "object", "properties": {"image": {"$ref": "#/$defs/Image"}}},
+            "Generate a {{shape}} image of {{description}}",
+            Model.IMAGEN_3_0_002,
+            has_templated_instructions=True,
+        )
+
+        builder = await runner.task_run_builder(
+            {"description": "A beautiful sunset over a calm ocean", "shape": "landscape"},
+            start_time=0,
+        )
+
+        mock_provider_factory_full.google_imagen.sanitize_template.side_effect = (
+            lambda _: TemplateName.V2_NO_INPUT_OR_OUTPUT_SCHEMA  # pyright: ignore[reportUnknownLambdaType]
+        )
+
+        mock_provider_factory_full.google_imagen.complete.return_value = StructuredOutput(
+            output={},
+            files=[
+                File(
+                    data="hello",
+                    content_type="image/png",
+                ),
+            ],
+        )
+
+        run = await runner.run(builder)
+        assert run.task_output == {
+            "image": {
+                "data": "hello",
+                "content_type": "image/png",
+            },
+        }
+
+        messages = mock_provider_factory_full.google_imagen.complete.call_args_list[0].args[0]
+        assert len(messages) == 2
+        assert messages[0].content == "Generate a landscape image of A beautiful sunset over a calm ocean"
+        assert messages[0].image_options == ImageOptions(image_count=1, shape="landscape")
+        assert messages[1].content == "Follow the instructions"
 
 
 def test_check_tool_calling_support_tool_enabled_model_not_supporting_tool_calling(

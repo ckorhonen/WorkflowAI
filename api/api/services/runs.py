@@ -37,6 +37,7 @@ from core.storage.abstract_storage import AbstractStorage
 from core.storage.azure.azure_blob_file_storage import CouldNotStoreFileError, FileStorage
 from core.storage.backend_storage import BackendStorage
 from core.storage.file_storage import FileData
+from core.utils.coroutines import sentry_wrap
 from core.utils.dicts import InvalidKeyPathError, delete_at_keypath, set_at_keypath
 from core.utils.models.dumps import safe_dump_pydantic_model
 from core.utils.models.previews import compute_preview
@@ -200,7 +201,7 @@ class RunsService:
         return LLMCompletionsResponse(completions=llm_completions_typed)
 
     @classmethod
-    async def _apply_files(
+    def _apply_files(
         cls,
         payload: dict[str, Any],
         files: list[FileWithKeyPath],
@@ -361,7 +362,7 @@ class RunsService:
         await cls._download_files_if_needed(files)
         # And set them in the payload
         # Files will be applied with all their fields
-        await cls._apply_files(payload, files, include=None, exclude={"key_path"})
+        cls._apply_files(payload, files, include=None, exclude={"key_path"})
 
         return True
 
@@ -376,7 +377,22 @@ class RunsService:
         _, _, files = extract_files(schema, payload)
         await cls._store_files(file_storage, folder_path, files)
         # Data is stripped from the files
-        await cls._apply_files(payload, files, {"content_type", "url", "storage_url"}, exclude={"key_path"})
+        cls._apply_files(payload, files, {"content_type", "url", "storage_url"}, exclude={"key_path"})
+
+    @classmethod
+    async def _should_store_files(
+        cls,
+        input_schema: dict[str, Any],
+        input: dict[str, Any],
+        output_schema: dict[str, Any],
+        output: dict[str, Any],
+    ) -> bool:
+        results = await asyncio.gather(
+            cls._extract_download_and_apply_files(input_schema, input),
+            cls._extract_download_and_apply_files(output_schema, output),
+            return_exceptions=True,
+        )
+        return any(res is True for res in results)
 
     # TODO: merge with instance method when workflowai.py is removed
     # Staticmethod is only used as a bridge to avoid adding a new dependency on workflowai.py
@@ -395,9 +411,11 @@ class RunsService:
         source: SourceType | None = None,
     ) -> AgentRun:
         # Extract data of files in the task run input only, download files if needed
-        should_store_files = await cls._extract_download_and_apply_files(
-            schema=task_variant.input_schema.json_schema,
-            payload=task_run.task_input,
+        should_store_files = await cls._should_store_files(
+            input_schema=task_variant.input_schema.json_schema,
+            input=task_run.task_input,
+            output_schema=task_variant.output_schema.json_schema,
+            output=task_run.task_output,
         )
 
         # Compute cost
@@ -412,11 +430,24 @@ class RunsService:
         folder_path = f"{storage.tenant}/{task_run.task_id}"
         # Re-extracting files as some data might have been stripped
         if should_store_files:
-            await cls._extract_and_store_files(
-                schema=task_variant.input_schema.json_schema,
-                payload=task_run.task_input,
-                file_storage=file_storage,
-                folder_path=folder_path,
+            # TODO: better handling of errors
+            await asyncio.gather(
+                sentry_wrap(
+                    cls._extract_and_store_files(
+                        schema=task_variant.input_schema.json_schema,
+                        payload=task_run.task_input,
+                        file_storage=file_storage,
+                        folder_path=folder_path,
+                    ),
+                ),
+                sentry_wrap(
+                    cls._extract_and_store_files(
+                        schema=task_variant.output_schema.json_schema,
+                        payload=task_run.task_output,
+                        file_storage=file_storage,
+                        folder_path=folder_path,
+                    ),
+                ),
             )
         # Removing LLM completions if there are private fields
         # TODO: be more granular

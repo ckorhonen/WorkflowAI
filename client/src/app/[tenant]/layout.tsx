@@ -11,9 +11,11 @@ import { useOrFetchTask } from '@/store';
 import { looksLikeURL } from '../landing/sections/SuggestedFeatures/utils';
 import { LoggedOutBanner, LoggedOutBannerForDemoTask } from './components/LoggedOutBanner';
 import { ModelBanner } from './components/ModelBanner';
+import { PaymentBanner } from './components/PaymentBanner';
 import { RedirectForTenant } from './components/RedirectForTenant';
 import { Sidebar } from './components/sidebar';
 import { useModelToAdvertise } from './components/useModelToAdvertise';
+import { usePaymentBanners } from './components/usePaymentBanners';
 
 export default function Layout({ children }: Readonly<{ children: React.ReactNode }>) {
   const tenant = useTenantID();
@@ -23,7 +25,9 @@ export default function Layout({ children }: Readonly<{ children: React.ReactNod
   const { task } = useOrFetchTask(tenant, taskId);
 
   const showTaskBanner = !isSignedIn && tenant === TENANT_PLACEHOLDER && !!taskId;
+
   const { modelToAdvertise, dismiss, modelId: modelToAdvertiseId } = useModelToAdvertise();
+  const { state: paymentBannerState } = usePaymentBanners(isSignedIn);
 
   const showBanner = !showTaskBanner && !isSignedIn;
 
@@ -42,9 +46,10 @@ export default function Layout({ children }: Readonly<{ children: React.ReactNod
         <div className='flex flex-col h-full max-h-screen overflow-hidden bg-custom-gradient-1'>
           {showBanner && <LoggedOutBanner />}
           {showTaskBanner && <LoggedOutBannerForDemoTask name={task?.name ?? taskId} />}
-          {!!modelToAdvertise && (
+          {!!modelToAdvertise && !paymentBannerState && (
             <ModelBanner model={modelToAdvertise} modelId={modelToAdvertiseId} onClose={dismiss} />
           )}
+          {!!paymentBannerState && <PaymentBanner state={paymentBannerState} />}
           <div className='flex flex-1 sm:flex-row flex-col overflow-hidden'>
             <Sidebar />
             <CommandK tenant={tenant} />

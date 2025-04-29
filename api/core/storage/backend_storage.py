@@ -29,6 +29,7 @@ from core.storage.task_input_storage import TaskInputsStorage
 from core.storage.task_run_storage import TaskRunStorage, TaskRunSystemStorage
 from core.storage.task_storage import TaskStorage, TaskSystemStorage
 from core.storage.task_variants_storage import TaskVariantsStorage
+from core.storage.tools_storage import ToolsStorage
 from core.storage.transcription_storage import TranscriptionStorage
 
 
@@ -132,6 +133,11 @@ class BackendStorage(AbstractStorage):
     @property
     @abstractmethod
     def feedback(self) -> FeedbackStorage:
+        pass
+
+    @property
+    @abstractmethod
+    def tools(self) -> ToolsStorage:
         pass
 
     @abstractmethod

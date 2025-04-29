@@ -160,16 +160,6 @@ class MistralAIProvider(HTTPXProvider[MistralAIConfig, CompletionResponse]):
         return content or ""
 
     @override
-    def _invalid_json_error(self, response: Response, exception: Exception, content_str: str):
-        # Sometimes MistralAI returns a non-JSON response that contains an excuse
-        if "sorry" in content_str.lower():
-            return FailedGenerationError(
-                msg=f"Model refused to generate a response: {content_str}",
-                response=response,
-            )
-        return super()._invalid_json_error(response, exception=exception, content_str=content_str)
-
-    @override
     def _extract_usage(self, response: CompletionResponse) -> LLMUsage | None:
         return response.usage.to_domain()
 

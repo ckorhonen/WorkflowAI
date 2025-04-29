@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from copy import deepcopy
 from typing import Any, Callable, Iterable, NamedTuple, Optional
 
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 from typing_extensions import override
 
 from api.services.providers_service import shared_provider_factory
@@ -20,6 +20,7 @@ from core.domain.errors import (
     MaxToolCallIterationError,
     ModelDoesNotSupportMode,
 )
+from core.domain.fields.image_options import ImageOptions
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.message import Message
 from core.domain.metrics import send_gauge
@@ -31,6 +32,7 @@ from core.domain.run_output import RunOutput
 from core.domain.structured_output import StructuredOutput
 from core.domain.task_group_properties import FewShotConfiguration, FewShotExample, TaskGroupProperties
 from core.domain.task_run_reply import RunReply
+from core.domain.task_typology import TaskTypology
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.tenant_data import ProviderSettings
 from core.domain.tool import Tool
@@ -51,10 +53,12 @@ from core.runners.workflowai.tool_cache import ToolCache
 from core.runners.workflowai.utils import (
     FileWithKeyPath,
     ToolCallRecursionError,
+    assign_files,
     cleanup_provider_json,
     convert_pdf_to_images,
     download_file,
     extract_files,
+    remove_files_from_schema,
     sanitize_model_and_provider,
     split_tools,
 )
@@ -82,6 +86,13 @@ MAX_TOOL_CALL_ITERATIONS = 10
 class BuildUserMessageContentResult(NamedTuple):
     content: str
     should_remove_input_schema: bool
+
+
+class PreparedOutputSchema(NamedTuple):
+    prepared_schema: dict[str, Any]
+    # Images are removed from the schema since they are handled separately
+    min_file_count: int = 0
+    max_file_count: int | None = None
 
 
 class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
@@ -137,17 +148,19 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             self.properties.enabled_tools,
         )
 
+        self._typology = self.task.typology()
+        self._prepared_output_schema = self._prepare_output_schema(
+            deepcopy(self.task.output_schema.json_schema),
+            self.properties.is_chain_of_thought_enabled or False,
+            self.is_tool_use_enabled,
+            self._typology,
+        )
+
     @override
     def version(self) -> str:
         # This version is not super important since the templates are versioned
         # separately
         return "v0.1.0"
-
-    def task_input_schema(self) -> dict[str, Any]:
-        return self.task.input_schema.json_schema
-
-    def task_output_schema(self) -> dict[str, Any]:
-        return self._prepare_output_schema(self.task.output_schema.json_schema)
 
     def _all_tools(self) -> Iterable[Tool]:
         return (
@@ -264,32 +277,19 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
                 msg=f"{model_data.display_name} does not support audio.",
             )
 
-    def _assert_support_for_multiple_images_input(self, model_data: ModelData):
-        if not model_data.supports_multiple_images_in_input:
-            raise ModelDoesNotSupportMode(
-                title="This model does not support multiple images in input",
-                msg=f"{model_data.display_name} does not support multiple images in input.",
-            )
-
     def _check_support_for_files(self, model_data: ModelData, files: Sequence[FileWithKeyPath]):
         # We check for support here to allow bypassing some providers in the pipeline
         # Some providers may support different modes
         # The model settings should be optimistic, at worst the provider will return with an error
 
-        images_count = 0
-
         for file in files:
             if file.is_image:
-                images_count += 1
                 self._assert_support_for_image_input(model_data)
             if file.is_pdf:
                 self._assert_support_for_pdf_input(model_data)
             if file.is_audio:
                 self._assert_support_for_audio_input(model_data)
             # TODO: Add more content-type checks as needed
-
-        if images_count > 1:
-            self._assert_support_for_multiple_images_input(model_data)
 
     async def _convert_pdf_to_images(
         self,
@@ -344,7 +344,10 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         sanitized = sanitize_template_name(
             self._options.template_name,
             is_tool_use_enabled=self.is_tool_use_enabled,
-            is_structured_generation_enabled=is_structured_generation_enabled,
+            # a bit hacky but we templates that have structured generation enabled do
+            # not show the output schema
+            is_structured_generation_enabled=is_structured_generation_enabled
+            or not self._prepared_output_schema.prepared_schema.get("properties"),
             supports_input_schema=data.support_input_schema,
         )
         return provider.sanitize_template(sanitized)
@@ -394,19 +397,52 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         input_schema: dict[str, Any],
     ):
         """Apply the instruction templating and remove the variables that were consumed by the template from
-        the input and input schema"""
-        rendered, variables = await self.template_manager.render_template(instructions, input)
+        the input and input schema. Keys used by the template are added to the used_input_keys set"""
+        return await self.template_manager.render_template(instructions, input)
+
+    async def _remove_keys_from_input(
+        self,
+        input_schema: dict[str, Any],
+        input: TaskInputDict,
+        used_input_keys: set[str],
+    ):
+        """Remove keys from the input and input schema. Only root keys are supported"""
         input_schema_properties: dict[str, Any] = input_schema.get("properties", {})
         input_schema_required: list[str] = input_schema.get("required", [])
-        for variable in variables:
-            input.pop(variable, None)
-            input_schema_properties.pop(variable, None)
+        for key in used_input_keys:
+            input.pop(key, None)
+            input_schema_properties.pop(key, None)
             try:
-                input_schema_required.remove(variable)
+                input_schema_required.remove(key)
             except ValueError:
                 pass
 
-        return rendered
+    async def _extract_image_options(
+        self,
+        input: TaskInputDict,
+    ) -> tuple[ImageOptions | None, set[str]]:
+        """Extract the image options from the input and remove it from the input if possible.
+        Returns the keys that were extracted from the input and that should be removed"""
+        base = self.properties.image_options
+        if not self._prepared_output_schema.min_file_count:
+            # There are no images in the output, no need to extract anything
+            return None, set()
+
+        if not base:
+            base = ImageOptions()
+        if not base.image_count:
+            base.image_count = self._prepared_output_schema.min_file_count
+
+        # We consider that input can contain the same fields as ImageOptions
+        try:
+            extracted_options = ImageOptions.model_validate(input)
+        except ValidationError:
+            return base, set()
+
+        # In case of validation, we can check which key was actually extracted
+        extracted_keys = extracted_options.model_dump(exclude_unset=True)
+
+        return base.model_copy(update=extracted_keys), set(extracted_keys.keys())
 
     async def _build_messages(
         self,
@@ -425,8 +461,8 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
 
         start_time = time.time()
         input_copy = deepcopy(input)
-        input_schema = self.task_input_schema()
-        output_schema = self.task_output_schema()
+        input_schema = deepcopy(self.task.input_schema.json_schema)
+        output_schema = self._prepared_output_schema.prepared_schema
 
         input_schema, input_copy, files = extract_files(input_schema, input_copy)
 
@@ -453,16 +489,25 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             download_duration = 0
             has_inlined_files = False
 
+        # Extracting image options after files. If the user provides a mask, it will be in image options
+        # and should be treated like a regular file
+        # Also extracting after instruction templating just in case the user has provided a templated
+        # instruction that mentions keys used in the image options
+        image_options, keys_to_remove1 = await self._extract_image_options(input_copy)
+
         instructions = self._options.instructions
         if instructions is not None:
             instructions = provider.sanitize_agent_instructions(instructions)
 
         if self._options.has_templated_instructions:
-            instructions = await self._apply_templated_instructions(
+            instructions, templated_keys = await self._apply_templated_instructions(
                 self._options.instructions or "",
                 input_copy,
                 input_schema,
             )
+            keys_to_remove1.update(templated_keys)
+
+        await self._remove_keys_from_input(input_schema=input_schema, input=input_copy, used_input_keys=keys_to_remove1)
 
         template_config = get_template_content(template_name)
 
@@ -487,6 +532,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
                     output_schema=output_schema,
                 ),
                 role=Message.Role.SYSTEM,
+                image_options=image_options,
             ),
         ]
         if user_message_content.content or files:
@@ -611,6 +657,10 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         external_tools: Sequence[ToolCallRequestWithID] | None = (
             await self._external_tool_cache.values() if include_tool_calls else None
         )
+
+        if output.files:
+            assign_files(self.task.output_schema.json_schema, output.files, output.output)
+
         return RunOutput(
             task_output=output.output,
             tool_calls=internal_tools or None,
@@ -764,15 +814,30 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         user_message = Message(role=Message.Role.USER, tool_call_results=tool_results, content="")
         return [*messages, user_message]
 
-    def _prepare_output_schema(self, output_schema: dict[str, Any]) -> dict[str, Any]:
-        if self.properties.is_chain_of_thought_enabled:
+    @classmethod
+    def _prepare_output_schema(
+        cls,
+        output_schema: dict[str, Any],
+        is_chain_of_thought_enabled: bool,
+        is_tool_use_enabled: bool,
+        typology: TaskTypology,
+    ) -> PreparedOutputSchema:
+        if is_chain_of_thought_enabled:
             add_reasoning_steps_to_schema(output_schema)
 
         # We only need to add the tool schema in the output if we are not using native tools
-        if self.is_tool_use_enabled:
+        if is_tool_use_enabled:
             add_agent_run_result_to_schema(output_schema)  # status must be at the 'top'
 
-        return output_schema
+        if typology.output.is_text_only:
+            return PreparedOutputSchema(prepared_schema=output_schema)
+
+        min_file_count, max_file_count = remove_files_from_schema(output_schema)
+        return PreparedOutputSchema(
+            prepared_schema=output_schema,
+            min_file_count=min_file_count,
+            max_file_count=max_file_count,
+        )
 
     def _check_tool_calling_support(self, model_data: FinalModelData):
         if self.is_tool_use_enabled is False:
@@ -794,7 +859,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             model=model_data.model,
             temperature=self._options.temperature,
             max_tokens=self._options.max_tokens,
-            output_schema=self.task_output_schema(),
+            output_schema=self._prepared_output_schema.prepared_schema,
             task_name=self.task.name,
             structured_generation=is_structured_generation_enabled,
             tenant=self.task.tenant,
@@ -812,13 +877,24 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         template_name = self._pick_template(provider, model_data_copy, is_structured_generation_enabled)
         return provider, template_name, provider_options, model_data_copy
 
-    async def _stream_task_output_from_messages(
+    async def _stream_task_output_from_messages(  # noqa: C901
         self,
         provider: AbstractProvider[Any, Any],
         options: ProviderOptions,
         messages: list[Message],
     ):
+        # TODO: this should really not be here but instead built when computing options
+        # in _build_provider_data
         options.enabled_tools = list(self._all_tools())
+
+        # For now we don't stream images
+        streamable = not self._typology.output.is_text_only and provider.is_streamable(
+            options.model,
+            options.enabled_tools,
+        )
+        if streamable:
+            yield (await self._build_task_output_from_messages(provider, options, messages))
+            return
 
         if not provider.is_streamable(options.model, options.enabled_tools):
             yield (await self._build_task_output_from_messages(provider, options, messages))

@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/Dialog';
 import { SimpleTooltip } from '@/components/ui/Tooltip';
 import { useAuth } from '@/lib/AuthContext';
 import { STRIPE_PUBLISHABLE_KEY } from '@/lib/constants';
+import { useParsedSearchParams, useRedirectWithParams } from '@/lib/queryString';
 import { useOrFetchPayments, usePayments } from '@/store/payments';
 import { TenantData } from '@/types/workflowAI';
 import { ManageCardsContent } from './ManageCardsContent';
@@ -17,7 +18,24 @@ type ManageCardsProps = {
 
 function ManageCardsInner(props: ManageCardsProps) {
   const { children, organizationSettings } = props;
-  const [isOpen, setIsOpen] = useState(false);
+
+  const { manageCards: manageCardsValue } = useParsedSearchParams('manageCards');
+  const redirectWithParams = useRedirectWithParams();
+
+  const isOpen = useMemo(() => {
+    return manageCardsValue === 'true';
+  }, [manageCardsValue]);
+
+  const setIsOpen = useCallback(
+    (isOpen: boolean) => {
+      redirectWithParams({
+        params: {
+          manageCards: isOpen ? 'true' : undefined,
+        },
+      });
+    },
+    [redirectWithParams]
+  );
 
   const { paymentMethod, isInitialized } = useOrFetchPayments();
 
@@ -104,6 +122,12 @@ function ManageCardsInner(props: ManageCardsProps) {
     reset();
   }, [deletePaymentMethod, reset]);
 
+  const onUpdatePaymentMethod = useCallback(async () => {
+    await deletePaymentMethod();
+    reset();
+    setShowAddPaymentMethod(true);
+  }, [deletePaymentMethod, reset, setShowAddPaymentMethod]);
+
   const onDismissForcedTooltip = useCallback(
     (event: React.MouseEvent) => {
       event.stopPropagation();
@@ -164,6 +188,7 @@ function ManageCardsInner(props: ManageCardsProps) {
           isAddCreditsButtonActive={isAddCreditsButtonActive}
           deletePaymentMethod={onDeletePaymentMethod}
           automaticPaymentsFailure={automaticPaymentsFailure}
+          onUpdatePaymentMethod={onUpdatePaymentMethod}
         />
       </DialogContent>
     </Dialog>

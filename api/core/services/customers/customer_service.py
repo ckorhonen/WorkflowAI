@@ -4,7 +4,6 @@ import logging
 import os
 import re
 from collections.abc import AsyncIterator, Callable
-from contextlib import contextmanager
 from datetime import date, datetime, time, timedelta, timezone
 
 from pydantic import BaseModel
@@ -172,7 +171,7 @@ class CustomerService:
         org_id: str | None,
         owner_id: str | None,
     ):
-        with self._slack_client() as clt:
+        if clt := self._slack_client():
             # We only invite users when the channel is not for an anonymous user
             if (org_id or owner_id) and (invitees := os.environ.get("SLACK_BOT_INVITEES")):
                 with capture_errors(_logger, "Failed to invite users to channel"):
@@ -216,17 +215,16 @@ class CustomerService:
                     )
 
     @classmethod
-    @contextmanager
     def _slack_client(cls):
         bot_token = os.environ.get("SLACK_BOT_TOKEN")
         if not bot_token:
             _logger.warning("SLACK_BOT_TOKEN is not set, skipping message sending")
-            return
+            return None
 
-        yield SlackApiClient(bot_token=bot_token)
+        return SlackApiClient(bot_token=bot_token)
 
     async def _send_message(self, message: str):
-        with self._slack_client() as clt:
+        if clt := self._slack_client():
             channel_id = await self._get_or_create_slack_channel(clt)
             if channel_id == "skipped":
                 return
@@ -239,7 +237,7 @@ class CustomerService:
             _logger.warning("No slack channel id found for organization", extra={"org_uid": org.uid, "slug": org.slug})
             return
 
-        with self._slack_client() as clt:
+        if clt := self._slack_client():
             await clt.rename_channel(org.slack_channel_id, self._channel_name(org.slug, org.uid))
 
         add_background_task(
@@ -333,7 +331,7 @@ class CustomerService:
             _logger.info("SLACK_CUSTOMERS_CHANNEL_ID is not set, skipping daily report")
             return
 
-        with cls._slack_client() as clt:
+        if clt := cls._slack_client():
             report = await cls.build_daily_report(user_service, today, active_task_fetcher)
             await clt.send_message(customers_channel, {"text": report})
 

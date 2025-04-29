@@ -1,9 +1,14 @@
-from datetime import datetime, timezone
+import logging
+from datetime import datetime
 from typing import Any, Literal, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from core.domain.fields.file import File
+from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
+from core.domain.message import Message
+from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.utils.fields import datetime_factory
 
 
@@ -14,10 +19,25 @@ class RawCompletion(BaseModel):
 
     start_time: datetime = Field(default_factory=datetime_factory)
 
-    def end(self):
-        self.end_time = datetime.now(timezone.utc)
-
     model_config = ConfigDict(extra="allow")
+
+    def apply_to(self, llm_completion: LLMCompletion):
+        if self.usage.completion_image_count is not None:
+            llm_completion.usage.completion_image_count = self.usage.completion_image_count
+        if self.usage.completion_token_count is not None:
+            llm_completion.usage.completion_token_count = self.usage.completion_token_count
+        if self.usage.completion_cost_usd is not None:
+            llm_completion.usage.completion_cost_usd = self.usage.completion_cost_usd
+        if self.usage.prompt_token_count is not None:
+            llm_completion.usage.prompt_token_count = self.usage.prompt_token_count
+        if self.usage.prompt_cost_usd is not None:
+            llm_completion.usage.prompt_cost_usd = self.usage.prompt_cost_usd
+        if self.usage.prompt_token_count_cached is not None:
+            llm_completion.usage.prompt_token_count_cached = self.usage.prompt_token_count_cached
+        if self.usage.model_context_window_size is not None:
+            llm_completion.usage.model_context_window_size = self.usage.model_context_window_size
+        if self.usage.reasoning_token_count is not None:
+            llm_completion.usage.reasoning_token_count = self.usage.reasoning_token_count
 
 
 class TextContentDict(TypedDict):
@@ -82,4 +102,73 @@ class StandardMessage(TypedDict):
             | ToolCallRequestDict
             | ToolCallResultDict
         ]
+    )
+
+
+_logger = logging.getLogger(__name__)
+
+
+def role_standard_to_domain(role: Literal["system", "user", "assistant"] | None) -> Message.Role:
+    if not role:
+        _logger.warning("No role provided, using default role")
+        # TODO: Using a default role, not the best solution
+        return Message.Role.USER
+    return Message.Role(role)
+
+
+def role_domain_to_standard(role: Message.Role) -> Literal["system", "user", "assistant"]:
+    return role.value  # type: ignore
+
+
+def message_standard_to_domain(message: StandardMessage):
+    role = role_standard_to_domain(message["role"])
+    raw = message["content"]
+    if isinstance(raw, str):
+        return Message(role=role, content=raw)
+
+    content: list[str] = []
+    files: list[File] = []
+    tool_call_requests: list[ToolCallRequestWithID] = []
+    tool_call_results: list[ToolCall] = []
+
+    for item in raw:
+        try:
+            match item["type"]:
+                case "text":
+                    content.append(item["text"])
+                case "image_url":
+                    files.append(File(url=item["image_url"]["url"]))
+                case "document_url":
+                    files.append(File(url=item["source"]["url"]))
+                case "audio_url":
+                    files.append(File(url=item["audio_url"]["url"]))
+                case "tool_call_request":
+                    tool_call_requests.append(
+                        ToolCallRequestWithID(
+                            id=item["id"] or "",
+                            tool_name=item["tool_name"],
+                            tool_input_dict=item["tool_input_dict"] or {},
+                        ),
+                    )
+                case "tool_call_result":
+                    tool_call_results.append(
+                        ToolCall(
+                            id=item["id"] or "",
+                            tool_name=item["tool_name"] or "",
+                            tool_input_dict=item["tool_input_dict"] or {},
+                            result=item["result"],
+                            error=item["error"],
+                        ),
+                    )
+                case _:  # pyright: ignore[reportUnnecessaryComparison]
+                    _logger.exception("Unsupported content type: %s", item["type"])
+        except KeyError:
+            _logger.exception("Key error while parsing content", extra={"raw": message})
+
+    return Message(
+        role=role,
+        content="\n".join(content),
+        files=files or None,
+        tool_call_requests=tool_call_requests or None,
+        tool_call_results=tool_call_results or None,
     )

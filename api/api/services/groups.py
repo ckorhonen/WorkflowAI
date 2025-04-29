@@ -6,6 +6,7 @@ from core.agents.detect_chain_of_thought_task import (
     DetectChainOfThoughtUsageTaskInput,
     run_detect_chain_of_thought_task,
 )
+from core.agents.detect_image_options import DetectImageOptionsInput, detect_image_options
 from core.domain.consts import METADATA_KEY_DEPLOYMENT_ENVIRONMENT, METADATA_KEY_REQUESTED_ITERATION
 from core.domain.errors import (
     InternalError,
@@ -16,6 +17,7 @@ from core.domain.models import Model
 from core.domain.models import Provider as ProviderKind
 from core.domain.task_group import TaskGroup, TaskGroupIdentifier
 from core.domain.task_group_properties import TaskGroupProperties
+from core.domain.task_typology import TaskTypology
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.tenant_data import ProviderSettings
 from core.domain.tool import Tool
@@ -28,6 +30,7 @@ from core.runners.workflowai.workflowai_runner import WorkflowAIRunner
 from core.storage import ObjectNotFoundException
 from core.storage.backend_storage import BackendStorage
 from core.tools import get_tools_in_instructions
+from core.utils.coroutines import capture_errors
 
 
 class SanitizedVersion(NamedTuple):
@@ -296,6 +299,21 @@ class GroupService:
             is_chain_of_thought_enabled = None
         properties.is_chain_of_thought_enabled = is_chain_of_thought_enabled
 
+    async def _detect_and_assign_image_options(
+        self,
+        task_typology: TaskTypology,
+        task_instructions: str | None,
+        task_input_schema: dict[str, Any],
+        properties: TaskGroupProperties,
+    ):
+        if properties.image_options is not None or not task_instructions or not task_typology.output.has_image:
+            return
+
+        detected = await detect_image_options.run(
+            DetectImageOptionsInput(instructions=task_instructions, input_schema=task_input_schema),
+        )
+        properties.image_options = detected.output.to_domain()
+
     async def sanitize_groups_for_internal_runner(  # noqa: C901
         self,
         task_id: str,
@@ -303,7 +321,7 @@ class GroupService:
         reference: VersionReference,
         variant: Optional[SerializableTaskVariant] = None,
         detect_chain_of_thought: bool = False,  # COT detection is only run when creating a group from POST /groups for now.
-        # detect_structured_generation: bool = False,  # Structured generation detection is only run when creating a group from POST /groups for now.
+        detect_image_options: bool = False,
         provider_settings: list[ProviderSettings] | None = None,
         disable_fallback: bool = False,
     ) -> tuple[AbstractRunner[Any], bool]:
@@ -338,16 +356,18 @@ class GroupService:
                     properties=version.properties,
                 )
             # Check for structured generation
-            # if detect_structured_generation:
-            #     await self._enable_structured_generation_if_supported(
-            #         properties=version.properties,
-            #         task_name=variant.name,
-            #         output_schema=variant.output_schema.json_schema,
-            #     )
+            if detect_image_options:
+                with capture_errors(self._logger, "Error detecting image options"):
+                    await self._detect_and_assign_image_options(
+                        task_typology=variant.typology(),
+                        task_instructions=version.properties.instructions,
+                        task_input_schema=variant.input_schema.json_schema,
+                        properties=version.properties,
+                    )
 
-        elif detect_chain_of_thought:  # or detect_structured_generation
+        elif detect_chain_of_thought or detect_image_options:
             self._logger.warning(
-                "Skipping chain of thought or structured generation detection since we have an iteration",
+                "Skipping chain of thought or image options detection since we have an iteration",
                 extra={"task_id": task_id, "task_schema_id": task_schema_id, "version": version},
             )
         runner = await self._build_runner_from_properties(

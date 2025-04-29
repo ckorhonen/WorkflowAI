@@ -20,6 +20,7 @@ from core.domain.errors import (
     ProviderRateLimitError,
     UnknownProviderError,
 )
+from core.domain.fields.file import File
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_usage import LLMCompletionUsage, LLMUsage
 from core.domain.message import Message
@@ -33,11 +34,13 @@ from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ToolCallRequestBuffer
 from core.providers.google.google_provider_domain import (
     BLOCK_THRESHOLD,
+    Candidate,
     CompletionRequest,
     CompletionResponse,
     GoogleMessage,
     GoogleSystemMessage,
     HarmCategory,
+    Part,
     StreamedResponse,
     message_or_system_message,
     native_tool_name_to_internal,
@@ -146,19 +149,26 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
             else None
         )
 
+        generation_config = CompletionRequest.GenerationConfig(
+            temperature=options.temperature,
+            # TODO[max-tokens]: Set the max token from the context data
+            maxOutputTokens=options.max_tokens,
+            responseMimeType="application/json"
+            if (model_data.supports_json_mode and not options.enabled_tools)
+            # Google does not allow setting the response mime type at all when using tools.
+            else "text/plain",
+            thinking_config=thinking_config,
+        )
+        if messages[0].image_options and messages[0].image_options.image_count:
+            generation_config.responseModalities = ["IMAGE", "TEXT"]
+
+            # We also inline the image options in the last user message
+            user_messages[-1].parts.append(Part(text=str(messages[0].image_options)))
+
         completion_request = CompletionRequest(
             systemInstruction=system_message,
             contents=user_messages,
-            generationConfig=CompletionRequest.GenerationConfig(
-                temperature=options.temperature,
-                # TODO[max-tokens]: Set the max token from the context data
-                maxOutputTokens=options.max_tokens,
-                responseMimeType="application/json"
-                if (model_data.supports_json_mode and not options.enabled_tools)
-                # Google does not allow setting the response mime type at all when using tools.
-                else "text/plain",
-                thinking_config=thinking_config,
-            ),
+            generationConfig=generation_config,
             safetySettings=self._safety_settings(),
         )
 
@@ -209,6 +219,24 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
             ]
         return None
 
+    @classmethod
+    def _check_finish_reason(cls, candidates: list[Candidate]):
+        for candidate in candidates:
+            match candidate.finishReason:
+                case "MAX_TOKENS":
+                    raise MaxTokensExceededError(
+                        msg="Model returned a MAX_TOKENS finish reason. The max number of tokens as specified in the request was reached.",
+                    )
+                case "MALFORMED_FUNCTION_CALL":
+                    raise ProviderBadRequestError(
+                        msg="Model returned a malformed function call finish reason",
+                        # Capturing so we can see why this happens
+                        capture=True,
+                        store_task_run=True,
+                    )
+                case _:
+                    pass
+
     @override
     def _extract_content_str(self, response: CompletionResponse) -> str:
         # No need to check for errors, it will be handled upstream in httpx provider
@@ -216,7 +244,6 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
             if response.promptFeedback and response.promptFeedback.blockReason:
                 raise ContentModerationError(
                     f"The model blocked the generation with reason '{response.promptFeedback.blockReason}'",
-                    capture=False,
                 )
             # Otherwise not sure what's going on
             self.logger.warning(
@@ -226,36 +253,40 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
             raise UnknownProviderError("No candidates found in response")
 
         # Check if we have a finish
-        if any(c.finishReason == "MAX_TOKENS" for c in response.candidates):
-            raise MaxTokensExceededError(
-                msg="Model returned a MAX_TOKENS finish reason. The max number of tokens as specified in the request was reached.",
-            )
+        self._check_finish_reason(response.candidates)
 
-        try:
-            content = response.candidates[0].content
-            if not content:
-                self.logger.warning("No content found in first candidate", extra={"response": response.model_dump()})
-                return ""
-
-            parts = content.parts
-            if not parts:
-                self.logger.warning("No parts found in first candidate", extra={"response": response.model_dump()})
-                return ""
-
-            txt = parts[0].text
-            if len(parts) > 1:
-                # More than one part means the model has returned a reasoning step
-                index = 1 if parts[0].thought else 0
-                txt = parts[index].text
-
-        except IndexError as e:
-            self.logger.warning("Empty content found in response", extra={"response": response.model_dump()})
-            raise e
-        if not txt:
-            if not parts[0].functionCall:
-                self.logger.warning("Empty content found in response", extra={"response": response.model_dump()})
+        content = response.candidates[0].content
+        if not content:
+            self.logger.warning("No content found in first candidate", extra={"response": response.model_dump()})
             return ""
-        return txt
+        parts = content.parts
+        if not parts:
+            self.logger.warning("No parts found in first candidate", extra={"response": response.model_dump()})
+            return ""
+        index = 0
+        if len(parts) > 1 and parts[0].thought:
+            # More than one part means the model has returned a reasoning step
+            index = 1
+        return parts[index].text or ""
+
+    @override
+    def _extract_files(self, response: CompletionResponse) -> list[File] | None:
+        if not response.candidates:
+            return None
+        candidate = response.candidates[0]
+        if not candidate.content:
+            return None
+
+        files = [
+            File(
+                content_type=part.inlineData.mimeType,
+                data=part.inlineData.data,
+            )
+            for part in candidate.content.parts
+            if part.inlineData
+        ]
+
+        return files or None
 
     @override
     def _extract_usage(self, response: CompletionResponse) -> LLMUsage | None:
@@ -321,6 +352,9 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
     _INVALID_FILE_SEARCH_STRINGS = [
         "the document has no pages",
         "unable to process input image",
+        "url_unreachable-unreachable_5xx",
+        "url_rejected",
+        "url_roboted",
     ]
 
     @classmethod
@@ -363,6 +397,8 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
                 error_cls = ProviderInvalidFileError
             case lower_msg if any(m in lower_msg for m in cls._INVALID_FILE_SEARCH_STRINGS):
                 error_cls = ProviderInvalidFileError
+            case lower_msg if "you can only include" in lower_msg:
+                error_cls = ModelDoesNotSupportMode
             case _:
                 return
         raise error_cls(error_msg, response=response, capture=capture)
@@ -454,11 +490,7 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
                 msg="Gemini API returned a RECITATION finish reason, see https://issuetracker.google.com/issues/331677495",
             )
 
-        for candidate in raw.candidates:
-            if candidate.finishReason == "MAX_TOKENS":
-                raise MaxTokensExceededError(
-                    msg="Model returned a MAX_TOKENS finish reason. The maximum number of tokens as specified in the request was reached.",
-                )
+        self._check_finish_reason(raw.candidates)
 
         if not raw.candidates or not raw.candidates[0] or not raw.candidates[0].content:
             return ParsedResponse("")

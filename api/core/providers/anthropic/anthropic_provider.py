@@ -8,7 +8,6 @@ from typing_extensions import override
 from core.domain.errors import (
     FailedGenerationError,
     MaxTokensExceededError,
-    ProviderBadRequestError,
     ProviderError,
     ProviderInternalError,
     UnknownProviderError,
@@ -215,9 +214,12 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
                     return self._handle_content_block_delta(chunk, tool_call_request_buffer)
                 case "ping" | "message_stop" | "content_block_stop":
                     return ParsedResponse("")
-        except MaxTokensExceededError as e:
-            raise e
-        except FailedGenerationError as e:
+                case "error":
+                    if chunk.error:
+                        raise chunk.error.to_domain(response=None)
+                    raise UnknownProviderError("Anthropic error response with no error details")
+
+        except ProviderError as e:
             raise e
         except Exception:
             self.logger.exception(
@@ -311,26 +313,6 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
     def requires_downloading_file(cls, file: FileWithKeyPath, model: Model) -> bool:
         return True
 
-    def _invalid_request_error(self, payload: AnthropicErrorResponse, response: Response):
-        if not payload.error.message:
-            return None
-
-        match payload.error.message.lower():
-            case msg if "invalid base64 data" in msg:
-                return ProviderBadRequestError(
-                    msg=payload.error.message,
-                    response=response,
-                    capture=True,
-                )
-            case msg if "prompt is too long" in msg:
-                return MaxTokensExceededError(
-                    msg=payload.error.message,
-                    response=response,
-                )
-            case _:
-                pass
-        return None
-
     @override
     def _unknown_error(self, response: Response) -> ProviderError:
         try:
@@ -339,13 +321,9 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
             self.logger.exception("failed to parse Anthropic error response", extra={"response": response.text})
             return UnknownProviderError(response.text, response=response)
 
-        match payload.error.type:
-            case "invalid_request_error":
-                if e := self._invalid_request_error(payload, response):
-                    return e
-            case _:
-                pass
-        return UnknownProviderError(payload.error.message or "unknown", response=response)
+        if payload.error:
+            return payload.error.to_domain(response)
+        raise UnknownProviderError("Anthropic error response with no error details", response=response)
 
     @override
     @classmethod

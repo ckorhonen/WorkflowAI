@@ -11,6 +11,9 @@ from core.providers.base.models import (
     TextContentDict,
     ToolCallRequestDict,
     ToolCallResultDict,
+    message_standard_to_domain,
+    role_domain_to_standard,
+    role_standard_to_domain,
 )
 
 
@@ -25,11 +28,11 @@ class TestRoleFromStandard:
         ],
     )
     def test_from_standard(self, role: Literal["system", "user", "assistant"] | None, expected: Message.Role):
-        assert Message.Role.from_standard(role) == expected
+        assert role_standard_to_domain(role) == expected
 
     @pytest.mark.parametrize("role", Message.Role)
     def test_sanity(self, role: Message.Role):
-        assert Message.Role.from_standard(role.to_standard()) == role
+        assert role_standard_to_domain(role_domain_to_standard(role)) == role
 
 
 class TestMessageFromStandard:
@@ -38,7 +41,7 @@ class TestMessageFromStandard:
             "role": "user",
             "content": "Hello world",
         }
-        message = Message.from_standard(standard_msg)
+        message = message_standard_to_domain(standard_msg)
         assert message.role == Message.Role.USER
         assert message.content == "Hello world"
         assert message.files is None
@@ -54,7 +57,7 @@ class TestMessageFromStandard:
             "role": "assistant",
             "content": [text1, text2, image, doc, audio],
         }
-        message = Message.from_standard(standard_msg)
+        message = message_standard_to_domain(standard_msg)
         assert message.role == Message.Role.ASSISTANT
         assert message.content == "First line\nSecond line"
         assert message.files is not None
@@ -68,7 +71,7 @@ class TestMessageFromStandard:
             "role": None,
             "content": "Hello world",
         }
-        message = Message.from_standard(standard_msg)
+        message = message_standard_to_domain(standard_msg)
         assert message.role == Message.Role.USER  # Default role
         assert message.content == "Hello world"
 
@@ -82,7 +85,7 @@ class TestMessageFromStandard:
             "role": "user",
             "content": [text, invalid_content],  # type: ignore
         }
-        message = Message.from_standard(standard_msg)
+        message = message_standard_to_domain(standard_msg)
         assert message.role == Message.Role.USER
         assert message.content == "Valid text"
 
@@ -95,7 +98,7 @@ class TestMessageFromStandard:
             "role": "user",
             "content": [text, malformed_image],  # type: ignore
         }
-        message = Message.from_standard(standard_msg)
+        message = message_standard_to_domain(standard_msg)
         assert message.role == Message.Role.USER
         assert message.content == "Valid text"
         assert message.files is None  # Malformed content should be skipped
@@ -113,7 +116,7 @@ class TestMessageFromStandard:
             "role": "assistant",
             "content": [text, tool_call],
         }
-        message = Message.from_standard(standard_msg)
+        message = message_standard_to_domain(standard_msg)
         assert message.role == Message.Role.ASSISTANT
         assert message.content == "Some text"
         assert message.tool_call_requests is not None
@@ -137,7 +140,7 @@ class TestMessageFromStandard:
             "role": "assistant",
             "content": [text, tool_result],
         }
-        message = Message.from_standard(standard_msg)
+        message = message_standard_to_domain(standard_msg)
         assert message.role == Message.Role.ASSISTANT
         assert message.content == "Some text"
         assert message.tool_call_results is not None

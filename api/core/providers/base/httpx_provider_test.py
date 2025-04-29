@@ -279,7 +279,7 @@ class TestParseResponse:
         raw_completion = RawCompletion(response="", usage=LLMUsage())
 
         with pytest.raises(UnknownProviderError):
-            mocked_provider._parse_response(response, Mock(), raw_completion)  # pyright: ignore[reportPrivateUsage]
+            mocked_provider._parse_response(response, Mock(), raw_completion, {})  # pyright: ignore[reportPrivateUsage]
 
         assert raw_completion.response == "Arf arf"
 
@@ -292,7 +292,7 @@ class TestParseResponse:
         raw_completion = RawCompletion(response="", usage=LLMUsage())
 
         with pytest.raises(FailedGenerationError):
-            mocked_provider._parse_response(response, Mock(), raw_completion)  # pyright: ignore[reportPrivateUsage]
+            mocked_provider._parse_response(response, Mock(), raw_completion, {})  # pyright: ignore[reportPrivateUsage]
 
         assert raw_completion.response == "hello"
         mocked_provider.mock._extract_content_str.assert_called_once_with(DummyResponseModel(content="hello"))
@@ -306,7 +306,7 @@ class TestParseResponse:
 
         raw_completion = RawCompletion(response="", usage=LLMUsage())
 
-        output = mocked_provider._parse_response(response, _output_factory, raw_completion=raw_completion)  # pyright: ignore[reportPrivateUsage]
+        output = mocked_provider._parse_response(response, _output_factory, raw_completion=raw_completion, request={})  # pyright: ignore[reportPrivateUsage]
         assert output == {"hello": "world"}
         assert raw_completion.response == '{"hello": "world"}'
 
@@ -346,10 +346,32 @@ class TestParseResponse:
 
         # Parse response should re-raise the exception
         with pytest.raises(raised_cls):
-            mocked_provider._parse_response(response, _output_factory, raw_completion=raw_completion)  # pyright: ignore[reportPrivateUsage]
+            mocked_provider._parse_response(response, _output_factory, raw_completion=raw_completion, request={})  # pyright: ignore[reportPrivateUsage]
 
         # In all use cases we should call extract usage and set the completion
         mocked_provider.mock._extract_usage.assert_called_once_with(DummyResponseModel(content=text))
+        assert raw_completion.usage == LLMUsage(prompt_token_count=100)
+
+    def test_extract_usage_on_empty_content(
+        self,
+        mocked_provider: MockedProvider,
+    ):
+        """Check that the usage is properly extracted even on an unknown error"""
+        mocked_provider.mock._extract_usage.return_value = LLMUsage(prompt_token_count=100)
+
+        response = Mock(spec=Response)
+        response.json.return_value = {"content": ""}
+        response.text = """{"content": ""}"""
+        response.status_code = 200
+
+        raw_completion = RawCompletion(response="", usage=LLMUsage())
+
+        # Parse response should re-raise the exception
+        with pytest.raises(FailedGenerationError):
+            mocked_provider._parse_response(response, _output_factory, raw_completion=raw_completion, request={})  # pyright: ignore[reportPrivateUsage]
+
+        # In all use cases we should call extract usage and set the completion
+        mocked_provider.mock._extract_usage.assert_called_once_with(DummyResponseModel(content=""))
         assert raw_completion.usage == LLMUsage(prompt_token_count=100)
 
 
@@ -505,17 +527,27 @@ class TestOperationTimeout:
         assert e.value.code == "timeout"
 
 
-class TestFailedGenerationErrorWrapper:
-    async def test_failed_generation_error_wrapper(self, mocked_provider: MockedProvider):
+class TestInvalidJSONError:
+    async def test_invalid_json_error(self, mocked_provider: MockedProvider):
         completion = "Bedrock returned a non-JSON response that we don't handle"
 
-        error = mocked_provider._failed_generation_error_wrapper(completion, "Generation does not contain a valid JSON")  # pyright: ignore[reportPrivateUsage]
+        error = mocked_provider._invalid_json_error(  # pyright: ignore[reportPrivateUsage]
+            Mock(),
+            None,
+            completion,
+            "Generation does not contain a valid JSON",
+        )
         assert isinstance(error, FailedGenerationError)
         assert error.args[0] == "Generation does not contain a valid JSON"  # type: ignore
 
-    async def test_failed_generation_error_wrapper_content_moderation(self, mocked_provider: MockedProvider):
+    async def test_invalid_json_error_content_moderation(self, mocked_provider: MockedProvider):
         completion = "I apologize, but I do not feel comfortable responding to this request as it is inappropriate."
-        error = mocked_provider._failed_generation_error_wrapper(completion, "Generation does not contain a valid JSON")  # pyright: ignore[reportPrivateUsage]
+        error = mocked_provider._invalid_json_error(  # pyright: ignore[reportPrivateUsage]
+            Mock(),
+            None,
+            completion,
+            "Generation does not contain a valid JSON",
+        )
         assert isinstance(error, ContentModerationError)
         assert error.retry is False
         assert error.provider_error == completion
@@ -587,6 +619,7 @@ class TestNativeToolCalls:
             response,
             lambda x, _: StructuredOutput(output=json.loads(x)),
             raw_completion=raw_completion,
+            request={},
         )
         expected_tool_calls = [ToolCallRequestWithID(id="tool-123", tool_name="dummy_tool", tool_input_dict={})]
         assert output.output == {"hello": "world"}

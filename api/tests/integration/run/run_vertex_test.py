@@ -6,7 +6,7 @@ from httpx import HTTPStatusError
 
 from core.domain.models import Model
 from core.domain.models.utils import get_model_data
-from core.providers.google.google_provider import GoogleProvider
+from core.providers.google.vertex_base_config import VertexBaseConfig
 from tests.integration.common import (
     IntegrationTestClient,
     vertex_url_matcher,
@@ -16,8 +16,8 @@ from tests.utils import fixture_bytes, request_json_body
 
 @patch.dict(os.environ, {"GOOGLE_VERTEX_AI_LOCATION": "us-central1,us-east4,us-west1"})
 @patch(
-    "core.providers.google.google_provider.GoogleProvider.all_available_regions",
-    return_value={"us-central1", "us@-east4", "us-west1"},
+    "core.providers.google.vertex_base_config.VertexBaseConfig.all_available_regions",
+    return_value={"us-central1", "us-east4", "us-west1"},
 )
 async def test_vertex_region_switch(
     mock_available_regions: Mock,
@@ -29,7 +29,7 @@ async def test_vertex_region_switch(
 
     # Now prepare all providers
     region_iter = iter(regions)
-    monkeypatch.setattr(GoogleProvider, "_get_random_region", lambda self, choices: next(region_iter))  # type: ignore
+    monkeypatch.setattr(VertexBaseConfig, "_get_random_region", lambda self, choices: next(region_iter))  # type: ignore
 
     # Mock only one failed region at a time
     test_client.mock_vertex_call(model=Model.GEMINI_1_5_PRO_002, status_code=429, regions=["us-central1", "us-west1"])

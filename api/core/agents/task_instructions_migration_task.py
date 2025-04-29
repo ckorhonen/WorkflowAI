@@ -36,6 +36,10 @@ VERSION = workflowai.VersionProperties(
 
     Overall, keep as much as possible of the initial instructions (content and form), and use the same verbosity. Do NOT use markdown.
 
+# When the output_json_schema refers to images
+- make sure the task_instructions explicitly refer to generating an image
+- make sure the task_instructions are a jinja2 template that contains all variables in the input_json_schema
+
     Make sure to NOT add tools from 'available_tools_description' that were not present in the 'initial_task_instructions'""",
 )
 

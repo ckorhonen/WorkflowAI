@@ -1,3 +1,4 @@
+from base64 import b64encode
 from typing import Any, Sequence
 from unittest.mock import AsyncMock, Mock
 
@@ -78,7 +79,7 @@ class TestApplyFiles:
     async def test_apply_files(self):
         payload = {"image": {"url": "https://test-url.com/file"}}
         files = [FileWithKeyPath(key_path=["image"], url="https://test-url.com/file", data="1234")]
-        await RunsService._apply_files(payload, files, include=None, exclude={"key_path"})  # pyright: ignore [reportPrivateUsage]
+        RunsService._apply_files(payload, files, include=None, exclude={"key_path"})  # pyright: ignore [reportPrivateUsage]
         assert payload == {
             "image": {
                 "url": "https://test-url.com/file",
@@ -96,7 +97,7 @@ class TestApplyFiles:
                 content_type="image",
             ),
         ]
-        await RunsService._apply_files(  # pyright: ignore [reportPrivateUsage]
+        RunsService._apply_files(  # pyright: ignore [reportPrivateUsage]
             payload,
             files,
             include={"content_type", "url", "storage_url"},
@@ -249,6 +250,122 @@ class TestStoreTaskRun:
         event_properties = mock_analytics_service.send_event.call_args[0][0]()
 
         assert event_properties == RanTaskEventProperties.from_task_run(stored_task_run, "user")
+
+    async def test_store_task_run_with_files_in_output_as_base64(
+        self,
+        non_legacy_task: SerializableTaskVariant,
+        non_legacy_task_run: AgentRun,
+        runs_service: RunsService,
+        mock_storage: Mock,
+        mock_file_storage: Mock,
+        mock_provider_factory: Mock,
+        mock_provider: Mock,
+        mock_event_router: AsyncMock,
+        mock_analytics_service: AsyncMock,
+        httpx_mock: HTTPXMock,
+    ):
+        non_legacy_task.input_schema.json_schema = streamline_schema(
+            {"type": "object", "properties": {"text": {"type": "string"}}},
+        )
+        non_legacy_task.output_schema.json_schema = streamline_schema(
+            {"type": "object", "properties": {"image": {"$ref": "#/$defs/File", "format": "image"}}},
+        )
+        non_legacy_task_run.task_input = {"text": "hello"}
+        non_legacy_task_run.task_output["image"] = {
+            "data": b64encode(b"1234").decode(),
+            "content_type": "image/png",
+        }
+
+        mock_file_storage.store_file = AsyncMock(return_value="https://test-url.com/file-2")
+
+        # Execute
+        result = await runs_service.store_task_run(
+            task_variant=non_legacy_task,
+            task_run=non_legacy_task_run.model_copy(),
+            trigger="user",
+        )
+
+        # Verify
+        assert mock_file_storage.store_file.call_count == 1
+        mock_provider_factory.get_provider.assert_called_once_with(Provider.AMAZON_BEDROCK)
+        mock_provider.finalize_completions.assert_awaited_once_with(
+            Model.CLAUDE_3_5_SONNET_20240620,
+            non_legacy_task_run.llm_completions,
+        )
+        mock_storage.store_task_run_resource.assert_awaited_once()
+
+        stored_task_run = mock_storage.store_task_run_resource.call_args[0][1]
+        assert isinstance(stored_task_run, AgentRun)
+        # This works because the same object is returned
+        assert stored_task_run == result
+
+        # Verify file data was modified
+        stored_file = stored_task_run.task_output["image"]
+        assert stored_file == {
+            "content_type": "image/png",
+            "url": "https://test-url.com/file-2",
+            "storage_url": "https://test-url.com/file-2",
+        }
+
+    async def test_store_task_run_with_files_in_output_as_url(
+        self,
+        non_legacy_task: SerializableTaskVariant,
+        non_legacy_task_run: AgentRun,
+        runs_service: RunsService,
+        mock_storage: Mock,
+        mock_file_storage: Mock,
+        mock_provider_factory: Mock,
+        mock_provider: Mock,
+        mock_event_router: AsyncMock,
+        mock_analytics_service: AsyncMock,
+        httpx_mock: HTTPXMock,
+    ):
+        non_legacy_task.input_schema.json_schema = streamline_schema(
+            {"type": "object", "properties": {"text": {"type": "string"}}},
+        )
+        non_legacy_task.output_schema.json_schema = streamline_schema(
+            {"type": "object", "properties": {"image": {"$ref": "#/$defs/File", "format": "image"}}},
+        )
+        non_legacy_task_run.task_input = {"text": "hello"}
+        non_legacy_task_run.task_output["image"] = {
+            "url": "https://test-url.com/file.png",
+        }
+
+        httpx_mock.add_response(url="https://test-url.com/file.png", method="GET", status_code=200, content=b"1234")
+
+        mock_file_storage.store_file = AsyncMock(return_value="https://test-url.com/file-2")
+
+        # Execute
+        result = await runs_service.store_task_run(
+            task_variant=non_legacy_task,
+            task_run=non_legacy_task_run.model_copy(),
+            trigger="user",
+        )
+
+        # Verify
+        assert mock_file_storage.store_file.call_count == 1
+        mock_provider_factory.get_provider.assert_called_once_with(Provider.AMAZON_BEDROCK)
+        mock_provider.finalize_completions.assert_awaited_once_with(
+            Model.CLAUDE_3_5_SONNET_20240620,
+            non_legacy_task_run.llm_completions,
+        )
+        mock_storage.store_task_run_resource.assert_awaited_once()
+
+        stored_task_run = mock_storage.store_task_run_resource.call_args[0][1]
+        assert isinstance(stored_task_run, AgentRun)
+        # This works because the same object is returned
+        assert stored_task_run == result
+
+        # Verify file data was modified
+        stored_file = stored_task_run.task_output["image"]
+        assert stored_file == {
+            "content_type": "image/png",
+            "url": "https://test-url.com/file.png",
+            "storage_url": "https://test-url.com/file-2",
+        }
+        assert stored_task_run.task_input["text"] == "hello"
+
+        assert httpx_mock.get_request(url="https://test-url.com/file.png")
 
     async def test_store_task_run_without_files(
         self,

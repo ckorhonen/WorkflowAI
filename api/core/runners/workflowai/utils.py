@@ -20,10 +20,13 @@ from core.domain.models import Model, Provider
 from core.domain.models.model_data import DeprecatedModel
 from core.domain.models.model_datas_mapping import MODEL_DATAS
 from core.domain.tool import Tool
+from core.domain.types import TaskOutputDict
 from core.runners.workflowai.internal_tool import InternalTool
 from core.tools import ToolKind
+from core.utils.dicts import set_at_keypath
 from core.utils.file_utils.file_utils import guess_content_type
 from core.utils.schema_sanitation import get_file_format
+from core.utils.schemas import JsonSchema
 from core.utils.strings import clean_unicode_chars
 
 _logger = logging.getLogger(__file__)
@@ -192,6 +195,65 @@ def extract_files(schema: dict[str, Any], payload: Any) -> tuple[dict[str, Any],
         },
     }
     return schema, payload, out
+
+
+def remove_files_from_schema(schema: dict[str, Any]) -> tuple[int, int | None]:
+    """Recursively navigate the schema and return a max file count or None if any number of files is allowed.
+    Schema is modified in place"""
+    raw = JsonSchema(schema)
+    min_file_count = 0
+    max_file_count: int | None = 0
+
+    for keys, _, child in raw.fields_iterator(prefix=[], dive=lambda s: s.followed_ref_name not in FILE_DEFS):
+        if child.followed_ref_name in FILE_DEFS:
+            min_file_count += 1
+            if "[]" in keys:
+                max_file_count = None
+            elif max_file_count is not None:
+                max_file_count += 1
+            child.remove_from_parent(recursive=True)
+
+    return min_file_count, max_file_count
+
+
+def _replace_keypath_arr_idx(keypath: list[str], idx: int):
+    # We replace the last [] in the array
+    out: list[str | int] = []
+    found = False
+    for k in reversed(keypath):
+        if k == "[]":
+            out.insert(0, idx if not found else 0)
+            found = True
+            continue
+        out.insert(0, k)
+    return out
+
+
+def assign_files(schema: dict[str, Any], files: list[File], output: TaskOutputDict):
+    for key, _, child in JsonSchema(schema).fields_iterator(
+        prefix=[],
+        dive=lambda s: s.followed_ref_name not in FILE_DEFS,
+    ):
+        if child.followed_ref_name not in FILE_DEFS:
+            continue
+
+        if "[]" in key:
+            # We are in a list, so we append to the last item of the list
+            # We finish all the available files, we could try and be smarter here but not for now
+            for i, f in enumerate(files):
+                set_at_keypath(
+                    output,
+                    _replace_keypath_arr_idx(key, i),
+                    f.model_dump(mode="json", exclude_none=True),
+                )
+            return None
+
+        # Otherwise it's a single file
+        set_at_keypath(output, cast(list[str | int], key), files[0].model_dump(mode="json", exclude_none=True))
+        files = files[1:]
+        if not files:
+            return None
+    return files
 
 
 _download_client = httpx.AsyncClient()

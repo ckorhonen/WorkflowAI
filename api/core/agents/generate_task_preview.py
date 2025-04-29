@@ -41,7 +41,7 @@ class GenerateTaskPreviewTaskOutput(BaseModel):
     )
 
 
-@workflowai.agent(id="generate-task-preview", model=Model.GEMINI_2_0_FLASH_EXP)
+@workflowai.agent(id="generate-task-preview", model=Model.GEMINI_2_0_FLASH_LATEST)
 def stream_generate_task_preview(
     input: GenerateTaskPreviewTaskInput,
 ) -> AsyncIterator[GenerateTaskPreviewTaskOutput]:

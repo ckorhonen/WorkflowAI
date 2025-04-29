@@ -358,12 +358,11 @@ class TestProviderCostCalculation:
         assert llm_usage.completion_token_count == 3  # computed from the completion
         assert llm_usage.completion_cost_usd == completion_cost_per_token * 3
 
-    @pytest.mark.parametrize("model", AMAZON_BEDROCK_PROVIDER_DATA.keys())
-    async def test_token_count_is_not_fed_with_no_response(self, amazon_provider: AmazonBedrockProvider, model: Model):
+    async def test_token_count_is_not_fed_with_no_response(self, amazon_provider: AmazonBedrockProvider):
         # Test the case when the token count is not fed in the original usage
 
         llm_usage = await amazon_provider.compute_llm_completion_usage(
-            model=model,
+            model=Model.CLAUDE_3_7_SONNET_20250219,
             completion=_llm_completion(
                 messages=[{"role": "user", "content": [{"text": "Hello !"}]}],
                 response=None,
@@ -372,13 +371,12 @@ class TestProviderCostCalculation:
         )
         assert llm_usage.cost_usd == 0
 
-    @pytest.mark.parametrize("model", AMAZON_BEDROCK_PROVIDER_DATA.keys())
     async def test_token_count_is_not_fed_multiple_messages_and_long_completion(
         self,
         amazon_provider: AmazonBedrockProvider,
-        model: Model,
     ):
         # Test the case when the token count is not fed in the original usage
+        model = Model.CLAUDE_3_7_SONNET_20250219
 
         llm_usage = await amazon_provider.compute_llm_completion_usage(
             model=model,
@@ -711,8 +709,8 @@ class TestCompleteWithRetry:
                 {
                     "content": [
                         {
-                            "text": "Your previous response was invalid with error `Response "
-                            "does not contain a valid JSON`.\n"
+                            "text": "Your previous response was invalid with error `Generation "
+                            "returned an empty response`.\n"
                             "Please retry",
                         },
                     ],

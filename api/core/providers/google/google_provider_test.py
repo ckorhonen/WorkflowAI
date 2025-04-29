@@ -67,7 +67,7 @@ def patch_google_env_vars():
 @pytest.fixture(scope="function", autouse=True)
 def patch_google_provider_auth():
     with patch(
-        "core.providers.google.google_provider.google_provider_auth",
+        "core.providers.google.google_provider_auth.get_token",
         return_value="a_token",
         autospec=True,
     ) as mock_google_provider_auth:
@@ -871,6 +871,22 @@ class TestExtractStreamDelta:
 
         assert "MAX_TOKENS" in str(e.value)
 
+    def test_extract_stream_delta_malformed_function_call(self, google_provider: GoogleProvider):
+        sse_event_malformed_function_call = json.dumps(
+            {
+                "candidates": [
+                    {"content": {"parts": [{"text": "Hello, world!"}], "role": "model"}},
+                    {"finishReason": "MALFORMED_FUNCTION_CALL"},
+                ],
+            },
+        ).encode()
+        with pytest.raises(ProviderBadRequestError):
+            google_provider._extract_stream_delta(  # pyright: ignore [reportPrivateUsage]
+                sse_event_malformed_function_call,
+                RawCompletion(response="", usage=LLMUsage()),
+                {},
+            )
+
     def test_extract_stream_delta_empty_response(self, google_provider: GoogleProvider):
         sse_event_empty = json.dumps({"candidates": []}).encode()
 
@@ -1066,7 +1082,7 @@ class TestComplete:
         location_iter = iter(location_responses)
 
         with patch(
-            "core.providers.google.google_provider.GoogleProvider._get_random_region",
+            "core.providers.google.vertex_base_config.VertexBaseConfig._get_random_region",
             side_effect=lambda _: next(location_iter),  # pyright: ignore [reportUnknownLambdaType]
         ):
             result = await google_provider.complete(
@@ -1106,7 +1122,7 @@ class TestComplete:
         location_iter = iter(location_responses)
 
         with patch(
-            "core.providers.google.google_provider.GoogleProvider._get_random_region",
+            "core.providers.google.vertex_base_config.VertexBaseConfig._get_random_region",
             side_effect=lambda _: next(location_iter),  # pyright: ignore [reportUnknownLambdaType]
         ):
             with pytest.raises(ProviderError, match="No available regions left to retry."):
@@ -1287,6 +1303,7 @@ class TestHandleStatusCode:
             "URL_TIMEOUT-TIMEOUT_FETCHPROXY",
             "URL_UNREACHABLE-UNREACHABLE_NO_RESPONSE",
             "URL_REJECTED-REJECTED_RPC_APP_ERROR",
+            "URL_UNREACHABLE-UNREACHABLE_5xx",
         ],
     )
     def test_timeout_when_fetching_file(self, google_provider: GoogleProvider, message: str):

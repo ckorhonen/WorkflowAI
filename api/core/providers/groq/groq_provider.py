@@ -5,7 +5,7 @@ from httpx import Response
 from pydantic import BaseModel, ValidationError
 from typing_extensions import override
 
-from core.domain.errors import FailedGenerationError, MaxTokensExceededError
+from core.domain.errors import FailedGenerationError, MaxTokensExceededError, ProviderBadRequestError
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import Message
 from core.domain.models import Model, Provider
@@ -25,7 +25,6 @@ from core.providers.groq.groq_domain import (
     GroqError,
     GroqMessage,
     GroqToolDescription,
-    JSONResponseFormat,
     StreamedResponse,
     TextResponseFormat,
 )
@@ -95,7 +94,8 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
             temperature=options.temperature,
             max_tokens=options.max_tokens,
             stream=stream,
-            response_format=JSONResponseFormat() if not options.enabled_tools else TextResponseFormat(),
+            # Looks like JSONResponseFormat does not work great on Groq
+            response_format=TextResponseFormat(),
             tools=[GroqToolDescription.from_domain(t) for t in options.enabled_tools]
             if options.enabled_tools
             else None,
@@ -241,23 +241,48 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
 
         return token_count
 
-    def _handle_error_status_code(self, response: Response):
+    def _invalid_request_error(self, payload: GroqError, response: Response):
+        base_cls = ProviderBadRequestError
+        capture = True
+        if payload.error.message:
+            lower_msg = payload.error.message.lower()
+            match lower_msg:
+                case m if "localhost: no such host" in m:
+                    capture = False
+                case _:
+                    pass
+
+        return base_cls(
+            msg=payload.error.message or "Unknown error",
+            capture=capture,
+            response=response,
+        )
+
+    @override
+    def _unknown_error(self, response: Response):
         if response.status_code == 413:
             # Not re-using the error message from Groq as it is not explicit (it's just "Request Entity Too Large")
-            raise MaxTokensExceededError("Max tokens exceeded")
+            return MaxTokensExceededError("Max tokens exceeded")
 
         try:
             payload = GroqError.model_validate_json(response.text)
             error_message = payload.error.message
 
             if error_message == "Please reduce the length of the messages or completion.":
-                raise MaxTokensExceededError("Max tokens exceeded")
+                return MaxTokensExceededError("Max tokens exceeded")
+            if payload.error.code == "json_validate_failed":
+                return FailedGenerationError(
+                    msg="Model did not generate a valid JSON response",
+                    capture=True,
+                )
+            if payload.error.type == "invalid_request_error":
+                return self._invalid_request_error(payload, response)
 
         except (ValueError, ValidationError):
             pass
             # Failed to parse the error message, continue
 
-        super()._handle_error_status_code(response)
+        return super()._unknown_error(response)
 
     def _compute_prompt_image_count(
         self,
