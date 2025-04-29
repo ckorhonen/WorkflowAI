@@ -45,6 +45,10 @@ export function formatFractionalCurrencyAsNumber(value: number | null | undefine
     return null;
   }
 
+  if (value === 0) {
+    return 0;
+  }
+
   if (Math.abs(value) >= 0.0001) {
     return Number(value.toFixed(4));
   }
