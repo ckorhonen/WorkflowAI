@@ -709,8 +709,7 @@ class TestCompleteWithRetry:
                 {
                     "content": [
                         {
-                            "text": "Your previous response was invalid with error `Generation "
-                            "returned an empty response`.\n"
+                            "text": "Your previous response was invalid with error `Received invalid JSON`.\n"
                             "Please retry",
                         },
                     ],

@@ -291,8 +291,10 @@ class TestParseResponse:
 
         raw_completion = RawCompletion(response="", usage=LLMUsage())
 
+        output_factory = Mock(side_effect=JSONDecodeError("Failed to decode JSON", "Arf", 0))
+
         with pytest.raises(FailedGenerationError):
-            mocked_provider._parse_response(response, Mock(), raw_completion, {})  # pyright: ignore[reportPrivateUsage]
+            mocked_provider._parse_response(response, output_factory, raw_completion, {})  # pyright: ignore[reportPrivateUsage]
 
         assert raw_completion.response == "hello"
         mocked_provider.mock._extract_content_str.assert_called_once_with(DummyResponseModel(content="hello"))
@@ -481,7 +483,9 @@ class TestPrepareCompletion:
     async def test_prepare_completion_with_image(self, mocked_provider: MockedProvider):
         messages = [
             MessageDeprecated(
-                content="Hello", role=MessageDeprecated.Role.USER, files=[File(url="https://example.com/image.png")],
+                content="Hello",
+                role=MessageDeprecated.Role.USER,
+                files=[File(url="https://example.com/image.png")],
             ),
         ]
         _, completion = await mocked_provider._prepare_completion(  # pyright: ignore[reportPrivateUsage]
@@ -496,7 +500,9 @@ class TestPrepareCompletion:
     async def test_prepare_completion_with_audio(self, mocked_provider: MockedProvider):
         messages = [
             MessageDeprecated(
-                content="Hello", role=MessageDeprecated.Role.USER, files=[File(url="https://example.com/audio.mp3")],
+                content="Hello",
+                role=MessageDeprecated.Role.USER,
+                files=[File(url="https://example.com/audio.mp3")],
             ),
         ]
         _, completion = await mocked_provider._prepare_completion(  # pyright: ignore[reportPrivateUsage]
