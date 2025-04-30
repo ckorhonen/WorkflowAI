@@ -233,7 +233,7 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
     ):
         try:
             output = output_factory(raw, False)
-        except JSONDecodeError as e:
+        except (JSONDecodeError, JSONSchemaValidationError) as e:
             if not native_tools_calls:
                 raise cls._invalid_json_error(
                     response=None,
@@ -242,10 +242,6 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
                     error_msg="Received invalid JSON",
                     retry=True,
                 )
-            output = StructuredOutput(output={})
-        except (JSONSchemaValidationError, JSONDecodeError) as e:
-            if not native_tools_calls:
-                raise e
             # When there is a native tool call, we can afford having a JSONSchemaValidationError,
             # ex: when the models returns a raw "Let me use the @search-google tool to answer the question"  in the completion
             # This happens quite often with Claude models.
