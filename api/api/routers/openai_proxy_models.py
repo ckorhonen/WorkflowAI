@@ -242,7 +242,7 @@ class OpenAIProxyChatCompletionResponse(BaseModel):
     @classmethod
     def from_domain(cls, run: AgentRun, output_mapper: Callable[[AgentOutput], str], model: str):
         return cls(
-            id=run.id,
+            id=f"{run.task_id}/{run.id}",
             choices=[
                 OpenAIProxyChatCompletionChoice(
                     finish_reason="stop",

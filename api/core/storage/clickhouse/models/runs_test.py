@@ -169,6 +169,14 @@ class TestDomainSanity:
         re_validated = ClickhouseRun.model_validate(dumped).to_domain("")
         assert re_validated.task_output == {}
 
+    def test_string_output(self):
+        run = task_run_ser(id=str(uuid7()), task_uid=1, task_output="Hello James!")
+        run_db = ClickhouseRun.from_domain(1, run)
+        dumped = run_db.model_dump()
+        assert dumped["output"] == '"Hello James!"'
+        re_validated = ClickhouseRun.model_validate(dumped).to_domain("")
+        assert re_validated.task_output == "Hello James!"
+
 
 class TestToClause:
     def test_json_empty(self):

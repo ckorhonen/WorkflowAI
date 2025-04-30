@@ -27,7 +27,7 @@ from core.domain.task_group import TaskGroup
 from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_run_query import SerializableTaskRunField, SerializableTaskRunQuery
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
-from core.domain.types import AgentInput, AgentOutput
+from core.domain.types import AgentOutput
 from core.domain.utils import compute_eval_hash
 from core.domain.version_environment import VersionEnvironment
 from core.storage import ObjectNotFoundException
@@ -69,8 +69,11 @@ def _stringify_json(data: Any) -> str:
     return json.dumps(data, separators=(",", ":"))
 
 
-def _from_stringified_json(data: str) -> dict[str, Any]:
-    return json.loads(data)
+def _from_stringified_json(data: str) -> Any:
+    try:
+        return json.loads(data)
+    except json.JSONDecodeError:
+        return data
 
 
 def _duration_ds(duration: float | None) -> int:
@@ -192,7 +195,7 @@ class ClickhouseRun(BaseModel):
     cache_hash: Annotated[str, validate_fixed()] = ""
 
     input_preview: str = ""
-    input: AgentInput = Field(default_factory=dict)
+    input: Any = Field(default_factory=dict)
 
     @field_serializer("input")
     def serialize_input(self, input: dict[str, Any]) -> str:
@@ -205,7 +208,7 @@ class ClickhouseRun(BaseModel):
         return value
 
     output_preview: str = ""
-    output: AgentOutput = Field(default_factory=dict)
+    output: Any = Field(default_factory=dict)
 
     @field_serializer("output")
     def serialize_output(self, output: AgentOutput) -> str:
