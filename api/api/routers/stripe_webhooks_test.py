@@ -137,3 +137,33 @@ class TestWebhook:
 
         assert response.status_code == 500
         patch_storage.return_value.organizations.add_credits_to_tenant.assert_not_called()
+
+    async def test_ignored(self, test_api_client: AsyncClient, patch_storage: Mock, monkeypatch: Mock):
+        mock_event = stripe.Event.construct_from(
+            {
+                "id": "evt_123",
+                "type": "payment_intent.succeeded",
+                "data": {
+                    "object": {
+                        "object": "payment_intent",
+                        "id": "pi_123",
+                        "amount": 1000,
+                        "metadata": {"webhook_ignore": "true"},
+                        "status": "succeeded",
+                    },
+                },
+            },
+            key="evt_123",
+        )
+
+        mock_construct = Mock(return_value=mock_event)
+        monkeypatch.setattr(stripe.Webhook, "construct_event", mock_construct)
+
+        response = await test_api_client.post(
+            "/webhooks/stripe",
+            json={"some": "data"},
+            headers={"Stripe-Signature": "test_signature"},
+        )
+
+        assert response.status_code == 200
+        patch_storage.return_value.organizations.add_credits_to_tenant.assert_not_called()

@@ -61,6 +61,14 @@ async def verify_stripe_signature(
     return stripe_event
 
 
+def _skip_webhook(event: stripe.Event) -> bool:
+    try:
+        webhook_ignore = event.data.object.get("metadata", {}).get("webhook_ignore")
+        return webhook_ignore == "true"
+    except Exception:
+        return False
+
+
 @router.post("")
 async def stripe_webhook(
     storage: OrgSystemStorageDep,
@@ -70,6 +78,10 @@ async def stripe_webhook(
 ) -> Response:
     _logger.debug("Received Stripe webhook", extra={"request": request, "stripe_signature": stripe_signature})
     event = await verify_stripe_signature(request, stripe_signature)
+    if _skip_webhook(event):
+        _logger.info("Skipping Stripe webhook", extra={"event": event.data.object})
+        return Response(status_code=200)
+
     payment_service = PaymentSystemService(storage, email_service)
 
     match event.type:
