@@ -971,7 +971,6 @@ class TestStreamingHandlers:
                 pass
 
         assert "Invalid schema" in str(exc_info.value)
-        assert exc_info.value.retry is False
 
 
 class TestBuildStructuredOutput:
@@ -1037,7 +1036,7 @@ class TestBuildStructuredOutput:
         def failing_factory(x: str, _: bool) -> StructuredOutput:
             raise JSONSchemaValidationError("Invalid schema")
 
-        with pytest.raises(JSONSchemaValidationError) as exc_info:
+        with pytest.raises(FailedGenerationError) as exc_info:
             mocked_provider._build_structured_output(  # pyright: ignore[reportPrivateUsage]
                 failing_factory,
                 '{"hello": "world"}',

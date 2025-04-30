@@ -239,7 +239,7 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
                     response=None,
                     exception=e,
                     raw_completion=raw,
-                    error_msg="Received invalid JSON",
+                    error_msg=str(e) if isinstance(e, JSONSchemaValidationError) else "Received invalid JSON",
                     retry=True,
                 )
             # When there is a native tool call, we can afford having a JSONSchemaValidationError,
