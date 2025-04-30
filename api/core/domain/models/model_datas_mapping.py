@@ -1041,7 +1041,7 @@ def _build_model_datas():
             release_date=date(2025, 4, 29),
             quality_index=789,  # GPQA = 70 MMLU = 87.8 https://qwenlm.github.io/blog/qwen3/, https://x.com/ArtificialAnlys/status/1917246369510879280
             provider_name=DisplayedProvider.FIREWORKS.value,
-            supports_tool_calling=False,
+            supports_tool_calling=True,
         ),
         Model.QWEN3_30B_A3B: ModelData(
             display_name="Qwen3 30B (3B active)",
@@ -1051,7 +1051,7 @@ def _build_model_datas():
             supports_input_audio=False,
             supports_structured_output=True,
             max_tokens_data=MaxTokensData(
-                max_tokens=32_768,
+                max_tokens=128_000,
                 source="https://huggingface.co/Qwen/Qwen3-30B-A3B",
             ),
             provider_for_pricing=Provider.FIREWORKS,
@@ -1059,7 +1059,7 @@ def _build_model_datas():
             release_date=date(2025, 4, 29),
             quality_index=710,  # GPQA = 62 MMLU = 80 https://qwenlm.github.io/blog/qwen3/, https://x.com/ArtificialAnlys/status/1917246369510879280 MMLU could not be found, so we use QWEN3_235B_A22B - 10
             provider_name=DisplayedProvider.FIREWORKS.value,
-            supports_tool_calling=False,
+            supports_tool_calling=True,
         ),
         Model.QWEN_QWQ_32B_PREVIEW: DeprecatedModel(replacement_model=Model.QWEN_QWQ_32B),
         Model.LLAMA_3_2_11B_VISION: DeprecatedModel(
