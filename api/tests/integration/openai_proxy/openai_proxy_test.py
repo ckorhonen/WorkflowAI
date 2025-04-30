@@ -97,3 +97,23 @@ async def test_with_json_schema(test_client: IntegrationTestClient, openai_clien
 
     agent = await test_client.get(f"/_/agents/{task_id}/schemas/1")
     assert agent["output_schema"]["json_schema"] == {"type": "object", "properties": {"whatever": {"type": "string"}}}
+
+
+async def test_with_image(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+    test_client.mock_openai_call(raw_content="This is a test image")
+
+    res = await openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Describe the image in a sassy manner"},
+                    {"type": "image_url", "image_url": {"url": "https://hello.com/image.png"}},
+                ],
+            },
+        ],
+    )
+    assert res.choices[0].message.content == "This is a test image"
+
+    await test_client.wait_for_completed_tasks()
