@@ -7,7 +7,7 @@ from api.services.features import CompanyFeaturePreviewList
 from core.agents.customer_success_helper_chat import CustomerSuccessHelperChatAgentOutput
 from core.domain.consts import WORKFLOWAI_APP_URL
 from core.domain.helpscout_email import HelpScoutEmail
-from core.services.customers.customer_service_models import DailyUserDigest
+from core.services.customers.customer_service_models import ActiveRunsReport, DailyUserDigest
 from core.storage.slack.slack_types import (
     SlackActionsBlock,
     SlackBlockActionWebhookEvent,
@@ -26,6 +26,26 @@ DRAFT_TO_BLOCK_ID = "to_input"
 DRAFT_SUBJECT_BLOCK_ID = "subject_input"
 DRAFT_BODY_BLOCK_ID = "body_input"
 DRAFT_CONVERSATION_ID_BLOCK_ID = "conversation_id_input"
+
+
+def get_markdown_table(header: list[str], rows: list[list[str]]) -> str:
+    # Determine the maximum width of each column to align cells.
+    col_widths = [max(len(row[col_idx]) for row in ([header] + rows)) for col_idx in range(len(header))]
+
+    def _fmt_row(cells: list[str]) -> str:  # noqa: WPS430 – nested helper for clarity
+        """Return a single formatted table row."""
+
+        return " | ".join(cell.ljust(col_widths[idx]) for idx, cell in enumerate(cells))
+
+    # Assemble the table with a separator after the header.
+    lines: list[str] = [
+        _fmt_row(header),
+        "-+-".join("-" * width for width in col_widths),
+        *(_fmt_row(row) for row in rows),
+    ]
+
+    # Wrap the table in a code-block so that Slack and other Markdown renderers keep the whitespace
+    return "```\n" + "\n".join(lines) + "\n```"
 
 
 class SlackMessageFormatter:
@@ -399,3 +419,40 @@ Added credits (all time): ${daily_digest.added_credits_usd:.2f}
                 summary.extend(cls._summarize_model_block(parsed_block))
 
         return summary
+
+    @classmethod
+    def get_active_runs_report_slack_message(cls, active_runs_report: ActiveRunsReport) -> str:
+        """Return a human-readable table of the active runs report.
+
+        The output looks like this::
+
+            Agent | 2024-05-06→2024-05-13 | 2024-04-29→2024-05-06
+            ----- + --------------------- + ---------------------
+            Bot X | 12 ($3.4)            | 7 ($1.9)
+            Bot Y | 0 (0)                | 2 ($0.6)
+
+        The first column lists the agent names.  Each subsequent column
+        corresponds to one week (``start_of_week`` → ``end_of_week``).  The
+        cell value is the *str()* representation of :class:`AgentStat`, which
+        already formats the run count and associated cost.
+        """
+
+        if not active_runs_report.weeks:
+            return "<empty ActiveRunsReport>"
+
+        # Build header labels for each week.
+        header: list[str] = [
+            f"Active Agents Runs Summary (last {len(active_runs_report.weeks)} weeks)",
+            *[
+                f"{w.start_of_week.strftime('%b %-d')} → {w.end_of_week.strftime('%b %-d, %Y')}"
+                for w in active_runs_report.weeks
+            ],
+        ]
+
+        # Convert the stats dictionary into a list of rows for easy processing.
+        rows: list[list[str]] = [
+            [agent_name, *[str(stat) for stat in agent_stats]]
+            for agent_name, agent_stats in active_runs_report.stats.items()
+        ]
+
+        return get_markdown_table(header, rows)

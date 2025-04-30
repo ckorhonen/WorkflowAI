@@ -5,12 +5,14 @@ import os
 import re
 from collections.abc import AsyncIterator, Callable
 from datetime import date, datetime, time, timedelta, timezone
+from enum import Enum
 
 from pydantic import BaseModel
 
 from api.services import tasks
 from api.services.customer_assessment_service import CustomerAssessmentService
 from api.services.features import FeatureService
+from api.services.storage import storage_for_tenant
 from core.agents.customer_success_helper_chat import (
     CustomerSuccessHelperChatAgentInput,
     CustomerSuccessHelperChatAgentOutput,
@@ -29,7 +31,7 @@ from core.domain.fields.chat_message import ChatMessageWithTimestamp
 from core.domain.helpscout_email import HelpScoutEmail
 from core.domain.task_info import PublicTaskInfo
 from core.domain.tenant_data import PublicOrganizationData
-from core.services.customers.customer_service_models import DailyUserDigest
+from core.services.customers.customer_service_models import ActiveRunsReport, AgentStat, DailyUserDigest
 from core.services.customers.customer_service_slack_message_formatter import SlackMessageFormatter
 from core.services.users.clerk_user_service import ClerkUserService
 from core.services.users.shared_user_service import shared_user_service
@@ -44,6 +46,7 @@ from core.storage.slack.slack_types import (
     SlackWebhookEvent,
 )
 from core.storage.slack.utils import get_slack_hyperlink
+from core.utils import no_op
 from core.utils.background import add_background_task
 from core.utils.coroutines import capture_errors
 from core.utils.redis_cache import redis_cached
@@ -71,6 +74,42 @@ def _get_task_str_for_slack(event: Event, task_id: str, task_schema_id: int) -> 
     if task_url is not None:
         task_str = get_slack_hyperlink(url=task_url, text=task_str)
     return task_str
+
+
+class SlackCommand(str, Enum):
+    ACTIVE_RUNS_REPORT = "active_runs_report"
+
+    @classmethod
+    def from_text(cls, text: str) -> "SlackCommand | None":
+        """
+        Match text to a SlackCommand value using defined aliases.
+        Returns the matching SlackCommand or None if no match is found.
+        """
+        if not text:
+            return None
+
+        normalized_text = text.lower().strip()
+
+        # Direct match - exact match to the enum value
+        try:
+            return cls(normalized_text)
+        except ValueError:
+            pass
+
+        # Check against aliases
+        aliases = {
+            cls.ACTIVE_RUNS_REPORT: [
+                "active",
+                "active runs",
+                "active_runs",
+            ],
+        }
+
+        for cmd, cmd_aliases in aliases.items():
+            if normalized_text in cmd_aliases:
+                return cmd
+
+        return None
 
 
 class CustomerService:
@@ -385,8 +424,79 @@ class CustomerService:
         return daily_digest
 
     @classmethod
-    def _should_process_webhook_event(cls, webhook_event: SlackWebhookEvent) -> bool:
+    async def build_active_runs_report(
+        cls,
+        tenant_storage: BackendStorage,
+        num_weeks: int = 4,
+    ) -> ActiveRunsReport:
+        """Return a report of active runs for the last *num_weeks*.
+
+        The previous implementation used several intermediate data structures and
+        nested loops making it hard to follow. The new version:
+        1. Creates a mapping of *agent_uid -> agent_name* once.
+        2. Iterates over the requested weeks, fetching the run statistics once
+           per week.
+        3. Populates *stats_by_agent_name* directly, avoiding the need for an
+           additional conversion step.
+        """
+
+        today = datetime.now(timezone.utc).date()
+
+        # Fetch existing agents once and keep useful look-ups ready.
+        existing_agents = await tasks.list_tasks(tenant_storage)
+        agents_by_uid = {agent.uid: agent.name for agent in existing_agents}
+        stats_by_agent_name: dict[str, list[AgentStat]] = {agent_name: [] for agent_name in agents_by_uid.values()}
+
+        weeks: list[ActiveRunsReport.Week] = []
+
+        for week_idx in reversed(range(num_weeks)):  # Reversed to oldest weeks first
+            week_end = today - timedelta(days=week_idx * 7)
+            week_start = week_end - timedelta(days=7)
+            weeks.append(
+                ActiveRunsReport.Week(start_of_week=week_start, end_of_week=week_end),
+            )
+
+            week_from_date = datetime.combine(week_start, time.min, tzinfo=timezone.utc)
+            week_to_date = datetime.combine(week_end, time.max, tzinfo=timezone.utc)
+
+            # Build a quick lookup for the current week: agent_uid -> stat
+            week_stats = {
+                stat.agent_uid: stat
+                async for stat in tenant_storage.task_runs.run_count_by_agent_uid(
+                    from_date=week_from_date,
+                    to_date=week_to_date,
+                    is_active=True,
+                )
+            }
+
+            # Fill stats for each agent ensuring we push a value for every week
+            for agent_uid, agent_name in agents_by_uid.items():
+                stat = week_stats.get(agent_uid)
+                stats_by_agent_name[agent_name].append(
+                    AgentStat(
+                        run_count=stat.run_count if stat else 0,
+                        total_cost_usd=stat.total_cost_usd if stat else 0,
+                    ),
+                )
+
+        # Sort agents by the total run count across all weeks (descending)
+        stats_by_agent_name = {
+            name: stats
+            for name, stats in sorted(
+                stats_by_agent_name.items(),
+                key=lambda item: sum(s.run_count for s in item[1]),
+                reverse=True,
+            )
+        }
+
+        return ActiveRunsReport(weeks=weeks, stats=stats_by_agent_name)
+
+    @classmethod
+    def _should_process_webhook_event(cls, webhook_event: SlackWebhookEvent) -> tuple[bool, SlackCommand | None]:
         bot_id: str | None = None
+
+        if webhook_event.event.text and (command := SlackCommand.from_text(webhook_event.event.text)):
+            return False, command
 
         # Filter out message that do not contain "@WorkflowAI Bot"
         if len(webhook_event.authorizations) > 0:
@@ -398,14 +508,14 @@ class CustomerService:
                     "The message is not addressed to the bot, skipping",
                     extra={"event": webhook_event.event.text},
                 )
-                return False
+                return False, None
 
         # Filter messages send by the bot itself
         if webhook_event.is_bot_triggered():
             _logger.info("Skipping bot triggered event", extra={"event": webhook_event})
-            return False
+            return False, None
 
-        return True
+        return True, None
 
     @staticmethod
     @redis_cached(expiration_seconds=60 * 60)  # TTL=1 hour
@@ -457,21 +567,53 @@ class CustomerService:
         )
 
     @classmethod
+    async def _get_storage_for_slack_channel(
+        cls,
+        channel_id: str,
+        system_storage: SystemBackendStorage,
+    ) -> BackendStorage:
+        tenant = await system_storage.organizations.get_organization_by_slack_channel_id(channel_id)
+        if not tenant:
+            raise InternalError("No tenant found for slack channel", extra={"channel_id": channel_id})
+
+        return storage_for_tenant(tenant.tenant, tenant.uid, no_op.event_router)
+
+    @classmethod
+    async def _handle_command(
+        cls,
+        command: SlackCommand,
+        channel_id: str,
+        system_storage: SystemBackendStorage,
+    ):
+        slack = cls._slack_client()
+        if not slack:
+            return
+
+        match command:
+            case SlackCommand.ACTIVE_RUNS_REPORT:
+                tenant_storage = await cls._get_storage_for_slack_channel(channel_id, system_storage)
+                report = await cls.build_active_runs_report(tenant_storage)
+                await slack.send_message(
+                    channel_id,
+                    {"text": SlackMessageFormatter.get_active_runs_report_slack_message(report)},
+                )
+
+    @classmethod
     async def process_slack_webhook_message(
         cls,
         webhook_event: SlackWebhookEvent,
-        storage: SystemBackendStorage,
+        system_storage: SystemBackendStorage,
     ) -> None:
-        if not cls._should_process_webhook_event(webhook_event=webhook_event):
+        should_process, command = cls._should_process_webhook_event(webhook_event=webhook_event)
+        if command:
+            await cls._handle_command(command, webhook_event.event.channel, system_storage)
+            return
+
+        if not should_process:
             return
 
         """Process a webhook message after deduplication check"""
         channel_id = webhook_event.event.channel
-
-        """tenant = await storage.organizations.get_organization_by_slack_channel_id(channel_id)
-        if not tenant:
-            _logger.error("No tenant found for slack channel", extra={"channel_id": channel_id})
-            return"""
 
         slack = cls._slack_client()
         if not slack:
