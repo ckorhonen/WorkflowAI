@@ -1,6 +1,6 @@
 from api.routers.openai_proxy_models import OpenAIProxyChatCompletionRequest, OpenAIProxyContent, OpenAIProxyImageURL
 from core.domain.fields.file import File
-from core.domain.message import FileContent
+from core.domain.message import MessageContent
 
 
 class TestOpenAIProxyChatCompletionRequest:
@@ -23,4 +23,4 @@ class TestOpenAIProxyContent:
                 url="https://hello.com/image.png",
             ),
         )
-        assert payload.to_domain() == FileContent(file=File(url="https://hello.com/image.png"))
+        assert payload.to_domain() == MessageContent(file=File(url="https://hello.com/image.png"))

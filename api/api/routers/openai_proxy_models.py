@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -7,13 +7,8 @@ from core.domain.agent_run import AgentRun
 from core.domain.errors import BadRequestError
 from core.domain.fields.file import File
 from core.domain.message import (
-    AssistantMessage,
-    FileContent,
     Message,
     MessageContent,
-    SystemMessage,
-    TextContent,
-    UserMessage,
 )
 from core.domain.types import AgentOutput
 
@@ -47,15 +42,15 @@ class OpenAIProxyContent(BaseModel):
             case "text":
                 if not self.text:
                     raise BadRequestError("Text content is required")
-                return TextContent(text=self.text)
+                return MessageContent(text=self.text)
             case "image_url":
                 if not self.image_url:
                     raise BadRequestError("Image URL content is required")
-                return FileContent(file=File(url=self.image_url.url))
+                return MessageContent(file=File(url=self.image_url.url))
             case "input_audio":
                 if not self.input_audio:
                     raise BadRequestError("Input audio content is required")
-                return FileContent(file=File(data=self.input_audio.data, content_type=self.input_audio.format))
+                return MessageContent(file=File(data=self.input_audio.data, content_type=self.input_audio.format))
             case _:
                 raise BadRequestError(f"Unknown content type: {self.type}", capture=True)
 
@@ -117,18 +112,18 @@ class OpenAIProxyMessage(BaseModel):
             raise BadRequestError("Content is required", capture=True)
 
         if isinstance(self.content, str):
-            content = self.content
+            content = [MessageContent(text=self.content)]
         else:
             content = [c.to_domain() for c in self.content]
 
         match self.role:
             case "user":
-                return UserMessage(content=content)
+                return Message(content=content, role="user")
             case "assistant":
-                return AssistantMessage(content=content)  # type: ignore
+                return Message(content=content, role="assistant")
             case "system" | "developer":
                 # TODO: raising a validation error would mean that the system message is not supported
-                return SystemMessage(content=cast(str | TextContent, content), role=self.role)
+                return Message(content=content, role=self.role)
             case "tool":
                 raise BadRequestError("Tool messages are not yet supported", capture=True)
             case _:
@@ -211,6 +206,12 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
     web_search_options: OpenAIProxyWebSearchOptions | None = None
 
     # TODO: add input
+
+    input: dict[str, Any] | None = Field(
+        default=None,
+        description="An input to template the messages with.This field is not defined by the default OpenAI api."
+        "When provided, an input schema is generated and the messages are used as a template.",
+    )
 
     model_config = ConfigDict(extra="allow")
 
