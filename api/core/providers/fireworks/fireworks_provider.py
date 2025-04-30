@@ -55,6 +55,8 @@ _NAME_OVERRIDE_MAP = {
     Model.LLAMA_3_2_90B_VISION_PREVIEW: "accounts/fireworks/models/llama-v3p2-90b-vision-instruct",
     Model.LLAMA_3_1_8B: "accounts/fireworks/models/llama-v3p1-8b-instruct",
     Model.QWEN_QWQ_32B_PREVIEW: "accounts/fireworks/models/qwen-qwq-32b-preview",
+    Model.QWEN3_235B_A22B: "accounts/fireworks/models/qwen3-235b-a22b",
+    Model.QWEN3_30B_A3B: "accounts/fireworks/models/qwen3-30b-a3b",
     Model.MIXTRAL_8X7B_32768: "accounts/fireworks/models/mixtral-8x7b-instruct",
     Model.LLAMA3_70B_8192: "accounts/fireworks/models/llama-v3-70b-instruct",
     Model.LLAMA3_8B_8192: "accounts/fireworks/models/llama-v3-8b-instruct",
