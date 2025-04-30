@@ -46,7 +46,7 @@ from core.domain.task_group import TaskGroup
 from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_input import TaskInput, TaskInputFields
 from core.domain.task_io import SerializableTaskIO
-from core.domain.types import TaskInputDict
+from core.domain.types import AgentInput
 from core.domain.users import UserIdentifier
 from core.domain.version_environment import VersionEnvironment
 from core.storage.models import TaskUpdate
@@ -417,12 +417,12 @@ class ImportInputsRequest(BaseModel):
 
 
 class ImportInputsResponse(BaseModel):
-    imported_inputs: list[TaskInputDict]
+    imported_inputs: list[AgentInput]
 
 
 class ImportInputsStreamResponse(BaseModel):
     index: int
-    imported_input: TaskInputDict
+    imported_input: AgentInput
 
 
 @router.post(

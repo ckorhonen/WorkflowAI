@@ -1,3 +1,4 @@
+import json
 import re
 from collections.abc import Awaitable, Callable
 from datetime import date
@@ -30,11 +31,11 @@ from core.domain.models.model_datas_mapping import MODEL_DATAS, DisplayedProvide
 from core.domain.run_output import RunOutput
 from core.domain.structured_output import StructuredOutput
 from core.domain.task_group_properties import FewShotConfiguration, FewShotExample, TaskGroupProperties
-from core.domain.task_io import SerializableTaskIO
+from core.domain.task_io import RawJSONSchema, RawStringSchema, SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.tool import Tool
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
-from core.domain.types import TaskOutputDict
+from core.domain.types import AgentOutput
 from core.providers.base.abstract_provider import AbstractProvider
 from core.providers.base.provider_options import ProviderOptions
 from core.runners.workflowai.internal_tool import InternalTool
@@ -71,7 +72,7 @@ def _build_runner(
 def _build_runner2(
     mock_provider_factory: Mock,
     input_schema: dict[str, Any],
-    output_schema: dict[str, Any],
+    output_schema: dict[str, Any] | SerializableTaskIO,
     instructions: str,
     model: Model,
     has_templated_instructions: bool = False,
@@ -89,7 +90,9 @@ def _build_runner2(
                 input_schema,
                 streamline=True,
             ),
-            output_schema=SerializableTaskIO.from_json_schema(
+            output_schema=output_schema
+            if isinstance(output_schema, SerializableTaskIO)
+            else SerializableTaskIO.from_json_schema(
                 output_schema,
                 streamline=True,
             ),
@@ -394,7 +397,7 @@ class TestStreamTaskOutputFromMessages:
         )
 
         patched_runner.properties.enabled_tools = []
-        yielded: list[TaskOutputDict] = [
+        yielded: list[AgentOutput] = [
             chunk.task_output
             async for chunk in patched_runner._stream_task_output_from_messages(  # pyright: ignore [reportPrivateUsage]
                 mock_provider,
@@ -2854,3 +2857,53 @@ def test_check_tool_calling_support_tool_enabled_model_supporting_tool_calling(
         )
 
         runner._check_tool_calling_support(model_data)  # pyright: ignore[reportPrivateUsage]
+
+
+def mock_complete(raw: str):
+    def _mock_complete(
+        messages: Any,
+        options: Any,
+        output_factory: Callable[[str, bool], StructuredOutput],
+    ) -> StructuredOutput:
+        return output_factory(raw, False)
+
+    return _mock_complete
+
+
+class TestRawStringOutput:
+    async def test_raw_string_output(self, mock_provider_factory_full: Mock):
+        runner = _build_runner2(
+            mock_provider_factory_full,
+            {"type": "object", "properties": {"text": {"type": "string"}}},
+            RawStringSchema,
+            "Return a string",
+            Model.GPT_4O_LATEST,
+        )
+
+        mock_provider_factory_full.openai.complete.side_effect = mock_complete("Hello world")
+
+        builder = await runner.task_run_builder({}, start_time=0)
+        run = await runner.run(builder)
+        assert run.task_output == "Hello world"
+
+    @pytest.mark.parametrize(
+        "raw_content",
+        [
+            pytest.param({"whatever": "Hello world"}, id="dict"),
+            pytest.param(["whatever", "Hello world"], id="list"),
+        ],
+    )
+    async def test_any_json_output(self, mock_provider_factory_full: Mock, raw_content: Any):
+        """Test that in case of a wildcard json, we can return any json"""
+        runner = _build_runner2(
+            mock_provider_factory_full,
+            {"type": "object", "properties": {"text": {"type": "string"}}},
+            RawJSONSchema,
+            "Return a string",
+            Model.GPT_4O_LATEST,
+        )
+        mock_provider_factory_full.openai.complete.side_effect = mock_complete(json.dumps(raw_content))
+
+        builder = await runner.task_run_builder({}, start_time=0)
+        run = await runner.run(builder)
+        assert run.task_output == raw_content

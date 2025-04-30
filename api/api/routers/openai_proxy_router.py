@@ -16,18 +16,15 @@ from core.domain.errors import BadRequestError
 from core.domain.message import Messages
 from core.domain.models.models import Model
 from core.domain.task_group_properties import TaskGroupProperties
-from core.domain.task_io import SerializableTaskIO
+from core.domain.task_io import RawJSONSchema, RawStringSchema, SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
-from core.domain.types import TaskOutputDict
+from core.domain.types import AgentOutput
 from core.domain.version_reference import VersionReference
 
 router = APIRouter(prefix="", tags=["openai"])
 
 
 _raw_messages_input_schema = SerializableTaskIO.from_model(Messages)
-_raw_string_output_schema = SerializableTaskIO.from_json_schema({"properties": {"text": {"type": "string"}}})
-# Not passing a plain json object at the root since we don't really handle arrays
-_raw_json_output_schema = SerializableTaskIO.from_json_schema({})
 
 
 _model_mapping = {
@@ -58,25 +55,24 @@ def _agent_and_model(model: str) -> tuple[str, Model]:
     return agent_name, model
 
 
-def _output_string_mapper(output: Any) -> str:
-    if isinstance(output, str):
-        return output
-    return json.dumps(output)
+def _raw_string_mapper(output: Any) -> str:
+    return output
 
 
-def _output_json_mapper(output: TaskOutputDict) -> str:
+def _output_json_mapper(output: AgentOutput) -> str:
     return json.dumps(output)
 
 
 def _build_variant(agent_slug: str, response_format: OpenAIProxyResponseFormat | None):
     input_schema = _raw_messages_input_schema
-    mapper = _output_string_mapper
+
     if response_format:
         match response_format.type:
             case "text":
-                output_schema = _raw_string_output_schema
+                output_schema = RawStringSchema
+                mapper = _raw_string_mapper
             case "json_object":
-                output_schema = _raw_json_output_schema
+                output_schema = RawJSONSchema
                 mapper = _output_json_mapper
             case "json_schema":
                 if not response_format.json_schema:
@@ -86,7 +82,8 @@ def _build_variant(agent_slug: str, response_format: OpenAIProxyResponseFormat |
             case _:
                 raise BadRequestError(f"Invalid response format: {response_format.type}")
     else:
-        output_schema = _raw_string_output_schema
+        output_schema = RawStringSchema
+        mapper = _raw_string_mapper
 
     return SerializableTaskVariant(
         id="",

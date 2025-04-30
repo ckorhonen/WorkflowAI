@@ -15,7 +15,7 @@ from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_run_builder import TaskRunBuilder
 from core.domain.task_run_reply import RunReply
 from core.domain.task_variant import SerializableTaskVariant
-from core.domain.types import CacheUsage, TaskInputDict
+from core.domain.types import AgentInput, CacheUsage
 from core.runners.builder_context import builder_context
 from core.storage import TaskTuple
 from core.utils.tags import compute_tags
@@ -106,14 +106,14 @@ class AbstractRunner(
         pass
 
     @abstractmethod
-    async def _build_task_output(self, input: TaskInputDict | Messages) -> RunOutput:
+    async def _build_task_output(self, input: AgentInput | Messages) -> RunOutput:
         """
         The function that does the actual input -> output conversion, should
         be overriden in each subclass but not called directly.
         """
         pass
 
-    async def _stream_task_output(self, input: TaskInputDict | Messages) -> AsyncIterator[RunOutput]:
+    async def _stream_task_output(self, input: AgentInput | Messages) -> AsyncIterator[RunOutput]:
         """
         The function that does the actual input -> output conversion, should
         be overriden in each subclass but not called directly.
@@ -132,7 +132,7 @@ class AbstractRunner(
 
     async def _from_cache_inner(
         self,
-        input: TaskInputDict,
+        input: AgentInput,
         timeout: float | None = 0.1,  # noqa: ASYNC109
     ) -> Optional[AgentRun]:
         """
@@ -157,7 +157,7 @@ class AbstractRunner(
 
     async def from_cache(
         self,
-        input: TaskInputDict,
+        input: AgentInput,
         timeout: float | None = 0.1,  # noqa: ASYNC109
     ) -> AgentRun | None:
         """
@@ -186,7 +186,7 @@ class AbstractRunner(
 
     async def task_run_builder(
         self,
-        input: TaskInputDict | Messages,
+        input: AgentInput | Messages,
         start_time: float,
         task_run_id: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
@@ -218,7 +218,7 @@ class AbstractRunner(
 
     async def _cache_or_none(
         self,
-        input: TaskInputDict,
+        input: AgentInput,
         cache: CacheUsage,
     ) -> AgentRun | None:
         if not self._should_use_cache(cache):

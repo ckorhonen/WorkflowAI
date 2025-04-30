@@ -15,7 +15,7 @@ from core.domain.message import (
     TextContent,
     UserMessage,
 )
-from core.domain.types import TaskOutputDict
+from core.domain.types import AgentOutput
 
 # Goal of these models is to be as flexible as possible
 # We definitely do not want to reject calls without being sure
@@ -240,7 +240,7 @@ class OpenAIProxyChatCompletionResponse(BaseModel):
     usage: OpenAIProxyCompletionUsage | None = None
 
     @classmethod
-    def from_domain(cls, run: AgentRun, output_mapper: Callable[[TaskOutputDict], str], model: str):
+    def from_domain(cls, run: AgentRun, output_mapper: Callable[[AgentOutput], str], model: str):
         return cls(
             id=run.id,
             choices=[

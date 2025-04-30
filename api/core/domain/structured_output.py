@@ -1,16 +1,15 @@
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 from core.domain.agent_run_result import AgentRunResult
 from core.domain.fields.file import File
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.tool_call import ToolCallRequestWithID
-from core.domain.types import TaskOutputDict
 
 
 class StructuredOutput(NamedTuple):
     """A structured output that is when parsing the provider response"""
 
-    output: TaskOutputDict
+    output: Any
     tool_calls: list[ToolCallRequestWithID] | None = None
 
     # An opportunity for a LLM to decide whether the previous tool calls were successful or not

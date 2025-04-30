@@ -129,7 +129,6 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
 
         try:
             content_str = self._extract_content_str(response_model)
-            content_str = extract_json_str(content_str)
         except ProviderError as e:
             # If the error is already a provider error, we just re-raise it
             raw_completion.response = content_str
@@ -345,6 +344,8 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
 
                     # TODO: we should be using the streamed JSON here
                     try:
+                        # TODO: we should not extract a json string here but instead pass it as is to the runner
+                        # output factory
                         json_str = extract_json_str(streaming_context.streamer.raw_completion)
                     except ValueError:
                         if not streaming_context.tool_calls:

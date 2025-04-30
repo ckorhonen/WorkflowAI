@@ -13,7 +13,7 @@ from core.domain.task_group import TaskGroup
 from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_run_reply import RunReply
 from core.domain.task_variant import SerializableTaskVariant
-from core.domain.types import TaskInputDict
+from core.domain.types import AgentInput
 from core.utils.uuid import uuid7
 
 
@@ -29,7 +29,7 @@ class TaskRunBuilder(BaseModel):
     task: SerializableTaskVariant
 
     # The input that was used to execute the task
-    task_input: TaskInputDict | Messages
+    task_input: AgentInput | Messages
 
     task_input_hash: str = ""
 
@@ -83,7 +83,7 @@ class TaskRunBuilder(BaseModel):
         return self._task_run
 
     @property
-    def serialized_task_input(self) -> TaskInputDict:
+    def serialized_task_input(self) -> AgentInput:
         if isinstance(self.task_input, BaseModel):
             return self.task_input.model_dump(exclude_none=True)
         return self.task_input

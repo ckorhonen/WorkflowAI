@@ -7,7 +7,7 @@ import pytest
 from core.domain.errors import JSONSchemaValidationError
 from tests.utils import fixtures_json
 
-from .task_io import SerializableTaskIO
+from .task_io import RawJSONSchema, RawStringSchema, SerializableTaskIO
 
 
 @pytest.fixture
@@ -262,3 +262,22 @@ class TestFromJsonSchema:
                 "field": {"$ref": "#/$defs/Image"},
             },
         }
+
+
+class TestRawStringSchema:
+    def test_raw_string_schema(self):
+        # Check that we don't raise when returning a string
+        RawStringSchema.enforce("hello")
+
+
+class TestRawJSONSchema:
+    @pytest.mark.parametrize(
+        "obj",
+        [
+            pytest.param(["hello"], id="array"),
+            pytest.param({"hello": "world"}, id="dict"),
+        ],
+    )
+    def test_enforce(self, obj: Any):
+        # Check that we don't raise when returning a dict
+        RawJSONSchema.enforce(obj)

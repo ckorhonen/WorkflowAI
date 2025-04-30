@@ -24,6 +24,7 @@ def parse_tolerant_json(json_str: str) -> dict[str, Any]:
     return raw
 
 
+# TODO: deprecate and remove. It only handles dictionary
 def extract_json_str(input_text: str) -> str:
     first_paren = input_text.find("{")
     last_paren = input_text.rfind("}")

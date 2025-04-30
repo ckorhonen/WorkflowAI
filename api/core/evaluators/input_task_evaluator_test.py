@@ -10,7 +10,7 @@ from core.domain.fields.file import File
 from core.domain.input_evaluation import InputEvaluation
 from core.domain.task_evaluator import EvalV2Evaluator
 from core.domain.task_variant import SerializableTaskVariant
-from core.domain.types import TaskInputDict
+from core.domain.types import AgentInput
 from core.evaluators.input_task_evaluator import (
     InputTaskEvaluator,
     InputTaskEvaluatorOptions,
@@ -44,7 +44,7 @@ def evaluator(mock_internal_tasks: Mock):
     )
 
 
-def _set_at_keypath_fn(payload: TaskInputDict):
+def _set_at_keypath_fn(payload: AgentInput):
     async def _set_at_keypath(keypath: list[str | int], value: Any):
         set_at_keypath(payload, keypath, value)
 

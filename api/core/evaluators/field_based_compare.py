@@ -20,6 +20,7 @@ from core.domain.task_evaluation import TaskEvaluation
 from core.domain.task_example import SerializableTaskExample
 from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_variant import SerializableTaskVariant
+from core.domain.types import AgentInput, AgentOutput
 from core.domain.version_reference import VersionReference
 from core.domain.workflowai_interface import WorkflowAIInterface
 from core.evaluators.example_based_evaluator import ExampleBasedEvaluator
@@ -408,9 +409,9 @@ class FieldBasedCompare(ExampleBasedEvaluator[FieldBasedCompareOptions]):
     @override
     async def _compute_score(
         self,
-        run_output: dict[str, Any],
-        example_output: dict[str, Any],
-        input: dict[str, Any],
+        run_output: AgentOutput,
+        example_output: AgentOutput,
+        input: AgentInput,
     ) -> tuple[float, str]:
         errors = await self.compare(
             expected=example_output,

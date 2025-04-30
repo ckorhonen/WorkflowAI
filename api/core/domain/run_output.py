@@ -1,14 +1,13 @@
 from collections.abc import Sequence
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 from core.domain.agent_run import AgentRun
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
-from core.domain.types import TaskOutputDict
 
 
 class RunOutput(NamedTuple):
-    task_output: TaskOutputDict
+    task_output: Any
     tool_calls: Sequence[ToolCall] | None = None
     tool_call_requests: Sequence[ToolCallRequestWithID] | None = None
     reasoning_steps: list[InternalReasoningStep] | None = None

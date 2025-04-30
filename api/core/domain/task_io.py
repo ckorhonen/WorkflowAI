@@ -55,7 +55,7 @@ class SerializableTaskIO(BaseModel):
             kp = ".".join([str(p) for p in e.path])
             raise JSONSchemaValidationError(f"at [{kp}], {e.message}")
 
-    def sanitize(self, obj: dict[str, Any]) -> dict[str, Any]:
+    def sanitize(self, obj: Any) -> Any:
         """Duplicate and enforce an object to match the schema"""
         obj = deepcopy(obj)
         # partial to make sure we don't throw if we have missing fields
@@ -87,5 +87,9 @@ class SerializableTaskIO(BaseModel):
         return cls(version=compute_obj_hash(strip_metadata(json_schema)), json_schema=json_schema)
 
     @classmethod
-    def from_model(cls, model_cls: type[BaseModel]):
-        return cls.from_json_schema(model_cls.model_json_schema())
+    def from_model(cls, model_cls: type[BaseModel], streamline: bool = True):
+        return cls.from_json_schema(model_cls.model_json_schema(), streamline=streamline)
+
+
+RawStringSchema = SerializableTaskIO.from_json_schema({"type": "string"})
+RawJSONSchema = SerializableTaskIO.from_json_schema({})

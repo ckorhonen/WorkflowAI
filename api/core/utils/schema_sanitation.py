@@ -11,7 +11,9 @@ from core.domain.consts import FILE_DEFS, FILE_REF_NAME
 from core.domain.errors import UnfixableSchemaError
 from core.domain.fields.chat_message import ChatMessage
 from core.domain.fields.file import File, FileKind
+from core.domain.fields.json_content import JSONContent
 from core.domain.fields.local_date_time import DatetimeLocal
+from core.domain.fields.string_content import StringContent
 from core.domain.message import Messages
 from core.domain.reasoning_step import INTERNAL_REASONING_STEPS_SCHEMA_KEY
 from core.utils.schema_validation_utils import fix_non_object_root
@@ -384,6 +386,8 @@ def _build_internal_defs(streamline: bool = True) -> dict[str, Any]:
         File,
         ChatMessage,
         Messages,
+        StringContent,
+        JSONContent,
     ]
 
     schema_defs = {m.__name__: clean_pydantic_schema(m) if streamline else m.model_json_schema() for m in model_defs}

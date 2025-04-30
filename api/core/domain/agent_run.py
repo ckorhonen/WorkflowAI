@@ -13,7 +13,6 @@ from core.domain.llm_completion import LLMCompletion
 from core.domain.review import Review
 from core.domain.task_group import TaskGroup
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
-from core.domain.types import TaskInputDict, TaskOutputDict
 from core.domain.utils import compute_eval_hash
 
 AIReview = Literal["in_progress", "positive", "negative", "unsure"]
@@ -86,8 +85,8 @@ class AgentRunBase(BaseModel):
 class AgentRun(AgentRunBase):
     """A task run represents an instance of a task being executed"""
 
-    task_input: TaskInputDict
-    task_output: TaskOutputDict
+    task_input: Any
+    task_output: Any
 
     # ------------------------------------------
     # Optional properties

@@ -149,6 +149,7 @@ class OpenAIProviderBase(HTTPXProvider[_OpenAIConfigVar, CompletionResponse], Ge
         options: ProviderOptions,
         is_preview_model: bool,
     ) -> TextResponseFormat | JSONResponseFormat | JSONSchemaResponseFormat:
+        return TextResponseFormat()
         if is_preview_model:
             return TextResponseFormat()
 

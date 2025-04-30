@@ -27,6 +27,7 @@ from core.domain.task_group import TaskGroup
 from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_run_query import SerializableTaskRunField, SerializableTaskRunQuery
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
+from core.domain.types import AgentInput, AgentOutput
 from core.domain.utils import compute_eval_hash
 from core.domain.version_environment import VersionEnvironment
 from core.storage import ObjectNotFoundException
@@ -62,7 +63,7 @@ def _from_temperature_percent(temperature: int) -> float:
     return temperature / 100
 
 
-def _stringify_json(data: dict[str, Any]) -> str:
+def _stringify_json(data: Any) -> str:
     # Remove spaces from the JSON string to allow using simplified json queries
     # see https://clickhouse.com/docs/en/sql-reference/functions/json-functions#simplejsonextractstring
     return json.dumps(data, separators=(",", ":"))
@@ -191,7 +192,7 @@ class ClickhouseRun(BaseModel):
     cache_hash: Annotated[str, validate_fixed()] = ""
 
     input_preview: str = ""
-    input: dict[str, Any] = Field(default_factory=dict)
+    input: AgentInput = Field(default_factory=dict)
 
     @field_serializer("input")
     def serialize_input(self, input: dict[str, Any]) -> str:
@@ -204,14 +205,14 @@ class ClickhouseRun(BaseModel):
         return value
 
     output_preview: str = ""
-    output: dict[str, Any] = Field(default_factory=dict)
+    output: AgentOutput = Field(default_factory=dict)
 
     @field_serializer("output")
-    def serialize_output(self, output: dict[str, Any]) -> str:
+    def serialize_output(self, output: AgentOutput) -> str:
         return _stringify_json(output) if output else ""
 
     @field_validator("output", mode="before")
-    def parse_output(cls, value: Any) -> dict[str, Any]:
+    def parse_output(cls, value: Any) -> AgentOutput:
         if isinstance(value, str):
             return _from_stringified_json(value) if value else {}
         return value

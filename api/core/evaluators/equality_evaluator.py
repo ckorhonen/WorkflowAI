@@ -1,8 +1,7 @@
-from typing import Any
-
 from typing_extensions import override
 
 from core.domain.evaluator_options import EvaluatorOptions
+from core.domain.types import AgentInput, AgentOutput
 
 from .example_based_evaluator import ExampleBasedEvaluator
 
@@ -19,9 +18,9 @@ class EqualityEvaluator(ExampleBasedEvaluator["EqualityEvaluatorOptions"]):
     @override
     async def _compute_score(
         self,
-        run_output: dict[str, Any],
-        example_output: dict[str, Any],
-        input: dict[str, Any],
+        run_output: AgentOutput,
+        example_output: AgentOutput,
+        input: AgentInput,
     ) -> tuple[float, str]:
         return float(run_output == example_output), ""
 
