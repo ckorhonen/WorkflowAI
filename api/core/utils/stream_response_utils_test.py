@@ -11,31 +11,23 @@ from core.domain.errors import DefaultError, ErrorResponse
 from core.utils.stream_response_utils import safe_streaming_response
 
 
-class TestModel(BaseModel):
+class _TestModel(BaseModel):
     """Simple test model for streaming tests."""
 
     value: str
     data: Dict[str, Any] | None = None
 
 
-class TestErrorResponse(BaseModel):
-    """Model to verify error responses."""
-
-    error: bool = True
-    error_type: str | None = None
-    message: str | None = None
-
-
 # Create mock generators for testing
 async def mock_successful_generator() -> AsyncGenerator[BaseModel, None]:
     """Generator that yields two test models without errors."""
-    yield TestModel(value="first item")
-    yield TestModel(value="second item", data={"key": "value"})
+    yield _TestModel(value="first item")
+    yield _TestModel(value="second item", data={"key": "value"})
 
 
 async def mock_default_error_generator() -> AsyncGenerator[BaseModel, None]:
     """Generator that yields one item and then raises a DefaultError."""
-    yield TestModel(value="successful item")
+    yield _TestModel(value="successful item")
     # Create a DefaultError with capture=True to ensure logging happens
     error = DefaultError("Test default error")
     error.capture = True
@@ -44,7 +36,7 @@ async def mock_default_error_generator() -> AsyncGenerator[BaseModel, None]:
 
 async def mock_default_error_no_capture_generator() -> AsyncGenerator[BaseModel, None]:
     """Generator that yields one item and then raises a DefaultError with capture=False."""
-    yield TestModel(value="successful item")
+    yield _TestModel(value="successful item")
     # Create a DefaultError with capture=False to test no logging
     error = DefaultError("Test default error")
     error.capture = False
@@ -53,7 +45,7 @@ async def mock_default_error_no_capture_generator() -> AsyncGenerator[BaseModel,
 
 async def mock_unexpected_error_generator() -> AsyncGenerator[BaseModel, None]:
     """Generator that yields one item and then raises an unexpected exception."""
-    yield TestModel(value="successful item")
+    yield _TestModel(value="successful item")
     raise ValueError("Unexpected test error")
 
 
@@ -180,7 +172,7 @@ async def test_error_logging(caplog: LogCaptureFixture) -> None:
 def test_model_formatting() -> None:
     """Test that models are correctly formatted for the stream."""
     # Create a test model
-    test_model = TestModel(value="test value", data={"nested": "data"})
+    test_model = _TestModel(value="test value", data={"nested": "data"})
 
     # Mock the format_model_for_sse function
     mock_formatter = Mock(return_value="data: {mocked}")
@@ -208,7 +200,7 @@ def test_streaming_response_media_type() -> None:
     # Test default media type
     async def empty_gen() -> AsyncGenerator[BaseModel, None]:
         if False:  # This ensures the generator is empty but properly typed
-            yield TestModel(value="")
+            yield _TestModel(value="")
 
     response = safe_streaming_response(empty_gen)
     assert response.media_type == "text/event-stream"

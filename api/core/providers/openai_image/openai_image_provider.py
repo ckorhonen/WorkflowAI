@@ -12,7 +12,7 @@ from core.domain.errors import ContentModerationError, ProviderError
 from core.domain.fields.file import File
 from core.domain.fields.image_options import ImageOptions
 from core.domain.llm_completion import LLMCompletion
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models.models import Model
 from core.domain.models.providers import Provider
 from core.domain.structured_output import StructuredOutput
@@ -114,7 +114,7 @@ class OpenAIImageProvider(HTTPXProviderBase[OpenAIImageConfig, OpenAIImageReques
     @override
     async def _prepare_completion(
         self,
-        messages: list[Message],
+        messages: list[MessageDeprecated],
         options: ProviderOptions,
         stream: bool,
     ) -> tuple[OpenAIImageRequest, LLMCompletion]:

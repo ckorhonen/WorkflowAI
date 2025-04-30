@@ -11,7 +11,7 @@ from core.domain.errors import (
 )
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model
 from core.providers.base.models import (
     AudioContentDict,
@@ -130,10 +130,10 @@ def parse_tool_call_or_raise(arguments: str) -> dict[str, Any] | None:
         )
 
 
-role_to_openai_map: dict[Message.Role, XAIRole] = {
-    Message.Role.SYSTEM: "system",
-    Message.Role.USER: "user",
-    Message.Role.ASSISTANT: "assistant",
+role_to_openai_map: dict[MessageDeprecated.Role, XAIRole] = {
+    MessageDeprecated.Role.SYSTEM: "system",
+    MessageDeprecated.Role.USER: "user",
+    MessageDeprecated.Role.ASSISTANT: "assistant",
 }
 
 openai_to_role_map: dict[XAIRole, Literal["system", "user", "assistant"] | None] = {
@@ -173,7 +173,7 @@ class XAIToolMessage(BaseModel):
     reasoning_content: str | None = None
 
     @classmethod
-    def from_domain(cls, message: Message) -> list[Self]:
+    def from_domain(cls, message: MessageDeprecated) -> list[Self]:
         if not message.tool_call_results:
             return []
 
@@ -246,7 +246,7 @@ class XAIMessage(BaseModel):
     tool_calls: list[ToolCall] | None = None
 
     @classmethod
-    def from_domain(cls, message: Message):
+    def from_domain(cls, message: MessageDeprecated):
         role = role_to_openai_map[message.role]
 
         if not message.files and not message.tool_call_requests:

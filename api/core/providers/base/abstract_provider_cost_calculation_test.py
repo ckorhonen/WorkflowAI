@@ -4,7 +4,7 @@ import pytest
 
 from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
 from core.domain.models.utils import get_model_data
 from core.providers.base.abstract_provider import AbstractProvider
@@ -228,7 +228,7 @@ class TestProviderCostCalculation:
         # Test the case when the token count is not fed in the original usage
 
         model, provider, prompt_cost_per_token, completion_cost_per_token, _ = model_with_price
-        messages = [Message(content="Hello !", role=Message.Role.USER)]
+        messages = [MessageDeprecated(content="Hello !", role=MessageDeprecated.Role.USER)]
         _, raw_completion = await provider._prepare_completion(  # pyright: ignore[reportPrivateUsage]
             messages,
             ProviderOptions(model=model),
@@ -258,8 +258,8 @@ class TestProviderCostCalculation:
 
         model, provider, prompt_cost_per_token, completion_cost_per_token, _ = model_with_price
         messages = [
-            Message(content="Hello !", role=Message.Role.USER),
-            Message(content="How are you !", role=Message.Role.USER),
+            MessageDeprecated(content="Hello !", role=MessageDeprecated.Role.USER),
+            MessageDeprecated(content="How are you !", role=MessageDeprecated.Role.USER),
         ]
         _, raw_completion = await provider._prepare_completion(  # pyright: ignore[reportPrivateUsage]
             messages,
@@ -309,7 +309,7 @@ class TestProviderCostCalculation:
 
         model, provider, prompt_cost_per_token, completion_cost_per_token, _ = model_with_price
 
-        messages = [Message(content="Hello !", role=Message.Role.USER)]
+        messages = [MessageDeprecated(content="Hello !", role=MessageDeprecated.Role.USER)]
         _, raw_completion = await provider._prepare_completion(  # pyright: ignore[reportPrivateUsage]
             messages,
             ProviderOptions(model=model),

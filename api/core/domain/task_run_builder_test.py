@@ -28,9 +28,11 @@ class TestBuild:
             start_time=time.time(),
         )
         assert (
-            builder.task_input_hash == "fc494a0457f7c6846dd48a0412274ac0" == task.compute_input_hash(builder.task_input)
+            builder.task_input_hash
+            == "fc494a0457f7c6846dd48a0412274ac0"
+            == task.compute_input_hash(builder.serialized_task_input)
         )
-        builder.task_input["blabla"] = "toto"
+        builder.serialized_task_input["blabla"] = "toto"
         run = builder.build(RunOutput({"output": 1}))
         assert run.task_input_hash == "fc494a0457f7c6846dd48a0412274ac0"
 

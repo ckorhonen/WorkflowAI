@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 from core.domain.errors import JSONSchemaValidationError
 from core.domain.fields.chat_message import ChatMessage
 from core.domain.task_typology import TaskTypology
-from core.domain.types import TaskInputDict, TaskOutputDict
+from core.domain.types import AgentInput, AgentOutput
 from core.storage import TaskTuple
 from core.utils.hash import compute_obj_hash
 from core.utils.schemas import JsonSchema
@@ -91,7 +91,7 @@ class SerializableTaskVariant(BaseModel):
     def output_json_schema(self) -> JsonSchema:
         return JsonSchema(schema=self.output_schema.json_schema)
 
-    def compute_input_hash(self, input: TaskInputDict) -> str:
+    def compute_input_hash(self, input: AgentInput) -> str:
         try:
             # We allow input schemas to be invalid
             # Really no point in doubling the validation that should occur client side
@@ -102,7 +102,7 @@ class SerializableTaskVariant(BaseModel):
             sanitized = input
         return compute_obj_hash(sanitized)
 
-    def compute_output_hash(self, output: TaskOutputDict) -> str:
+    def compute_output_hash(self, output: AgentOutput) -> str:
         return compute_obj_hash(self.output_schema.sanitize(output))
 
     def typology(self) -> TaskTypology:

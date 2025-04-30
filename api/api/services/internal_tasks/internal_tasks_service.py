@@ -115,7 +115,7 @@ from core.domain.task_evaluator import EvalV2Evaluator
 from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_io import SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
-from core.domain.types import CacheUsage, TaskInputDict
+from core.domain.types import AgentInput, CacheUsage
 from core.domain.url_content import URLContent
 from core.domain.version_reference import VersionReference
 from core.runners.workflowai.utils import FileWithKeyPath
@@ -828,7 +828,7 @@ class InternalTasksService:
         input_instructions: str,
         system_storage: SystemBackendStorage,
         stream: Literal[False],
-    ) -> TaskInputDict:
+    ) -> AgentInput:
         pass
 
     @overload
@@ -838,7 +838,7 @@ class InternalTasksService:
         input_instructions: str,
         system_storage: SystemBackendStorage,
         stream: Literal[True],
-    ) -> AsyncIterator[TaskInputDict]:
+    ) -> AsyncIterator[AgentInput]:
         pass
 
     async def generate_task_input(
@@ -847,7 +847,7 @@ class InternalTasksService:
         input_instructions: str,
         system_storage: SystemBackendStorage,
         stream: bool,
-    ) -> TaskInputDict | AsyncIterator[TaskInputDict]:
+    ) -> AgentInput | AsyncIterator[AgentInput]:
         task_input_generation_instructions_run = await run_input_generation_instructions(
             InputGenerationInstructionsInput(
                 creation_chat_messages=task.creation_chat_messages,
@@ -893,7 +893,7 @@ class InternalTasksService:
 
     async def _stream_task_inputs(
         self,
-        input_factory: Callable[[dict[str, Any]], TaskInputDict],
+        input_factory: Callable[[dict[str, Any]], AgentInput],
         input: TaskInputExampleTaskInput,
         metadata: dict[str, Any],
     ):
@@ -908,7 +908,7 @@ class InternalTasksService:
 
     async def _stream_migrated_task_inputs(
         self,
-        input_factory: Callable[[dict[str, Any]], TaskInputDict],
+        input_factory: Callable[[dict[str, Any]], AgentInput],
         input: TaskInputMigrationTaskInput,
     ):
         async for chunk in stream_task_input_migration_task(
@@ -927,7 +927,7 @@ class InternalTasksService:
         base_input: dict[str, Any] | None,
         system_storage: SystemBackendStorage,
         stream: Literal[False] = False,
-    ) -> TaskInputDict:
+    ) -> AgentInput:
         pass
 
     @overload
@@ -938,7 +938,7 @@ class InternalTasksService:
         base_input: dict[str, Any] | None,
         system_storage: SystemBackendStorage,
         stream: Literal[True],
-    ) -> AsyncIterator[TaskInputDict]:
+    ) -> AsyncIterator[AgentInput]:
         pass
 
     async def get_task_input(
@@ -948,7 +948,7 @@ class InternalTasksService:
         base_input: dict[str, Any] | None,
         system_storage: SystemBackendStorage,
         stream: bool = False,
-    ) -> TaskInputDict | AsyncIterator[TaskInputDict]:
+    ) -> AgentInput | AsyncIterator[AgentInput]:
         if base_input:  # In this case we migrate the 'base_input' to the new schema
             migration_input = TaskInputMigrationTaskInput(
                 current_datetime=datetime.now(timezone.utc).isoformat(),

@@ -1,11 +1,12 @@
 from pydantic import BaseModel
 from typing_extensions import override
 
+from core.domain.message import Messages
 from core.domain.run_output import RunOutput
 from core.domain.task_group import TaskGroup
 from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_variant import SerializableTaskVariant
-from core.domain.types import TaskInputDict
+from core.domain.types import AgentInput
 from core.runners.abstract_runner import AbstractRunner, CacheFetcher
 
 
@@ -65,7 +66,7 @@ class NoopExternalRunner(AbstractRunner[NoopExternalRunnerOptions]):
         raise NotImplementedError("Should not be used")
 
     @override
-    async def _build_task_output(self, input: TaskInputDict) -> RunOutput:
+    async def _build_task_output(self, input: AgentInput | Messages) -> RunOutput:
         raise NoopNoCacheError("External runner cannot run tasks")
 
     @override

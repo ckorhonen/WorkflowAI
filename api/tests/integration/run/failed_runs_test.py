@@ -103,14 +103,14 @@ async def test_failed_run_invalid_output_is_stored_for_openai(
     # Run the task the first time
     assert run_res.status_code == 400
     run_error_json = run_res.json()
-    assert run_error_json["error"]["message"] == "Received invalid JSON: Task output does not match schema"
+    assert run_error_json["error"]["message"] == "Task output does not match schema"
     assert run_error_json.get("id")
 
     # fetch run
     run = await fetch_run(int_api_client, task, run_id=run_error_json["id"])
     assert run["id"] == run_error_json["id"]
     assert run["status"] == "failure"
-    assert run["error"]["code"] == "invalid_generation"
+    assert run["error"]["code"] == "failed_generation"
     assert run["cost_usd"] > 0
     assert run["duration_seconds"] is None
     assert run["llm_completions"] and len(run["llm_completions"]) == 2

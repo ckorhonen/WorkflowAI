@@ -12,6 +12,7 @@ from core.domain.task_evaluation import TaskEvaluation
 from core.domain.task_evaluator import FaithfulnessEvaluator
 from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_variant import SerializableTaskVariant
+from core.domain.types import AgentInput, AgentOutput
 from core.domain.version_reference import VersionReference
 from core.evaluators.example_based_evaluator import ExampleBasedEvaluator
 from core.utils.dicts import get_at_keypath
@@ -97,9 +98,9 @@ class FaithfulnessCompute(ExampleBasedEvaluator[FaithfulnessComputeOptions]):
     @override
     async def _compute_score(
         self,
-        run_output: dict[str, Any],
-        example_output: dict[str, Any],
-        input: dict[str, Any],
+        run_output: AgentOutput,
+        example_output: AgentOutput,
+        input: AgentInput,
     ) -> tuple[float, str]:
         new_user_message = get_at_keypath(input, self.options.config.new_user_message_keypath)
         new_assistant_message = get_at_keypath(run_output, self.options.config.new_assistant_answer_keypath)

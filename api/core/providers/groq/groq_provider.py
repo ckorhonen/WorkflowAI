@@ -7,7 +7,7 @@ from typing_extensions import override
 
 from core.domain.errors import FailedGenerationError, MaxTokensExceededError, ProviderBadRequestError
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
 from core.domain.models.model_data import ModelData
 from core.domain.tool import Tool
@@ -83,7 +83,7 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
         return Model.LLAMA_3_1_70B
 
     @override
-    def _build_request(self, messages: list[Message], options: ProviderOptions, stream: bool) -> BaseModel:
+    def _build_request(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool) -> BaseModel:
         groq_messages: list[GroqMessage] = []
         for m in messages:
             groq_messages.extend(GroqMessage.from_domain(m))

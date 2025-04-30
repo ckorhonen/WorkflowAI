@@ -18,7 +18,7 @@ from core.domain.errors import (
 )
 from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.metrics import Metric, send_counter, send_gauge
 from core.domain.models import Model, Provider
 from core.domain.models.model_data import ModelData
@@ -456,7 +456,7 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
     @abstractmethod
     async def _prepare_completion(
         self,
-        messages: list[Message],
+        messages: list[MessageDeprecated],
         options: ProviderOptions,
         stream: bool,
     ) -> tuple[ProviderRequestVar, LLMCompletion]:
@@ -486,7 +486,7 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
 
     async def _prepare_completion_and_add_to_ctx(
         self,
-        messages: list[Message],
+        messages: list[MessageDeprecated],
         options: ProviderOptions,
         stream: bool,
     ) -> tuple[ProviderRequestVar, LLMCompletion]:
@@ -522,17 +522,19 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
             partial = output_factory(content_str, True)
             raise InvalidGenerationError(msg=str(e), partial_output=partial.output)
 
-    def _add_exception_to_messages(self, messages: list[Message], response: str | None, e: Exception) -> list[Message]:
+    def _add_exception_to_messages(
+        self, messages: list[MessageDeprecated], response: str | None, e: Exception,
+    ) -> list[MessageDeprecated]:
         """Add an exception message to the messages list so it can be retried"""
 
         return [
             *messages,
-            Message(
-                role=Message.Role.ASSISTANT,
+            MessageDeprecated(
+                role=MessageDeprecated.Role.ASSISTANT,
                 content=response or "EMPTY MESSAGE",
             ),
-            Message(
-                role=Message.Role.USER,
+            MessageDeprecated(
+                role=MessageDeprecated.Role.USER,
                 content=f"Your previous response was invalid with error `{e}`.\nPlease retry",
             ),
         ]
@@ -597,7 +599,7 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
 
     async def complete(
         self,
-        messages: list[Message],
+        messages: list[MessageDeprecated],
         options: ProviderOptions,
         output_factory: Callable[[str, bool], StructuredOutput],
     ) -> StructuredOutput:
@@ -653,7 +655,7 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
 
     async def _retryable_complete(
         self,
-        messages: list[Message],
+        messages: list[MessageDeprecated],
         options: ProviderOptions,
         output_factory: Callable[[str, bool], StructuredOutput],
         max_attempts: int | None = None,
@@ -714,7 +716,7 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
 
     async def _retryable_stream(
         self,
-        messages: list[Message],
+        messages: list[MessageDeprecated],
         options: ProviderOptions,
         output_factory: Callable[[str, bool], StructuredOutput],
         partial_output_factory: Callable[[Any], StructuredOutput],
@@ -754,7 +756,7 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
 
     async def stream(
         self,
-        messages: list[Message],
+        messages: list[MessageDeprecated],
         options: ProviderOptions,
         output_factory: Callable[[str, bool], StructuredOutput],
         partial_output_factory: Callable[[Any], StructuredOutput],

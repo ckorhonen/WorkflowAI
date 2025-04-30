@@ -1,4 +1,4 @@
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.providers.groq.groq_domain import GroqMessage, _ToolCall  # pyright: ignore [reportPrivateUsage]
 
@@ -15,9 +15,9 @@ class TestMessageToStandard:
 class TestGroqMessageFromDomain:
     def test_groq_message_from_domain(self) -> None:
         messages = [
-            Message(content="Hello you", role=Message.Role.SYSTEM),
-            Message(content="What is the current time ?", role=Message.Role.USER),
-            Message(
+            MessageDeprecated(content="Hello you", role=MessageDeprecated.Role.SYSTEM),
+            MessageDeprecated(content="What is the current time ?", role=MessageDeprecated.Role.USER),
+            MessageDeprecated(
                 content="",
                 tool_call_requests=[
                     ToolCallRequestWithID(
@@ -26,9 +26,9 @@ class TestGroqMessageFromDomain:
                         tool_input_dict={"timezone": "Europe/Paris"},
                     ),
                 ],
-                role=Message.Role.ASSISTANT,
+                role=MessageDeprecated.Role.ASSISTANT,
             ),
-            Message(
+            MessageDeprecated(
                 content="",
                 tool_call_results=[
                     ToolCall(
@@ -38,7 +38,7 @@ class TestGroqMessageFromDomain:
                         result="2021-01-01 12:00:00",
                     ),
                 ],
-                role=Message.Role.USER,
+                role=MessageDeprecated.Role.USER,
             ),
         ]
         groq_messages: list[GroqMessage] = []

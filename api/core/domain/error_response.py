@@ -2,6 +2,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from core.domain.types import AgentOutput
+
 ProviderErrorCode = Literal[
     # Max number of tokens were exceeded in the prompt
     "max_tokens_exceeded",
@@ -115,7 +117,7 @@ class ErrorResponse(BaseModel):
     # Aliased to id to match the task run payload
     task_run_id: str | None = Field(alias="id", default=None)
 
-    task_output: dict[str, Any] | None = None
+    task_output: AgentOutput | None = None
 
     @classmethod
     def internal_error(cls, msg: str = "An unexpected error occurred"):

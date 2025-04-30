@@ -4,7 +4,7 @@ import pytest
 
 from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Provider
 from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.models import StandardMessage
@@ -35,9 +35,9 @@ class TestLLMCompletionToMessages:
 
         messages = completion.to_messages()
         assert len(messages) == 2
-        assert messages[0].role == Message.Role.USER
+        assert messages[0].role == MessageDeprecated.Role.USER
         assert messages[0].content == "Hello world"
-        assert messages[1].role == Message.Role.ASSISTANT
+        assert messages[1].role == MessageDeprecated.Role.ASSISTANT
         assert messages[1].content == "Hello back!"
 
     def test_to_messages_without_response(self):
@@ -49,9 +49,9 @@ class TestLLMCompletionToMessages:
 
         messages = completion.to_messages()
         assert len(messages) == 2
-        assert messages[0].role == Message.Role.SYSTEM
+        assert messages[0].role == MessageDeprecated.Role.SYSTEM
         assert messages[0].content == "System prompt"
-        assert messages[1].role == Message.Role.USER
+        assert messages[1].role == MessageDeprecated.Role.USER
         assert messages[1].content == "User message"
 
     def test_to_messages_with_complex_content(self):
@@ -76,12 +76,12 @@ class TestLLMCompletionToMessages:
 
         messages = completion.to_messages()
         assert len(messages) == 2
-        assert messages[0].role == Message.Role.USER
+        assert messages[0].role == MessageDeprecated.Role.USER
         assert messages[0].content == "First line\nSecond line"
         assert messages[0].files is not None
         assert len(messages[0].files) == 1
         assert messages[0].files[0].url == "http://example.com/image.jpg"
-        assert messages[1].role == Message.Role.ASSISTANT
+        assert messages[1].role == MessageDeprecated.Role.ASSISTANT
         assert messages[1].content == "Got your message with image"
 
     def test_with_tool_calls_and_response(self):
@@ -94,10 +94,10 @@ class TestLLMCompletionToMessages:
 
         messages = completion.to_messages()
         assert messages == [
-            Message(content="Hello world", role=Message.Role.USER),
-            Message(
+            MessageDeprecated(content="Hello world", role=MessageDeprecated.Role.USER),
+            MessageDeprecated(
                 content="Hello back!",
-                role=Message.Role.ASSISTANT,
+                role=MessageDeprecated.Role.ASSISTANT,
                 tool_call_requests=[
                     ToolCallRequestWithID(id="1", tool_name="test_tool", tool_input_dict={"arg1": "value1"}),
                 ],

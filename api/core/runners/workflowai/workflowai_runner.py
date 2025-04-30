@@ -4,7 +4,7 @@ import logging
 import time
 from collections.abc import Sequence
 from copy import deepcopy
-from typing import Any, Callable, Iterable, NamedTuple, Optional
+from typing import Any, Callable, Iterable, NamedTuple, Optional, cast
 
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import override
@@ -22,7 +22,7 @@ from core.domain.errors import (
 )
 from core.domain.fields.image_options import ImageOptions
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated, Messages
 from core.domain.metrics import send_gauge
 from core.domain.models.model_data import FinalModelData, ModelData
 from core.domain.models.model_datas_mapping import MODEL_DATAS
@@ -31,13 +31,14 @@ from core.domain.reasoning_step import INTERNAL_REASONING_STEPS_SCHEMA_KEY
 from core.domain.run_output import RunOutput
 from core.domain.structured_output import StructuredOutput
 from core.domain.task_group_properties import FewShotConfiguration, FewShotExample, TaskGroupProperties
+from core.domain.task_io import RawStringSchema, SerializableTaskIO
 from core.domain.task_run_reply import RunReply
 from core.domain.task_typology import TaskTypology
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.tenant_data import ProviderSettings
 from core.domain.tool import Tool
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
-from core.domain.types import TaskInputDict
+from core.domain.types import AgentInput
 from core.providers.base.abstract_provider import AbstractProvider
 from core.providers.base.provider_options import ProviderOptions
 from core.runners.abstract_runner import AbstractRunner, CacheFetcher
@@ -89,10 +90,15 @@ class BuildUserMessageContentResult(NamedTuple):
 
 
 class PreparedOutputSchema(NamedTuple):
-    prepared_schema: dict[str, Any]
+    # If prepared schema is None we deal with a plain json
+    prepared_schema: dict[str, Any] | None
     # Images are removed from the schema since they are handled separately
     min_file_count: int = 0
     max_file_count: int | None = None
+
+    @property
+    def no_schema(self) -> bool:
+        return self.prepared_schema is None or not self.prepared_schema.get("properties", {})
 
 
 class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
@@ -150,7 +156,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
 
         self._typology = self.task.typology()
         self._prepared_output_schema = self._prepare_output_schema(
-            deepcopy(self.task.output_schema.json_schema),
+            self.task.output_schema,
             self.properties.is_chain_of_thought_enabled or False,
             self.is_tool_use_enabled,
             self._typology,
@@ -173,7 +179,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         template: str,
         instructions: str,
         input_schema: dict[str, Any],
-        output_schema: dict[str, Any],
+        output_schema: dict[str, Any] | None,
     ) -> str:
         """
         Contains instructions about the input and output schemas
@@ -185,7 +191,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
 
         return (
             template.replace("{{input_schema}}", json.dumps(input_schema, indent=2))
-            .replace("{{output_schema}}", json.dumps(output_schema, indent=2))
+            .replace("{{output_schema}}", json.dumps(output_schema, indent=2) if output_schema else "")
             .replace("{{instructions}}", instructions)
         )
 
@@ -199,6 +205,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             examples_str = f"\n\nExamples:\n\n{examples_str}"
         else:
             examples_str = ""
+
         return template.replace("{{input_data}}", json.dumps(input, indent=2)).replace("{{examples}}", examples_str)
 
     def _build_user_message_content(
@@ -235,7 +242,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         self,
         provider: AbstractProvider[Any, Any],
         file: FileWithKeyPath,
-        input: TaskInputDict,
+        input: AgentInput,
     ):
         if file.data:
             return
@@ -347,12 +354,12 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             # a bit hacky but we templates that have structured generation enabled do
             # not show the output schema
             is_structured_generation_enabled=is_structured_generation_enabled
-            or not self._prepared_output_schema.prepared_schema.get("properties"),
+            and not self._prepared_output_schema.no_schema,
             supports_input_schema=data.support_input_schema,
         )
         return provider.sanitize_template(sanitized)
 
-    def _user_message_for_reply(self, reply: RunReply) -> Message:
+    def _user_message_for_reply(self, reply: RunReply) -> MessageDeprecated:
         if not reply.tool_calls and not reply.user_message:
             # Capturing because the error should have been handled earlier
             raise BadRequestError(
@@ -365,9 +372,9 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         if reply.user_message:
             content.append(reply.user_message)
 
-        message = Message(
+        message = MessageDeprecated(
             content="\n\n".join(content),
-            role=Message.Role.USER,
+            role=MessageDeprecated.Role.USER,
         )
 
         if reply.tool_calls:
@@ -403,7 +410,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
     async def _remove_keys_from_input(
         self,
         input_schema: dict[str, Any],
-        input: TaskInputDict,
+        input: AgentInput,
         used_input_keys: set[str],
     ):
         """Remove keys from the input and input schema. Only root keys are supported"""
@@ -419,7 +426,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
 
     async def _extract_image_options(
         self,
-        input: TaskInputDict,
+        input: AgentInput,
     ) -> tuple[ImageOptions | None, set[str]]:
         """Extract the image options from the input and remove it from the input if possible.
         Returns the keys that were extracted from the input and that should be removed"""
@@ -444,13 +451,13 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
 
         return base.model_copy(update=extracted_keys), set(extracted_keys.keys())
 
-    async def _build_messages(
+    async def _build_messages(  # noqa: C901
         self,
         template_name: TemplateName,
-        input: TaskInputDict,
+        input: AgentInput | Messages,
         provider: AbstractProvider[Any, Any],
         model_data: ModelData,
-    ) -> list[Message]:
+    ) -> list[MessageDeprecated]:
         """
         Build a message array that will:
         - be passed to the _build_task_output function
@@ -459,10 +466,12 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         if (builder := self._get_builder_context()) and builder.reply:
             return await self._build_messages_for_reply(builder.reply)
 
+        if isinstance(input, Messages):
+            return input.to_deprecated()
+
         start_time = time.time()
         input_copy = deepcopy(input)
         input_schema = deepcopy(self.task.input_schema.json_schema)
-        output_schema = self._prepared_output_schema.prepared_schema
 
         input_schema, input_copy, files = extract_files(input_schema, input_copy)
 
@@ -524,22 +533,24 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             system_template = get_template_without_input_schema(template_name).system_template
 
         messages = [
-            Message(
+            MessageDeprecated(
                 content=self._system_message_content(
                     template=system_template,
                     instructions=instructions or "",
                     input_schema=input_schema,
-                    output_schema=output_schema,
+                    output_schema=self._prepared_output_schema.prepared_schema
+                    if not self._prepared_output_schema.no_schema
+                    else None,
                 ),
-                role=Message.Role.SYSTEM,
+                role=MessageDeprecated.Role.SYSTEM,
                 image_options=image_options,
             ),
         ]
         if user_message_content.content or files:
             messages.append(
-                Message(
+                MessageDeprecated(
                     content=user_message_content.content,
-                    role=Message.Role.USER,
+                    role=MessageDeprecated.Role.USER,
                     files=files or None,
                 ),
             )
@@ -577,9 +588,13 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             return None
 
     @classmethod
-    def _extract_all_internal_keys(cls, raw: dict[str, Any], partial: bool = False):
+    def _extract_all_internal_keys(cls, raw: Any, partial: bool = False):
         """Extracts internal keys from a raw dict. The raw dict is updated in place"""
         # There is no point in logging errors when we are in partial mode
+        if not isinstance(raw, dict):
+            return None, None
+
+        raw = cast(dict[str, Any], raw)
 
         reasoning_steps = cls._extract_internal_key(
             raw,
@@ -595,6 +610,14 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         return agent_run_result, reasoning_steps
 
     def output_factory(self, raw: str, partial: bool = False) -> StructuredOutput:
+        if self._prepared_output_schema.prepared_schema is None:
+            return StructuredOutput(
+                raw,
+                None,
+                None,
+                None,
+            )
+
         json_str = raw.replace("\t", "\\t")
         # Acting on the string is probably unefficient, we do multiple decodes and encode
         # On the payload. Instead we should probably retrieve bytes for the output
@@ -615,7 +638,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
 
         return self.validate_output_dict(json_dict, partial=partial)
 
-    def validate_output_dict(self, output: dict[str, Any], partial: bool):
+    def validate_output_dict(self, output: Any, partial: bool):
         agent_run_result, reasoning_steps = self._extract_all_internal_keys(output)
 
         if agent_run_result and agent_run_result.status == "failure":
@@ -672,7 +695,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         self,
         provider: AbstractProvider[Any, Any],
         options: ProviderOptions,
-        messages: list[Message],
+        messages: list[MessageDeprecated],
     ) -> RunOutput:
         iteration_count = 0
         current_messages = messages
@@ -712,7 +735,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
     async def _safe_execute_tool(
         self,
         tool_call: ToolCallRequestWithID,
-        messages: list[Message],
+        messages: list[MessageDeprecated],
     ) -> tuple[ToolCall, bool]:
         # Detect the tool calls made in the context of the same HTTP request
         if res := (await self._internal_tool_cache.get(tool_call.tool_name, tool_call.tool_input_dict)):
@@ -751,7 +774,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
     async def _run_tool_calls(
         self,
         tool_calls: list[ToolCallRequestWithID],
-        messages: list[Message],
+        messages: list[MessageDeprecated],
     ) -> list[ToolCall]:
         if not tool_calls:
             return []
@@ -786,17 +809,21 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
     @classmethod
     def _append_tool_call_requests_to_messages(
         cls,
-        messages: list[Message],
+        messages: list[MessageDeprecated],
         tool_calls: list[ToolCallRequestWithID],
-    ) -> list[Message]:
-        assistant_message = Message(role=Message.Role.ASSISTANT, tool_call_requests=tool_calls, content="")
+    ) -> list[MessageDeprecated]:
+        assistant_message = MessageDeprecated(
+            role=MessageDeprecated.Role.ASSISTANT,
+            tool_call_requests=tool_calls,
+            content="",
+        )
         return [*messages, assistant_message]
 
     def append_tool_result_to_messages(
         self,
-        messages: list[Message],
+        messages: list[MessageDeprecated],
         tool_results: list[ToolCall],
-    ) -> list[Message]:
+    ) -> list[MessageDeprecated]:
         # TODO[tools]: not appending the assistant message for now, since the user
         # message contains the input and ouputs. Ultimately we should support let
         # the provider implementation decide how to handle tool calls:
@@ -811,30 +838,34 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         # if message := self._latest_assistant_message():
         #     messages.append(message)
 
-        user_message = Message(role=Message.Role.USER, tool_call_results=tool_results, content="")
+        user_message = MessageDeprecated(role=MessageDeprecated.Role.USER, tool_call_results=tool_results, content="")
         return [*messages, user_message]
 
     @classmethod
     def _prepare_output_schema(
         cls,
-        output_schema: dict[str, Any],
+        output_schema: SerializableTaskIO,
         is_chain_of_thought_enabled: bool,
         is_tool_use_enabled: bool,
         typology: TaskTypology,
     ) -> PreparedOutputSchema:
+        if output_schema.version == RawStringSchema.version:
+            return PreparedOutputSchema(prepared_schema=None)
+
+        output_json_schema = deepcopy(output_schema.json_schema)
         if is_chain_of_thought_enabled:
-            add_reasoning_steps_to_schema(output_schema)
+            add_reasoning_steps_to_schema(output_json_schema)
 
         # We only need to add the tool schema in the output if we are not using native tools
         if is_tool_use_enabled:
-            add_agent_run_result_to_schema(output_schema)  # status must be at the 'top'
+            add_agent_run_result_to_schema(output_json_schema)  # status must be at the 'top'
 
         if typology.output.is_text_only:
-            return PreparedOutputSchema(prepared_schema=output_schema)
+            return PreparedOutputSchema(prepared_schema=output_json_schema)
 
-        min_file_count, max_file_count = remove_files_from_schema(output_schema)
+        min_file_count, max_file_count = remove_files_from_schema(output_json_schema)
         return PreparedOutputSchema(
-            prepared_schema=output_schema,
+            prepared_schema=output_json_schema,
             min_file_count=min_file_count,
             max_file_count=max_file_count,
         )
@@ -881,7 +912,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         self,
         provider: AbstractProvider[Any, Any],
         options: ProviderOptions,
-        messages: list[Message],
+        messages: list[MessageDeprecated],
     ):
         # TODO: this should really not be here but instead built when computing options
         # in _build_provider_data
@@ -1082,7 +1113,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         return pipeline
 
     @override
-    async def _build_task_output(self, input: TaskInputDict) -> RunOutput:
+    async def _build_task_output(self, input: AgentInput | Messages) -> RunOutput:
         """
         Calls _build_task_output_from_messages with the messages generated _build_messages
         """
@@ -1098,7 +1129,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         return pipeline.raise_on_end(self.task.task_id)
 
     @override
-    async def _stream_task_output(self, input: TaskInputDict):
+    async def _stream_task_output(self, input: AgentInput | Messages):
         """
         Calls _stream_task_output_from_messages with the messages generated _build_messages
         """

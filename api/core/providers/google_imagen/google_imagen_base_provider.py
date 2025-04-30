@@ -8,7 +8,7 @@ from httpx import Response
 
 from core.domain.fields.image_options import ImageOptions
 from core.domain.llm_completion import LLMCompletion
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models.models import Model
 from core.domain.structured_output import StructuredOutput
 from core.domain.tool import Tool
@@ -82,7 +82,7 @@ class GoogleImagenBaseProvider(HTTPXProviderBase[ProviderConfigVar, GoogleImagen
     @override
     async def _prepare_completion(
         self,
-        messages: list[Message],
+        messages: list[MessageDeprecated],
         options: ProviderOptions,
         stream: bool,
     ) -> tuple[GoogleImagenRequest, LLMCompletion]:

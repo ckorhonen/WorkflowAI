@@ -12,7 +12,7 @@ from core.domain.errors import (
     UnknownProviderError,
 )
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
 from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.abstract_provider import RawCompletion
@@ -58,7 +58,7 @@ MODEL_MAP = {
 
 class MistralAIProvider(HTTPXProvider[MistralAIConfig, CompletionResponse]):
     @override
-    def _build_request(self, messages: list[Message], options: ProviderOptions, stream: bool) -> BaseModel:
+    def _build_request(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool) -> BaseModel:
         domain_messages: list[MistralAIMessage | MistralToolMessage] = []
         for m in messages:
             if m.tool_call_results:

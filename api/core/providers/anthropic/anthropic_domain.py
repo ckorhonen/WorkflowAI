@@ -12,7 +12,7 @@ from core.domain.errors import (
 )
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.providers.base.models import (
     DocumentContentDict,
     DocumentURLDict,
@@ -28,10 +28,10 @@ from core.providers.google.google_provider_domain import (
     native_tool_name_to_internal,
 )
 
-_role_to_map: dict[Message.Role, Literal["user", "assistant"]] = {
-    Message.Role.SYSTEM: "assistant",
-    Message.Role.USER: "user",
-    Message.Role.ASSISTANT: "assistant",
+_role_to_map: dict[MessageDeprecated.Role, Literal["user", "assistant"]] = {
+    MessageDeprecated.Role.SYSTEM: "assistant",
+    MessageDeprecated.Role.USER: "user",
+    MessageDeprecated.Role.ASSISTANT: "assistant",
 }
 
 
@@ -173,7 +173,7 @@ class AnthropicMessage(BaseModel):
         raise InternalError("Unsupported file type", extras={"file": file.model_dump()})
 
     @classmethod
-    def from_domain(cls, message: Message):
+    def from_domain(cls, message: MessageDeprecated):
         role = _role_to_map[message.role]
 
         content: list[TextContent | DocumentContent | ImageContent | ToolUseContent | ToolResultContent] = []

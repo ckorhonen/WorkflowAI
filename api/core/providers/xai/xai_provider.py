@@ -16,7 +16,7 @@ from core.domain.errors import (
 )
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
 from core.domain.models.model_data import ModelData
 from core.domain.models.utils import get_model_data
@@ -63,7 +63,7 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
         )
 
     @override
-    def _build_request(self, messages: list[Message], options: ProviderOptions, stream: bool) -> BaseModel:
+    def _build_request(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool) -> BaseModel:
         message: list[XAIMessage | XAIToolMessage] = []
         for m in messages:
             if m.tool_call_results:

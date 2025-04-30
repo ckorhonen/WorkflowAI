@@ -3,7 +3,7 @@ from typing import Literal, Optional, Self
 
 from pydantic import BaseModel, Field, model_validator
 
-from core.domain.types import TaskInputDict, TaskOutputDict
+from core.domain.types import AgentInput, AgentOutput
 from core.utils.models.previews import compute_preview
 
 TaskExampleQueryUniqueBy = Literal["task_input_hash", "task_output_hash", None]
@@ -15,10 +15,10 @@ class SerializableTaskExample(BaseModel):
     task_id: str = Field(..., description="the id of the associated task. Read only")
     task_schema_id: int = Field(..., description="the task schema index")
 
-    task_input: TaskInputDict = {}
+    task_input: AgentInput = {}
     task_input_hash: str = Field(..., description="a hash describing the input")
     task_input_preview: str = Field(default="", description="a preview of the input")
-    task_output: TaskOutputDict = {}
+    task_output: AgentOutput = {}
     task_output_hash: str = Field(..., description="a hash describing the output")
     task_output_preview: str = Field(default="", description="a preview of the output")
 

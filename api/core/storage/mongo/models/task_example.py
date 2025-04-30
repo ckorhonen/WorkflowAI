@@ -19,11 +19,11 @@ class TaskExampleDocument(BaseDocumentWithID):
     task: TaskMetadataSchema | None = None
 
     task_input_hash: str = ""
-    task_input: dict[str, Any] = {}
+    task_input: Any = {}
     task_input_preview: str = ""
 
     task_output_hash: str = ""
-    task_output: dict[str, Any] = {}
+    task_output: Any = {}
     task_output_preview: str = ""
 
     from_task_run_id: str | None = None

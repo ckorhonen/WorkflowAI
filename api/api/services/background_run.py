@@ -14,7 +14,7 @@ from core.domain.errors import (
 )
 from core.domain.events import EventRouter, RecomputeReviewBenchmarkEvent, TriggerTaskRunEvent
 from core.domain.task_run_query import SerializableTaskRunQuery
-from core.domain.types import TaskInputDict
+from core.domain.types import AgentInput
 from core.domain.users import UserIdentifier
 from core.domain.version_reference import VersionReference
 from core.storage import ObjectNotFoundException, TaskTuple
@@ -43,8 +43,8 @@ class BackgroundRunService:
         task_id: TaskTuple,
         task_schema_id: int,
         task_input_hash: str | None,
-        task_input: TaskInputDict | None,
-    ) -> TaskInputDict:
+        task_input: AgentInput | None,
+    ) -> AgentInput:
         if task_input is not None:
             return task_input
 

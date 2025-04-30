@@ -18,7 +18,7 @@ from core.domain.errors import (
 )
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model
 from core.domain.models.model_provider_datas_mapping import ANTHROPIC_PROVIDER_DATA
 from core.domain.models.utils import get_model_data
@@ -56,8 +56,8 @@ class TestBuildRequest:
             CompletionRequest,
             anthropic_provider._build_request(  # pyright: ignore[reportPrivateUsage]
                 messages=[
-                    Message(role=Message.Role.SYSTEM, content="Hello 1"),
-                    Message(role=Message.Role.USER, content="Hello"),
+                    MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="Hello 1"),
+                    MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello"),
                 ],
                 options=ProviderOptions(model=model, max_tokens=10, temperature=0),
                 stream=False,
@@ -92,8 +92,8 @@ class TestBuildRequest:
             CompletionRequest,
             anthropic_provider._build_request(  # pyright: ignore[reportPrivateUsage]
                 messages=[
-                    Message(role=Message.Role.SYSTEM, content="Hello 1"),
-                    Message(role=Message.Role.USER, content="Hello"),
+                    MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="Hello 1"),
+                    MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello"),
                 ],
                 options=ProviderOptions(model=model, temperature=0),
                 stream=False,
@@ -121,7 +121,7 @@ class TestBuildRequest:
         )
 
         options = ProviderOptions(model=model, max_tokens=10, temperature=0, enabled_tools=[dummy_tool])  # pyright: ignore [reportGeneralTypeIssues]
-        message = Message(role=Message.Role.USER, content="Hello")
+        message = MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")
 
         request = cast(
             CompletionRequest,
@@ -236,8 +236,8 @@ class TestComplete:
 
         o = await provider.complete(
             [
-                Message(
-                    role=Message.Role.USER,
+                MessageDeprecated(
+                    role=MessageDeprecated.Role.USER,
                     content="Hello",
                     files=[
                         File(data="data", content_type="application/pdf"),
@@ -289,7 +289,11 @@ class TestComplete:
 
         o = await provider.complete(
             [
-                Message(role=Message.Role.USER, content="Hello", files=[File(content_type="image/png", data="bla")]),
+                MessageDeprecated(
+                    role=MessageDeprecated.Role.USER,
+                    content="Hello",
+                    files=[File(content_type="image/png", data="bla")],
+                ),
             ],
             options=ProviderOptions(model=Model.CLAUDE_3_5_SONNET_20241022, max_tokens=10, temperature=0),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
@@ -339,7 +343,7 @@ class TestComplete:
         )
 
         o = await anthropic_provider.complete(
-            [Message(role=Message.Role.USER, content="Hello")],
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=model, max_tokens=10, temperature=0),
             output_factory=_output_factory,
         )
@@ -365,7 +369,7 @@ class TestComplete:
         )
 
         o = await anthropic_provider.complete(
-            [Message(role=Message.Role.USER, content="Hello")],
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=model, temperature=0),
             output_factory=_output_factory,
         )
@@ -446,7 +450,7 @@ class TestMaxTokensExceeded:
 
         with pytest.raises(MaxTokensExceededError) as e:
             await anthropic_provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.CLAUDE_3_5_SONNET_20241022, max_tokens=10, temperature=0),
                 output_factory=_output_factory,
             )
@@ -485,7 +489,7 @@ class TestPrepareCompletion:
         request = cast(
             CompletionRequest,
             anthropic_provider._build_request(  # pyright: ignore[reportPrivateUsage]
-                messages=[Message(role=Message.Role.USER, content="Hello")],
+                messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.CLAUDE_3_5_SONNET_20241022, max_tokens=10, temperature=0),
                 stream=False,
             ),

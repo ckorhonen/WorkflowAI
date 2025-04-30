@@ -16,7 +16,7 @@ from core.domain.errors import (
 )
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
 from core.domain.models.model_data import ModelData
 from core.domain.models.utils import get_model_data
@@ -106,7 +106,7 @@ class FireworksAIProvider(HTTPXProvider[FireworksConfig, CompletionResponse]):
         return _NAME_OVERRIDE_MAP.get(model, model.value)
 
     @override
-    def _build_request(self, messages: list[Message], options: ProviderOptions, stream: bool) -> BaseModel:
+    def _build_request(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool) -> BaseModel:
         # Clearing the buffer before building the request
         domain_messages: list[FireworksMessage | FireworksToolMessage] = []
         for m in messages:
@@ -516,7 +516,7 @@ class FireworksAIProvider(HTTPXProvider[FireworksConfig, CompletionResponse]):
             )
 
             request, llm_completion = await self._prepare_completion(
-                messages=[Message(content="Generate a test output", role=Message.Role.USER)],
+                messages=[MessageDeprecated(content="Generate a test output", role=MessageDeprecated.Role.USER)],
                 options=options,
                 stream=False,
             )

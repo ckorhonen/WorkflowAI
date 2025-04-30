@@ -1,8 +1,8 @@
 from core.domain.fields.file import File
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 
 
-def merge_messages(messages: list[Message], role: Message.Role):
+def merge_messages(messages: list[MessageDeprecated], role: MessageDeprecated.Role):
     """
     Merges message content and images from a list of messages
 
@@ -16,7 +16,7 @@ def merge_messages(messages: list[Message], role: Message.Role):
         if message.files:
             files.extend(message.files)
 
-    return Message(
+    return MessageDeprecated(
         content="\n\n".join(contents),
         files=files if files else None,
         role=role,

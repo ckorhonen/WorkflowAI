@@ -15,6 +15,7 @@ from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_io import SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.tool_call import ToolCallRequestWithID
+from core.domain.types import AgentOutput
 from core.domain.users import UserIdentifier
 from core.domain.version_environment import VersionEnvironment
 
@@ -33,7 +34,7 @@ def task_run_ser(
     task_id: str = "task_id",
     task_schema_id: int = 1,
     task_input: dict[str, Any] | None = None,
-    task_output: dict[str, Any] | None = None,
+    task_output: AgentOutput | None = None,
     group_kwargs: dict[str, Any] | None = None,
     group_id: str | None = None,
     group: TaskGroup | None = None,

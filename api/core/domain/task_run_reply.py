@@ -1,6 +1,6 @@
 from typing import NamedTuple
 
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.tool_call import ToolCall
 
 
@@ -8,7 +8,7 @@ from core.domain.tool_call import ToolCall
 class RunReply(NamedTuple):
     # Data about the previous run
     previous_run_id: str
-    previous_messages: list[Message]
+    previous_messages: list[MessageDeprecated]
 
     # Newly provided data
     user_message: str | None = None

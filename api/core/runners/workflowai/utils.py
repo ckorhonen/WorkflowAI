@@ -20,7 +20,7 @@ from core.domain.models import Model, Provider
 from core.domain.models.model_data import DeprecatedModel
 from core.domain.models.model_datas_mapping import MODEL_DATAS
 from core.domain.tool import Tool
-from core.domain.types import TaskOutputDict
+from core.domain.types import AgentOutput
 from core.runners.workflowai.internal_tool import InternalTool
 from core.tools import ToolKind
 from core.utils.dicts import set_at_keypath
@@ -229,7 +229,10 @@ def _replace_keypath_arr_idx(keypath: list[str], idx: int):
     return out
 
 
-def assign_files(schema: dict[str, Any], files: list[File], output: TaskOutputDict):
+def assign_files(schema: dict[str, Any], files: list[File], output: AgentOutput):
+    if not isinstance(output, dict):
+        _logger.warning("Cannot assign files to non-dict output", extra={"output": output})
+        return files
     for key, _, child in JsonSchema(schema).fields_iterator(
         prefix=[],
         dive=lambda s: s.followed_ref_name not in FILE_DEFS,

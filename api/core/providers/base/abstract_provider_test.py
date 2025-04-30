@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.metrics import Metric
 from core.domain.models import Model, Provider
 from core.domain.structured_output import StructuredOutput
@@ -46,7 +46,7 @@ async def test_exception_messages_are_correctly_added_to_messages():
     provider = (
         OpenAIProvider()
     )  # TODO: Ideally we would use a special test provider, but this is more annoying to set up.
-    messages = [Message(role=Message.Role.USER, content="Hello")]
+    messages = [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")]
     options = ProviderOptions(model=Model.GPT_4O_2024_08_06)
 
     with patch.object(provider, "_single_complete", wraps=provider._single_complete) as mock_single_complete:  # pyright: ignore [reportPrivateUsage]
@@ -186,7 +186,7 @@ class _MockedProvider(AbstractProvider[Any, Any]):
     @override
     async def _prepare_completion(
         self,
-        messages: list[Message],
+        messages: list[MessageDeprecated],
         options: ProviderOptions,
         stream: bool,
     ) -> tuple[Any, LLMCompletion]:
