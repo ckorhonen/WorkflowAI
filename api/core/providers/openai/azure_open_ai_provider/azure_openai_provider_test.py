@@ -352,7 +352,7 @@ class TestComplete:
                     ],
                 ),
             ],
-            options=ProviderOptions(model=Model.GPT_4O_2024_11_20, max_tokens=10, temperature=0),
+            options=ProviderOptions(model=Model.GPT_4O_2024_11_20, max_tokens=10, temperature=0, output_schema={}),
             output_factory=_output_factory,
         )
         assert chunk.output

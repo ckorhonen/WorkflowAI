@@ -233,7 +233,17 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
     ):
         try:
             output = output_factory(raw, False)
-        except JSONSchemaValidationError as e:
+        except JSONDecodeError as e:
+            if not native_tools_calls:
+                raise cls._invalid_json_error(
+                    response=None,
+                    exception=e,
+                    raw_completion=raw,
+                    error_msg="Received invalid JSON",
+                    retry=True,
+                )
+            output = StructuredOutput(output={})
+        except (JSONSchemaValidationError, JSONDecodeError) as e:
             if not native_tools_calls:
                 raise e
             # When there is a native tool call, we can afford having a JSONSchemaValidationError,

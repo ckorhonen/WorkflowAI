@@ -352,7 +352,7 @@ class TestStream:
 
         streamer = provider.stream(
             [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
-            options=ProviderOptions(model=Model.GPT_3_5_TURBO_1106, max_tokens=10, temperature=0),
+            options=ProviderOptions(model=Model.GPT_3_5_TURBO_1106, max_tokens=10, temperature=0, output_schema={}),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             partial_output_factory=lambda x: StructuredOutput(x),
         )
@@ -440,7 +440,7 @@ class TestComplete:
                     ],
                 ),
             ],
-            options=ProviderOptions(model=Model.GPT_3_5_TURBO_1106, max_tokens=10, temperature=0),
+            options=ProviderOptions(model=Model.GPT_3_5_TURBO_1106, max_tokens=10, temperature=0, output_schema={}),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
         )
         assert o.output
@@ -495,7 +495,7 @@ class TestComplete:
                     ],
                 ),
             ],
-            options=ProviderOptions(model=Model.GPT_3_5_TURBO_1106, max_tokens=10, temperature=0),
+            options=ProviderOptions(model=Model.GPT_3_5_TURBO_1106, max_tokens=10, temperature=0, output_schema={}),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
         )
         assert o.output
@@ -667,7 +667,7 @@ class TestComplete:
         with pytest.raises(FailedGenerationError) as e:
             await provider.complete(
                 [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
-                options=ProviderOptions(model=Model.GPT_4O_2024_08_06, max_tokens=10, temperature=0),
+                options=ProviderOptions(model=Model.GPT_4O_2024_08_06, max_tokens=10, temperature=0, output_schema={}),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )
 

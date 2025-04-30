@@ -149,8 +149,7 @@ class OpenAIProviderBase(HTTPXProvider[_OpenAIConfigVar, CompletionResponse], Ge
         options: ProviderOptions,
         is_preview_model: bool,
     ) -> TextResponseFormat | JSONResponseFormat | JSONSchemaResponseFormat:
-        return TextResponseFormat()
-        if is_preview_model:
+        if is_preview_model or options.output_schema is None:
             return TextResponseFormat()
 
         schema = copy.deepcopy(options.output_schema)

@@ -52,9 +52,10 @@ class ParsedResponse(NamedTuple):
 # TODO: The fact that the HTTPXProvider class uses a plain dict as a request is blocking for OpenAIImageProvider
 # Ultimately HTTPXProvider should also use a templated request type
 class HTTPXProviderBase(AbstractProvider[ProviderConfigVar, ProviderRequestVar]):
+    @classmethod
     def _invalid_json_error(
-        self,
-        response: Response,
+        cls,
+        response: Response | None,
         exception: Exception | None,
         raw_completion: str,
         error_msg: str,
