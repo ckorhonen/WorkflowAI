@@ -612,7 +612,6 @@ class CustomerService:
         if not should_process:
             return
 
-        """Process a webhook message after deduplication check"""
         channel_id = webhook_event.event.channel
 
         slack = cls._slack_client()
