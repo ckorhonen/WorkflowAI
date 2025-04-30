@@ -22,6 +22,7 @@ from core.domain.errors import (
     ProviderError,
 )
 from core.domain.events import EventRouter, StoreTaskRunEvent
+from core.domain.message import Messages
 from core.domain.run_output import RunOutput
 from core.domain.task_run_builder import TaskRunBuilder
 from core.domain.task_run_reply import RunReply
@@ -105,7 +106,7 @@ class RunService:
 
     async def run(
         self,
-        task_input: dict[str, Any],
+        task_input: dict[str, Any] | Messages,
         runner: AbstractRunner[Any],
         task_run_id: Optional[str],
         stream_serializer: Callable[[str, RunOutput], BaseModel] | None,

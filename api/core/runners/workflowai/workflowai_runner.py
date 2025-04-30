@@ -22,7 +22,7 @@ from core.domain.errors import (
 )
 from core.domain.fields.image_options import ImageOptions
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
-from core.domain.message import MessageDeprecated
+from core.domain.message import MessageDeprecated, Messages
 from core.domain.metrics import send_gauge
 from core.domain.models.model_data import FinalModelData, ModelData
 from core.domain.models.model_datas_mapping import MODEL_DATAS
@@ -199,6 +199,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             examples_str = f"\n\nExamples:\n\n{examples_str}"
         else:
             examples_str = ""
+
         return template.replace("{{input_data}}", json.dumps(input, indent=2)).replace("{{examples}}", examples_str)
 
     def _build_user_message_content(
@@ -447,7 +448,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
     async def _build_messages(
         self,
         template_name: TemplateName,
-        input: TaskInputDict,
+        input: TaskInputDict | Messages,
         provider: AbstractProvider[Any, Any],
         model_data: ModelData,
     ) -> list[MessageDeprecated]:
@@ -458,6 +459,9 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         """
         if (builder := self._get_builder_context()) and builder.reply:
             return await self._build_messages_for_reply(builder.reply)
+
+        if isinstance(input, Messages):
+            return input.to_deprecated()
 
         start_time = time.time()
         input_copy = deepcopy(input)
@@ -790,7 +794,9 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         tool_calls: list[ToolCallRequestWithID],
     ) -> list[MessageDeprecated]:
         assistant_message = MessageDeprecated(
-            role=MessageDeprecated.Role.ASSISTANT, tool_call_requests=tool_calls, content="",
+            role=MessageDeprecated.Role.ASSISTANT,
+            tool_call_requests=tool_calls,
+            content="",
         )
         return [*messages, assistant_message]
 
@@ -1084,7 +1090,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         return pipeline
 
     @override
-    async def _build_task_output(self, input: TaskInputDict) -> RunOutput:
+    async def _build_task_output(self, input: TaskInputDict | Messages) -> RunOutput:
         """
         Calls _build_task_output_from_messages with the messages generated _build_messages
         """
@@ -1100,7 +1106,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         return pipeline.raise_on_end(self.task.task_id)
 
     @override
-    async def _stream_task_output(self, input: TaskInputDict):
+    async def _stream_task_output(self, input: TaskInputDict | Messages):
         """
         Calls _stream_task_output_from_messages with the messages generated _build_messages
         """

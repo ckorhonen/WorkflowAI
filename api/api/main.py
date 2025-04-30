@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sentry_sdk.integrations.logging import ignore_logger
 
 from api.errors import configure_scope_for_error
+from api.routers import openai_proxy_router
 from api.services.storage import storage_for_tenant
 from api.tags import RouteTags
 from api.utils import (
@@ -131,6 +132,7 @@ if WORKFLOWAI_ALLOWED_ORIGINS:
 
 app.include_router(probes.router)
 app.include_router(run.router)
+app.include_router(openai_proxy_router.router)
 
 if not _ONLY_RUN_ROUTES:
     from .main_router import main_router

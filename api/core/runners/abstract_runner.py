@@ -8,6 +8,7 @@ from pydantic import BaseModel, ValidationError
 
 from core.domain.agent_run import AgentRun
 from core.domain.errors import InvalidRunnerOptionsError, MissingCacheError, ProviderError
+from core.domain.message import Messages
 from core.domain.metrics import measure_time, send_counter
 from core.domain.run_output import RunOutput
 from core.domain.task_group_properties import TaskGroupProperties
@@ -105,14 +106,14 @@ class AbstractRunner(
         pass
 
     @abstractmethod
-    async def _build_task_output(self, input: TaskInputDict) -> RunOutput:
+    async def _build_task_output(self, input: TaskInputDict | Messages) -> RunOutput:
         """
         The function that does the actual input -> output conversion, should
         be overriden in each subclass but not called directly.
         """
         pass
 
-    async def _stream_task_output(self, input: TaskInputDict) -> AsyncIterator[RunOutput]:
+    async def _stream_task_output(self, input: TaskInputDict | Messages) -> AsyncIterator[RunOutput]:
         """
         The function that does the actual input -> output conversion, should
         be overriden in each subclass but not called directly.
@@ -185,7 +186,7 @@ class AbstractRunner(
 
     async def task_run_builder(
         self,
-        input: TaskInputDict,
+        input: TaskInputDict | Messages,
         start_time: float,
         task_run_id: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
@@ -242,7 +243,7 @@ class AbstractRunner(
         if builder.reply is not None:
             return None
 
-        cached = await self._cache_or_none(builder.task_input, cache)
+        cached = await self._cache_or_none(builder.serialized_task_input, cache)
         if cached is not None:
             # Hack to make sure the returned built task run is the same as the cached one
             builder._task_run = cached  # type:ignore
