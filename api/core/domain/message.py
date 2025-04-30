@@ -1,10 +1,10 @@
 from collections.abc import Sequence
 from enum import StrEnum, auto
-from typing import Annotated, Literal, TypeAlias
+from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from core.domain.errors import InternalError
+from core.domain.errors import BadRequestError, InternalError
 from core.domain.fields.file import File
 from core.domain.fields.image_options import ImageOptions
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
@@ -26,72 +26,52 @@ class MessageDeprecated(BaseModel):
     image_options: ImageOptions | None = None
 
 
-class TextContent(BaseModel):
-    type: Literal["text"] = "text"
-    text: str
+class MessageContent(BaseModel):
+    text: str | None = None
+    file: File | None = None
+    tool_call_request: ToolCallRequestWithID | None = None
 
 
-class FileContent(BaseModel):
-    type: Literal["file"] = "file"
-    file: File
-
-
-class ToolCallRequestContent(BaseModel):
-    type: Literal["tool_call_request"] = "tool_call_request"
-    tool_call_request: ToolCallRequestWithID
-
-
-class SystemMessage(BaseModel):
-    role: Literal["system", "developer"] = "system"
-    content: str | TextContent
+class Message(BaseModel):
+    # It would be nice to use strict validation since we know that certain roles are not allowed to
+    # have certain content. Unfortunately it would mean that we would have oneOfs in the schema which
+    # we currently do not handle client side
+    role: Literal["system", "developer", "user", "assistant", "tool"] = "system"
+    content: list[MessageContent]
     image_options: ImageOptions | None = None
+    tool_call: ToolCall | None = None
 
-
-MessageContent: TypeAlias = Annotated[TextContent | FileContent, Field(discriminator="type")]
-
-
-class UserMessage(BaseModel):
-    role: Literal["user"] = "user"
-    content: str | list[MessageContent]
-
-
-class AssistantMessage(BaseModel):
-    role: Literal["assistant"] = "assistant"
-    content: str | list[Annotated[TextContent | FileContent | ToolCallRequestContent, Field(discriminator="type")]]
-
-
-class ToolMessage(BaseModel):
-    role: Literal["tool"] = "tool"
-    content: ToolCall
-
-
-Message: TypeAlias = Annotated[
-    SystemMessage | UserMessage | AssistantMessage | ToolMessage,
-    Field(discriminator="role"),
-]
-
-
-def _parse_message_content(content: str | list[MessageContent]) -> tuple[str, list[File]]:
-    if isinstance(content, str):
-        return content, []
-    return "".join([c.text for c in content if isinstance(c, TextContent)]), [
-        c.file for c in content if isinstance(c, FileContent)
-    ]
+    def to_deprecated(self) -> MessageDeprecated:
+        # TODO: remove this method
+        content = "\n\n".join([c.text for c in self.content if c.text])
+        files = [c.file for c in self.content if c.file]
+        tool_call_requests = [c.tool_call_request for c in self.content if c.tool_call_request]
+        match self.role:
+            case "system":
+                return MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content=content)
+            case "user":
+                return MessageDeprecated(
+                    role=MessageDeprecated.Role.USER,
+                    content=content,
+                    files=files,
+                    tool_call_requests=tool_call_requests,
+                )
+            case "assistant":
+                return MessageDeprecated(role=MessageDeprecated.Role.ASSISTANT, content=content, files=files)
+            case "tool":
+                if not self.tool_call:
+                    raise BadRequestError("Tool call results are not allowed to be empty")
+                return MessageDeprecated(
+                    content="",
+                    role=MessageDeprecated.Role.USER,
+                    tool_call_results=[self.tool_call],
+                )
+            case _:
+                raise InternalError("Unexpected message type")
 
 
 class Messages(BaseModel):
     messages: list[Message]
 
     def to_deprecated(self) -> list[MessageDeprecated]:
-        # TODO: remove this method
-        out: list[MessageDeprecated] = []
-        for m in self.messages:
-            content, files = _parse_message_content(m.content)  # type: ignore
-            match m:
-                case SystemMessage():
-                    out.append(MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content=content))
-                case UserMessage():
-                    out.append(MessageDeprecated(role=MessageDeprecated.Role.USER, content=content, files=files))
-                case _:
-                    raise InternalError("Unexpected message type")
-        return out
+        return [m.to_deprecated() for m in self.messages]
