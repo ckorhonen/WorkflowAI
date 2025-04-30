@@ -90,7 +90,8 @@ interface TasksState {
     taskSchemaId: TaskSchemaID,
     instructions: string,
     tools: ToolKind[],
-    onMessage: (message: string) => void
+    onMessage: (message: string) => void,
+    signal?: AbortSignal
   ): Promise<string>;
   createTask(tenant: TenantID | undefined, payload: Omit<CreateAgentRequest, 'id'>): Promise<CreateAgentResponse>;
   updateTask(tenant: TenantID | undefined, taskId: TaskID, payload: UpdateTaskRequest): Promise<SerializableTask>;
@@ -272,7 +273,8 @@ export const useTasks = create<TasksState>((set, get) => ({
     taskSchemaId: TaskSchemaID,
     instructions: string,
     tools: ToolKind[],
-    onMessage: (message: string) => void
+    onMessage: (message: string) => void,
+    signal?: AbortSignal
   ): Promise<string> => {
     const lastInstructions = await SSEClient<
       UpdateTaskInstructionsRequest,
@@ -285,7 +287,8 @@ export const useTasks = create<TasksState>((set, get) => ({
         if (message.updated_task_instructions) {
           onMessage(message.updated_task_instructions);
         }
-      }
+      },
+      signal
     );
     return lastInstructions.updated_task_instructions ?? '';
   },

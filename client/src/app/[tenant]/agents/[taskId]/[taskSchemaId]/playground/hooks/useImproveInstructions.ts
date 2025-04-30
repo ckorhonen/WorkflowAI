@@ -50,6 +50,7 @@ export function useImproveInstructions(props: ImproveInstructionsProps) {
 
   const improveInstructions = useCallback(
     async (text: string, runId: string | undefined) => {
+      abortControllerRef.current?.abort();
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
 
@@ -60,6 +61,7 @@ export function useImproveInstructions(props: ImproveInstructionsProps) {
           }
           const { improved_properties, changelog } = message;
           setImproveVersionChangelog(changelog);
+          setIsImproveVersionLoading(true);
           const newInstructions = improved_properties.instructions || '';
           setInstructions(newInstructions);
         };
@@ -90,6 +92,7 @@ export function useImproveInstructions(props: ImproveInstructionsProps) {
         handleRunTasks({ externalInstructions: newInstructions });
       } catch (error) {
         cancelToolCall(ToolCallName.IMPROVE_AGENT_INSTRUCTIONS);
+        setIsImproveVersionLoading(false);
         captureException(error);
         if (!abortController.signal.aborted) {
           displayErrorToaster('Failed to improve AI agent run version - Please try again');
@@ -112,17 +115,33 @@ export function useImproveInstructions(props: ImproveInstructionsProps) {
 
   const updateTaskInstructions = useTasks((state) => state.updateTaskInstructions);
 
+  const abortControllerForUpdateTaskInstructionsRef = useRef<AbortController | undefined>(undefined);
+
   const handleUpdateTaskInstructions = useCallback(
     async (tools: ToolKind[]) => {
+      abortControllerForUpdateTaskInstructionsRef.current?.abort();
+      const abortController = new AbortController();
+      abortControllerForUpdateTaskInstructionsRef.current = abortController;
+
       setOldInstructions(instructionsRef.current);
       setIsImproveVersionLoading(true);
 
       try {
-        const data = await updateTaskInstructions(tenant, taskId, taskSchemaId, instructions, tools, setInstructions);
+        const data = await updateTaskInstructions(
+          tenant,
+          taskId,
+          taskSchemaId,
+          instructions,
+          tools,
+          setInstructions,
+          abortController.signal
+        );
         setInstructions(data);
       } catch (error) {
         captureException(error);
-        displayErrorToaster('Failed to update AI Agent instructions - Please try again');
+        if (!abortController.signal.aborted) {
+          displayErrorToaster('Failed to improve AI agent run version - Please try again');
+        }
         throw new Error('Failed to update AI Agent instructions');
       }
 
