@@ -32,6 +32,25 @@ _model_mapping = {
 }
 
 
+def _parse_model(model: str) -> Model:
+    if model in _model_mapping:
+        return _model_mapping[model]
+
+    # We try to parse the model as a Model
+    try:
+        return Model(model)
+    except ValueError:
+        pass
+
+    # Then we check if it's a unversioned model, called "latest" here
+    try:
+        return Model(model + "-latest")
+    except ValueError:
+        pass
+
+    raise BadRequestError(f"Model does not exist {model}")
+
+
 def _agent_and_model(model: str) -> tuple[str, Model]:
     agent_and_model = model.split("/")
     if len(agent_and_model) > 2:
@@ -44,15 +63,7 @@ def _agent_and_model(model: str) -> tuple[str, Model]:
         agent_name = agent_and_model[0]
         model_str = agent_and_model[1]
 
-    if model_str in _model_mapping:
-        model = _model_mapping[model_str]
-    else:
-        try:
-            model = Model(model_str)
-        except ValueError:
-            raise BadRequestError(f"Model does not exist {model}")
-
-    return agent_name, model
+    return agent_name, _parse_model(model_str)
 
 
 def _raw_string_mapper(output: Any) -> str:
