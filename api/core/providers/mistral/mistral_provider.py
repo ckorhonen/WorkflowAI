@@ -84,7 +84,7 @@ class MistralAIProvider(HTTPXProvider[MistralAIConfig, CompletionResponse]):
                     type="function",
                     function=FunctionParameters(
                         name=internal_tool_name_to_native_tool_call(tool.name),
-                        description=tool.description,
+                        description=tool.description or "",
                         parameters=tool.input_schema,
                     ),
                 )

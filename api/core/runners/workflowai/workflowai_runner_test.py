@@ -23,7 +23,7 @@ from core.domain.errors import (
 from core.domain.fields.file import File
 from core.domain.fields.image_options import ImageOptions
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
-from core.domain.message import MessageDeprecated
+from core.domain.message import Message, MessageContent, MessageDeprecated, Messages
 from core.domain.metrics import Metric
 from core.domain.models import Model, Provider
 from core.domain.models.model_data import FinalModelData, LatestModel, MaxTokensData, ModelData
@@ -153,6 +153,52 @@ def model_data():
         quality_index=100,
         provider_name=DisplayedProvider.OPEN_AI.value,
         supports_tool_calling=True,
+    )
+
+
+@pytest.fixture(scope="function")
+def mock_task():
+    # Can't really use a wrap here since we use properties
+    mock = Mock(spec=SerializableTaskVariant)
+    mock.input_schema = SerializableTaskIO(json_schema={"properties": {}}, version="v1")
+    mock.output_schema = SerializableTaskIO(json_schema={"properties": {}}, version="v1")
+    mock.name = "mock_task_name"
+    mock.id = "task_version_id"
+    mock.task_id = "task_id"
+    mock.task_schema_id = 1
+    mock.tenant = "tenant1"
+
+    def _validate_output(output: Any, *args: Any, **kwargs: Any):
+        # Not performing any validation
+        return output
+
+    mock.validate_output.side_effect = _validate_output
+    mock.compute_input_hash.return_value = "input_hash"
+    mock.compute_output_hash.return_value = "output_hash"
+
+    return mock
+
+
+@pytest.fixture
+def mock_build_properties():
+    with patch.object(
+        WorkflowAIRunner,
+        "_build_properties",
+        return_value=TaskGroupProperties(enabled_tools=[]),
+    ) as mock:
+        yield mock
+
+
+@pytest.fixture(scope="function")
+def patched_runner(mock_task: Mock, mock_build_properties: Mock):
+    yield WorkflowAIRunner(
+        mock_task,
+        options=WorkflowAIRunnerOptions(
+            instructions="",
+            model=Model.GPT_4O_2024_11_20,
+            provider=Provider.OPEN_AI,
+            template_name=TemplateName.V1,
+        ),
     )
 
 
@@ -316,6 +362,75 @@ Output:
         )
 
 
+class TestInlineMessages:
+    def test_inlined_structured_output(self, patched_runner: WorkflowAIRunner):
+        messages = patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
+            Messages(messages=[Message(role="user", content=[MessageContent(text="cool cool cool")])]),
+            True,
+            False,
+        )
+        assert len(messages) == 1
+        assert messages[0].role == MessageDeprecated.Role.USER
+        assert messages[0].content == "cool cool cool"
+
+    def test_inlined_no_structured_output(self, patched_runner: WorkflowAIRunner):
+        messages = patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
+            Messages(messages=[Message(role="user", content=[MessageContent(text="cool cool cool")])]),
+            False,
+            False,
+        )
+        assert len(messages) == 2
+        assert messages[0].role == MessageDeprecated.Role.SYSTEM
+        assert (
+            messages[0].content
+            == """Return a single JSON object enforcing the following schema:
+```json
+{
+  "properties": {}
+}
+```"""
+        )
+        assert messages[1].role == MessageDeprecated.Role.USER
+        assert messages[1].content == "cool cool cool"
+
+    def test_inlined_no_structured_output_with_tool_use(self, patched_runner: WorkflowAIRunner):
+        messages = patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
+            Messages(messages=[Message(role="user", content=[MessageContent(text="cool cool cool")])]),
+            False,
+            True,
+        )
+        assert len(messages) == 2
+        assert messages[0].role == MessageDeprecated.Role.SYSTEM
+        assert (
+            messages[0].content
+            == """Return either tool call(s) or a single JSON object enforcing the following schema:
+```json
+{
+  "properties": {}
+}
+```"""
+        )
+        assert messages[1].role == MessageDeprecated.Role.USER
+        assert messages[1].content == "cool cool cool"
+
+    @pytest.mark.parametrize(
+        "system_message",
+        [
+            ("here is a JSON schema"),
+            ("I have a json-schema"),
+            ("objects in json that match the following json_schema"),
+        ],
+    )
+    def test_no_addition_if_already_present(self, patched_runner: WorkflowAIRunner, system_message: str):
+        messages = patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
+            Messages(messages=[Message(role="system", content=[MessageContent(text=system_message)])]),
+            False,
+            False,
+        )
+        assert len(messages) == 1
+        assert messages[0].content == system_message
+
+
 def test_init() -> None:
     runner = WorkflowAIRunner(
         task_variant(),
@@ -333,52 +448,6 @@ def test_init() -> None:
         "task_variant_id": "task_version_id",
         "has_templated_instructions": False,
     }
-
-
-@pytest.fixture(scope="function")
-def mock_task():
-    # Can't really use a wrap here since we use properties
-    mock = Mock(spec=SerializableTaskVariant)
-    mock.input_schema = SerializableTaskIO(json_schema={"properties": {}}, version="v1")
-    mock.output_schema = SerializableTaskIO(json_schema={"properties": {}}, version="v1")
-    mock.name = "mock_task_name"
-    mock.id = "task_version_id"
-    mock.task_id = "task_id"
-    mock.task_schema_id = 1
-    mock.tenant = "tenant1"
-
-    def _validate_output(output: Any, *args: Any, **kwargs: Any):
-        # Not performing any validation
-        return output
-
-    mock.validate_output.side_effect = _validate_output
-    mock.compute_input_hash.return_value = "input_hash"
-    mock.compute_output_hash.return_value = "output_hash"
-
-    return mock
-
-
-@pytest.fixture
-def mock_build_properties():
-    with patch.object(
-        WorkflowAIRunner,
-        "_build_properties",
-        return_value=TaskGroupProperties(enabled_tools=[]),
-    ) as mock:
-        yield mock
-
-
-@pytest.fixture(scope="function")
-def patched_runner(mock_task: Mock, mock_build_properties: Mock):
-    yield WorkflowAIRunner(
-        mock_task,
-        options=WorkflowAIRunnerOptions(
-            instructions="",
-            model=Model.GPT_4O_2024_11_20,
-            provider=Provider.OPEN_AI,
-            template_name=TemplateName.V1,
-        ),
-    )
 
 
 class TestStreamTaskOutputFromMessages:

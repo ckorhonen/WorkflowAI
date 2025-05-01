@@ -81,7 +81,7 @@ class SuggestLlmAgentForCompanyInput(BaseModel):
         def from_internal_tool(cls, tool: InternalTool):
             return cls(
                 handle=tool.definition.name,
-                description=tool.definition.description,
+                description=tool.definition.description or "",
             )
 
     available_tools: list[ToolDescription] | None = Field(

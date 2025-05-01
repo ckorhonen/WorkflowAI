@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import re
 import time
 from collections.abc import Sequence
 from copy import deepcopy
@@ -22,7 +23,7 @@ from core.domain.errors import (
 )
 from core.domain.fields.image_options import ImageOptions
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
-from core.domain.message import MessageDeprecated, Messages
+from core.domain.message import Message, MessageContent, MessageDeprecated, Messages
 from core.domain.metrics import send_gauge
 from core.domain.models.model_data import FinalModelData, ModelData
 from core.domain.models.model_datas_mapping import MODEL_DATAS
@@ -451,6 +452,43 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
 
         return base.model_copy(update=extracted_keys), set(extracted_keys.keys())
 
+    _json_schema_regexp = re.compile(r"json[ _-]?schema", re.IGNORECASE)
+
+    def _inline_messages(
+        self,
+        messages: Messages,
+        structured_output: bool,
+        use_tools: bool,
+    ) -> list[MessageDeprecated]:
+        if structured_output or not self._prepared_output_schema.prepared_schema:
+            return messages.to_deprecated()
+
+        # Otherwise we append the output to the first system message
+        messages = messages.model_copy(deep=True)
+        try:
+            system_message = next(m for m in messages.messages if m.role in ("system", "developer"))
+        except StopIteration:
+            system_message = Message(role="system", content=[MessageContent(text="")])
+            messages.messages.insert(0, system_message)
+
+        try:
+            text_content = next(m for m in system_message.content if m.text is not None)
+        except StopIteration:
+            text_content = MessageContent(text="")
+            system_message.content.append(text_content)
+
+        if text_content.text and self._json_schema_regexp.search(text_content.text):
+            return messages.to_deprecated()
+
+        tool_call_str = "either tool call(s) or " if use_tools else ""
+        suffix = f"""Return {tool_call_str}a single JSON object enforcing the following schema:
+```json
+{json.dumps(self._prepared_output_schema.prepared_schema, indent=2)}
+```"""
+        prefix = f"{text_content.text}\n\n" if text_content.text else ""
+        text_content.text = f"{prefix}{suffix}"
+        return messages.to_deprecated()
+
     async def _build_messages(  # noqa: C901
         self,
         template_name: TemplateName,
@@ -467,7 +505,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             return await self._build_messages_for_reply(builder.reply)
 
         if isinstance(input, Messages):
-            return input.to_deprecated()
+            return self._inline_messages(input, model_data.supports_structured_output, self.is_tool_use_enabled)
 
         start_time = time.time()
         input_copy = deepcopy(input)

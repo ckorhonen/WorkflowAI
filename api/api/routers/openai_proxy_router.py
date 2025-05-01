@@ -32,6 +32,25 @@ _model_mapping = {
 }
 
 
+def _parse_model(model: str) -> Model:
+    if model in _model_mapping:
+        return _model_mapping[model]
+
+    # We try to parse the model as a Model
+    try:
+        return Model(model)
+    except ValueError:
+        pass
+
+    # Then we check if it's a unversioned model, called "latest" here
+    try:
+        return Model(model + "-latest")
+    except ValueError:
+        pass
+
+    raise BadRequestError(f"Model does not exist {model}")
+
+
 def _agent_and_model(model: str) -> tuple[str, Model]:
     agent_and_model = model.split("/")
     if len(agent_and_model) > 2:
@@ -44,15 +63,7 @@ def _agent_and_model(model: str) -> tuple[str, Model]:
         agent_name = agent_and_model[0]
         model_str = agent_and_model[1]
 
-    if model_str in _model_mapping:
-        model = _model_mapping[model_str]
-    else:
-        try:
-            model = Model(model_str)
-        except ValueError:
-            raise BadRequestError(f"Model does not exist {model}")
-
-    return agent_name, model
+    return agent_name, _parse_model(model_str)
 
 
 def _raw_string_mapper(output: Any) -> str:
@@ -123,8 +134,8 @@ async def chat_completions(
     raw_variant, output_mapper = _build_variant(agent_slug, body.response_format)
     variant, _ = await storage.store_task_resource(raw_variant)
 
-    # TODO: extract and add tool calls
-    properties = TaskGroupProperties(model=model)
+    tool_calls, deprecated_function = body.domain_tools()
+    properties = TaskGroupProperties(model=model, enabled_tools=tool_calls)
     properties.task_variant_id = variant.id
 
     runner, _ = await group_service.sanitize_groups_for_internal_runner(
@@ -143,6 +154,11 @@ async def chat_completions(
         cache="auto",
         metadata=body.metadata,
         trigger="user",
-        serializer=lambda run: OpenAIProxyChatCompletionResponse.from_domain(run, output_mapper, body.model),
+        serializer=lambda run: OpenAIProxyChatCompletionResponse.from_domain(
+            run,
+            output_mapper,
+            body.model,
+            deprecated_function,
+        ),
         start_time=request_start_time,
     )

@@ -546,7 +546,7 @@ class CompletionRequest(BaseModel):
             def from_tool(cls, tool: Tool) -> Self:
                 return cls(
                     name=internal_tool_name_to_native_tool_call(tool.name),
-                    description=tool.description,
+                    description=tool.description or "",
                     parameters=Schema.from_json_schema(JsonSchema(tool.input_schema)) if tool.input_schema else None,
                     response=Schema.from_json_schema(JsonSchema(tool.output_schema)) if tool.output_schema else None,
                 )

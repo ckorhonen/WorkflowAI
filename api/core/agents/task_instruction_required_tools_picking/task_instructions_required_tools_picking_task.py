@@ -28,9 +28,9 @@ class TaskInstructionsRequiredToolsPickingTaskInput(BaseModel):
         def from_tool_description(cls, tool_description: Tool) -> Self:
             return cls(
                 handle=tool_description.name,
-                description=tool_description.description,
+                description=tool_description.description or "",
                 input_json_schema=tool_description.input_schema,
-                output_json_schema=tool_description.output_schema,
+                output_json_schema=tool_description.output_schema or {},
             )
 
     available_tools_description: list[ToolDescriptionStr] = Field(
