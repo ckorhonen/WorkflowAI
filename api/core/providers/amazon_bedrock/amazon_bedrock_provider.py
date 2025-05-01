@@ -93,7 +93,7 @@ class AmazonBedrockProvider(HTTPXProvider[AmazonBedrockConfig, CompletionRespons
                         toolSpec=BedrockToolSpec(
                             name=internal_tool_name_to_native_tool_call(tool.name),
                             # Bedrock requires a description to be at least 1 character
-                            description=tool.description if len(tool.description) > 1 else None,
+                            description=tool.description if tool.description and len(tool.description) > 1 else None,
                             inputSchema=BedrockToolInputSchema(json=tool.input_schema),
                         ),
                     )

@@ -269,6 +269,7 @@ class TestSchemaFromJSONSchema:
             propertyOrdering=None,
             items=None,
         )
+        assert tool.output_schema
         assert GoogleSchema.from_json_schema(JsonSchema(tool.output_schema)) == Schema(
             type="STRING",
             format=None,
@@ -328,6 +329,7 @@ class TestSchemaFromJSONSchema:
             propertyOrdering=None,
             items=None,
         )
+        assert tool.output_schema
         assert GoogleSchema.from_json_schema(JsonSchema(tool.output_schema)) == Schema(
             type="NUMBER",
             format=None,
