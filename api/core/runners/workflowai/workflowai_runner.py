@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import re
 import time
 from collections.abc import Sequence
 from copy import deepcopy
@@ -451,6 +452,8 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
 
         return base.model_copy(update=extracted_keys), set(extracted_keys.keys())
 
+    _json_schema_regexp = re.compile(r"json[ _-]?schema", re.IGNORECASE)
+
     def _inline_messages(
         self,
         messages: Messages,
@@ -473,6 +476,9 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         except StopIteration:
             text_content = MessageContent(text="")
             system_message.content.append(text_content)
+
+        if text_content.text and self._json_schema_regexp.search(text_content.text):
+            return messages.to_deprecated()
 
         tool_call_str = "either tool call(s) or " if use_tools else ""
         suffix = f"""Return {tool_call_str}a single JSON object enforcing the following schema:

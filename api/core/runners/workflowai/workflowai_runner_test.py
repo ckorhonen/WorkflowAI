@@ -413,6 +413,23 @@ class TestInlineMessages:
         assert messages[1].role == MessageDeprecated.Role.USER
         assert messages[1].content == "cool cool cool"
 
+    @pytest.mark.parametrize(
+        "system_message",
+        [
+            ("here is a JSON schema"),
+            ("I have a json-schema"),
+            ("objects in json that match the following json_schema"),
+        ],
+    )
+    def test_no_addition_if_already_present(self, patched_runner: WorkflowAIRunner, system_message: str):
+        messages = patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
+            Messages(messages=[Message(role="system", content=[MessageContent(text=system_message)])]),
+            False,
+            False,
+        )
+        assert len(messages) == 1
+        assert messages[0].content == system_message
+
 
 def test_init() -> None:
     runner = WorkflowAIRunner(
