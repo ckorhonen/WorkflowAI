@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { hashInput } from '@/store/utils';
 import { TenantID } from '@/types/aliases';
 import { TaskID } from '@/types/aliases';
@@ -32,8 +32,6 @@ export function SideBySideTableRow(props: SideBySideTableRowProps) {
     taskId,
     taskSchemaId,
   } = props;
-
-  const [isHovering, setIsHovering] = useState(false);
 
   const inputSchema = taskSchema.input_schema;
   const outputSchema = taskSchema.output_schema;
@@ -84,11 +82,7 @@ export function SideBySideTableRow(props: SideBySideTableRowProps) {
   );
 
   return (
-    <div
-      className='flex items-stretch w-full border-b border-gray-100 last:border-transparent'
-      onMouseEnter={() => setIsHovering(true)}
-      onMouseLeave={() => setIsHovering(false)}
-    >
+    <div className='flex items-stretch w-full border-b border-gray-100 last:border-transparent'>
       <div className='flex flex-col w-[20%] border-r border-gray-100'>
         <SideBySideTableRowInput input={input} inputSchema={inputSchema} />
       </div>
@@ -100,7 +94,6 @@ export function SideBySideTableRow(props: SideBySideTableRowProps) {
           tenant={tenant}
           taskId={taskId}
           taskSchemaId={taskSchemaId}
-          isHovering={isHovering}
           inputHash={inputHash}
           versionId={selectedLeftVersion?.id}
           modelId={undefined}
@@ -115,7 +108,6 @@ export function SideBySideTableRow(props: SideBySideTableRowProps) {
           tenant={tenant}
           taskId={taskId}
           taskSchemaId={taskSchemaId}
-          isHovering={isHovering}
           inputHash={inputHash}
           versionId={selectedRightVersion?.id}
           modelId={selectedRightModel?.id}
