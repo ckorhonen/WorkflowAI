@@ -135,7 +135,12 @@ async def chat_completions(
     variant, _ = await storage.store_task_resource(raw_variant)
 
     tool_calls, deprecated_function = body.domain_tools()
-    properties = TaskGroupProperties(model=model, enabled_tools=tool_calls)
+    properties = TaskGroupProperties(
+        model=model,
+        enabled_tools=tool_calls,
+        max_tokens=body.max_completion_tokens or body.max_tokens,
+        temperature=body.temperature,
+    )
     properties.task_variant_id = variant.id
 
     runner, _ = await group_service.sanitize_groups_for_internal_runner(
@@ -152,7 +157,7 @@ async def chat_completions(
         task_run_id=None,
         stream_serializer=None,
         cache="auto",
-        metadata=body.metadata,
+        metadata=body.full_metadata(),
         trigger="user",
         serializer=lambda run: OpenAIProxyChatCompletionResponse.from_domain(
             run,
