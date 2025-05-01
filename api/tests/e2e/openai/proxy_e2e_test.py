@@ -9,7 +9,7 @@ from openai.types.chat.chat_completion import ChatCompletion
 load_dotenv(override=True)
 
 openai.api_key = os.environ["WORKFLOWAI_API_KEY"]
-openai.base_url = f"{os.environ['WORKFLOWAI_API_URL']}/v1/"
+openai.base_url = "https://run.workflowai.dev/v1/"
 
 
 def _print(res: Any):

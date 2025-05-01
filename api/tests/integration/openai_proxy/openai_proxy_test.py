@@ -1,5 +1,6 @@
 import pytest
 from openai import AsyncOpenAI
+from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall, Function
 
 from tests.integration.common import IntegrationTestClient
 from tests.integration.conftest import _TEST_JWT  # pyright: ignore [reportPrivateUsage]
@@ -117,3 +118,56 @@ async def test_with_image(test_client: IntegrationTestClient, openai_client: Asy
     assert res.choices[0].message.content == "This is a test image"
 
     await test_client.wait_for_completed_tasks()
+
+
+async def test_with_tools(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+    test_client.mock_openai_call(
+        raw_content="",
+        tool_calls_content=[
+            {
+                "id": "1",
+                "type": "function",
+                "function": {
+                    "name": "test",
+                    "arguments": '{"arg": "value"}',
+                },
+            },
+        ],
+    )
+
+    res = await openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {
+                "role": "user",
+                "content": "Hello",
+            },
+        ],
+        tools=[
+            {
+                "type": "function",
+                "function": {
+                    "name": "test",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "arg": {
+                                "type": "string",
+                            },
+                        },
+                    },
+                },
+            },
+        ],
+    )
+    assert res.choices[0].message.content == ""
+    assert res.choices[0].message.tool_calls == [
+        ChatCompletionMessageToolCall(
+            id="1",
+            type="function",
+            function=Function(
+                name="test",
+                arguments='{"arg": "value"}',
+            ),
+        ),
+    ]
