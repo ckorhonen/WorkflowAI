@@ -9,6 +9,7 @@ from jinja2.meta import find_undeclared_variables
 from jinja2.visitor import NodeVisitor
 
 from core.domain.errors import BadRequestError
+from core.domain.types import TemplateRenderer
 
 # Compiled regepx to check if instructions are a template
 # Jinja templates use  {%%} for expressions {{}} for variables and {# ... #} for comments
@@ -71,6 +72,22 @@ class TemplateManager:
 
         rendered = await compiled.render_async(data)
         return rendered, variables
+
+    @classmethod
+    async def _noop_renderer(cls, template: str | None) -> str | None:
+        return template
+
+    def renderer(self, data: dict[str, Any] | None) -> TemplateRenderer:
+        if not data:
+            return self._noop_renderer
+
+        async def _render(template: str | None):
+            if not template:
+                return template
+            rendered, _ = await self.render_template(template, data)
+            return rendered
+
+        return _render
 
 
 class _SchemaBuilder(NodeVisitor):

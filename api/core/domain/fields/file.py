@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import mimetypes
 from base64 import b64decode
@@ -5,6 +6,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field, model_validator
 
+from core.domain.errors import InternalError
+from core.domain.types import TemplateRenderer
 from core.utils.file_utils.file_utils import guess_content_type
 
 _logger = logging.getLogger(__file__)
@@ -31,7 +34,6 @@ class File(BaseModel):
             return f"data:{self.content_type or default_content_type};base64,{self.data}"
         if self.url:
             return self.url
-        from core.domain.errors import InternalError
 
         raise InternalError("No data or URL provided for image")
 
@@ -102,6 +104,23 @@ class File(BaseModel):
         if self.data:
             return b64decode(self.data)
         return None
+
+    async def templated(self, renderer: TemplateRenderer):
+        try:
+            content_type, data, url = await asyncio.gather(
+                renderer(self.content_type),
+                renderer(self.data),
+                renderer(self.url),
+            )
+        except ExceptionGroup as e:
+            # Raising the first exception, to avoid having a special kind of exception to handle
+            # This is not great and we should return a compound instead
+            raise e.exceptions[0]
+        return File(
+            content_type=content_type,
+            data=data,
+            url=url,
+        )
 
 
 def _parse_data_url(data_url: str) -> tuple[str, str]:
