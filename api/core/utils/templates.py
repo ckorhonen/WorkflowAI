@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import re
 from collections.abc import Mapping, Sequence
 from typing import Any
@@ -10,6 +11,7 @@ from jinja2.visitor import NodeVisitor
 
 from core.domain.errors import BadRequestError
 from core.domain.types import TemplateRenderer
+from core.utils.schemas import JsonSchema
 
 # Compiled regepx to check if instructions are a template
 # Jinja templates use  {%%} for expressions {{}} for variables and {# ... #} for comments
@@ -91,58 +93,57 @@ class TemplateManager:
 
 
 class _SchemaBuilder(NodeVisitor):
-    def __init__(self):
-        self._schema: dict[str, Any] = {"type": "object", "properties": {}}
+    def __init__(self, existing_schema: dict[str, Any] | None = None):
+        # A graph of visited paths
+        self._visited_paths: dict[str, Any] = {}
         self._aliases: list[Mapping[str, Any]] = []
+        self._existing_schema = JsonSchema(existing_schema) if existing_schema else None
 
-    # ---- helpers ----------------------------------------------------------
+    def build_schema(self) -> Mapping[str, Any]:
+        if not self._visited_paths:
+            return {}
+        schema: dict[str, Any] = {}
+        self._handle_components(schema=schema, existing=self._existing_schema, components=self._visited_paths)
+        return schema
+
     def _ensure_path(self, path: Sequence[str]):
         """
         Given a tuple like ('order', 'items', '*', 'price')
-        make sure the schema contains the corresponding nested structure.
+        add the path to the visited graph
         """
-        cur = self._schema
-        for i, part in enumerate(path):
-            last = i == len(path) - 1
+        cur = self._visited_paths
+        for p in path:
+            cur = cur.setdefault(p, {})
 
-            # Array ­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­
-            if part == "*":
-                if cur.get("type") != "array":
-                    cur.update(
-                        {
-                            "type": "array",
-                            "items": {"type": "object", "properties": {}},
-                        },
-                    )
-                cur = cur["items"]
-                continue
+    def _handle_components(self, schema: dict[str, Any], existing: JsonSchema | None, components: dict[str, Any]):
+        if not components:
+            if existing:
+                schema.update(copy.deepcopy(existing.schema))
+                return
+            schema.setdefault("type", "string")
+            return
 
-            # Object ­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­
-            cur.setdefault("type", "object")
-            cur.setdefault("properties", {})
-            cur = cur["properties"].setdefault(part, {})
+        if len(components) == 1 and "*" in components:
+            # We are in an array. We can just add the array type and dive
+            existing = existing.safe_child_schema(0) if existing else None
+            schema["type"] = "array"
+            schema["items"] = {}
+            schema = schema["items"]
+            components = components["*"]
 
-            if last:
-                # crude default ‑‑ upgrade later if you have better hints
-                cur.setdefault("type", "string")
+            self._handle_components(schema, existing, components)
+            return
 
-    def _collect_chain(self, node: nodes.Node):
-        """Turn nested getattr/getitem into a tuple path.
-        This can't be combined with _ensure_path since we the order is reversed
-        """
-        path: list[str] = []
-        while isinstance(node, (nodes.Getattr, nodes.Getitem)):
-            match node:
-                case nodes.Getattr():
-                    path.insert(0, node.attr)
-                    node = node.node
-                case nodes.Getitem():
-                    path.insert(0, "*")
-                    node = node.node
+        schema["type"] = "object"
+        schema["properties"] = {}
+        schema = schema["properties"]
 
-        if isinstance(node, nodes.Name):
-            path.insert(0, node.name)
-            self._ensure_path(path)
+        for k, v in components.items():
+            self._handle_components(
+                schema=schema.setdefault(k, {}),
+                existing=existing.safe_child_schema(k) if existing else None,
+                components=v,
+            )
 
     def _push_scope(self, mapping: Mapping[str, Any] | None):
         self._aliases.append(mapping or {})
@@ -228,18 +229,14 @@ class _SchemaBuilder(NodeVisitor):
     def visit_Call(self, node: nodes.Call):
         raise BadRequestError("Template functions are not supported", capture=True)
 
-    @property
-    def schema(self) -> Mapping[str, Any]:
-        return self._schema
 
-
-def extract_variable_schema(template: str) -> Mapping[str, Any]:
+def extract_variable_schema(template: str, existing_schema: dict[str, Any] | None = None) -> Mapping[str, Any]:
     env = Environment()
     try:
         ast = env.parse(template)
     except TemplateError as e:
         raise InvalidTemplateError.from_jinja(e)
 
-    builder = _SchemaBuilder()
+    builder = _SchemaBuilder(existing_schema)
     builder.visit(ast)
-    return builder.schema
+    return builder.build_schema()

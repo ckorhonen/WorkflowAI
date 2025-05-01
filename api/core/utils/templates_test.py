@@ -191,9 +191,66 @@ class TestExtractVariableSchema:
 
     def test_no_variables(self):
         schema = extract_variable_schema("Just plain text.")
-        assert schema == {"type": "object", "properties": {}}
+        assert schema == {}
 
     def test_function_call_raises_error(self):
         # Functions are not supported
         with pytest.raises(BadRequestError, match="Template functions are not supported"):
             extract_variable_schema("{{ my_func() }}")
+
+    def test_single_array(self):
+        schema = extract_variable_schema("{% for item in seq %}{{ item }}{% endfor %}")
+        assert schema == {
+            "type": "object",
+            "properties": {"seq": {"type": "array", "items": {"type": "string"}}},
+        }
+
+    def test_existing_schema(self):
+        schema = extract_variable_schema(
+            "{{ name }} {{ counter}}",
+            existing_schema={
+                "type": "object",
+                "properties": {
+                    "counter": {"type": "integer", "description": "The counter"},
+                },
+            },
+        )
+        assert schema == {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "counter": {"type": "integer", "description": "The counter"},
+            },
+        }
+
+    def test_existing_schema_with_array(self):
+        schema = extract_variable_schema(
+            "{% for user in users %}{{ user.name }} {{ user.counter }} {% endfor %}",
+            existing_schema={
+                "type": "object",
+                "properties": {
+                    "users": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {"name": {"type": "string", "description": "The name of the user"}},
+                        },
+                    },
+                },
+            },
+        )
+        assert schema == {
+            "type": "object",
+            "properties": {
+                "users": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string", "description": "The name of the user"},
+                            "counter": {"type": "string"},
+                        },
+                    },
+                },
+            },
+        }

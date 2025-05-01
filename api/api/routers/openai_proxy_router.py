@@ -20,6 +20,7 @@ from core.domain.task_io import RawJSONMessageSchema, RawMessagesSchema, RawStri
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.types import AgentOutput
 from core.domain.version_reference import VersionReference
+from core.utils.strings import to_pascal_case
 
 router = APIRouter(prefix="", tags=["openai"])
 
@@ -71,7 +72,18 @@ def _output_json_mapper(output: AgentOutput) -> str:
     return json.dumps(output)
 
 
-def _build_variant(agent_slug: str, response_format: OpenAIProxyResponseFormat | None):
+def _json_schema_from_input(messages: Messages, input: dict[str, Any] | None) -> SerializableTaskIO:
+    raise NotImplementedError("Not implemented")
+
+
+def _build_variant(
+    messages: Messages,
+    agent_slug: str | None,
+    input: dict[str, Any] | None,
+    response_format: OpenAIProxyResponseFormat | None,
+):
+    input_schema = _json_schema_from_input(messages, input)
+
     if response_format:
         match response_format.type:
             case "text":
@@ -91,13 +103,16 @@ def _build_variant(agent_slug: str, response_format: OpenAIProxyResponseFormat |
         output_schema = RawStringMessageSchema
         mapper = _raw_string_mapper
 
+    if not agent_slug:
+        agent_slug = "default"
+
     return SerializableTaskVariant(
         id="",
         task_schema_id=0,
         task_id=agent_slug,
         input_schema=RawMessagesSchema,
         output_schema=output_schema,
-        name=agent_slug,
+        name=to_pascal_case(agent_slug),
     ), mapper
 
 
@@ -123,13 +138,11 @@ async def chat_completions(
     run_service: RunServiceDep,
     request: Request,
 ) -> Response:
+    messages = Messages(messages=[m.to_domain() for m in body.messages])
     request_start_time = get_start_time(request)
     # First we need to locate the agent
     agent_slug, model = _agent_and_model(body.model)
-    if not agent_slug:
-        agent_slug = body.agent_id or "default"
-
-    raw_variant, output_mapper = _build_variant(agent_slug, body.response_format)
+    raw_variant, output_mapper = _build_variant(messages, agent_slug, body.input, body.response_format)
     variant, _ = await storage.store_task_resource(raw_variant)
 
     tool_calls, deprecated_function = body.domain_tools()
@@ -154,7 +167,7 @@ async def chat_completions(
 
     return await run_service.run(
         runner=runner,
-        task_input=Messages(messages=[m.to_domain() for m in body.messages]),
+        task_input=messages,
         task_run_id=None,
         cache="auto",
         metadata=body.full_metadata(request.headers),
