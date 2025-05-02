@@ -74,6 +74,8 @@ class MistralAIProvider(HTTPXProvider[MistralAIConfig, CompletionResponse]):
             max_tokens=options.max_tokens,
             stream=stream,
         )
+        if not options.output_schema:
+            request.response_format = ResponseFormat(type="text")
 
         if options.enabled_tools is not None and options.enabled_tools != []:
             # Can't use json_object with tools

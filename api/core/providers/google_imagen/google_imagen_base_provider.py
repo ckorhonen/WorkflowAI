@@ -6,6 +6,7 @@ from typing import Any, AsyncGenerator, override
 
 from httpx import Response
 
+from core.domain.fields.file import File
 from core.domain.fields.image_options import ImageOptions
 from core.domain.llm_completion import LLMCompletion
 from core.domain.message import MessageDeprecated
@@ -18,7 +19,6 @@ from core.providers.base.models import RawCompletion, StandardMessage
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.google_imagen.google_imagen_domain import GoogleImagenRequest, GoogleImagenResponse
 from core.runners.workflowai.templates import TemplateName
-from core.runners.workflowai.utils import FileWithKeyPath
 
 _logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class GoogleImagenBaseProvider(HTTPXProviderBase[ProviderConfigVar, GoogleImagen
         return False
 
     @classmethod
-    def requires_downloading_file(cls, file: FileWithKeyPath, model: Model) -> bool:
+    def requires_downloading_file(cls, file: File, model: Model) -> bool:
         return True
 
     @override

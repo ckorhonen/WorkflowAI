@@ -270,7 +270,7 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
     store: bool | None = None
     stream: bool | None = None
     stream_options: OpenAIProxyStreamOptions | None = None
-    temperature: float | None = None
+    temperature: float = 1  # default OAI temperature differs from own default
     tool_choice: str | OpenAIProxyToolChoice | None = None
     tools: list[OpenAIProxyTool] | None = None
     top_logprobs: int | None = None

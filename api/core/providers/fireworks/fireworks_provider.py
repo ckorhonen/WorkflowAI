@@ -14,6 +14,7 @@ from core.domain.errors import (
     MissingModelError,
     UnknownProviderError,
 )
+from core.domain.fields.file import File
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
@@ -37,6 +38,7 @@ from core.providers.fireworks.fireworks_domain import (
     FireworksToolMessage,
     JSONResponseFormat,
     StreamedResponse,
+    TextResponseFormat,
 )
 from core.providers.google.google_provider_domain import (
     internal_tool_name_to_native_tool_call,
@@ -44,7 +46,6 @@ from core.providers.google.google_provider_domain import (
 )
 from core.providers.openai.openai_domain import parse_tool_call_or_raise
 from core.runners.workflowai.templates import TemplateName
-from core.runners.workflowai.utils import FileWithKeyPath
 from core.utils.redis_cache import redis_cached
 
 _NAME_OVERRIDE_MAP = {
@@ -91,6 +92,8 @@ class FireworksAIProvider(HTTPXProvider[FireworksConfig, CompletionResponse]):
     _thinking_tag_context = ContextVar[bool | None]("_thinking_tag_context", default=None)
 
     def _response_format(self, options: ProviderOptions, model_data: ModelData):
+        if not options.output_schema:
+            return TextResponseFormat()
         if options.enabled_tools:
             # We disable structured generation if tools are enabled
             # TODO: check why
@@ -315,7 +318,7 @@ class FireworksAIProvider(HTTPXProvider[FireworksConfig, CompletionResponse]):
 
     @override
     @classmethod
-    def requires_downloading_file(cls, file: FileWithKeyPath, model: Model) -> bool:
+    def requires_downloading_file(cls, file: File, model: Model) -> bool:
         return True
 
     @override

@@ -16,6 +16,7 @@ from core.domain.errors import (
     StructuredGenerationError,
     UnknownProviderError,
 )
+from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.models import Model
@@ -31,7 +32,6 @@ from core.providers.google.google_provider_domain import (
     native_tool_name_to_internal,
 )
 from core.providers.openai._openai_utils import get_openai_json_schema_name, prepare_openai_json_schema
-from core.runners.workflowai.utils import FileWithKeyPath
 from core.utils.redis_cache import redis_cached
 
 from .openai_domain import (
@@ -329,7 +329,7 @@ class OpenAIProviderBase(HTTPXProvider[_OpenAIConfigVar, CompletionResponse], Ge
             return super()._unknown_error_message(response)
 
     @classmethod
-    def requires_downloading_file(cls, file: FileWithKeyPath, model: Model) -> bool:
+    def requires_downloading_file(cls, file: File, model: Model) -> bool:
         # OpenAI requires downloading files for non-image files
         return not file.is_image
 

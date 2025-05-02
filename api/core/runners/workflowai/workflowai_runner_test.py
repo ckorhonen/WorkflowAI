@@ -363,9 +363,10 @@ Output:
 
 
 class TestInlineMessages:
-    def test_inlined_structured_output(self, patched_runner: WorkflowAIRunner):
-        messages = patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
+    async def test_inlined_structured_output(self, patched_runner: WorkflowAIRunner):
+        messages = await patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
             Messages(messages=[Message(role="user", content=[MessageContent(text="cool cool cool")])]),
+            Mock(),
             True,
             False,
         )
@@ -373,9 +374,10 @@ class TestInlineMessages:
         assert messages[0].role == MessageDeprecated.Role.USER
         assert messages[0].content == "cool cool cool"
 
-    def test_inlined_no_structured_output(self, patched_runner: WorkflowAIRunner):
-        messages = patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
+    async def test_inlined_no_structured_output(self, patched_runner: WorkflowAIRunner):
+        messages = await patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
             Messages(messages=[Message(role="user", content=[MessageContent(text="cool cool cool")])]),
+            Mock(),
             False,
             False,
         )
@@ -393,9 +395,10 @@ class TestInlineMessages:
         assert messages[1].role == MessageDeprecated.Role.USER
         assert messages[1].content == "cool cool cool"
 
-    def test_inlined_no_structured_output_with_tool_use(self, patched_runner: WorkflowAIRunner):
-        messages = patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
+    async def test_inlined_no_structured_output_with_tool_use(self, patched_runner: WorkflowAIRunner):
+        messages = await patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
             Messages(messages=[Message(role="user", content=[MessageContent(text="cool cool cool")])]),
+            Mock(),
             False,
             True,
         )
@@ -421,9 +424,10 @@ class TestInlineMessages:
             ("objects in json that match the following json_schema"),
         ],
     )
-    def test_no_addition_if_already_present(self, patched_runner: WorkflowAIRunner, system_message: str):
-        messages = patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
+    async def test_no_addition_if_already_present(self, patched_runner: WorkflowAIRunner, system_message: str):
+        messages = await patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
             Messages(messages=[Message(role="system", content=[MessageContent(text=system_message)])]),
+            Mock(),
             False,
             False,
         )

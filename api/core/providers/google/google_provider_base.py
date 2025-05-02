@@ -45,7 +45,6 @@ from core.providers.google.google_provider_domain import (
     message_or_system_message,
     native_tool_name_to_internal,
 )
-from core.runners.workflowai.utils import FileWithKeyPath
 from core.services.message import merge_messages
 from core.tools import ToolKind
 from core.utils.models.dumps import safe_dump_pydantic_model
@@ -151,10 +150,9 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
 
         generation_config = CompletionRequest.GenerationConfig(
             temperature=options.temperature,
-            # TODO[max-tokens]: Set the max token from the context data
             maxOutputTokens=options.max_tokens,
             responseMimeType="application/json"
-            if (model_data.supports_json_mode and not options.enabled_tools)
+            if (model_data.supports_json_mode and not options.enabled_tools and options.output_schema)
             # Google does not allow setting the response mime type at all when using tools.
             else "text/plain",
             thinking_config=thinking_config,
@@ -331,7 +329,8 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
 
     @override
     @classmethod
-    def requires_downloading_file(cls, file: FileWithKeyPath, model: Model) -> bool:
+    def requires_downloading_file(cls, file: File, model: Model) -> bool:
+        return True
         if model in MODELS_THAT_REQUIRE_DOWNLOADING_FILES:
             # Experimental models only support files passed by GCP URLs or base64 encoded strings
             return True

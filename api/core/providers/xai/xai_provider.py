@@ -14,6 +14,7 @@ from core.domain.errors import (
     ProviderInvalidFileError,
     UnknownProviderError,
 )
+from core.domain.fields.file import File
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
@@ -40,6 +41,7 @@ from core.providers.xai.xai_domain import (
     JSONSchemaResponseFormat,
     StreamedResponse,
     StreamOptions,
+    TextResponseFormat,
     Tool,
     ToolFunction,
     XAIError,
@@ -47,11 +49,12 @@ from core.providers.xai.xai_domain import (
     XAISchema,
     XAIToolMessage,
 )
-from core.runners.workflowai.utils import FileWithKeyPath
 
 
 class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
     def _response_format(self, options: ProviderOptions, model_data: ModelData):
+        if not options.output_schema:
+            return TextResponseFormat()
         if not should_use_structured_output(options, model_data) or not options.output_schema:
             return JSONResponseFormat()
 
@@ -198,7 +201,7 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
 
     @override
     @classmethod
-    def requires_downloading_file(cls, file: FileWithKeyPath, model: Model) -> bool:
+    def requires_downloading_file(cls, file: File, model: Model) -> bool:
         return False
 
     @override
