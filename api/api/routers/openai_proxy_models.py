@@ -1,4 +1,5 @@
 import json
+import logging
 from collections.abc import Callable
 from typing import Any, Literal
 
@@ -21,6 +22,8 @@ from core.tools import ToolKind
 # for example if OpenAI decides to change their API or we missed some param in the request
 #
 # Also all models have extra allowed so we can track extra values that we may have missed
+
+_logger = logging.getLogger(__name__)
 
 
 class OpenAIAudioInput(BaseModel):
@@ -215,6 +218,31 @@ class OpenAIProxyWebSearchOptions(BaseModel):
     user_location: dict[str, Any] | None = None
 
 
+_UNSUPPORTED_FIELDS = {
+    "frequency_penalty",
+    "logit_bias",
+    "logprobs",
+    "modalities",
+    "n",
+    "prediction",
+    "presence_penalty",
+    "reasoning_effort",
+    "seed",
+    "service_tier",
+    "stop",
+    "tool_choice",
+    "top_logprobs",
+    "top_p",
+    "web_search_options",
+}
+_IGNORED_FIELDS = {
+    "function_call",
+    "user",
+    "store",
+    "parallel_tool_calls",
+}
+
+
 class OpenAIProxyChatCompletionRequest(BaseModel):
     messages: list[OpenAIProxyMessage]
     model: str
@@ -265,6 +293,22 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
         if self.functions:
             return [t.to_domain() for t in self.functions], True
         return None, False
+
+    def full_metadata(self) -> dict[str, Any] | None:
+        base = self.metadata
+        if self.user:
+            if not base:
+                base = {}
+            base["user"] = self.user
+        return base
+
+    def _check_fields(self):
+        set_fields = self.model_fields_set
+        for field in _UNSUPPORTED_FIELDS:
+            if field in set_fields:
+                raise BadRequestError(f"Field {field} is not supported", capture=True)
+        for field in _IGNORED_FIELDS:
+            _logger.warning(f"Field {field} is ignored by openai proxy")  # noqa: G004
 
 
 # --- Response Models ---
