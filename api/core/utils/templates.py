@@ -1,10 +1,14 @@
 import asyncio
 import re
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from cachetools import LRUCache
-from jinja2 import Environment, Template, TemplateError
+from jinja2 import Environment, Template, TemplateError, nodes
 from jinja2.meta import find_undeclared_variables
+from jinja2.visitor import NodeVisitor
+
+from core.domain.errors import BadRequestError
 
 # Compiled regepx to check if instructions are a template
 # Jinja templates use  {%%} for expressions {{}} for variables and {# ... #} for comments
@@ -67,3 +71,158 @@ class TemplateManager:
 
         rendered = await compiled.render_async(data)
         return rendered, variables
+
+
+class _SchemaBuilder(NodeVisitor):
+    def __init__(self):
+        self._schema: dict[str, Any] = {"type": "object", "properties": {}}
+        self._aliases: list[Mapping[str, Any]] = []
+
+    # ---- helpers ----------------------------------------------------------
+    def _ensure_path(self, path: Sequence[str]):
+        """
+        Given a tuple like ('order', 'items', '*', 'price')
+        make sure the schema contains the corresponding nested structure.
+        """
+        cur = self._schema
+        for i, part in enumerate(path):
+            last = i == len(path) - 1
+
+            # Array ­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­
+            if part == "*":
+                if cur.get("type") != "array":
+                    cur.update(
+                        {
+                            "type": "array",
+                            "items": {"type": "object", "properties": {}},
+                        },
+                    )
+                cur = cur["items"]
+                continue
+
+            # Object ­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­
+            cur.setdefault("type", "object")
+            cur.setdefault("properties", {})
+            cur = cur["properties"].setdefault(part, {})
+
+            if last:
+                # crude default ‑‑ upgrade later if you have better hints
+                cur.setdefault("type", "string")
+
+    def _collect_chain(self, node: nodes.Node):
+        """Turn nested getattr/getitem into a tuple path.
+        This can't be combined with _ensure_path since we the order is reversed
+        """
+        path: list[str] = []
+        while isinstance(node, (nodes.Getattr, nodes.Getitem)):
+            match node:
+                case nodes.Getattr():
+                    path.insert(0, node.attr)
+                    node = node.node
+                case nodes.Getitem():
+                    path.insert(0, "*")
+                    node = node.node
+
+        if isinstance(node, nodes.Name):
+            path.insert(0, node.name)
+            self._ensure_path(path)
+
+    def _push_scope(self, mapping: Mapping[str, Any] | None):
+        self._aliases.append(mapping or {})
+
+    def _pop_scope(self):
+        self._aliases.pop()
+
+    def _lookup_alias(self, name: str) -> Any | None:
+        # walk stack from innermost to outermost
+        for scope in reversed(self._aliases):
+            if name in scope:
+                return scope[name]
+        return None
+
+    def _expr_to_path(self, node: nodes.Node) -> list[str] | None:
+        """Return tuple path for Name/Getattr/Getitem chains, else None."""
+        path: list[str] = []
+        while isinstance(node, (nodes.Getattr, nodes.Getitem)):
+            if isinstance(node, nodes.Getattr):
+                path.insert(0, node.attr)
+                node = node.node
+            else:  # Getitem  -> wildcard
+                path.insert(0, "*")
+                node = node.node
+        if isinstance(node, nodes.Name):
+            alias = self._lookup_alias(node.name)
+            if alias is not None:
+                path = list(alias) + path  # expand alias
+            else:
+                path.insert(0, node.name)
+            return path
+        return None
+
+    # ---- NodeVisitor interface -------------------------------------------
+    # No overrides below, names are dynamically generated
+
+    def visit_Name(self, node: nodes.Name):
+        path = self._expr_to_path(node)
+        if path:
+            self._ensure_path(path)
+
+    def visit_Getattr(self, node: nodes.Getattr):
+        path = self._expr_to_path(node)
+        if path:
+            self._ensure_path(path)
+
+    def visit_Getitem(self, node: nodes.Getitem):
+        path = self._expr_to_path(node)
+        if path:
+            self._ensure_path(path)
+
+    def visit_For(self, node: nodes.For):
+        # {% for item in order.items %}  -> order.items is iterable
+        # 1) resolve iterable path and mark it as array
+        iter_path = self._expr_to_path(node.iter)
+        if iter_path is None:
+            self.generic_visit(node)
+            return
+
+        if iter_path[-1] != "*":
+            iter_path.append("*")
+        self._ensure_path(iter_path)
+
+        # 2) create alias mapping(s) for loop target(s)
+        alias_map: dict[str, list[str]] = {}
+
+        def add_alias(target: nodes.Node, base_path: list[str]):
+            if isinstance(target, nodes.Name):
+                alias_map[target.name] = base_path
+            elif isinstance(target, nodes.Tuple):
+                for t in target.items:
+                    add_alias(t, base_path + ["*"])
+
+        add_alias(node.target, iter_path)
+        self._push_scope(alias_map)
+
+        # 3) process the loop body
+        self.generic_visit(node)
+
+        # 4) pop alias scope
+        self._pop_scope()
+
+    def visit_Call(self, node: nodes.Call):
+        raise BadRequestError("Template functions are not supported", capture=True)
+
+    @property
+    def schema(self) -> Mapping[str, Any]:
+        return self._schema
+
+
+def extract_variable_schema(template: str) -> Mapping[str, Any]:
+    env = Environment()
+    try:
+        ast = env.parse(template)
+    except TemplateError as e:
+        raise InvalidTemplateError.from_jinja(e)
+
+    builder = _SchemaBuilder()
+    builder.visit(ast)
+    return builder.schema

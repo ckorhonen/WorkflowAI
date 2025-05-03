@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from datetime import datetime, timedelta
 from typing import Annotated, Any
 
@@ -10,6 +11,7 @@ from api.dependencies.services import AnalyticsServiceDep
 from api.dependencies.storage import StorageDep
 from api.tags import RouteTags
 from core.domain.analytics_events.analytics_events import CreatedTaskProperties, TaskProperties
+from core.domain.errors import BadRequestError
 from core.domain.events import TaskSchemaCreatedEvent
 from core.domain.fields.chat_message import ChatMessage
 from core.domain.page import Page
@@ -17,6 +19,7 @@ from core.domain.task_io import SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
 from core.utils import strings
 from core.utils.fields import datetime_factory
+from core.utils.templates import InvalidTemplateError, extract_variable_schema
 
 router = APIRouter(prefix="/v1/{tenant}/agents", tags=[RouteTags.AGENTS])
 
@@ -154,3 +157,20 @@ async def get_agent_stats(
         async for stat in storage.task_runs.run_count_by_agent_uid(from_date)
     ]
     return Page(items=items)
+
+
+class ExtractTemplateRequest(BaseModel):
+    template: str
+
+
+class ExtractTemplateResponse(BaseModel):
+    json_schema: Mapping[str, Any]
+
+
+@router.post("/{agent_id}/templates/extract")
+async def extract_template(request: ExtractTemplateRequest) -> ExtractTemplateResponse:
+    try:
+        json_schema = extract_variable_schema(request.template)
+    except InvalidTemplateError as e:
+        raise BadRequestError(e.message)
+    return ExtractTemplateResponse(json_schema=json_schema)
