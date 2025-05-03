@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from datetime import datetime, timedelta
 from typing import Annotated, Any
 
@@ -17,6 +18,7 @@ from core.domain.task_io import SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
 from core.utils import strings
 from core.utils.fields import datetime_factory
+from core.utils.templates import extract_variable_schema
 
 router = APIRouter(prefix="/v1/{tenant}/agents", tags=[RouteTags.AGENTS])
 
@@ -154,3 +156,17 @@ async def get_agent_stats(
         async for stat in storage.task_runs.run_count_by_agent_uid(from_date)
     ]
     return Page(items=items)
+
+
+class ExtractTemplateRequest(BaseModel):
+    template: str
+
+
+class ExtractTemplateResponse(BaseModel):
+    json_schema: Mapping[str, Any]
+
+
+@router.post("/{agent_id}/templates/extract")
+async def extract_template(request: ExtractTemplateRequest) -> ExtractTemplateResponse:
+    json_schema = extract_variable_schema(request.template)
+    return ExtractTemplateResponse(json_schema=json_schema)
