@@ -218,7 +218,11 @@ class _SchemaBuilder(NodeVisitor):
 
 def extract_variable_schema(template: str) -> Mapping[str, Any]:
     env = Environment()
-    ast = env.parse(template)
+    try:
+        ast = env.parse(template)
+    except TemplateError as e:
+        raise InvalidTemplateError.from_jinja(e)
+
     builder = _SchemaBuilder()
     builder.visit(ast)
     return builder.schema
