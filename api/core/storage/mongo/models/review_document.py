@@ -114,6 +114,6 @@ class ReviewDocument(BaseDocumentWithID, TaskIdAndSchemaMixin):
     @model_validator(mode="after")
     def compute_eval_hash(self):
         # Only compute the eval hash if it's not already set and if all the required fields are present
-        if not self.eval_hash and self.task_input_hash and self.task_output_hash and self.task_schema_id:
+        if not self.eval_hash and self.task_input_hash and self.task_schema_id:
             self.eval_hash = compute_eval_hash(self.task_schema_id, self.task_input_hash, self.task_output_hash)
         return self

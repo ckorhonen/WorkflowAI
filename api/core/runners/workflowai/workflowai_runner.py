@@ -795,7 +795,9 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         )
 
         if output.files:
-            assign_files(self.task.output_schema.json_schema, output.files, output.output)
+            output_dict: dict[str, Any] = output.output or {}
+            assign_files(self.task.output_schema.json_schema, output.files, output_dict)
+            output = output._replace(output=output_dict)
 
         return RunOutput(
             task_output=output.output,
