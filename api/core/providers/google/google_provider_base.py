@@ -330,7 +330,6 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
     @override
     @classmethod
     def requires_downloading_file(cls, file: File, model: Model) -> bool:
-        return True
         if model in MODELS_THAT_REQUIRE_DOWNLOADING_FILES:
             # Experimental models only support files passed by GCP URLs or base64 encoded strings
             return True

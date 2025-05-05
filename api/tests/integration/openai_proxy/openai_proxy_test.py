@@ -29,7 +29,7 @@ async def test_raw_string_output(test_client: IntegrationTestClient, openai_clie
     assert run["task_output"] == "Hello James!"
 
     agent = await test_client.get(f"/_/agents/{task_id}/schemas/1")
-    assert agent["output_schema"]["json_schema"] == {"type": "string"}
+    assert agent["output_schema"]["json_schema"] == {"type": "string", "format": "message"}
 
 
 async def test_raw_json_mode(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
@@ -50,7 +50,7 @@ async def test_raw_json_mode(test_client: IntegrationTestClient, openai_client: 
     assert run["task_output"] == {"whatever": "Hello world"}
 
     agent = await test_client.get(f"/_/agents/{task_id}/schemas/1")
-    assert agent["output_schema"]["json_schema"] == {}
+    assert agent["output_schema"]["json_schema"] == {"format": "message"}
 
 
 async def test_raw_json_mode_array(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):

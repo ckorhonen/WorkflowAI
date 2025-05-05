@@ -11,7 +11,7 @@ from tests.integration.common import (
     IntegrationTestClient,
     vertex_url_matcher,
 )
-from tests.utils import fixture_bytes, request_json_body
+from tests.utils import request_json_body
 
 
 @patch.dict(os.environ, {"GOOGLE_VERTEX_AI_LOCATION": "us-central1,us-east4,us-west1"})
@@ -95,7 +95,7 @@ async def test_pdf_no_conversion(test_client: IntegrationTestClient):
     test_client.httpx_mock.add_response(
         url="https://hello.com/world.pdf",
         status_code=200,
-        content=fixture_bytes("files/MSFT_SEC.pdf"),
+        content=b"Hello world pdf",
     )
 
     task_input = {
