@@ -1058,7 +1058,7 @@ class TestBuildStructuredOutput:
             None,
             tool_calls,
         )
-        assert output.output == {}  # Empty output when validation fails but tool calls exist
+        assert output.output is None  # Empty output when validation fails but tool calls exist
         assert output.reasoning_steps is None
         assert output.tool_calls == tool_calls
 

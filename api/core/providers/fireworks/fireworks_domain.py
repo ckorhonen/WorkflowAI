@@ -47,7 +47,7 @@ class ImageContent(BaseModel):
         return {"type": "image_url", "image_url": {"url": self.image_url.url}}
 
     @classmethod
-    def from_file(cls, file: File, inline: bool = False) -> Self:
+    def from_file(cls, file: File, inline: bool = True) -> Self:
         url = file.to_url(default_content_type="image/*")
         if inline:
             url += "#transform=inline"

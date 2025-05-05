@@ -314,7 +314,12 @@ class TestStream:
 
         streamer = provider.stream(
             [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
-            options=ProviderOptions(model=Model.GPT_3_5_TURBO_1106, max_tokens=10, temperature=0),
+            options=ProviderOptions(
+                model=Model.GPT_3_5_TURBO_1106,
+                max_tokens=10,
+                temperature=0,
+                output_schema={"type": "object"},
+            ),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             partial_output_factory=lambda x: StructuredOutput(x),
         )
@@ -388,7 +393,12 @@ class TestComplete:
                     ],
                 ),
             ],
-            options=ProviderOptions(model=Model.GPT_3_5_TURBO_1106, max_tokens=10, temperature=0),
+            options=ProviderOptions(
+                model=Model.GPT_3_5_TURBO_1106,
+                max_tokens=10,
+                temperature=0,
+                output_schema={"type": "object"},
+            ),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
         )
         assert o.output
@@ -443,7 +453,12 @@ class TestComplete:
                     ],
                 ),
             ],
-            options=ProviderOptions(model=Model.GPT_3_5_TURBO_1106, max_tokens=10, temperature=0),
+            options=ProviderOptions(
+                model=Model.GPT_3_5_TURBO_1106,
+                max_tokens=10,
+                temperature=0,
+                output_schema={"type": "object"},
+            ),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
         )
         assert o.output
@@ -480,6 +495,38 @@ class TestComplete:
             "temperature": 0.0,
             # "store": True,
         }
+
+    async def test_complete_text_only(self, httpx_mock: HTTPXMock):
+        httpx_mock.add_response(
+            url="https://api.x.ai/v1/chat/completions",
+            json=fixtures_json("xai", "completion.json"),
+        )
+
+        provider = XAIProvider()
+
+        o = await provider.complete(
+            [
+                MessageDeprecated(
+                    role=MessageDeprecated.Role.USER,
+                    content="Hello",
+                ),
+            ],
+            options=ProviderOptions(
+                model=Model.GPT_3_5_TURBO_1106,
+                max_tokens=10,
+                temperature=0,
+                # No output schema means the model will return a string
+                output_schema=None,
+            ),
+            output_factory=lambda x, _: StructuredOutput(x),
+        )
+        assert o.output
+        assert o.tool_calls is None
+        # Not sure why the pyright in the CI reports an error here
+        request = httpx_mock.get_requests()[0]
+        assert request.method == "POST"  # pyright: ignore reportUnknownMemberType
+        body = json.loads(request.read().decode())
+        assert body["response_format"]["type"] == "text"
 
     async def test_complete_500(self, httpx_mock: HTTPXMock):
         httpx_mock.add_response(
