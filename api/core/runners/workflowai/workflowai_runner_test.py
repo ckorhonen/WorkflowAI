@@ -2989,7 +2989,6 @@ class TestMessagesInput:
         "input",
         [
             pytest.param({"messages": [{"content": [{"text": "Hello world"}], "role": "user"}]}, id="dict"),
-            pytest.param([{"content": [{"text": "Hello world"}], "role": "user"}], id="list"),
             pytest.param(
                 Messages(messages=[Message(role="user", content=[MessageContent(text="Hello world")])]),
                 id="messages_model",

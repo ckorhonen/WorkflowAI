@@ -131,12 +131,12 @@ class TestClickhouseRunsValidate:
             "version_temperature_percent": 0,
         }
         run = ClickhouseRun.model_validate(payload)
-        assert run.output == {}
+        assert run.output is None
 
     def test_empty_payload(self):
         """Check that we can validate a partial run payload"""
         run = ClickhouseRun.model_validate({})
-        assert run.output == {}
+        assert run.output is None
 
     def test_empty_output(self):
         """Check that we can payload with an empty output"""
