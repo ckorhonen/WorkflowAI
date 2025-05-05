@@ -71,6 +71,20 @@ class TestGoogleMessageFromDomain:
         assert google_message.parts[1].fileData.mimeType == "image/png"
         assert google_message.role == "user"
 
+    def test_empty_content(self):
+        image_only_message = MessageDeprecated(
+            role=MessageDeprecated.Role.USER,
+            content="",
+            files=[File(url="https://example.com/image.png", content_type="image/png")],
+        )
+        google_message = GoogleMessage.from_domain(image_only_message)
+        assert len(google_message.parts) == 2
+        assert google_message.parts[0].text == "-"
+        assert google_message.parts[1].fileData
+        assert google_message.parts[1].fileData.fileUri == "https://example.com/image.png"
+        assert google_message.parts[1].fileData.mimeType == "image/png"
+        assert google_message.role == "user"
+
     @pytest.mark.ffmpeg
     async def test_with_file_audio(self):
         # Test with text content
