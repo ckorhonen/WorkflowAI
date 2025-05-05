@@ -208,7 +208,7 @@ class ClickhouseRun(BaseModel):
         return value
 
     output_preview: str = ""
-    output: Any = Field(default_factory=dict)
+    output: Any = Field(default=None)
 
     @field_serializer("output")
     def serialize_output(self, output: AgentOutput) -> str:

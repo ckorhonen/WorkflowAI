@@ -291,6 +291,11 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
         "The attribute is ignored if the provider is not supported.",
     )
 
+    agent_id: str | None = Field(
+        default=None,
+        description="The id of the agent to use for the request. If not provided, the default agent is used.",
+    )
+
     model_config = ConfigDict(extra="allow")
 
     def domain_tools(self) -> tuple[list[Tool | ToolKind] | None, bool]:

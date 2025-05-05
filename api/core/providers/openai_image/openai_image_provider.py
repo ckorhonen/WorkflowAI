@@ -229,7 +229,7 @@ class OpenAIImageProvider(HTTPXProviderBase[OpenAIImageConfig, OpenAIImageReques
             response_model.usage.assign(raw_completion.usage)
         content_type = request.content_type
         files = [d.to_file(content_type) for d in response_model.data]
-        return StructuredOutput(output={}, files=files)
+        return StructuredOutput(output=None, files=files)
 
     @override
     def _single_stream(

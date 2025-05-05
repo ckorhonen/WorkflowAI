@@ -245,7 +245,7 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
             # When there is a native tool call, we can afford having a JSONSchemaValidationError,
             # ex: when the models returns a raw "Let me use the @search-google tool to answer the question"  in the completion
             # This happens quite often with Claude models.
-            output = StructuredOutput(output={})
+            output = StructuredOutput(output=None)
         if reasoning_steps:
             output = output._replace(reasoning_steps=reasoning_steps)
         if native_tools_calls:

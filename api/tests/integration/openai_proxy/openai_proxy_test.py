@@ -1,3 +1,4 @@
+import openai
 import pytest
 from openai import AsyncOpenAI
 from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall, Function
@@ -171,3 +172,29 @@ async def test_with_tools(test_client: IntegrationTestClient, openai_client: Asy
             ),
         ),
     ]
+
+
+async def test_bad_request(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+    """Check that the run is correctly stored"""
+    test_client.mock_openai_call(status_code=400, json={"error": {"message": "Bad request"}})
+    with pytest.raises(openai.BadRequestError) as e:
+        await openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {
+                    "role": "user",
+                    "content": "yoyo",
+                },
+            ],
+            extra_body={"provider": "openai"},
+        )
+
+    assert "Bad request" in e.value.message
+
+    await test_client.wait_for_completed_tasks()
+
+    run = await test_client.get("/v1/_/agents/default/runs/latest")
+    assert run["status"] == "failure"
+    # TODO: We should have None here but it breaks model validation for now
+    # We can fix later
+    assert run["task_output"] == {}

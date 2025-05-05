@@ -51,13 +51,13 @@ def _parse_model(model: str) -> Model:
     raise BadRequestError(f"Model does not exist {model}")
 
 
-def _agent_and_model(model: str) -> tuple[str, Model]:
+def _agent_and_model(model: str) -> tuple[str | None, Model]:
     agent_and_model = model.split("/")
     if len(agent_and_model) > 2:
         raise BadRequestError(f"Invalid model: {model}")
 
     if len(agent_and_model) == 1:
-        agent_name = "openai-proxy-agent"
+        agent_name = None
         model_str = agent_and_model[0]
     else:
         agent_name = agent_and_model[0]
@@ -131,6 +131,9 @@ async def chat_completions(
     request_start_time = get_start_time(request)
     # First we need to locate the agent
     agent_slug, model = _agent_and_model(body.model)
+    if not agent_slug:
+        agent_slug = body.agent_id or "default"
+
     raw_variant, output_mapper = _build_variant(agent_slug, body.response_format)
     variant, _ = await storage.store_task_resource(raw_variant)
 
