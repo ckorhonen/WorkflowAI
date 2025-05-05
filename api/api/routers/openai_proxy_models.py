@@ -12,6 +12,7 @@ from core.domain.message import (
     Message,
     MessageContent,
 )
+from core.domain.models.providers import Provider
 from core.domain.tool import Tool
 from core.domain.tool_call import ToolCallRequestWithID
 from core.domain.types import AgentOutput
@@ -284,6 +285,12 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
         "When provided, an input schema is generated and the messages are used as a template.",
     )
 
+    provider: str | None = Field(
+        default=None,
+        description="A specific provider to use for the request. When provided, multi provider fallback is disabled."
+        "The attribute is ignored if the provider is not supported.",
+    )
+
     model_config = ConfigDict(extra="allow")
 
     def domain_tools(self) -> tuple[list[Tool | ToolKind] | None, bool]:
@@ -309,6 +316,17 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
                 raise BadRequestError(f"Field {field} is not supported", capture=True)
         for field in _IGNORED_FIELDS:
             _logger.warning(f"Field {field} is ignored by openai proxy")  # noqa: G004
+
+    @property
+    def workflowai_provider(self) -> Provider | None:
+        if self.provider:
+            try:
+                return Provider(self.provider)
+            except ValueError:
+                # Logging for now just in case
+                _logger.warning("Received an unsupported provider", extra={"provider": self.provider})
+                return None
+        return None
 
 
 # --- Response Models ---
