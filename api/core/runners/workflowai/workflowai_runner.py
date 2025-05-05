@@ -424,8 +424,6 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         input: AgentInput,
         used_input_keys: set[str],
     ):
-        if not isinstance(input, dict):
-            return
         """Remove keys from the input and input schema. Only root keys are supported"""
         input_schema_properties: dict[str, Any] = input_schema.get("properties", {})
         input_schema_required: list[str] = input_schema.get("required", [])

@@ -75,3 +75,6 @@ class Messages(BaseModel):
 
     def to_deprecated(self) -> list[MessageDeprecated]:
         return [m.to_deprecated() for m in self.messages]
+
+    def to_input_dict(self):
+        return self.model_dump(exclude_none=True)

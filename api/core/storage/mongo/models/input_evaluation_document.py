@@ -14,8 +14,8 @@ class InputEvaluationDocument(BaseDocumentWithID):
 
     is_loading: bool | None = None
 
-    correct_outputs: list[dict[str, Any]] | None = None
-    incorrect_outputs: list[dict[str, Any]] | None = None
+    correct_outputs: list[Any] | None = None
+    incorrect_outputs: list[Any] | None = None
 
     evaluation_instruction: str | None = None
 

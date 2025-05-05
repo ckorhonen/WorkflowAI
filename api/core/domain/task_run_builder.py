@@ -84,8 +84,8 @@ class TaskRunBuilder(BaseModel):
 
     @property
     def serialized_task_input(self) -> AgentInput:
-        if isinstance(self.task_input, BaseModel):
-            return self.task_input.model_dump(exclude_none=True)
+        if isinstance(self.task_input, Messages):
+            return self.task_input.to_input_dict()
         return self.task_input
 
     def build(
