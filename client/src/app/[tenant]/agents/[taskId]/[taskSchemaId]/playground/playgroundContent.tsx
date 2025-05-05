@@ -172,7 +172,7 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
     taskRunId3,
     versionId,
     showDiffMode: showDiffModeParam,
-    show2ColumnLayout: show2ColumnLayoutParam,
+    hiddenModelColumns: hiddenModelColumnsParam,
     inputTaskRunId,
     preselectedVariantId,
     runAgents,
@@ -183,7 +183,7 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
     'taskRunId3',
     'versionId',
     'showDiffMode',
-    'show2ColumnLayout',
+    'hiddenModelColumns',
     'inputTaskRunId',
     'preselectedVariantId',
     'runAgents'
@@ -199,9 +199,9 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
     setSchemaModels,
     generatedInput: persistedGeneratedInput,
     showDiffMode,
-    show2ColumnLayout,
+    hiddenModelColumns,
     setShowDiffMode,
-    setShow2ColumnLayout,
+    setHiddenModelColumns,
     preGeneratedInput,
     setGeneratedInput: setPersistedGeneratedInput,
     setPreGeneratedInput,
@@ -214,7 +214,7 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
     taskId,
     taskSchemaId,
     showDiffModeParam,
-    show2ColumnLayoutParam,
+    hiddenModelColumnsParam,
   });
 
   const { version: currentVersion } = useOrFetchVersion(tenant, taskId, versionId ?? persistedVersionId);
@@ -1094,6 +1094,24 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
     return true;
   }, [isMobile, onDifferentTenant]);
 
+  const addModelColumn = useCallback(() => {
+    const newHiddenModelColumns = hiddenModelColumns ?? [];
+    newHiddenModelColumns.pop();
+    setHiddenModelColumns(newHiddenModelColumns);
+  }, [hiddenModelColumns, setHiddenModelColumns]);
+
+  const hideModelColumn = useCallback(
+    (column: number) => {
+      const newHiddenModelColumns = hiddenModelColumns ?? [];
+      if (newHiddenModelColumns.includes(column)) {
+        return;
+      }
+      newHiddenModelColumns.push(column);
+      setHiddenModelColumns(newHiddenModelColumns);
+    },
+    [hiddenModelColumns, setHiddenModelColumns]
+  );
+
   return (
     <div className='flex flex-row h-full w-full'>
       <div className='flex h-full flex-1 overflow-hidden'>
@@ -1186,9 +1204,7 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
                   onModelsChange={setModelsAndRunTask}
                   outputSchema={outputSchema}
                   showDiffMode={showDiffMode}
-                  show2ColumnLayout={show2ColumnLayout}
                   setShowDiffMode={setShowDiffMode}
-                  setShow2ColumnLayout={setShow2ColumnLayout}
                   taskId={taskId}
                   taskSchemaId={taskSchemaId}
                   taskRunners={taskRunners}
@@ -1198,6 +1214,9 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
                   versionsForRuns={versionsForRuns}
                   maxHeight={isMobile ? undefined : containerHeight}
                   isInDemoMode={isInDemoMode}
+                  addModelColumn={addModelColumn}
+                  hideModelColumn={hideModelColumn}
+                  hiddenModelColumns={hiddenModelColumns}
                 />
               </div>
               <TaskRunModal

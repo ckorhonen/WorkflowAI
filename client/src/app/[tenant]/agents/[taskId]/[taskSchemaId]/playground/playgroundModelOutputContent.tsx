@@ -42,6 +42,8 @@ type ModelOutputContentProps = {
   toolCalls: Array<ToolCallPreview> | undefined;
   reasoningSteps: ReasoningStep[] | undefined;
   isInDemoMode: boolean;
+  isHideModelColumnAvaible: boolean;
+  hideModelColumn: () => void;
 };
 
 export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
@@ -66,6 +68,8 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
     toolCalls: toolCallsPreview,
     reasoningSteps,
     isInDemoMode,
+    isHideModelColumnAvaible,
+    hideModelColumn,
   } = props;
 
   const onCopyTaskRunUrl = useCopyRunURL(tenant, taskId, taskRun?.id);
@@ -175,30 +179,30 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
         <div className='flex items-center gap-2'>
           <SimpleTooltip content='Copy Link to Run'>
             <Button
-              variant='newDesign'
+              variant='newDesignGray'
               size='none'
               onClick={onCopyTaskRunUrl}
-              icon={<Link16Regular className='h-4 w-4 text-gray-500' />}
+              icon={<Link16Regular className='h-4 w-4' />}
               className='h-7 w-7 border-none shadow-sm shadow-gray-400/30'
               disabled={!taskRun}
             />
           </SimpleTooltip>
           <SimpleTooltip content='View Run'>
             <Button
-              variant='newDesign'
+              variant='newDesignGray'
               size='none'
               onClick={onOpenTaskRun}
-              icon={<ArrowExpand16Regular className='h-4 w-4 text-gray-500' />}
+              icon={<ArrowExpand16Regular className='h-4 w-4' />}
               className='h-7 w-7 border-none shadow-sm shadow-gray-400/30'
               disabled={!taskRun}
             />
           </SimpleTooltip>
           <SimpleTooltip content='View Code'>
             <Button
-              variant='newDesign'
+              variant='newDesignGray'
               size='none'
               onClick={onOpenTaskCode}
-              icon={<Code16Regular className='h-4 w-4 text-gray-500' />}
+              icon={<Code16Regular className='h-4 w-4' />}
               className='h-7 w-7 border-none shadow-sm shadow-gray-400/30'
               disabled={!taskRun}
               loading={isOpeningCode}
@@ -206,16 +210,22 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
           </SimpleTooltip>
           <SimpleTooltip content='Deploy Version'>
             <Button
-              variant='newDesign'
+              variant='newDesignGray'
               size='none'
               onClick={onDeployToClick}
-              icon={<ArrowCircleUp16Regular className='h-4 w-4 text-gray-500' />}
+              icon={<ArrowCircleUp16Regular className='h-4 w-4' />}
               className='h-7 w-7 border-none shadow-sm shadow-gray-400/30'
               disabled={!taskRun || isInDemoMode}
               loading={isOpeningDeploy}
             />
           </SimpleTooltip>
         </div>
+
+        {isHideModelColumnAvaible && (
+          <Button variant='newDesignGray' size='sm' onClick={hideModelColumn}>
+            Hide Model Column
+          </Button>
+        )}
       </div>
     </div>
   );
