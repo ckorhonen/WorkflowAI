@@ -91,5 +91,12 @@ class SerializableTaskIO(BaseModel):
         return cls.from_json_schema(model_cls.model_json_schema(), streamline=streamline)
 
 
-RawStringSchema = SerializableTaskIO.from_json_schema({"type": "string"})
-RawJSONSchema = SerializableTaskIO.from_json_schema({})
+# Used to represent a list of messages as an input
+# When used as an input schema, the messages are sent as is to the providers
+RawMessagesSchema = SerializableTaskIO.from_json_schema({"type": "array", "format": "messages"})
+# Represents a message whose content is a string
+# When used as an output schema, JSON mode is not used and the string is returned as is
+RawStringMessageSchema = SerializableTaskIO.from_json_schema({"type": "string", "format": "message"})
+# Represents a message whose content is a JSON object
+# When used as an output schema, JSON mode is used and the JSON object is returned as is
+RawJSONMessageSchema = SerializableTaskIO.from_json_schema({"format": "message"})

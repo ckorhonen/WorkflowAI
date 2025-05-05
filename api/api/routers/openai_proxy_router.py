@@ -16,7 +16,7 @@ from core.domain.errors import BadRequestError
 from core.domain.message import Messages
 from core.domain.models.models import Model
 from core.domain.task_group_properties import TaskGroupProperties
-from core.domain.task_io import RawJSONSchema, RawStringSchema, SerializableTaskIO
+from core.domain.task_io import RawJSONMessageSchema, RawStringMessageSchema, SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.types import AgentOutput
 from core.domain.version_reference import VersionReference
@@ -80,10 +80,10 @@ def _build_variant(agent_slug: str, response_format: OpenAIProxyResponseFormat |
     if response_format:
         match response_format.type:
             case "text":
-                output_schema = RawStringSchema
+                output_schema = RawStringMessageSchema
                 mapper = _raw_string_mapper
             case "json_object":
-                output_schema = RawJSONSchema
+                output_schema = RawJSONMessageSchema
                 mapper = _output_json_mapper
             case "json_schema":
                 if not response_format.json_schema:
@@ -93,7 +93,7 @@ def _build_variant(agent_slug: str, response_format: OpenAIProxyResponseFormat |
             case _:
                 raise BadRequestError(f"Invalid response format: {response_format.type}")
     else:
-        output_schema = RawStringSchema
+        output_schema = RawStringMessageSchema
         mapper = _raw_string_mapper
 
     return SerializableTaskVariant(

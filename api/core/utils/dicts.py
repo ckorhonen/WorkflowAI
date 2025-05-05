@@ -26,7 +26,7 @@ class InvalidKeyPathError(ValueError):
         self.extras = extras
 
 
-_T = TypeVar("_T", dict[str, Any], list[Any], None)
+_T = TypeVar("_T", bound=dict[str, Any] | list[Any] | None)
 
 
 def _set_keypath_inner(

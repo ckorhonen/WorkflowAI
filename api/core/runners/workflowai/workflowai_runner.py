@@ -33,7 +33,7 @@ from core.domain.reasoning_step import INTERNAL_REASONING_STEPS_SCHEMA_KEY
 from core.domain.run_output import RunOutput
 from core.domain.structured_output import StructuredOutput
 from core.domain.task_group_properties import FewShotConfiguration, FewShotExample, TaskGroupProperties
-from core.domain.task_io import RawStringSchema, SerializableTaskIO
+from core.domain.task_io import RawMessagesSchema, RawStringMessageSchema, SerializableTaskIO
 from core.domain.task_run_reply import RunReply
 from core.domain.task_typology import TaskTypology
 from core.domain.task_variant import SerializableTaskVariant
@@ -424,6 +424,8 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         input: AgentInput,
         used_input_keys: set[str],
     ):
+        if not isinstance(input, dict):
+            return
         """Remove keys from the input and input schema. Only root keys are supported"""
         input_schema_properties: dict[str, Any] = input_schema.get("properties", {})
         input_schema_required: list[str] = input_schema.get("required", [])
@@ -536,6 +538,17 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         text_content.text = f"{prefix}{suffix}"
         return messages.to_deprecated()
 
+    def _extract_raw_messages(self, input: AgentInput | Messages):
+        if self.task.input_schema.version == RawMessagesSchema.version:
+            if isinstance(input, list):
+                input = {"messages": input}
+            try:
+                return Messages.model_validate(input)
+            except ValidationError as e:
+                # Capturing for now just in case
+                raise BadRequestError(f"Input is not a valid list of messages: {str(e)}", capture=True) from e
+        return None
+
     async def _build_messages(  # noqa: C901
         self,
         template_name: TemplateName,
@@ -551,9 +564,21 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         if (builder := self._get_builder_context()) and builder.reply:
             return await self._build_messages_for_reply(builder.reply)
 
+        # If the input is already a Messages object we can just use as is
         if isinstance(input, Messages):
             return await self._inline_messages(
                 input,
+                provider,
+                model_data.supports_structured_output,
+                self.is_tool_use_enabled,
+            )
+
+        # If the input is a raw messages schema we have to extract the messages
+        # and use. It would be nice to merge with the above call but it would break
+        # the typeguard on the input object
+        if raw_messages := self._extract_raw_messages(input):
+            return await self._inline_messages(
+                raw_messages,
                 provider,
                 model_data.supports_structured_output,
                 self.is_tool_use_enabled,
@@ -939,7 +964,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         is_tool_use_enabled: bool,
         typology: TaskTypology,
     ) -> PreparedOutputSchema:
-        if output_schema.version == RawStringSchema.version:
+        if output_schema.version == RawStringMessageSchema.version:
             return PreparedOutputSchema(prepared_schema=None)
 
         output_json_schema = deepcopy(output_schema.json_schema)
