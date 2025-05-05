@@ -9,9 +9,9 @@ type ModelToAdvertise = {
 
 const MODELS_TO_ADVERTISE: ModelToAdvertise[] = [
   {
-    name: 'Llama 4 Maverick ⚡️ and Llama 4 Scout ⚡️',
-    date: '2025-05-03',
-    modelId: 'llama4-maverick-instruct-fast',
+    name: 'Qwen3',
+    date: '2025-05-05',
+    modelId: 'qwen3-235b-a22b',
   },
 ];
 
