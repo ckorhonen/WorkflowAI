@@ -1,12 +1,8 @@
 'use client';
 
-import {
-  ColumnDoubleCompare20Filled,
-  ColumnDoubleCompare20Regular,
-  LayoutColumnThree20Regular,
-  LayoutColumnTwo20Regular,
-} from '@fluentui/react-icons';
+import { ColumnDoubleCompare20Filled, ColumnDoubleCompare20Regular } from '@fluentui/react-icons';
 import { isEqual } from 'lodash';
+import { Plus } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { AIModelCombobox } from '@/components/AIModelsCombobox/aiModelCombobox';
 import { Button } from '@/components/ui/Button';
@@ -56,6 +52,8 @@ type ModelOutputProps = {
   taskRunner: TaskRunner;
   tenant: TenantID | undefined;
   isInDemoMode: boolean;
+  isHideModelColumnAvaible: boolean;
+  hideModelColumn: () => void;
 };
 
 function ModelOutput(props: ModelOutputProps) {
@@ -79,6 +77,8 @@ function ModelOutput(props: ModelOutputProps) {
     tenant,
     version,
     isInDemoMode,
+    isHideModelColumnAvaible,
+    hideModelColumn,
   } = props;
 
   const taskRun = taskRunner.data;
@@ -184,6 +184,8 @@ function ModelOutput(props: ModelOutputProps) {
               toolCalls={taskRunner.toolCalls}
               reasoningSteps={taskRunner.reasoningSteps}
               isInDemoMode={isInDemoMode}
+              isHideModelColumnAvaible={isHideModelColumnAvaible}
+              hideModelColumn={hideModelColumn}
             />
           </div>
         )}
@@ -211,11 +213,12 @@ type PlaygroundOutputProps = Pick<
   taskRunners: [TaskRunner, TaskRunner, TaskRunner];
   versionsForRuns: Record<string, VersionV1>;
   showDiffMode: boolean;
-  show2ColumnLayout: boolean;
   setShowDiffMode: (showDiffMode: boolean) => void;
-  setShow2ColumnLayout: (show2ColumnLayout: boolean) => void;
   maxHeight: number | undefined;
   isInDemoMode: boolean;
+  addModelColumn: () => void;
+  hideModelColumn: (index: number) => void;
+  hiddenModelColumns: number[] | undefined;
 };
 
 export function PlaygroundOutput(props: PlaygroundOutputProps) {
@@ -223,38 +226,62 @@ export function PlaygroundOutput(props: PlaygroundOutputProps) {
     taskRunners,
     versionsForRuns,
     showDiffMode,
-    show2ColumnLayout,
     setShowDiffMode,
-    setShow2ColumnLayout,
+    addModelColumn,
+    hideModelColumn,
     onShowEditDescriptionModal,
     onShowEditSchemaModal,
     maxHeight,
     isInDemoMode,
+    hiddenModelColumns,
     ...rest
   } = props;
 
   const toggleShowDiffMode = useCallback(() => {
     setShowDiffMode(!showDiffMode);
   }, [showDiffMode, setShowDiffMode]);
-  const toggleShow2ColumnLayout = useCallback(() => {
-    setShow2ColumnLayout(!show2ColumnLayout);
-  }, [show2ColumnLayout, setShow2ColumnLayout]);
+
+  const { result: filteredTaskRunners, indexesDict } = useMemo(() => {
+    const indexesDict = new Map<number, number>();
+    const result: TaskRunner[] = [];
+
+    taskRunners.forEach((taskRunner, index) => {
+      if (hiddenModelColumns?.includes(index)) {
+        return;
+      }
+
+      result.push(taskRunner);
+      indexesDict.set(result.length - 1, index);
+    });
+
+    return { result, indexesDict };
+  }, [taskRunners, hiddenModelColumns]);
 
   const referenceValue = useMemo(() => {
     if (!showDiffMode) {
       return undefined;
     }
-    return taskRunners[0].data?.task_output;
-  }, [taskRunners, showDiffMode]);
+    return filteredTaskRunners[0].data?.task_output;
+  }, [filteredTaskRunners, showDiffMode]);
 
-  const filteredTaskRunners = useMemo(() => {
-    if (show2ColumnLayout) {
-      return [taskRunners[0], taskRunners[1]];
+  const isHideModelColumnAvaible = useMemo(() => {
+    return filteredTaskRunners.length > 1;
+  }, [filteredTaskRunners]);
+
+  const isAddModelColumnAvaible = useMemo(() => {
+    return filteredTaskRunners.length < 3;
+  }, [filteredTaskRunners]);
+
+  const taskRuns = useMemo(() => {
+    const result: TaskRun[] = [];
+    for (const taskRunner of filteredTaskRunners) {
+      if (taskRunner.data) {
+        result.push(taskRunner.data);
+      }
     }
-    return taskRunners;
-  }, [taskRunners, show2ColumnLayout]);
+    return result;
+  }, [filteredTaskRunners]);
 
-  const taskRuns = useMemo(() => [taskRunners[0].data, taskRunners[1].data, taskRunners[2].data], [taskRunners]);
   const minimumCostTaskRun = useMinimumCostTaskRun(taskRuns);
   const minimumLatencyTaskRun = useMinimumLatencyTaskRun(taskRuns);
 
@@ -273,6 +300,29 @@ export function PlaygroundOutput(props: PlaygroundOutputProps) {
   }, [noCreditsLeft, isLoggedOut]);
 
   const [isHoveringOverHeader, setIsHoveringOverHeader] = useState(false);
+
+  const notFilteredIndex = useCallback(
+    (index: number) => {
+      const allTaskRunnersIndex = indexesDict.get(index);
+      if (allTaskRunnersIndex === undefined) {
+        return index;
+      }
+      return allTaskRunnersIndex;
+    },
+    [indexesDict]
+  );
+
+  const onHideModelColumn = useCallback(
+    (index: number) => {
+      const allTaskRunnersIndex = indexesDict.get(index);
+      if (allTaskRunnersIndex === undefined) {
+        return;
+      }
+      hideModelColumn(allTaskRunnersIndex);
+    },
+    [hideModelColumn, indexesDict]
+  );
+
   return (
     <div className='flex flex-col w-full overflow-hidden' style={{ maxHeight }}>
       <div
@@ -305,15 +355,16 @@ export function PlaygroundOutput(props: PlaygroundOutputProps) {
               onClick={toggleShowDiffMode}
             />
           </SimpleTooltip>
-          <SimpleTooltip content={show2ColumnLayout ? 'Show third column' : 'Hide third column'}>
-            <Button
-              className='w-7 h-7 sm:block hidden'
-              variant='newDesign'
-              size='none'
-              icon={show2ColumnLayout ? <LayoutColumnThree20Regular /> : <LayoutColumnTwo20Regular />}
-              onClick={toggleShow2ColumnLayout}
-            />
-          </SimpleTooltip>
+          <Button
+            className='sm:flex hidden'
+            variant='newDesign'
+            size='sm'
+            icon={<Plus className='h-4 w-4' strokeWidth={2} />}
+            onClick={addModelColumn}
+            disabled={!isAddModelColumnAvaible}
+          >
+            Add Model
+          </Button>
         </div>
       </div>
       {shouldShowFreeCreditsLimitReachedInfo ? (
@@ -326,8 +377,8 @@ export function PlaygroundOutput(props: PlaygroundOutputProps) {
             <ModelOutput
               {...rest}
               version={!!taskRunner.data?.group.id ? versionsForRuns[taskRunner.data?.group.id] : undefined}
-              index={index}
-              key={`${taskRunner.data?.id}-${index}`}
+              index={notFilteredIndex(index)}
+              key={`${taskRunner.data?.id}-${notFilteredIndex(index)}`}
               minimumCostTaskRun={minimumCostTaskRun}
               minimumLatencyTaskRun={minimumLatencyTaskRun}
               taskRunner={taskRunner}
@@ -335,6 +386,8 @@ export function PlaygroundOutput(props: PlaygroundOutputProps) {
               onShowEditDescriptionModal={onShowEditDescriptionModal}
               onShowEditSchemaModal={onShowEditSchemaModal}
               isInDemoMode={isInDemoMode}
+              isHideModelColumnAvaible={isHideModelColumnAvaible}
+              hideModelColumn={() => onHideModelColumn(index)}
             />
           ))}
         </div>
