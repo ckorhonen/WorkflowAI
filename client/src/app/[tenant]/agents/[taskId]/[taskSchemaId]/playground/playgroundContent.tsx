@@ -774,7 +774,12 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
     [handleGeneratePlaygroundInput, toggleSettingsModal]
   );
 
-  const areTasksRunning = useMemo(() => taskIndexesLoading.some((l) => l), [taskIndexesLoading]);
+  const areTasksRunning = useMemo(() => {
+    if (!hiddenModelColumns) {
+      return taskIndexesLoading.some((l) => l);
+    }
+    return taskIndexesLoading.filter((_, index) => !hiddenModelColumns.includes(index)).some((l) => l);
+  }, [taskIndexesLoading, hiddenModelColumns]);
 
   // Load the initial task run or trigger the generation of the input and runs
   const { taskRun1, taskRun2, taskRun3, taskRun1Loading, taskRun2Loading, taskRun3Loading } = usePlaygroundEffects({
@@ -857,6 +862,7 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
     taskRunners,
     instructions,
     temperature,
+    hiddenModelColumns,
   });
 
   const {

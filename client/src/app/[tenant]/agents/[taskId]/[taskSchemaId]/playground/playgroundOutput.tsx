@@ -242,15 +242,11 @@ export function PlaygroundOutput(props: PlaygroundOutputProps) {
   }, [showDiffMode, setShowDiffMode]);
 
   const { result: filteredTaskRunners, indexesDict } = useMemo(() => {
-    if (!hiddenModelColumns) {
-      return { result: taskRunners, indexesDict: new Map<number, number>() };
-    }
-
     const indexesDict = new Map<number, number>();
     const result: TaskRunner[] = [];
 
     taskRunners.forEach((taskRunner, index) => {
-      if (hiddenModelColumns.includes(index)) {
+      if (hiddenModelColumns?.includes(index)) {
         return;
       }
 

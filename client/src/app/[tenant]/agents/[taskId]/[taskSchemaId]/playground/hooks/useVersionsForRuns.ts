@@ -13,16 +13,29 @@ type Props = {
   taskRunners: TaskRunner[];
   instructions: string;
   temperature: number;
+  hiddenModelColumns: number[] | undefined;
 };
 
 export function useVersionsForTaskRunners(props: Props) {
-  const { tenant, taskId, taskRunners, instructions, temperature } = props;
+  const { tenant, taskId, taskRunners, instructions, temperature, hiddenModelColumns } = props;
 
-  const { version: versionRunOne } = useOrFetchVersion(tenant, taskId, taskRunners[0].data?.group.id);
+  const { version: versionRunOne } = useOrFetchVersion(
+    tenant,
+    taskId,
+    hiddenModelColumns?.includes(0) ? undefined : taskRunners[0].data?.group.id
+  );
 
-  const { version: versionRunTwo } = useOrFetchVersion(tenant, taskId, taskRunners[1].data?.group.id);
+  const { version: versionRunTwo } = useOrFetchVersion(
+    tenant,
+    taskId,
+    hiddenModelColumns?.includes(1) ? undefined : taskRunners[1].data?.group.id
+  );
 
-  const { version: versionRunThree } = useOrFetchVersion(tenant, taskId, taskRunners[2].data?.group.id);
+  const { version: versionRunThree } = useOrFetchVersion(
+    tenant,
+    taskId,
+    hiddenModelColumns?.includes(2) ? undefined : taskRunners[2].data?.group.id
+  );
 
   const versionsForRuns = useMemo(() => {
     const result: Record<string, VersionV1> = {};
