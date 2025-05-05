@@ -285,7 +285,7 @@ class CustomerService:
     async def _send_message(self, message: str):
         if clt := self._slack_client():
             channel_id = await self._get_or_create_slack_channel(clt)
-            if channel_id == "skipped":
+            if channel_id.startswith("skipped"):
                 return
 
             await clt.send_message(channel_id, {"text": message})
