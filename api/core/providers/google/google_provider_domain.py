@@ -243,8 +243,8 @@ class GoogleMessage(BaseModel):
             role=MESSAGE_ROLE_X_ROLE_MAP[message.role],
         )
 
-        if message.content != "":
-            output_message.parts.append(Part.from_str(message.content))
+        # Google breaks if the message does not contain a text part
+        output_message.parts.append(Part.from_str(message.content or "-"))
 
         for file in message.files or []:
             output_message.parts.append(Part.from_file(file))
@@ -258,10 +258,6 @@ class GoogleMessage(BaseModel):
             output_message.parts.extend(
                 [Part.from_tool_call_result(tool_call_result) for tool_call_result in message.tool_call_results],
             )
-
-        # This should not happen, but if this ever does, better to let the model try to figure out what is happening
-        if len(output_message.parts) == 0:
-            output_message.parts.append(Part.from_str("Empty message"))
 
         return output_message
 

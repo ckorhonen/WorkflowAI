@@ -14,6 +14,7 @@ from core.domain.errors import (
     ProviderInternalError,
     UnknownProviderError,
 )
+from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
@@ -43,7 +44,6 @@ from core.providers.google.google_provider_domain import (
     internal_tool_name_to_native_tool_call,
     native_tool_name_to_internal,
 )
-from core.runners.workflowai.utils import FileWithKeyPath
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +105,7 @@ class AmazonBedrockProvider(HTTPXProvider[AmazonBedrockConfig, CompletionRespons
 
     @classmethod
     @override
-    def requires_downloading_file(cls, file: FileWithKeyPath, model: Model) -> bool:
+    def requires_downloading_file(cls, file: File, model: Model) -> bool:
         return True
 
     def _raw_prompt(self, request_json: dict[str, Any]) -> list[dict[str, Any]]:

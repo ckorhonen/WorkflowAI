@@ -305,7 +305,7 @@ class RunService:
             yield
         except ProviderError as e:
             failed_run = builder.build(
-                output=RunOutput(e.partial_output or {}),
+                output=RunOutput(e.partial_output),
                 error=e.error_response().error,
             )
             if e.store_task_run:

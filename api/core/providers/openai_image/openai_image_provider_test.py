@@ -64,7 +64,7 @@ class TestComplete:
         ]
         completion = await openai_image_provider.complete(messages, _provider_options(), output_factory=_output_factory)
 
-        assert completion.output == {}
+        assert completion.output is None
         assert completion.files == [
             File(
                 data=base64.b64encode(b"blabla").decode("utf-8"),

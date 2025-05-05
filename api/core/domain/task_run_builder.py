@@ -84,8 +84,8 @@ class TaskRunBuilder(BaseModel):
 
     @property
     def serialized_task_input(self) -> AgentInput:
-        if isinstance(self.task_input, BaseModel):
-            return self.task_input.model_dump(exclude_none=True)
+        if isinstance(self.task_input, Messages):
+            return self.task_input.to_input_dict()
         return self.task_input
 
     def build(
@@ -130,8 +130,8 @@ class TaskRunBuilder(BaseModel):
             task_schema_id=self.task.task_schema_id,
             task_input=self.serialized_task_input,
             task_input_hash=self.task_input_hash,
-            task_output=output.task_output if output else {},
-            task_output_hash=self.task.compute_output_hash(output.task_output) if output else "",
+            task_output=output.task_output if output else None,
+            task_output_hash=self.task.compute_output_hash(output.task_output) if output and output.task_output else "",
             group=TaskGroup(
                 id=self.properties.model_hash(),
                 properties=self.properties,

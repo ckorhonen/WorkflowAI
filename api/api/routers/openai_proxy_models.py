@@ -12,6 +12,7 @@ from core.domain.message import (
     Message,
     MessageContent,
 )
+from core.domain.models.providers import Provider
 from core.domain.tool import Tool
 from core.domain.tool_call import ToolCallRequestWithID
 from core.domain.types import AgentOutput
@@ -270,7 +271,7 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
     store: bool | None = None
     stream: bool | None = None
     stream_options: OpenAIProxyStreamOptions | None = None
-    temperature: float | None = None
+    temperature: float = 1  # default OAI temperature differs from own default
     tool_choice: str | OpenAIProxyToolChoice | None = None
     tools: list[OpenAIProxyTool] | None = None
     top_logprobs: int | None = None
@@ -282,6 +283,17 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
         default=None,
         description="An input to template the messages with.This field is not defined by the default OpenAI api."
         "When provided, an input schema is generated and the messages are used as a template.",
+    )
+
+    provider: str | None = Field(
+        default=None,
+        description="A specific provider to use for the request. When provided, multi provider fallback is disabled."
+        "The attribute is ignored if the provider is not supported.",
+    )
+
+    agent_id: str | None = Field(
+        default=None,
+        description="The id of the agent to use for the request. If not provided, the default agent is used.",
     )
 
     model_config = ConfigDict(extra="allow")
@@ -309,6 +321,17 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
                 raise BadRequestError(f"Field {field} is not supported", capture=True)
         for field in _IGNORED_FIELDS:
             _logger.warning(f"Field {field} is ignored by openai proxy")  # noqa: G004
+
+    @property
+    def workflowai_provider(self) -> Provider | None:
+        if self.provider:
+            try:
+                return Provider(self.provider)
+            except ValueError:
+                # Logging for now just in case
+                _logger.warning("Received an unsupported provider", extra={"provider": self.provider})
+                return None
+        return None
 
 
 # --- Response Models ---

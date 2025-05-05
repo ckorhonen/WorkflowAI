@@ -16,6 +16,7 @@ from core.domain.errors import (
     ProviderError,
     UnpriceableRunError,
 )
+from core.domain.fields.file import File
 from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
@@ -36,7 +37,6 @@ from core.providers.base.models import RawCompletion, StandardMessage
 from core.providers.base.provider_options import ProviderOptions
 from core.runners.builder_context import builder_context
 from core.runners.workflowai.templates import TemplateName
-from core.runners.workflowai.utils import FileWithKeyPath
 from core.tools import ToolKind
 from core.utils.fields import datetime_factory
 from core.utils.token_utils import tokens_from_string
@@ -169,7 +169,7 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
         return tokens_from_string(response, model.value)
 
     @classmethod
-    def requires_downloading_file(cls, file: FileWithKeyPath, model: Model) -> bool:
+    def requires_downloading_file(cls, file: File, model: Model) -> bool:
         # Whether the provider requires downloading the file
         # before making a completion request
         return False
@@ -523,7 +523,10 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
             raise InvalidGenerationError(msg=str(e), partial_output=partial.output)
 
     def _add_exception_to_messages(
-        self, messages: list[MessageDeprecated], response: str | None, e: Exception,
+        self,
+        messages: list[MessageDeprecated],
+        response: str | None,
+        e: Exception,
     ) -> list[MessageDeprecated]:
         """Add an exception message to the messages list so it can be retried"""
 

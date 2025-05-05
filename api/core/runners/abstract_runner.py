@@ -132,7 +132,7 @@ class AbstractRunner(
 
     async def _from_cache_inner(
         self,
-        input: AgentInput,
+        input: AgentInput | Messages,
         timeout: float | None = 0.1,  # noqa: ASYNC109
     ) -> Optional[AgentRun]:
         """
@@ -146,7 +146,9 @@ class AbstractRunner(
         cached = await self.cache_fetcher(
             task_id=self.task.id_tuple,
             task_schema_id=self.task.task_schema_id,
-            task_input_hash=self.task.compute_input_hash(input),
+            task_input_hash=self.task.compute_input_hash(
+                input.to_input_dict() if isinstance(input, Messages) else input,
+            ),
             group_id=self.properties.model_hash(),
             timeout_ms=int(timeout * 1000) if timeout else None,
         )
@@ -157,7 +159,7 @@ class AbstractRunner(
 
     async def from_cache(
         self,
-        input: AgentInput,
+        input: AgentInput | Messages,
         timeout: float | None = 0.1,  # noqa: ASYNC109
     ) -> AgentRun | None:
         """
@@ -171,7 +173,6 @@ class AbstractRunner(
                 "Exception while fetching from cache",
                 extra={
                     "task_id": self.task.id,
-                    "task_input_hash": self.task.compute_input_hash(input),
                     "group_hash": self.properties.model_hash(),
                 },
             )
@@ -218,7 +219,7 @@ class AbstractRunner(
 
     async def _cache_or_none(
         self,
-        input: AgentInput,
+        input: AgentInput | Messages,
         cache: CacheUsage,
     ) -> AgentRun | None:
         if not self._should_use_cache(cache):
@@ -243,7 +244,7 @@ class AbstractRunner(
         if builder.reply is not None:
             return None
 
-        cached = await self._cache_or_none(builder.serialized_task_input, cache)
+        cached = await self._cache_or_none(builder.task_input, cache)
         if cached is not None:
             # Hack to make sure the returned built task run is the same as the cached one
             builder._task_run = cached  # type:ignore

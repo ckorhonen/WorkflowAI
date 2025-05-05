@@ -3,6 +3,7 @@ from typing import Any, Literal
 from pydantic import BaseModel
 from typing_extensions import override
 
+from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.models import Model, Provider
 from core.providers.base.utils import get_provider_config_env
@@ -11,7 +12,6 @@ from core.providers.google.google_provider_domain import (
     BLOCK_THRESHOLD,
     message_or_system_message,
 )
-from core.runners.workflowai.utils import FileWithKeyPath
 
 
 class GoogleGeminiAPIProviderConfig(BaseModel):
@@ -105,6 +105,6 @@ class GoogleGeminiAPIProvider(GoogleProviderBase[GoogleGeminiAPIProviderConfig])
 
     @override
     @classmethod
-    def requires_downloading_file(cls, file: FileWithKeyPath, model: Model) -> bool:
+    def requires_downloading_file(cls, file: File, model: Model) -> bool:
         # Gemini API requires downloading files, as the URL is not GCP URL
         return True

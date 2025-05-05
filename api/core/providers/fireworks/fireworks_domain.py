@@ -47,8 +47,11 @@ class ImageContent(BaseModel):
         return {"type": "image_url", "image_url": {"url": self.image_url.url}}
 
     @classmethod
-    def from_file(cls, file: File) -> Self:
-        return cls(image_url=ImageContent.URL(url=file.to_url(default_content_type="image/*") + "#transform=inline"))
+    def from_file(cls, file: File, inline: bool = True) -> Self:
+        url = file.to_url(default_content_type="image/*")
+        if inline:
+            url += "#transform=inline"
+        return cls(image_url=ImageContent.URL(url=url))
 
 
 role_to_fireworks_map: dict[MessageDeprecated.Role, FireworksAIRole] = {

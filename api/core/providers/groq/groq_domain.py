@@ -155,7 +155,7 @@ class GroqMessage(BaseModel):
             else:
                 raise ModelDoesNotSupportMode("Groq only supports image files in messages")
 
-        if message.content or message.tool_call_requests:
+        if content or message.tool_call_requests:
             out.append(
                 cls(
                     role=role,

@@ -204,7 +204,12 @@ class TestStream:
 
         streamer = provider.stream(
             [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
-            options=ProviderOptions(model=Model.PIXTRAL_12B_2409, max_tokens=10, temperature=0),
+            options=ProviderOptions(
+                model=Model.PIXTRAL_12B_2409,
+                max_tokens=10,
+                temperature=0,
+                output_schema={"type": "object"},
+            ),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             partial_output_factory=lambda x: StructuredOutput(x),
         )
@@ -271,7 +276,12 @@ class TestComplete:
                     ],
                 ),
             ],
-            options=ProviderOptions(model=Model.PIXTRAL_12B_2409, max_tokens=10, temperature=0),
+            options=ProviderOptions(
+                model=Model.PIXTRAL_12B_2409,
+                max_tokens=10,
+                temperature=0,
+                output_schema={"type": "object"},
+            ),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
         )
         assert o.output
@@ -327,7 +337,11 @@ class TestComplete:
                     ],
                 ),
             ],
-            options=ProviderOptions(model=Model.PIXTRAL_12B_2409, temperature=0),
+            options=ProviderOptions(
+                model=Model.PIXTRAL_12B_2409,
+                temperature=0,
+                output_schema={"type": "object"},
+            ),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
         )
         assert o.output
@@ -369,6 +383,25 @@ class TestComplete:
             "temperature": 0.0,
             # "store": True,
         }
+
+    async def test_complete_text_only(self, httpx_mock: HTTPXMock, mistral_provider: MistralAIProvider):
+        httpx_mock.add_response(
+            url="https://api.mistral.ai/v1/chat/completions",
+            json=fixtures_json("mistralai", "completion.json"),
+        )
+
+        o = await mistral_provider.complete(
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
+            options=ProviderOptions(model=Model.PIXTRAL_12B_2409, max_tokens=10, temperature=0),
+            output_factory=lambda x, _: StructuredOutput(x),
+        )
+        assert o.output
+        assert o.tool_calls is None
+
+        request = httpx_mock.get_requests()[0]
+        assert request.method == "POST"  # pyright: ignore reportUnknownMemberType
+        body = json.loads(request.read().decode())
+        assert body["response_format"]["type"] == "text"
 
     async def test_complete_500(self, httpx_mock: HTTPXMock):
         httpx_mock.add_response(

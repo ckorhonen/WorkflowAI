@@ -13,6 +13,7 @@ from core.domain.errors import (
     UnknownProviderError,
     UnpriceableRunError,
 )
+from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
@@ -38,7 +39,6 @@ from core.providers.google.google_provider_domain import (
     internal_tool_name_to_native_tool_call,
     native_tool_name_to_internal,
 )
-from core.runners.workflowai.utils import FileWithKeyPath
 
 DEFAULT_MAX_TOKENS = 1024
 
@@ -310,7 +310,7 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
 
     @override
     @classmethod
-    def requires_downloading_file(cls, file: FileWithKeyPath, model: Model) -> bool:
+    def requires_downloading_file(cls, file: File, model: Model) -> bool:
         return True
 
     @override

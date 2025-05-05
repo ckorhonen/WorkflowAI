@@ -301,7 +301,10 @@ class MongoOrganizationStorage(PartialStorage[OrganizationDocument], Organizatio
         await self._collection.update_one(
             # $elemMatch required for positional $ operator
             # We have to use a not gt instead of lt to handle the case where the last_used_at is None
-            {"api_keys": {"$elemMatch": {"hashed_key": hashed_key, "last_used_at": {"$not": {"$gt": now}}}}},
+            {
+                "api_keys.hashed_key": hashed_key,
+                "api_keys": {"$elemMatch": {"hashed_key": hashed_key, "last_used_at": {"$not": {"$gt": now}}}},
+            },
             {"$set": {"api_keys.$.last_used_at": now}},
         )
 

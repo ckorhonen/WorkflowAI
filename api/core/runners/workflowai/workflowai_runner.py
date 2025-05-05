@@ -21,6 +21,7 @@ from core.domain.errors import (
     MaxToolCallIterationError,
     ModelDoesNotSupportMode,
 )
+from core.domain.fields.file import File
 from core.domain.fields.image_options import ImageOptions
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.message import Message, MessageContent, MessageDeprecated, Messages
@@ -32,7 +33,7 @@ from core.domain.reasoning_step import INTERNAL_REASONING_STEPS_SCHEMA_KEY
 from core.domain.run_output import RunOutput
 from core.domain.structured_output import StructuredOutput
 from core.domain.task_group_properties import FewShotConfiguration, FewShotExample, TaskGroupProperties
-from core.domain.task_io import RawStringSchema, SerializableTaskIO
+from core.domain.task_io import RawMessagesSchema, RawStringMessageSchema, SerializableTaskIO
 from core.domain.task_run_reply import RunReply
 from core.domain.task_typology import TaskTypology
 from core.domain.task_variant import SerializableTaskVariant
@@ -239,25 +240,34 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             should_remove_input_schema=not input_schema or not input_schema.get("properties", {}),
         )
 
+    async def _download_file_if_needed(
+        self,
+        provider: AbstractProvider[Any, Any],
+        file: File,
+    ):
+        if file.data:
+            return False
+
+        if not provider.requires_downloading_file(file, self._options.model):
+            return False
+
+        await download_file(file)
+        return True
+
     async def _download_file_and_update_input_if_needed(
         self,
         provider: AbstractProvider[Any, Any],
         file: FileWithKeyPath,
         input: AgentInput,
     ):
-        if file.data:
-            return
+        downloaded = await self._download_file_if_needed(provider, file)
 
-        if not provider.requires_downloading_file(file, self._options.model):
-            return
-
-        await download_file(file)
-
-        set_at_keypath(
-            input,
-            file.key_path,
-            file.model_dump(mode="json", exclude={"key_path"}, exclude_none=True),
-        )
+        if downloaded:
+            set_at_keypath(
+                input,
+                file.key_path,
+                file.model_dump(mode="json", exclude={"key_path"}, exclude_none=True),
+            )
 
     def _assert_support_for_image_input(self, model_data: ModelData):
         if not model_data.supports_input_image:
@@ -454,12 +464,49 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
 
     _json_schema_regexp = re.compile(r"json[ _-]?schema", re.IGNORECASE)
 
-    def _inline_messages(
+    async def _handle_files_in_messages(
         self,
         messages: Messages,
+        provider: AbstractProvider[Any, Any],
+    ):
+        files: list[File] = []
+        for m in messages.messages:
+            files.extend((c.file for c in m.content if c.file))
+
+        if files:
+            download_start_time = time.time()
+            # TODO:
+            # files = await self._convert_pdf_to_images(files, model_data)
+            # self._check_support_for_files(model_data, files)
+            try:
+                async with asyncio.TaskGroup() as tg:
+                    for file in files:
+                        # We want to update the provided input because file data
+                        # should be propagated upstream to avoid having to download files twice
+                        tg.create_task(self._download_file_if_needed(provider, file))
+            except* InvalidFileError as eg:
+                raise eg.exceptions[0]
+            # Here we update the input copy instead of the provided input
+            # Since the data will just be provided to the provider
+            # files, has_inlined_files = self._inline_text_files(files, input_copy)
+
+            download_duration = time.time() - download_start_time
+        else:
+            download_duration = 0
+
+        if builder := self._get_builder_context():
+            builder.record_file_download_seconds(download_duration)
+
+    async def _inline_messages(
+        self,
+        messages: Messages,
+        provider: AbstractProvider[Any, Any],
         structured_output: bool,
         use_tools: bool,
     ) -> list[MessageDeprecated]:
+        # First handle all files as needed
+        await self._handle_files_in_messages(messages, provider)
+
         if structured_output or not self._prepared_output_schema.prepared_schema:
             return messages.to_deprecated()
 
@@ -489,6 +536,17 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         text_content.text = f"{prefix}{suffix}"
         return messages.to_deprecated()
 
+    def _extract_raw_messages(self, input: AgentInput | Messages):
+        if self.task.input_schema.version == RawMessagesSchema.version:
+            if isinstance(input, list):
+                input = {"messages": input}
+            try:
+                return Messages.model_validate(input)
+            except ValidationError as e:
+                # Capturing for now just in case
+                raise BadRequestError(f"Input is not a valid list of messages: {str(e)}", capture=True) from e
+        return None
+
     async def _build_messages(  # noqa: C901
         self,
         template_name: TemplateName,
@@ -504,8 +562,25 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         if (builder := self._get_builder_context()) and builder.reply:
             return await self._build_messages_for_reply(builder.reply)
 
+        # If the input is already a Messages object we can just use as is
         if isinstance(input, Messages):
-            return self._inline_messages(input, model_data.supports_structured_output, self.is_tool_use_enabled)
+            return await self._inline_messages(
+                input,
+                provider,
+                model_data.supports_structured_output,
+                self.is_tool_use_enabled,
+            )
+
+        # If the input is a raw messages schema we have to extract the messages
+        # and use. It would be nice to merge with the above call but it would break
+        # the typeguard on the input object
+        if raw_messages := self._extract_raw_messages(input):
+            return await self._inline_messages(
+                raw_messages,
+                provider,
+                model_data.supports_structured_output,
+                self.is_tool_use_enabled,
+            )
 
         start_time = time.time()
         input_copy = deepcopy(input)
@@ -720,7 +795,9 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         )
 
         if output.files:
-            assign_files(self.task.output_schema.json_schema, output.files, output.output)
+            output_dict: dict[str, Any] = output.output or {}
+            assign_files(self.task.output_schema.json_schema, output.files, output_dict)
+            output = output._replace(output=output_dict)
 
         return RunOutput(
             task_output=output.output,
@@ -887,7 +964,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         is_tool_use_enabled: bool,
         typology: TaskTypology,
     ) -> PreparedOutputSchema:
-        if output_schema.version == RawStringSchema.version:
+        if output_schema.version == RawStringMessageSchema.version:
             return PreparedOutputSchema(prepared_schema=None)
 
         output_json_schema = deepcopy(output_schema.json_schema)

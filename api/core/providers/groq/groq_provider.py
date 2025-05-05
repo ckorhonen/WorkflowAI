@@ -6,6 +6,7 @@ from pydantic import BaseModel, ValidationError
 from typing_extensions import override
 
 from core.domain.errors import FailedGenerationError, MaxTokensExceededError, ProviderBadRequestError
+from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
@@ -29,7 +30,6 @@ from core.providers.groq.groq_domain import (
     TextResponseFormat,
 )
 from core.providers.openai.openai_domain import parse_tool_call_or_raise
-from core.runners.workflowai.utils import FileWithKeyPath
 
 
 class GroqConfig(BaseModel):
@@ -69,7 +69,7 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
 
     @override
     @classmethod
-    def requires_downloading_file(cls, file: FileWithKeyPath, model: Model) -> bool:
+    def requires_downloading_file(cls, file: File, model: Model) -> bool:
         # For now groq models do not support files anyway
         return False
 

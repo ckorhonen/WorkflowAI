@@ -2,7 +2,7 @@ import json
 import re
 from collections.abc import Awaitable, Callable
 from datetime import date
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, Mock, PropertyMock, patch
 
 import pytest
@@ -31,7 +31,7 @@ from core.domain.models.model_datas_mapping import MODEL_DATAS, DisplayedProvide
 from core.domain.run_output import RunOutput
 from core.domain.structured_output import StructuredOutput
 from core.domain.task_group_properties import FewShotConfiguration, FewShotExample, TaskGroupProperties
-from core.domain.task_io import RawJSONSchema, RawStringSchema, SerializableTaskIO
+from core.domain.task_io import RawJSONMessageSchema, RawMessagesSchema, RawStringMessageSchema, SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.tool import Tool
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
@@ -71,7 +71,7 @@ def _build_runner(
 # TODO: merge with _build_runner
 def _build_runner2(
     mock_provider_factory: Mock,
-    input_schema: dict[str, Any],
+    input_schema: dict[str, Any] | SerializableTaskIO,
     output_schema: dict[str, Any] | SerializableTaskIO,
     instructions: str,
     model: Model,
@@ -86,7 +86,9 @@ def _build_runner2(
             task_schema_id=1,
             name="test",
             description="test",
-            input_schema=SerializableTaskIO.from_json_schema(
+            input_schema=input_schema
+            if isinstance(input_schema, SerializableTaskIO)
+            else SerializableTaskIO.from_json_schema(
                 input_schema,
                 streamline=True,
             ),
@@ -363,9 +365,10 @@ Output:
 
 
 class TestInlineMessages:
-    def test_inlined_structured_output(self, patched_runner: WorkflowAIRunner):
-        messages = patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
+    async def test_inlined_structured_output(self, patched_runner: WorkflowAIRunner):
+        messages = await patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
             Messages(messages=[Message(role="user", content=[MessageContent(text="cool cool cool")])]),
+            Mock(),
             True,
             False,
         )
@@ -373,9 +376,10 @@ class TestInlineMessages:
         assert messages[0].role == MessageDeprecated.Role.USER
         assert messages[0].content == "cool cool cool"
 
-    def test_inlined_no_structured_output(self, patched_runner: WorkflowAIRunner):
-        messages = patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
+    async def test_inlined_no_structured_output(self, patched_runner: WorkflowAIRunner):
+        messages = await patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
             Messages(messages=[Message(role="user", content=[MessageContent(text="cool cool cool")])]),
+            Mock(),
             False,
             False,
         )
@@ -393,9 +397,10 @@ class TestInlineMessages:
         assert messages[1].role == MessageDeprecated.Role.USER
         assert messages[1].content == "cool cool cool"
 
-    def test_inlined_no_structured_output_with_tool_use(self, patched_runner: WorkflowAIRunner):
-        messages = patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
+    async def test_inlined_no_structured_output_with_tool_use(self, patched_runner: WorkflowAIRunner):
+        messages = await patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
             Messages(messages=[Message(role="user", content=[MessageContent(text="cool cool cool")])]),
+            Mock(),
             False,
             True,
         )
@@ -421,9 +426,10 @@ class TestInlineMessages:
             ("objects in json that match the following json_schema"),
         ],
     )
-    def test_no_addition_if_already_present(self, patched_runner: WorkflowAIRunner, system_message: str):
-        messages = patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
+    async def test_no_addition_if_already_present(self, patched_runner: WorkflowAIRunner, system_message: str):
+        messages = await patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
             Messages(messages=[Message(role="system", content=[MessageContent(text=system_message)])]),
+            Mock(),
             False,
             False,
         )
@@ -2939,12 +2945,12 @@ def mock_complete(raw: str):
     return _mock_complete
 
 
-class TestRawStringOutput:
+class TestRawOutput:
     async def test_raw_string_output(self, mock_provider_factory_full: Mock):
         runner = _build_runner2(
             mock_provider_factory_full,
             {"type": "object", "properties": {"text": {"type": "string"}}},
-            RawStringSchema,
+            RawStringMessageSchema,
             "Return a string",
             Model.GPT_4O_LATEST,
         )
@@ -2967,7 +2973,7 @@ class TestRawStringOutput:
         runner = _build_runner2(
             mock_provider_factory_full,
             {"type": "object", "properties": {"text": {"type": "string"}}},
-            RawJSONSchema,
+            RawJSONMessageSchema,
             "Return a string",
             Model.GPT_4O_LATEST,
         )
@@ -2976,3 +2982,41 @@ class TestRawStringOutput:
         builder = await runner.task_run_builder({}, start_time=0)
         run = await runner.run(builder)
         assert run.task_output == raw_content
+
+
+class TestMessagesInput:
+    @pytest.mark.parametrize(
+        "input",
+        [
+            pytest.param({"messages": [{"content": [{"text": "Hello world"}], "role": "user"}]}, id="dict"),
+            pytest.param(
+                Messages(messages=[Message(role="user", content=[MessageContent(text="Hello world")])]),
+                id="messages_model",
+            ),
+        ],
+    )
+    async def test_messages_as_json_object(self, mock_provider_factory_full: Mock, input: Any):
+        """Check that we can pass raw messages to the runner"""
+        runner = _build_runner2(
+            mock_provider_factory_full,
+            RawMessagesSchema,
+            RawStringMessageSchema,
+            "Return a string",
+            Model.GPT_4O_LATEST,
+        )
+
+        mock_provider_factory_full.openai.complete.side_effect = mock_complete("Hello world")
+
+        builder = await runner.task_run_builder(
+            input,
+            start_time=0,
+        )
+        run = await runner.run(builder)
+        assert run.task_output == "Hello world"
+
+        mock_provider_factory_full.openai.complete.assert_called_once()
+        messages = mock_provider_factory_full.openai.complete.call_args_list[0].args[0]
+        assert isinstance(messages, list)
+        messages = cast(list[MessageDeprecated], messages)
+        assert len(messages) == 1
+        assert messages[0].content == "Hello world"

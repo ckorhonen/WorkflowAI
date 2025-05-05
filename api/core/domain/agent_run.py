@@ -66,7 +66,7 @@ class AgentRunBase(BaseModel):
     eval_hash: str = ""
 
     def _assign_eval_hash(self):
-        if not self.eval_hash and (self.task_schema_id and self.task_input_hash and self.task_output_hash):
+        if not self.eval_hash and (self.task_schema_id and self.task_input_hash):
             self.eval_hash = compute_eval_hash(self.task_schema_id, self.task_input_hash, self.task_output_hash)
 
     @model_validator(mode="after")
