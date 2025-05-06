@@ -28,7 +28,6 @@ from core.providers.base.streaming_context import StreamingContext, ToolCallRequ
 from core.utils.background import add_background_task
 from core.utils.dicts import InvalidKeyPathError, set_at_keypath_str
 from core.utils.generics import T
-from core.utils.json_utils import extract_json_str
 from core.utils.streams import standard_wrap_sse
 
 ResponseModel = TypeVar("ResponseModel", bound=BaseModel)
@@ -214,12 +213,12 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
     def _partial_structured_output(
         cls,
         partial_output_factory: Callable[[Any], StructuredOutput],
-        data: Any,
-        reasoning_steps: list[InternalReasoningStep] | None = None,
+        context: StreamingContext,
     ):
-        partial = partial_output_factory(data)
-        if reasoning_steps:
-            partial = partial._replace(reasoning_steps=reasoning_steps)
+        # TODO: we should not test here but instead handle the update directly in the streamer
+        partial = partial_output_factory(context.agg_output if context.json else context.streamer.raw_completion)
+        if context.reasoning_steps:
+            partial = partial._replace(reasoning_steps=context.reasoning_steps)
         return partial
 
     @classmethod
@@ -239,7 +238,9 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
                     response=None,
                     exception=e,
                     raw_completion=raw,
-                    error_msg=str(e) if isinstance(e, JSONSchemaValidationError) else "Received invalid JSON",
+                    error_msg=str(e)
+                    if isinstance(e, JSONSchemaValidationError)
+                    else "Model failed to generate a valid json",
                     retry=True,
                 )
             # When there is a native tool call, we can afford having a JSONSchemaValidationError,
@@ -256,7 +257,7 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
 
     def _handle_chunk_output(self, context: StreamingContext, content: str) -> bool:
         updates = context.streamer.process_chunk(content)
-        if not updates:
+        if updates is None:
             return False
 
         for keypath, value in updates:
@@ -337,43 +338,18 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
                         await response.aread()
                         response.raise_for_status()
 
-                    streaming_context = StreamingContext(raw_completion)
+                    streaming_context = StreamingContext(raw_completion, json=options.output_schema is not None)
                     async for chunk in self.wrap_sse(response.aiter_bytes()):
                         should_yield = self._handle_chunk(streaming_context, chunk)
 
                         if should_yield:
-                            yield self._partial_structured_output(
-                                partial_output_factory,
-                                streaming_context.agg_output,
-                                streaming_context.reasoning_steps,
-                            )
+                            yield self._partial_structured_output(partial_output_factory, streaming_context)
 
-                    # TODO: we should be using the streamed JSON here
-                    try:
-                        # TODO: we should not extract a json string here but instead pass it as is to the runner
-                        # output factory
-                        json_str = extract_json_str(streaming_context.streamer.raw_completion)
-                    except ValueError:
-                        if not streaming_context.tool_calls:
-                            raise self._invalid_json_error(
-                                response,
-                                None,
-                                streaming_context.streamer.raw_completion,
-                                "Generation does not contain a valid JSON",
-                                retry=True,
-                            )
-                        json_str = "{}"
-                    try:
+                    if streaming_context.json:
+                        # We only build the final structured output if we are streaming JSON
                         yield self._build_structured_output(
                             output_factory,
-                            json_str,
+                            streaming_context.streamer.raw_completion,
                             streaming_context.reasoning_steps,
                             streaming_context.tool_calls,
-                        )
-                    except JSONSchemaValidationError as e:
-                        raise self._invalid_json_error(
-                            response=response,
-                            exception=e,
-                            raw_completion=streaming_context.streamer.raw_completion,
-                            error_msg=str(e),
                         )
