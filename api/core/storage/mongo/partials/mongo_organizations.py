@@ -4,7 +4,7 @@ from typing import Any, List, Literal, override
 from pymongo.errors import DuplicateKeyError
 
 from core.domain.api_key import APIKey
-from core.domain.errors import DuplicateValueError, InternalError
+from core.domain.errors import DuplicateValueError
 from core.domain.tenant_data import (
     ProviderSettings,
     PublicOrganizationData,
@@ -63,7 +63,7 @@ class MongoOrganizationStorage(PartialStorage[OrganizationDocument], Organizatio
             "owner_id": 1,
         }
 
-    async def _get_public_org(self, filter: dict[str, Any]):
+    async def _get_public_org(self, filter: dict[str, Any]) -> PublicOrganizationData:
         doc = await self._collection.find_one(
             filter,
             projection=self._public_projection(),
@@ -408,21 +408,11 @@ class MongoOrganizationStorage(PartialStorage[OrganizationDocument], Organizatio
         return doc.get("feedback_slack_hook")
 
     @override
-    async def get_organization_by_slack_channel_id(self, slack_channel_id: str) -> TenantData | None:
-        cursor = self._collection.find({"slack_channel_id": slack_channel_id})
-        docs: list[OrganizationDocument] = []
-        async for doc in cursor:
-            docs.append(OrganizationDocument.model_validate(doc))  # noqa: PERF401
-
-        if not docs:
+    async def get_organization_by_slack_channel_id(self, slack_channel_id: str) -> PublicOrganizationData | None:
+        try:
+            return await self._get_public_org({"slack_channel_id": slack_channel_id})
+        except ObjectNotFoundException:
             return None
-
-        if len(docs) > 1:
-            raise InternalError(f"Multiple organizations found with slack_channel_id: {slack_channel_id}")
-
-        doc = docs[0]
-
-        return doc.to_domain(None)
 
     @override
     async def unlock_payment_for_failure(
