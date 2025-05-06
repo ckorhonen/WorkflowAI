@@ -16,15 +16,12 @@ from core.domain.errors import BadRequestError
 from core.domain.message import Messages
 from core.domain.models.models import Model
 from core.domain.task_group_properties import TaskGroupProperties
-from core.domain.task_io import RawJSONMessageSchema, RawStringMessageSchema, SerializableTaskIO
+from core.domain.task_io import RawJSONMessageSchema, RawMessagesSchema, RawStringMessageSchema, SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.types import AgentOutput
 from core.domain.version_reference import VersionReference
 
 router = APIRouter(prefix="", tags=["openai"])
-
-
-_raw_messages_input_schema = SerializableTaskIO.from_model(Messages)
 
 
 _model_mapping = {
@@ -75,8 +72,6 @@ def _output_json_mapper(output: AgentOutput) -> str:
 
 
 def _build_variant(agent_slug: str, response_format: OpenAIProxyResponseFormat | None):
-    input_schema = _raw_messages_input_schema
-
     if response_format:
         match response_format.type:
             case "text":
@@ -100,7 +95,7 @@ def _build_variant(agent_slug: str, response_format: OpenAIProxyResponseFormat |
         id="",
         task_schema_id=0,
         task_id=agent_slug,
-        input_schema=input_schema,
+        input_schema=RawMessagesSchema,
         output_schema=output_schema,
         name=agent_slug,
     ), mapper
