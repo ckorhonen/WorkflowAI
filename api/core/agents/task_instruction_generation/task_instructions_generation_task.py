@@ -29,7 +29,7 @@ class AgentInstructionsGenerationTaskOutput(BaseModel):
     )
 
 
-INSTRUCTIONS = f"""You an AI agent instruction generation expert whose missing is to generate Jinja2 templated instructions for the 'agent' in the input.
+INSTRUCTIONS = f"""You are an AI agent instruction generation expert whose mission is to generate Jinja2 templated instructions for the 'agent' in the input.
 Instructions must start with a short "role prompting" sentence based on the context, ex: "You are a financial analysis assistant specializing in extracting precise data from financial documents. <rest of the instructions>"
 Do not be overly verbose, just explicit any info not explicit in the schema, based on the chat messages from the user, if relevant.
 Do not add constraints or fields that are not present in the input/output schema.
