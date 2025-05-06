@@ -17,6 +17,7 @@ from core.domain.tool import Tool
 from core.domain.tool_call import ToolCallRequestWithID
 from core.domain.types import AgentOutput
 from core.tools import ToolKind
+from core.utils.models.dumps import safe_dump_pydantic_model
 
 # Goal of these models is to be as flexible as possible
 # We definitely do not want to reject calls without being sure
@@ -78,6 +79,22 @@ class OpenAIProxyFunctionCall(BaseModel):
             arguments=json.dumps(tool_call.tool_input_dict) if tool_call.tool_input_dict else None,
         )
 
+    def safely_parsed_argument(self) -> dict[str, Any]:
+        if not self.arguments:
+            return {}
+        try:
+            return json.loads(self.arguments)
+        except json.JSONDecodeError:
+            _logger.warning("Failed to parse arguments", extra={"arguments": self.arguments})
+            return {"arguments": self.arguments}
+
+    def to_domain(self, id: str):
+        return ToolCallRequestWithID(
+            id=id,
+            tool_name=self.name,
+            tool_input_dict=self.safely_parsed_argument(),
+        )
+
 
 class OpenAIProxyFunctionDefinition(BaseModel):
     description: str | None = None
@@ -130,6 +147,9 @@ class OpenAIProxyToolCall(BaseModel):
             function=OpenAIProxyFunctionCall.from_domain(tool_call),
         )
 
+    def to_domain(self) -> ToolCallRequestWithID:
+        return self.function.to_domain(self.id)
+
     model_config = ConfigDict(extra="allow")
 
 
@@ -157,8 +177,21 @@ class OpenAIProxyMessage(BaseModel):
 
     def to_domain(self) -> Message:
         if not self.content:
-            # TODO: handle tool calls
-            raise BadRequestError("Content is required", capture=True)
+            if self.function_call:
+                return Message(
+                    content=[MessageContent(tool_call_request=self.function_call.to_domain(""))],
+                    role="assistant",
+                )
+            if self.tool_calls:
+                return Message(
+                    content=[MessageContent(tool_call_request=t.to_domain()) for t in self.tool_calls],
+                    role="assistant",
+                )
+            raise BadRequestError(
+                "Content is required",
+                capture=True,
+                extras={"messages": safe_dump_pydantic_model(self)},
+            )
 
         if isinstance(self.content, str):
             content = [MessageContent(text=self.content)]
@@ -166,15 +199,13 @@ class OpenAIProxyMessage(BaseModel):
             content = [c.to_domain() for c in self.content]
 
         match self.role:
-            case "user":
+            case "user" | "tool":
                 return Message(content=content, role="user")
             case "assistant":
                 return Message(content=content, role="assistant")
             case "system" | "developer":
                 # TODO: raising a validation error would mean that the system message is not supported
-                return Message(content=content, role=self.role)
-            case "tool":
-                raise BadRequestError("Tool messages are not yet supported", capture=True)
+                return Message(content=content, role="system")
             case _:
                 raise BadRequestError(f"Unknown role: {self.role}", capture=True)
 
