@@ -11,7 +11,6 @@ from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
 from core.domain.models.model_data import ModelData
-from core.domain.tool import Tool
 from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.abstract_provider import RawCompletion
 from core.providers.base.httpx_provider import HTTPXProvider, ParsedResponse
@@ -297,11 +296,6 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
         messages: list[dict[str, Any]],
     ):
         return 0, None
-
-    @override
-    def is_streamable(self, model: Model, enabled_tools: list[Tool] | None = None) -> bool:
-        # Disable streaming to enforce JSON Response Format
-        return False
 
     @override
     def sanitize_model_data(self, model_data: ModelData):

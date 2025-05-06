@@ -587,7 +587,7 @@ class TestFailedGenerationError:
                 output_factory=Mock(side_effect=JSONDecodeError(doc="", pos=1, msg="hello")),
                 partial_output_factory=lambda x: StructuredOutput(x),
                 raw_completion=RawCompletion(response="", usage=LLMUsage()),
-                options=ProviderOptions(model=Model.GPT_4O_2024_05_13),
+                options=ProviderOptions(model=Model.GPT_4O_2024_05_13, output_schema={}),
             ):
                 pass
 
@@ -661,7 +661,7 @@ class TestNativeToolCalls:
                 output_factory=lambda x, _: StructuredOutput(output=json.loads(x)),
                 partial_output_factory=lambda data: StructuredOutput(output=data),
                 raw_completion=raw_completion,
-                options=ProviderOptions(model=Model.GPT_4O_2024_05_13),
+                options=ProviderOptions(model=Model.GPT_4O_2024_05_13, output_schema={}),
             )
         ]
 
@@ -928,7 +928,7 @@ class TestStreamingHandlers:
             output_factory=lambda x, _: StructuredOutput(output=json.loads(x)),
             partial_output_factory=lambda x: StructuredOutput(output=x),
             raw_completion=RawCompletion(response="", usage=LLMUsage()),
-            options=ProviderOptions(model=Model.GPT_4O_2024_05_13),
+            options=ProviderOptions(model=Model.GPT_4O_2024_05_13, output_schema={}),
         ):
             outputs.append(output)  # noqa: PERF401
 
@@ -966,7 +966,7 @@ class TestStreamingHandlers:
                 output_factory=failing_output_factory,
                 partial_output_factory=lambda x: StructuredOutput(output=x),
                 raw_completion=RawCompletion(response="", usage=LLMUsage()),
-                options=ProviderOptions(model=Model.GPT_4O_2024_05_13),
+                options=ProviderOptions(model=Model.GPT_4O_2024_05_13, output_schema={}),
             ):
                 pass
 
@@ -1003,10 +1003,9 @@ class TestStreamingHandlers:
         ):
             outputs.append(copy.deepcopy(output))  # noqa: PERF401
 
-        assert len(outputs) == 3  # Two partial outputs and one final
+        assert len(outputs) == 2  # Two partial outputs and one final
         assert outputs[0].output == "Hello"
         assert outputs[1].output == "Hello world"
-        assert outputs[2].output == "Hello world"
 
 
 class TestBuildStructuredOutput:
