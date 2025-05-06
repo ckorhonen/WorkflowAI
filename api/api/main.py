@@ -133,7 +133,6 @@ if WORKFLOWAI_ALLOWED_ORIGINS:
 app.include_router(probes.router)
 app.include_router(run.router)
 app.include_router(openai_proxy_router.router)
-app.include_router(webhooks.router)
 
 if not _ONLY_RUN_ROUTES:
     from .main_router import main_router
