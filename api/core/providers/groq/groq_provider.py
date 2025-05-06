@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Any, Literal
 
 from httpx import Response
@@ -46,6 +47,12 @@ class GroqConfig(BaseModel):
 
 
 class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
+    _content_moderation_regexp = re.compile(r"(can't|not)[^\.]*(help|assist|going)[^\.]*with that", re.IGNORECASE)
+
+    @classmethod
+    def is_content_moderation_completion(cls, raw_completion: str) -> bool:
+        return cls._content_moderation_regexp.search(raw_completion) is not None
+
     @classmethod
     @override
     def _invalid_json_error(
@@ -56,7 +63,7 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
         error_msg: str,
         retry: bool = False,
     ) -> Exception:
-        if "i can't help with that" in raw_completion.lower():
+        if cls.is_content_moderation_completion(raw_completion):
             return ContentModerationError(retry=retry, provider_error=raw_completion, capture=False)
         return super()._invalid_json_error(response, exception, raw_completion, error_msg, retry)
 

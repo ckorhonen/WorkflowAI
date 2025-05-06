@@ -509,3 +509,17 @@ class TestUnknownError:
         e = unknown_error_fn("Unparseable error message")
         assert isinstance(e, UnknownProviderError)
         assert e.capture is True
+
+
+@pytest.mark.parametrize(
+    "message, expected_result",
+    [
+        ("I can't help with that", True),
+        ("I can help with that", False),
+        ("I can't assist with that", True),
+        ("I'm not going to help with that. Is there something else I can assist you with?", True),
+        ("I can't help with that. Is there something else I can assist you with?", True),
+    ],
+)
+def test_is_content_moderation_completion(message: str, expected_result: bool):
+    assert GroqProvider.is_content_moderation_completion(message) == expected_result  # pyright: ignore [reportPrivateUsage]
