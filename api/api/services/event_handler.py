@@ -8,6 +8,7 @@ from taskiq import AsyncTaskiqDecoratedTask
 from api.jobs import features_by_domain_generation_started_jobs
 from core.domain.analytics_events.analytics_events import OrganizationProperties, TaskProperties, UserProperties
 from core.domain.events import (
+    AgentInstructionsGeneratedEvent,
     AIReviewCompletedEvent,
     AIReviewerBuildStartedEvent,
     AIReviewerUpdatedEvent,
@@ -24,7 +25,6 @@ from core.domain.events import (
     TaskChatStartedEvent,
     TaskGroupCreated,
     TaskGroupSaved,
-    TaskInstructionsGeneratedEvent,
     TaskSchemaCreatedEvent,
     TaskSchemaGeneratedEvent,
     TenantCreatedEvent,
@@ -98,7 +98,7 @@ def _jobs():
         _JobListing(AIReviewerBuildStartedEvent, ai_reviewer_build_started_jobs.JOBS),
         _JobListing(TaskGroupSaved, task_group_saved_jobs.JOBS),
         _JobListing(TriggerRunEvaluationEvent, trigger_run_evaluation_jobs.JOBS),
-        _JobListing(TaskInstructionsGeneratedEvent, task_instructions_generated_jobs.JOBS),
+        _JobListing(AgentInstructionsGeneratedEvent, task_instructions_generated_jobs.JOBS),
         _JobListing(MetaAgentChatMessagesSent, meta_agent_chat_messages_sent_jobs.JOBS),
         _JobListing(FeedbackCreatedEvent, feedback_created_jobs.JOBS),
         _JobListing(FeaturesByDomainGenerationStarted, features_by_domain_generation_started_jobs.JOBS),
