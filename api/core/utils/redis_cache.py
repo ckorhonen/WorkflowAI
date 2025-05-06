@@ -49,7 +49,7 @@ def _generate_cache_key(
     """
     # Use the original function, not the wrapper
     if hasattr(func, "__wrapped__"):
-        orig_func = func.__wrapped__
+        orig_func = func.__wrapped__  # pyright: ignore
     else:
         orig_func = func
 
@@ -75,7 +75,7 @@ def _generate_cache_key(
     return f"{module_name}.{func_name}{suffix}:{args_hash}"
 
 
-def redis_cached(expiration_seconds: int = 60 * 60 * 24) -> Callable[[F], F]:  # default ttl is 1 day
+def redis_cached(expiration_seconds: int = 60 * 60 * 24) -> Callable[[F], F]:  # noqa: C901
     if not shared_redis_client:
         _logger.warning("Redis cache is not available, skipping redis_cached")
 
