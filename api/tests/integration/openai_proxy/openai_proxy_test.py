@@ -32,6 +32,23 @@ async def test_raw_string_output(test_client: IntegrationTestClient, openai_clie
     agent = await test_client.get(f"/_/agents/{task_id}/schemas/1")
     assert agent["output_schema"]["json_schema"] == {"type": "string", "format": "message"}
 
+    # Now check that I can stream by calling the normal run endpoint
+    test_client.mock_openai_stream(deltas=["Hello", " world"])
+
+    aggs: list[str] = []
+    async for chunk in test_client.stream_run_task_v1(
+        task={"id": task_id, "schema_id": 1},
+        model="gpt-4o-latest",
+        task_input={
+            "messages": [
+                {"role": "user", "content": [{"text": "hello"}]},
+            ],
+        },
+    ):
+        assert "error" not in chunk
+        aggs.append(chunk["task_output"])
+    assert aggs == ["Hello", "Hello world", "Hello world"]
+
 
 async def test_raw_json_mode(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
     test_client.mock_openai_call(raw_content='{"whatever": "Hello world"}')

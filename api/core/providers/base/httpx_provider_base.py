@@ -166,7 +166,7 @@ class HTTPXProviderBase(AbstractProvider[ProviderConfigVar, ProviderRequestVar])
             raise e
         except (JSONSchemaValidationError, JSONStreamError) as e:
             raise InvalidGenerationError(
-                msg=f"Received invalid JSON: {e}",
+                msg=f"Model failed to generate a valid json: {e}",
                 provider_status_code=200,
             ) from e
         except httpx.ReadTimeout:

@@ -29,6 +29,7 @@ from core.providers.base.models import RawCompletion
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.groq.groq_domain import Choice, CompletionResponse, GroqMessage, Usage
 from core.providers.groq.groq_provider import GroqConfig, GroqProvider
+from core.utils.json_utils import extract_json_str
 from tests.utils import fixture_bytes, fixtures_json
 
 
@@ -89,8 +90,8 @@ class TestStream:
                     content="Hello",
                 ),
             ],
-            options=ProviderOptions(model=Model.LLAMA_3_1_70B, max_tokens=1000, temperature=0),
-            output_factory=lambda x, _: StructuredOutput(json.loads(x)),
+            options=ProviderOptions(model=Model.LLAMA_3_1_70B, max_tokens=1000, temperature=0, output_schema={}),
+            output_factory=lambda x, _: StructuredOutput(json.loads(extract_json_str(x))),
             partial_output_factory=lambda x: StructuredOutput(x),
         )
         chunks = [o async for o in streamer]
