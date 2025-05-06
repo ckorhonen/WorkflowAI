@@ -8,13 +8,14 @@ from pydantic import BaseModel, ValidationError
 
 from core.domain.agent_run import AgentRun
 from core.domain.errors import InvalidRunnerOptionsError, MissingCacheError, ProviderError
+from core.domain.message import Messages
 from core.domain.metrics import measure_time, send_counter
 from core.domain.run_output import RunOutput
 from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_run_builder import TaskRunBuilder
 from core.domain.task_run_reply import RunReply
 from core.domain.task_variant import SerializableTaskVariant
-from core.domain.types import CacheUsage, TaskInputDict
+from core.domain.types import AgentInput, CacheUsage
 from core.runners.builder_context import builder_context
 from core.storage import TaskTuple
 from core.utils.tags import compute_tags
@@ -105,14 +106,14 @@ class AbstractRunner(
         pass
 
     @abstractmethod
-    async def _build_task_output(self, input: TaskInputDict) -> RunOutput:
+    async def _build_task_output(self, input: AgentInput | Messages) -> RunOutput:
         """
         The function that does the actual input -> output conversion, should
         be overriden in each subclass but not called directly.
         """
         pass
 
-    async def _stream_task_output(self, input: TaskInputDict) -> AsyncIterator[RunOutput]:
+    async def _stream_task_output(self, input: AgentInput | Messages) -> AsyncIterator[RunOutput]:
         """
         The function that does the actual input -> output conversion, should
         be overriden in each subclass but not called directly.
@@ -131,7 +132,7 @@ class AbstractRunner(
 
     async def _from_cache_inner(
         self,
-        input: TaskInputDict,
+        input: AgentInput | Messages,
         timeout: float | None = 0.1,  # noqa: ASYNC109
     ) -> Optional[AgentRun]:
         """
@@ -145,7 +146,9 @@ class AbstractRunner(
         cached = await self.cache_fetcher(
             task_id=self.task.id_tuple,
             task_schema_id=self.task.task_schema_id,
-            task_input_hash=self.task.compute_input_hash(input),
+            task_input_hash=self.task.compute_input_hash(
+                input.to_input_dict() if isinstance(input, Messages) else input,
+            ),
             group_id=self.properties.model_hash(),
             timeout_ms=int(timeout * 1000) if timeout else None,
         )
@@ -156,7 +159,7 @@ class AbstractRunner(
 
     async def from_cache(
         self,
-        input: TaskInputDict,
+        input: AgentInput | Messages,
         timeout: float | None = 0.1,  # noqa: ASYNC109
     ) -> AgentRun | None:
         """
@@ -170,7 +173,6 @@ class AbstractRunner(
                 "Exception while fetching from cache",
                 extra={
                     "task_id": self.task.id,
-                    "task_input_hash": self.task.compute_input_hash(input),
                     "group_hash": self.properties.model_hash(),
                 },
             )
@@ -185,7 +187,7 @@ class AbstractRunner(
 
     async def task_run_builder(
         self,
-        input: TaskInputDict,
+        input: AgentInput | Messages,
         start_time: float,
         task_run_id: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None,
@@ -217,7 +219,7 @@ class AbstractRunner(
 
     async def _cache_or_none(
         self,
-        input: TaskInputDict,
+        input: AgentInput | Messages,
         cache: CacheUsage,
     ) -> AgentRun | None:
         if not self._should_use_cache(cache):

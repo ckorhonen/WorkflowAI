@@ -7,12 +7,13 @@ from core.domain.agent_run import AgentRun
 from core.domain.consts import METADATA_KEY_FILE_DOWNLOAD_SECONDS, METADATA_KEY_INFERENCE_SECONDS
 from core.domain.error_response import ErrorResponse
 from core.domain.llm_completion import LLMCompletion
+from core.domain.message import Messages
 from core.domain.run_output import RunOutput
 from core.domain.task_group import TaskGroup
 from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_run_reply import RunReply
 from core.domain.task_variant import SerializableTaskVariant
-from core.domain.types import TaskInputDict
+from core.domain.types import AgentInput
 from core.utils.uuid import uuid7
 
 
@@ -28,7 +29,7 @@ class TaskRunBuilder(BaseModel):
     task: SerializableTaskVariant
 
     # The input that was used to execute the task
-    task_input: TaskInputDict
+    task_input: AgentInput | Messages
 
     task_input_hash: str = ""
 
@@ -74,12 +75,18 @@ class TaskRunBuilder(BaseModel):
     @model_validator(mode="after")
     def set_task_input_hash(self):
         if not self.task_input_hash:
-            self.task_input_hash = self.task.compute_input_hash(self.task_input)
+            self.task_input_hash = self.task.compute_input_hash(self.serialized_task_input)
         return self
 
     @property
     def task_run(self) -> AgentRun | None:
         return self._task_run
+
+    @property
+    def serialized_task_input(self) -> AgentInput:
+        if isinstance(self.task_input, Messages):
+            return self.task_input.to_input_dict()
+        return self.task_input
 
     def build(
         self,
@@ -121,10 +128,10 @@ class TaskRunBuilder(BaseModel):
             cost_usd=_cost_usd,
             task_id=self.task.task_id,
             task_schema_id=self.task.task_schema_id,
-            task_input=self.task_input,
+            task_input=self.serialized_task_input,
             task_input_hash=self.task_input_hash,
-            task_output=output.task_output if output else {},
-            task_output_hash=self.task.compute_output_hash(output.task_output) if output else "",
+            task_output=output.task_output if output else None,
+            task_output_hash=self.task.compute_output_hash(output.task_output) if output and output.task_output else "",
             group=TaskGroup(
                 id=self.properties.model_hash(),
                 properties=self.properties,

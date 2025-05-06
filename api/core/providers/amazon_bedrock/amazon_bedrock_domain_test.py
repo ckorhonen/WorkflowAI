@@ -4,7 +4,7 @@ from typing import List
 import pytest
 
 from core.domain.errors import InvalidRunOptionsError, ModelDoesNotSupportMode, UnpriceableRunError
-from core.domain.message import File, Message
+from core.domain.message import File, MessageDeprecated
 from core.domain.models import Model
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.providers.amazon_bedrock.amazon_bedrock_domain import (
@@ -16,7 +16,7 @@ from core.providers.amazon_bedrock.amazon_bedrock_domain import (
 
 def test_AmazonBedrockMessage_from_domain():
     # Test with text content
-    text_message = Message(role=Message.Role.USER, content="Hello, world!")
+    text_message = MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello, world!")
     anthropic_message = AmazonBedrockMessage.from_domain(text_message)
     assert len(anthropic_message.content) == 1
     assert anthropic_message.content[0].text == "Hello, world!"
@@ -24,8 +24,8 @@ def test_AmazonBedrockMessage_from_domain():
 
     # Test with image content
     image_data = base64.b64encode(b"fake_image_data").decode()
-    image_message = Message(
-        role=Message.Role.USER,
+    image_message = MessageDeprecated(
+        role=MessageDeprecated.Role.USER,
         content="Check this image:",
         files=[File(data=image_data, content_type="image/png")],
     )
@@ -40,15 +40,15 @@ def test_AmazonBedrockMessage_from_domain():
     # Test with unsupported image format
     with pytest.raises(ModelDoesNotSupportMode):
         AmazonBedrockMessage.from_domain(
-            Message(
-                role=Message.Role.USER,
+            MessageDeprecated(
+                role=MessageDeprecated.Role.USER,
                 content="Unsupported image:",
                 files=[File(data=image_data, content_type="image/tiff")],
             ),
         )
 
     # Test assistant message
-    assistant_message = Message(role=Message.Role.ASSISTANT, content="I'm here to help!")
+    assistant_message = MessageDeprecated(role=MessageDeprecated.Role.ASSISTANT, content="I'm here to help!")
     anthropic_message = AmazonBedrockMessage.from_domain(assistant_message)
     assert len(anthropic_message.content) == 1
     assert anthropic_message.content[0].text == "I'm here to help!"
@@ -57,14 +57,14 @@ def test_AmazonBedrockMessage_from_domain():
 
 def test_AmazonBedrockSystemMessage_from_domain() -> None:
     # Test valid system message
-    system_message = Message(role=Message.Role.SYSTEM, content="You are a helpful assistant.")
+    system_message = MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="You are a helpful assistant.")
     anthropic_system_message = AmazonBedrockSystemMessage.from_domain(system_message)
     assert anthropic_system_message.text == "You are a helpful assistant."
 
     # Test system message with image (should raise an error)
     image_data = base64.b64encode(b"fake_image_data").decode()
-    system_message_with_image = Message(
-        role=Message.Role.SYSTEM,
+    system_message_with_image = MessageDeprecated(
+        role=MessageDeprecated.Role.SYSTEM,
         content="System message with image",
         files=[File(data=image_data, content_type="image/png")],
     )
@@ -236,8 +236,8 @@ class TestContentBlockWithTools:
 
 class TestAmazonBedrockMessageWithTools:
     def test_from_domain_with_tool_call_request(self):
-        message = Message(
-            role=Message.Role.USER,
+        message = MessageDeprecated(
+            role=MessageDeprecated.Role.USER,
             content="Use tool",
             tool_call_requests=[
                 ToolCallRequestWithID(
@@ -258,8 +258,8 @@ class TestAmazonBedrockMessageWithTools:
         assert bedrock_message.content[1].toolUse.input == {"param": "value"}
 
     def test_from_domain_with_tool_call_result(self):
-        message = Message(
-            role=Message.Role.ASSISTANT,
+        message = MessageDeprecated(
+            role=MessageDeprecated.Role.ASSISTANT,
             content="Tool result",
             tool_call_results=[
                 ToolCall(
@@ -279,8 +279,8 @@ class TestAmazonBedrockMessageWithTools:
         assert bedrock_message.content[1].toolResult.content[0].json_content == {"result": "success_value"}
 
     def test_from_domain_with_non_json_tool_result(self):
-        message = Message(
-            role=Message.Role.ASSISTANT,
+        message = MessageDeprecated(
+            role=MessageDeprecated.Role.ASSISTANT,
             content="Tool result",
             tool_call_results=[
                 ToolCall(
@@ -297,8 +297,8 @@ class TestAmazonBedrockMessageWithTools:
         assert bedrock_message.content[1].toolResult.content[0].json_content == {"result": "plain text result"}
 
     def test_from_domain_with_invalid_id(self):
-        message = Message(
-            role=Message.Role.ASSISTANT,
+        message = MessageDeprecated(
+            role=MessageDeprecated.Role.ASSISTANT,
             content="Tool result",
             tool_call_results=[
                 ToolCall(

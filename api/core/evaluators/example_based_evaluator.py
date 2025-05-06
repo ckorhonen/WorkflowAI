@@ -1,11 +1,12 @@
 from abc import abstractmethod
-from typing import Any, Optional
+from typing import Optional
 
 from typing_extensions import override
 
 from core.domain.agent_run import AgentRun
 from core.domain.task_evaluation import TaskEvaluation
 from core.domain.task_example import SerializableTaskExample
+from core.domain.types import AgentInput, AgentOutput
 
 from .abstract_evaluator import AbstractEvaluator, EvaluatorOptionsVar
 
@@ -18,9 +19,9 @@ class ExampleBasedEvaluator(AbstractEvaluator[EvaluatorOptionsVar]):
     @abstractmethod
     async def _compute_score(
         self,
-        run_output: dict[str, Any],
-        example_output: dict[str, Any],
-        input: dict[str, Any],
+        run_output: AgentOutput,
+        example_output: AgentOutput,
+        input: AgentInput,
     ) -> tuple[float, str]:
         """Short hand for evaluators that only compute a score."""
         pass

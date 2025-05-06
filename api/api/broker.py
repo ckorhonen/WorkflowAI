@@ -7,6 +7,7 @@ from typing import Any
 
 from taskiq import (
     AsyncTaskiqDecoratedTask,
+    ScheduleSource,
     SimpleRetryMiddleware,
     TaskiqEvents,
     TaskiqMessage,
@@ -14,6 +15,7 @@ from taskiq import (
     TaskiqScheduler,
     TaskiqState,
 )
+from taskiq.schedule_sources import LabelScheduleSource
 from taskiq_redis import ListQueueBroker, RedisAsyncResultBackend, RedisScheduleSource
 from typing_extensions import override
 
@@ -106,12 +108,15 @@ def _build_scheduler() -> TaskiqScheduler | None:
     if os.environ.get("SCHEDULER_ENABLED") != "true":
         return None
 
+    sources: list[ScheduleSource] = [
+        LabelScheduleSource(broker=broker),
+    ]
+
     broker_url = os.environ["JOBS_BROKER_URL"]
     if broker_url.startswith("redis"):
-        source = RedisScheduleSource(broker_url)
-        return TaskiqScheduler(broker, sources=[source])
+        sources.append(RedisScheduleSource(broker_url))
 
-    return None
+    return TaskiqScheduler(broker, sources=sources)
 
 
 scheduler = _build_scheduler()

@@ -27,7 +27,7 @@ services:
     ports:
       - 8123:8123
       # No need for the 9000 port, it is also used by minio
-      # - 9000:9000
+      - 9002:9000
     environment:
       CLICKHOUSE_PASSWORD: admin
       CLICKHOUSE_USER: default
@@ -107,14 +107,7 @@ services:
     <<: *api
     # No ports needed
     ports: []
-    command:
-      [
-        'poetry',
-        'run',
-        'taskiq',
-        'scheduler',
-        'api.scheduler:scheduler',
-      ]
+    command: ['poetry', 'run', 'taskiq', 'scheduler', 'api.scheduler:scheduler']
 
   # Client, serves the fronted
   client:

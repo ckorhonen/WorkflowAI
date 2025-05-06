@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from core.domain.errors import UnpriceableRunError
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model
 from core.providers.base.models import (
     AudioContentDict,
@@ -47,14 +47,17 @@ class ImageContent(BaseModel):
         return {"type": "image_url", "image_url": {"url": self.image_url.url}}
 
     @classmethod
-    def from_file(cls, file: File) -> Self:
-        return cls(image_url=ImageContent.URL(url=file.to_url(default_content_type="image/*") + "#transform=inline"))
+    def from_file(cls, file: File, inline: bool = True) -> Self:
+        url = file.to_url(default_content_type="image/*")
+        if inline:
+            url += "#transform=inline"
+        return cls(image_url=ImageContent.URL(url=url))
 
 
-role_to_fireworks_map: dict[Message.Role, FireworksAIRole] = {
-    Message.Role.SYSTEM: "system",
-    Message.Role.USER: "user",
-    Message.Role.ASSISTANT: "assistant",
+role_to_fireworks_map: dict[MessageDeprecated.Role, FireworksAIRole] = {
+    MessageDeprecated.Role.SYSTEM: "system",
+    MessageDeprecated.Role.USER: "user",
+    MessageDeprecated.Role.ASSISTANT: "assistant",
 }
 
 
@@ -64,7 +67,7 @@ class FireworksToolMessage(BaseModel):
     content: Any
 
     @classmethod
-    def from_domain(cls, message: Message) -> list[Self]:
+    def from_domain(cls, message: MessageDeprecated) -> list[Self]:
         if not message.tool_call_results:
             return []
 
@@ -112,7 +115,7 @@ class FireworksMessage(BaseModel):
     tool_calls: list[FireworksToolCall] | None = None
 
     @classmethod
-    def from_domain(cls, message: Message):
+    def from_domain(cls, message: MessageDeprecated):
         role = role_to_fireworks_map[message.role]
 
         if not message.files and not message.tool_call_requests:

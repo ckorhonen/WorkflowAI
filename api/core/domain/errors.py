@@ -9,7 +9,7 @@ from sentry_sdk import Scope, capture_exception, new_scope
 from core.domain.agent_run_result import AgentRunResult
 from core.domain.error_response import ErrorCode, ErrorResponse, ProviderErrorCode
 from core.domain.models import Model, Provider
-from core.domain.types import TaskOutputDict
+from core.domain.types import AgentOutput
 from core.providers.base.provider_options import ProviderOptions
 
 
@@ -279,7 +279,7 @@ class ProviderError(ScopeConfigurableError):
         task_run_id: str | None = None,
         store_task_run: bool | None = None,
         # TODO: this should be a dict[str, Any] once we remove generic tasks
-        partial_output: TaskOutputDict | None = None,
+        partial_output: AgentOutput | None = None,
         # To customize the grouping of Sentry errors
         fingerprint: list[str] | None = None,
         **extras: Any,
@@ -500,7 +500,7 @@ class AgentRunFailedError(ProviderError):
         return str_value
 
     @classmethod
-    def from_agent_run_result(cls, agent_run_result: AgentRunResult, partial_output: TaskOutputDict | None = None):
+    def from_agent_run_result(cls, agent_run_result: AgentRunResult, partial_output: AgentOutput | None = None):
         return cls(
             agent_run_error_code=(agent_run_result.error and agent_run_result.error.error_code) or "",
             agent_run_error_message=(agent_run_result.error and agent_run_result.error.error_message) or "",

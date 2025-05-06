@@ -183,7 +183,10 @@ class RunResponse(_RunResponseCommon):
         """
         return cls(
             id=task_run.id,
-            task_output=task_run.task_output,
+            # Maintaining previous behavior of returning an empty object if the task output is None
+            # to avoid creating validation errors in client payloads
+            # We should add additional tests in the clients to make sure we support returning None here
+            task_output=task_run.task_output or {},
             version=cls.Version(
                 id=task_run.group.id,
                 properties=task_run.group.properties

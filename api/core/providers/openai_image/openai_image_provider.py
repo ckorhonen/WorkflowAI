@@ -12,7 +12,7 @@ from core.domain.errors import ContentModerationError, ProviderError
 from core.domain.fields.file import File
 from core.domain.fields.image_options import ImageOptions
 from core.domain.llm_completion import LLMCompletion
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models.models import Model
 from core.domain.models.providers import Provider
 from core.domain.structured_output import StructuredOutput
@@ -24,7 +24,6 @@ from core.providers.base.utils import get_provider_config_env
 from core.providers.openai_image.openai_image_config import OpenAIImageConfig
 from core.providers.openai_image.openai_image_domain import OpenAIImageError, OpenAIImageRequest, OpenAIImageResponse
 from core.runners.workflowai.templates import TemplateName
-from core.runners.workflowai.utils import FileWithKeyPath
 
 _logger = logging.getLogger(__name__)
 
@@ -56,7 +55,7 @@ class OpenAIImageProvider(HTTPXProviderBase[OpenAIImageConfig, OpenAIImageReques
         return False
 
     @classmethod
-    def requires_downloading_file(cls, file: FileWithKeyPath, model: Model) -> bool:
+    def requires_downloading_file(cls, file: File, model: Model) -> bool:
         return True
 
     @override
@@ -114,7 +113,7 @@ class OpenAIImageProvider(HTTPXProviderBase[OpenAIImageConfig, OpenAIImageReques
     @override
     async def _prepare_completion(
         self,
-        messages: list[Message],
+        messages: list[MessageDeprecated],
         options: ProviderOptions,
         stream: bool,
     ) -> tuple[OpenAIImageRequest, LLMCompletion]:
@@ -230,7 +229,7 @@ class OpenAIImageProvider(HTTPXProviderBase[OpenAIImageConfig, OpenAIImageReques
             response_model.usage.assign(raw_completion.usage)
         content_type = request.content_type
         files = [d.to_file(content_type) for d in response_model.data]
-        return StructuredOutput(output={}, files=files)
+        return StructuredOutput(output=None, files=files)
 
     @override
     def _single_stream(

@@ -9,9 +9,9 @@ type ModelToAdvertise = {
 
 const MODELS_TO_ADVERTISE: ModelToAdvertise[] = [
   {
-    name: 'Gemini 2.5 Flash',
-    date: '2025-04-21',
-    modelId: 'gemini-2.5-flash-preview-04-17',
+    name: 'Qwen3',
+    date: '2025-05-05',
+    modelId: 'qwen3-235b-a22b',
   },
 ];
 

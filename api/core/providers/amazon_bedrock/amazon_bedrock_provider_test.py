@@ -20,7 +20,7 @@ from core.domain.errors import (
 )
 from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
 from core.domain.models.model_provider_datas_mapping import AMAZON_BEDROCK_PROVIDER_DATA
 from core.domain.models.utils import get_model_provider_data
@@ -474,10 +474,10 @@ class TestProviderCostCalculation:
         """Test the _build_request method constructs the correct CompletionRequest."""
         provider = AmazonBedrockProvider()
         messages = [
-            Message(role=Message.Role.SYSTEM, content="System message"),
-            Message(role=Message.Role.USER, content="User message"),
-            Message(role=Message.Role.ASSISTANT, content="Assistant message"),
-            Message(role=Message.Role.USER, content="User message 2"),
+            MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="System message"),
+            MessageDeprecated(role=MessageDeprecated.Role.USER, content="User message"),
+            MessageDeprecated(role=MessageDeprecated.Role.ASSISTANT, content="Assistant message"),
+            MessageDeprecated(role=MessageDeprecated.Role.USER, content="User message 2"),
         ]
         options = ProviderOptions(model=Model.CLAUDE_3_5_SONNET_20240620, temperature=0.7, max_tokens=100)
         stream = False
@@ -497,10 +497,10 @@ class TestProviderCostCalculation:
         """Test the _build_request method constructs the correct CompletionRequest."""
         provider = AmazonBedrockProvider()
         messages = [
-            Message(role=Message.Role.SYSTEM, content="System message"),
-            Message(role=Message.Role.USER, content="User message"),
-            Message(role=Message.Role.ASSISTANT, content="Assistant message"),
-            Message(role=Message.Role.USER, content="User message 2"),
+            MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="System message"),
+            MessageDeprecated(role=MessageDeprecated.Role.USER, content="User message"),
+            MessageDeprecated(role=MessageDeprecated.Role.ASSISTANT, content="Assistant message"),
+            MessageDeprecated(role=MessageDeprecated.Role.USER, content="User message 2"),
         ]
         options = ProviderOptions(model=Model.CLAUDE_3_5_SONNET_20240620, temperature=0.7)
         stream = False
@@ -539,7 +539,7 @@ async def test_complete_500(httpx_mock: HTTPXMock):
 
     with pytest.raises(ProviderInternalError) as e:
         await provider.complete(
-            [Message(role=Message.Role.USER, content="Hello")],
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.CLAUDE_3_5_SONNET_20240620, max_tokens=10, temperature=0),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
         )
@@ -655,7 +655,7 @@ class TestCompleteWithRetry:
             },
         )
 
-        messages = [Message(role=Message.Role.USER, content="Hello")]
+        messages = [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")]
         options = ProviderOptions(model=Model.CLAUDE_3_5_SONNET_20240620, max_tokens=10, temperature=0)
 
         o = await amazon_provider.complete(messages, options, output_factory=output_factory)
@@ -709,8 +709,7 @@ class TestCompleteWithRetry:
                 {
                     "content": [
                         {
-                            "text": "Your previous response was invalid with error `Generation "
-                            "returned an empty response`.\n"
+                            "text": "Your previous response was invalid with error `Received invalid JSON`.\n"
                             "Please retry",
                         },
                     ],
@@ -757,7 +756,7 @@ async def test_cost_is_set_to_0_if_error_occurs_in_usage_computation(
         },
     )
 
-    messages = [Message(role=Message.Role.USER, content="Hello")]
+    messages = [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")]
     options = ProviderOptions(model=Model.CLAUDE_3_5_SONNET_20240620, max_tokens=10, temperature=0)
 
     with patch.object(amazon_provider, "_compute_llm_completion_cost") as mock_compute_llm_completion_usage:
@@ -786,7 +785,7 @@ class TestPrepareCompletion:
     async def test_role_before_content(self, amazon_provider: AmazonBedrockProvider):
         """Test that the 'role' key appears before 'content' in the prepared request."""
         request = amazon_provider._build_request(  # pyright: ignore[reportPrivateUsage]
-            messages=[Message(role=Message.Role.USER, content="Hello")],
+            messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.CLAUDE_3_5_SONNET_20240620, max_tokens=10, temperature=0),
             stream=False,
         )
@@ -932,7 +931,7 @@ class TestNativeTools:
         assert len(tool_calls) == 0
 
     def test_build_request_with_tools(self, amazon_provider: AmazonBedrockProvider):
-        messages = [Message(role=Message.Role.USER, content="Use tool")]
+        messages = [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Use tool")]
         options = ProviderOptions(
             model=Model.CLAUDE_3_5_SONNET_20240620,
             temperature=0.7,
@@ -960,7 +959,7 @@ class TestNativeTools:
         }
 
     def test_build_request_with_empty_tool_description(self, amazon_provider: AmazonBedrockProvider):
-        messages = [Message(role=Message.Role.USER, content="Use tool")]
+        messages = [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Use tool")]
         options = ProviderOptions(
             model=Model.CLAUDE_3_5_SONNET_20240620,
             temperature=0.7,

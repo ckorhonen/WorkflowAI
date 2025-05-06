@@ -12,7 +12,7 @@ from core.domain.consts import FILE_DEFS
 from core.domain.errors import InvalidFileError
 from core.domain.fields.file import File
 from core.domain.tool import Tool
-from core.domain.types import TaskOutputDict
+from core.domain.types import AgentOutput
 from core.runners.workflowai.internal_tool import InternalTool
 from core.tools import ToolKind
 from tests.utils import fixture_bytes
@@ -554,7 +554,7 @@ class TestAssignFiles:
             **_file_defs(),
         }
         files = [File(data="file1", content_type="text/plain")]
-        output: TaskOutputDict = {}
+        output: AgentOutput = {}
 
         assert not assign_files(schema, files, output)
         assert output == {"file": {"data": "file1", "content_type": "text/plain"}}
@@ -570,7 +570,7 @@ class TestAssignFiles:
             File(data="file1", content_type="text/plain"),
             File(data="file2", content_type="text/plain"),
         ]
-        output: TaskOutputDict = {"files": []}
+        output: AgentOutput = {"files": []}
 
         assert not assign_files(schema, files, output)
         assert output == {
@@ -592,7 +592,7 @@ class TestAssignFiles:
             File(data="file1", content_type="text/plain"),
             File(data="file2", content_type="text/plain"),
         ]
-        output: TaskOutputDict = {}
+        output: AgentOutput = {}
 
         assert not assign_files(schema, files, output)
         assert output == {
@@ -613,7 +613,7 @@ class TestAssignFiles:
             File(data="list1", content_type="text/plain"),
             File(data="list2", content_type="text/plain"),
         ]
-        output: TaskOutputDict = {}
+        output: AgentOutput = {}
 
         assert not assign_files(schema, files, output)
         assert output == {
@@ -647,7 +647,7 @@ class TestAssignFiles:
             File(data="1", content_type="text/plain"),
             File(data="2", content_type="text/plain"),
         ]
-        output: TaskOutputDict = {}
+        output: AgentOutput = {}
         remaining_files = assign_files(schema_with_object_with_file_field, files, output)
         assert not remaining_files
         assert output == {
@@ -662,7 +662,7 @@ class TestAssignFiles:
             File(data="1", content_type="text/plain"),
             File(data="2", content_type="text/plain"),
         ]
-        output: TaskOutputDict = {
+        output: AgentOutput = {
             "files": [
                 {"description": "file1"},
                 {"description": "file2"},

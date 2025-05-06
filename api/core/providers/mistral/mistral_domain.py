@@ -8,7 +8,7 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 from core.domain.errors import UnpriceableRunError
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model
 from core.providers.base.models import (
     AudioContentDict,
@@ -78,10 +78,10 @@ class DocumentURLChunk(BaseModel):
         return {"type": "document_url", "source": {"url": self.document_url}}
 
 
-_role_to_map: dict[Message.Role, Literal["user", "assistant", "system"]] = {
-    Message.Role.SYSTEM: "system",
-    Message.Role.USER: "user",
-    Message.Role.ASSISTANT: "assistant",
+_role_to_map: dict[MessageDeprecated.Role, Literal["user", "assistant", "system"]] = {
+    MessageDeprecated.Role.SYSTEM: "system",
+    MessageDeprecated.Role.USER: "user",
+    MessageDeprecated.Role.ASSISTANT: "assistant",
 }
 
 
@@ -115,7 +115,7 @@ class MistralAIMessage(BaseModel):
     tool_calls: list[ToolCall] | None = None
 
     @classmethod
-    def from_domain(cls, message: Message):
+    def from_domain(cls, message: MessageDeprecated):
         # Since Mistral domain has not been converted to use native tools in messages yet.
 
         role = _role_to_map[message.role]
@@ -211,7 +211,7 @@ class MistralToolMessage(BaseModel):
     content: str
 
     @classmethod
-    def from_domain(cls, message: Message) -> list[Self]:
+    def from_domain(cls, message: MessageDeprecated) -> list[Self]:
         ret: list[Self] = []
         for tool in message.tool_call_results or []:
             result = safe_extract_dict_from_json(tool.result)

@@ -17,6 +17,7 @@ from core.domain.page import Page
 from core.domain.review import Review as DomainReview
 from core.domain.review_benchmark import ReviewBenchmark as DomainReviewBenchmark
 from core.domain.task_evaluator import EvalV2Evaluator
+from core.domain.types import AgentOutput
 from core.domain.users import UserIdentifier
 from core.storage import ObjectNotFoundException
 
@@ -328,8 +329,8 @@ class InputEvaluationData(BaseModel):
     task_input_hash: str
     task_input: dict[str, Any]
 
-    correct_outputs: list[dict[str, Any]]
-    incorrect_outputs: list[dict[str, Any]]
+    correct_outputs: list[AgentOutput]
+    incorrect_outputs: list[AgentOutput]
 
     evaluation_instructions: str
 

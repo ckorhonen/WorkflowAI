@@ -14,9 +14,10 @@ from core.domain.errors import (
     ProviderInvalidFileError,
     UnknownProviderError,
 )
+from core.domain.fields.file import File
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
 from core.domain.models.model_data import ModelData
 from core.domain.models.utils import get_model_data
@@ -40,6 +41,7 @@ from core.providers.xai.xai_domain import (
     JSONSchemaResponseFormat,
     StreamedResponse,
     StreamOptions,
+    TextResponseFormat,
     Tool,
     ToolFunction,
     XAIError,
@@ -47,11 +49,12 @@ from core.providers.xai.xai_domain import (
     XAISchema,
     XAIToolMessage,
 )
-from core.runners.workflowai.utils import FileWithKeyPath
 
 
 class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
     def _response_format(self, options: ProviderOptions, model_data: ModelData):
+        if not options.output_schema:
+            return TextResponseFormat()
         if not should_use_structured_output(options, model_data) or not options.output_schema:
             return JSONResponseFormat()
 
@@ -63,7 +66,7 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
         )
 
     @override
-    def _build_request(self, messages: list[Message], options: ProviderOptions, stream: bool) -> BaseModel:
+    def _build_request(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool) -> BaseModel:
         message: list[XAIMessage | XAIToolMessage] = []
         for m in messages:
             if m.tool_call_results:
@@ -198,7 +201,7 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
 
     @override
     @classmethod
-    def requires_downloading_file(cls, file: FileWithKeyPath, model: Model) -> bool:
+    def requires_downloading_file(cls, file: File, model: Model) -> bool:
         return False
 
     @override

@@ -22,7 +22,6 @@ type SideBySideTableRowOutputProps = {
   outputSchema: SerializableTaskIOWithSchema | undefined;
   body: CreateVersionRequest | undefined;
   input: TaskInputDict;
-  isHovering: boolean;
   inputHash: string;
   versionId: string | undefined;
   modelId: string | undefined;
@@ -30,8 +29,7 @@ type SideBySideTableRowOutputProps = {
 };
 
 export function SideBySideTableRowOutput(props: SideBySideTableRowOutputProps) {
-  const { outputSchema, body, input, tenant, taskId, taskSchemaId, isHovering, inputHash, versionId, modelId, stats } =
-    props;
+  const { outputSchema, body, input, tenant, taskId, taskSchemaId, inputHash, versionId, modelId, stats } = props;
 
   const {
     isCreatingVersion,
@@ -90,7 +88,7 @@ export function SideBySideTableRowOutput(props: SideBySideTableRowOutputProps) {
       <div className='flex flex-row justify-between items-center w-full pl-3 pr-2 h-[38px] border-b border-gray-200 bg-gray-100'>
         <div className='text-[13px] font-medium text-gray-500'>Output</div>
         <div className='flex flex-row gap-1 items-center'>
-          {isHovering && !isLoading && !!runId && <SideBySideTableRowOutputStats stats={stats} />}
+          {!isLoading && !!runId && <SideBySideTableRowOutputStats stats={stats} />}
           {isLoading && <Loader2 className='w-3 h-3 animate-spin text-gray-600' />}
           {!!runId && !isLoading && (
             <AIEvaluationReview

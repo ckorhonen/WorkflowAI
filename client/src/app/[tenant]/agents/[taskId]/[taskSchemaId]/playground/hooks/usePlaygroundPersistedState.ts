@@ -33,7 +33,7 @@ type PlaygroundPersistedState = Record<
   {
     models: PlaygroundModels;
     showDiffMode: boolean;
-    show2ColumnLayout: boolean;
+    hiddenModelColumns: number[] | undefined;
     taskRunId1: string | undefined;
     taskRunId2: string | undefined;
     taskRunId3: string | undefined;
@@ -54,11 +54,11 @@ type Props = {
   taskSchemaId: TaskSchemaID;
   tenant: TenantID | undefined;
   showDiffModeParam: string | undefined;
-  show2ColumnLayoutParam: string | undefined;
+  hiddenModelColumnsParam: string | undefined;
 };
 
 export function usePlaygroundPersistedState(props: Props) {
-  const { taskId, taskSchemaId, tenant, showDiffModeParam, show2ColumnLayoutParam } = props;
+  const { taskId, taskSchemaId, tenant, showDiffModeParam, hiddenModelColumnsParam } = props;
 
   const [persistedState, setPersistedState] = useLocalStorage<PlaygroundPersistedState>('playgroundPersistedState', {});
   const [sessionPersistedState, setSessionPersistedState] = useSessionStorage<PlaygroundSessionPersistedState>(
@@ -78,7 +78,7 @@ export function usePlaygroundPersistedState(props: Props) {
   const persistedSchemaModels = persistedState[schemaScopeKey]?.models ?? [null, null, null];
   const persistedTaskModels = persistedState[taskScopeKey]?.models ?? [null, null, null];
   const persistedShowDiffMode = persistedState[taskScopeKey]?.showDiffMode ?? false;
-  const persistedShow2ColumnLayout = persistedState[taskScopeKey]?.show2ColumnLayout ?? false;
+  const persistedHiddenModelColumns: number[] | undefined = persistedState[taskScopeKey]?.hiddenModelColumns;
   const persistedTaskRunId1 = persistedState[schemaScopeKey]?.taskRunId1;
   const persistedTaskRunId2 = persistedState[schemaScopeKey]?.taskRunId2;
   const persistedTaskRunId3 = persistedState[schemaScopeKey]?.taskRunId3;
@@ -137,37 +137,37 @@ export function usePlaygroundPersistedState(props: Props) {
     [taskScopeKey, setPersistedState, redirectWithParams]
   );
 
-  const handleSetShow2ColumnLayout = useCallback(
-    (show2ColumnLayout: boolean) => {
+  const handleSetHiddenModelColumns = useCallback(
+    (hiddenModelColumns: number[] | undefined) => {
       redirectWithParams({
-        params: { show2ColumnLayout: show2ColumnLayout.toString() },
+        params: { hiddenModelColumns: hiddenModelColumns?.join(',') },
         scroll: false,
       });
       setPersistedState((prev) => ({
         ...prev,
-        [taskScopeKey]: { ...prev[taskScopeKey], show2ColumnLayout },
+        [taskScopeKey]: { ...prev[taskScopeKey], hiddenModelColumns },
       }));
     },
     [taskScopeKey, setPersistedState, redirectWithParams]
   );
 
-  // We need to set the showDiffMode and show2ColumnLayout from the query params if they are not defined
+  // We need to set the showDiffMode and hiddenModelColumns from the query params if they are not defined
   useEffect(() => {
-    if (showDiffModeParam === undefined && show2ColumnLayoutParam === undefined) {
+    if (showDiffModeParam === undefined && hiddenModelColumnsParam === undefined) {
       redirectWithParams({
         params: {
           showDiffMode: persistedShowDiffMode ? 'true' : 'false',
-          show2ColumnLayout: persistedShow2ColumnLayout ? 'true' : 'false',
+          hiddenModelColumns: persistedHiddenModelColumns?.join(','),
         },
         scroll: false,
       });
     }
   }, [
     showDiffModeParam,
-    show2ColumnLayoutParam,
+    hiddenModelColumnsParam,
     redirectWithParams,
     persistedShowDiffMode,
-    persistedShow2ColumnLayout,
+    persistedHiddenModelColumns,
   ]);
 
   const handleGenerateInputChange = useCallback(
@@ -226,14 +226,21 @@ export function usePlaygroundPersistedState(props: Props) {
     [persistedTaskRunId1, persistedTaskRunId2, persistedTaskRunId3]
   );
 
+  const hiddenModelColumns = useMemo(() => {
+    if (hiddenModelColumnsParam) {
+      return hiddenModelColumnsParam.split(',').map(Number);
+    }
+    return persistedHiddenModelColumns;
+  }, [hiddenModelColumnsParam, persistedHiddenModelColumns]);
+
   return {
     schemaModels,
     taskModels,
     setSchemaModels: handleSetModels,
     showDiffMode: showDiffModeParam === 'true',
-    show2ColumnLayout: show2ColumnLayoutParam === 'true',
     setShowDiffMode: handleSetShowDiffMode,
-    setShow2ColumnLayout: handleSetShow2ColumnLayout,
+    hiddenModelColumns: hiddenModelColumns,
+    setHiddenModelColumns: handleSetHiddenModelColumns,
     generatedInput,
     preGeneratedInput,
     setGeneratedInput: handleGenerateInputChange,

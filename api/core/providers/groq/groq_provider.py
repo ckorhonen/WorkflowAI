@@ -6,8 +6,9 @@ from pydantic import BaseModel, ValidationError
 from typing_extensions import override
 
 from core.domain.errors import FailedGenerationError, MaxTokensExceededError, ProviderBadRequestError
+from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
 from core.domain.models.model_data import ModelData
 from core.domain.tool import Tool
@@ -29,7 +30,6 @@ from core.providers.groq.groq_domain import (
     TextResponseFormat,
 )
 from core.providers.openai.openai_domain import parse_tool_call_or_raise
-from core.runners.workflowai.utils import FileWithKeyPath
 
 
 class GroqConfig(BaseModel):
@@ -69,7 +69,7 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
 
     @override
     @classmethod
-    def requires_downloading_file(cls, file: FileWithKeyPath, model: Model) -> bool:
+    def requires_downloading_file(cls, file: File, model: Model) -> bool:
         # For now groq models do not support files anyway
         return False
 
@@ -83,7 +83,7 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
         return Model.LLAMA_3_1_70B
 
     @override
-    def _build_request(self, messages: list[Message], options: ProviderOptions, stream: bool) -> BaseModel:
+    def _build_request(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool) -> BaseModel:
         groq_messages: list[GroqMessage] = []
         for m in messages:
             groq_messages.extend(GroqMessage.from_domain(m))

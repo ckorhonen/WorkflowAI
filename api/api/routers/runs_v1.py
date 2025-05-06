@@ -17,7 +17,7 @@ from core.domain.error_response import ErrorCode, ErrorResponse
 from core.domain.page import Page
 from core.domain.search_query import FieldQuery, SearchOperator
 from core.domain.task_group import TaskGroup
-from core.domain.types import TaskInputDict, TaskOutputDict
+from core.domain.types import AgentInput, AgentOutput
 from core.storage import ObjectNotFoundException
 from core.utils.iter_utils import safe_map_optional
 from core.utils.schemas import FieldType
@@ -144,8 +144,8 @@ async def search_runs(
 
 
 class RunV1(_BaseRunV1):
-    task_input: TaskInputDict
-    task_output: TaskOutputDict
+    task_input: AgentInput
+    task_output: AgentOutput
 
     reasoning_steps: list[ReasoningStep] | None
 

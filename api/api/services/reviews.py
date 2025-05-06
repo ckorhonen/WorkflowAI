@@ -21,7 +21,7 @@ from core.domain.task_evaluator import EvalV2Evaluator, TaskEvaluator
 from core.domain.task_group import TaskGroupQuery
 from core.domain.task_run_query import SerializableTaskRunField, SerializableTaskRunQuery
 from core.domain.task_variant import SerializableTaskVariant
-from core.domain.types import TaskInputDict
+from core.domain.types import AgentOutput
 from core.domain.users import UserIdentifier
 from core.evaluators.input_task_evaluator import (
     InputTaskEvaluator,
@@ -1267,8 +1267,8 @@ class ReviewsService:
         task_input_hash: str
         task_input: dict[str, Any]
 
-        correct_outputs: list[dict[str, Any]]
-        incorrect_outputs: list[dict[str, Any]]
+        correct_outputs: list[AgentOutput]
+        incorrect_outputs: list[AgentOutput]
 
         evaluation_instructions: str | None
 
@@ -1394,8 +1394,8 @@ class ReviewsService:
         return self.ReviewedInput.from_domain(input_evaluation, run.task_input)
 
     class OutputListUpdate(NamedTuple):
-        add: TaskInputDict | None
-        remove: TaskInputDict | None
+        add: AgentOutput | None
+        remove: AgentOutput | None
 
     async def update_input_evaluation(
         self,
@@ -1428,8 +1428,8 @@ class ReviewsService:
 
         def _update_outputs(
             update: "ReviewsService.OutputListUpdate",
-            list: list[dict[str, Any]],
-            other: list[dict[str, Any]],
+            list: list[AgentOutput],
+            other: list[AgentOutput],
         ):
             if update.add:
                 if update.add not in list:

@@ -86,6 +86,9 @@ export function ObjectViewer(props: ObjectViewerProps) {
   }, [rawIsArray, rawValue]);
 
   const value = useMemo(() => {
+    if (typeof rawValue === 'string') {
+      return { content: rawValue };
+    }
     if (
       !rawValue &&
       !editable &&

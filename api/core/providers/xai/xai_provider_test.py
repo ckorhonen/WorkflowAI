@@ -20,7 +20,7 @@ from core.domain.errors import (
 from core.domain.fields.file import File
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model
 from core.domain.structured_output import StructuredOutput
 from core.providers.base.abstract_provider import RawCompletion
@@ -42,8 +42,8 @@ class TestBuildRequest:
     def test_build_request(self, xai_provider: XAIProvider):
         request = xai_provider._build_request(  # pyright: ignore [reportPrivateUsage]
             messages=[
-                Message(role=Message.Role.SYSTEM, content="Hello 1"),
-                Message(role=Message.Role.USER, content="Hello"),
+                MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="Hello 1"),
+                MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello"),
             ],
             options=ProviderOptions(model=Model.GPT_4O_2024_11_20, max_tokens=10, temperature=0),
             stream=False,
@@ -66,8 +66,8 @@ class TestBuildRequest:
     def test_build_request_without_max_tokens(self, xai_provider: XAIProvider):
         request = xai_provider._build_request(  # pyright: ignore [reportPrivateUsage]
             messages=[
-                Message(role=Message.Role.SYSTEM, content="Hello 1"),
-                Message(role=Message.Role.USER, content="Hello"),
+                MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="Hello 1"),
+                MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello"),
             ],
             options=ProviderOptions(model=Model.GPT_4O_2024_11_20, temperature=0),
             stream=False,
@@ -96,7 +96,7 @@ class TestBuildRequest:
         request = cast(
             CompletionRequest,
             xai_provider._build_request(  # pyright: ignore [reportPrivateUsage]
-                messages=[Message(role=Message.Role.USER, content="Hello")],
+                messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(
                     model=Model.GROK_3_MINI_BETA_HIGH_REASONING_EFFORT,
                     max_tokens=10,
@@ -121,7 +121,7 @@ class TestBuildRequest:
         request = cast(
             CompletionRequest,
             xai_provider._build_request(  # pyright: ignore [reportPrivateUsage]
-                messages=[Message(role=Message.Role.USER, content="Hello")],
+                messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(
                     model=Model.GROK_3_MINI_BETA_LOW_REASONING_EFFORT,
                     max_tokens=10,
@@ -281,7 +281,7 @@ class TestSingleStream:
             stream=IteratorStream(fixtures_stream("xai", "stream_reasoning.txt")),
         )
         streamer = xai_provider.stream(
-            [Message(role=Message.Role.USER, content="Hello")],
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.GROK_3_MINI_BETA_HIGH_REASONING_EFFORT),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             partial_output_factory=lambda x: StructuredOutput(x),
@@ -313,8 +313,13 @@ class TestStream:
         provider = XAIProvider()
 
         streamer = provider.stream(
-            [Message(role=Message.Role.USER, content="Hello")],
-            options=ProviderOptions(model=Model.GPT_3_5_TURBO_1106, max_tokens=10, temperature=0),
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
+            options=ProviderOptions(
+                model=Model.GPT_3_5_TURBO_1106,
+                max_tokens=10,
+                temperature=0,
+                output_schema={"type": "object"},
+            ),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             partial_output_factory=lambda x: StructuredOutput(x),
         )
@@ -355,7 +360,7 @@ class TestStream:
         provider = XAIProvider()
 
         streamer = provider.stream(
-            [Message(role=Message.Role.USER, content="Hello")],
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.GPT_3_5_TURBO_1106, max_tokens=10, temperature=0),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             partial_output_factory=lambda x: StructuredOutput(x),
@@ -380,15 +385,20 @@ class TestComplete:
 
         o = await provider.complete(
             [
-                Message(
-                    role=Message.Role.USER,
+                MessageDeprecated(
+                    role=MessageDeprecated.Role.USER,
                     content="Hello",
                     files=[
                         File(data="data", content_type="image/png"),
                     ],
                 ),
             ],
-            options=ProviderOptions(model=Model.GPT_3_5_TURBO_1106, max_tokens=10, temperature=0),
+            options=ProviderOptions(
+                model=Model.GPT_3_5_TURBO_1106,
+                max_tokens=10,
+                temperature=0,
+                output_schema={"type": "object"},
+            ),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
         )
         assert o.output
@@ -435,15 +445,20 @@ class TestComplete:
 
         o = await provider.complete(
             [
-                Message(
-                    role=Message.Role.USER,
+                MessageDeprecated(
+                    role=MessageDeprecated.Role.USER,
                     content="Hello",
                     files=[
                         File(data="data", content_type="audio/wav"),
                     ],
                 ),
             ],
-            options=ProviderOptions(model=Model.GPT_3_5_TURBO_1106, max_tokens=10, temperature=0),
+            options=ProviderOptions(
+                model=Model.GPT_3_5_TURBO_1106,
+                max_tokens=10,
+                temperature=0,
+                output_schema={"type": "object"},
+            ),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
         )
         assert o.output
@@ -481,6 +496,38 @@ class TestComplete:
             # "store": True,
         }
 
+    async def test_complete_text_only(self, httpx_mock: HTTPXMock):
+        httpx_mock.add_response(
+            url="https://api.x.ai/v1/chat/completions",
+            json=fixtures_json("xai", "completion.json"),
+        )
+
+        provider = XAIProvider()
+
+        o = await provider.complete(
+            [
+                MessageDeprecated(
+                    role=MessageDeprecated.Role.USER,
+                    content="Hello",
+                ),
+            ],
+            options=ProviderOptions(
+                model=Model.GPT_3_5_TURBO_1106,
+                max_tokens=10,
+                temperature=0,
+                # No output schema means the model will return a string
+                output_schema=None,
+            ),
+            output_factory=lambda x, _: StructuredOutput(x),
+        )
+        assert o.output
+        assert o.tool_calls is None
+        # Not sure why the pyright in the CI reports an error here
+        request = httpx_mock.get_requests()[0]
+        assert request.method == "POST"  # pyright: ignore reportUnknownMemberType
+        body = json.loads(request.read().decode())
+        assert body["response_format"]["type"] == "text"
+
     async def test_complete_500(self, httpx_mock: HTTPXMock):
         httpx_mock.add_response(
             url="https://api.x.ai/v1/chat/completions",
@@ -492,7 +539,7 @@ class TestComplete:
 
         with pytest.raises(ProviderInternalError) as e:
             await provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.GPT_3_5_TURBO_1106, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )
@@ -509,8 +556,8 @@ class TestComplete:
 
         o = await provider.complete(
             [
-                Message(
-                    role=Message.Role.USER,
+                MessageDeprecated(
+                    role=MessageDeprecated.Role.USER,
                     content="Hello",
                     files=[
                         File(data="data", content_type="image/png"),
@@ -574,7 +621,7 @@ class TestComplete:
         provider = XAIProvider()
         with pytest.raises(ContentModerationError) as e:
             await provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.GPT_4O_2024_08_06, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )
@@ -597,7 +644,7 @@ class TestComplete:
         provider = XAIProvider()
         with pytest.raises(ContentModerationError) as e:
             await provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.GPT_4O_2024_08_06, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )
@@ -617,7 +664,7 @@ class TestComplete:
 
         with pytest.raises(MaxTokensExceededError) as e:
             await xai_provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.GPT_4O_2024_08_06, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )
@@ -631,7 +678,7 @@ class TestComplete:
             json=fixtures_json("xai", "reasoning.json"),
         )
         completion = await xai_provider.complete(
-            [Message(role=Message.Role.USER, content="Hello")],
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.GPT_4O_2024_08_06, max_tokens=10, temperature=0),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
         )
@@ -752,7 +799,7 @@ class TestMaxTokensExceededError:
         provider = XAIProvider()
         with pytest.raises(MaxTokensExceededError) as e:
             await provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.GPT_4O_2024_08_06, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )
@@ -795,7 +842,7 @@ class TestPrepareCompletion:
     async def test_role_before_content(self, xai_provider: XAIProvider):
         """Test that the 'role' key appears before 'content' in the prepared request."""
         request, _ = await xai_provider._prepare_completion(  # pyright: ignore[reportPrivateUsage]
-            messages=[Message(role=Message.Role.USER, content="Hello")],
+            messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.GPT_3_5_TURBO_1106, max_tokens=10, temperature=0),
             stream=False,
         )

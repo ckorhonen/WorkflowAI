@@ -15,7 +15,7 @@ from core.domain.errors import (
 )
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
 from core.domain.structured_output import StructuredOutput
 from core.domain.tool_call import ToolCallRequestWithID
@@ -62,8 +62,8 @@ class TestBuildRequest:
     def test_build_request(self, mistral_provider: MistralAIProvider):
         request = mistral_provider._build_request(  # pyright: ignore [reportPrivateUsage]
             messages=[
-                Message(role=Message.Role.SYSTEM, content="Hello 1"),
-                Message(role=Message.Role.USER, content="Hello"),
+                MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="Hello 1"),
+                MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello"),
             ],
             options=ProviderOptions(model=Model.PIXTRAL_12B_2409, max_tokens=10, temperature=0),
             stream=False,
@@ -86,7 +86,7 @@ class TestBuildRequest:
 
     def test_build_request_with_model_mapping(self, mistral_provider: MistralAIProvider):
         request = mistral_provider._build_request(  # pyright: ignore [reportPrivateUsage]
-            messages=[Message(role=Message.Role.USER, content="Hello")],
+            messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.MISTRAL_LARGE_2_2407, temperature=0),
             stream=False,
         )
@@ -104,7 +104,7 @@ class TestBuildRequest:
         )
 
         request = mistral_provider._build_request(  # pyright: ignore [reportPrivateUsage]
-            messages=[Message(role=Message.Role.USER, content="Hello")],
+            messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(
                 model=Model.PIXTRAL_12B_2409,
                 temperature=0,
@@ -125,7 +125,7 @@ class TestBuildRequest:
 
     def test_build_request_without_tools(self, mistral_provider: MistralAIProvider):
         request = mistral_provider._build_request(  # pyright: ignore [reportPrivateUsage]
-            messages=[Message(role=Message.Role.USER, content="Hello")],
+            messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.PIXTRAL_12B_2409, temperature=0, enabled_tools=[]),
             stream=False,
         )
@@ -134,7 +134,7 @@ class TestBuildRequest:
 
     def test_build_request_with_stream(self, mistral_provider: MistralAIProvider):
         request = mistral_provider._build_request(  # pyright: ignore [reportPrivateUsage]
-            messages=[Message(role=Message.Role.USER, content="Hello")],
+            messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.PIXTRAL_12B_2409, temperature=0),
             stream=True,
         )
@@ -143,7 +143,7 @@ class TestBuildRequest:
 
     def test_build_request_without_max_tokens(self, mistral_provider: MistralAIProvider):
         request = mistral_provider._build_request(  # pyright: ignore [reportPrivateUsage]
-            messages=[Message(role=Message.Role.USER, content="Hello")],
+            messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.PIXTRAL_12B_2409, temperature=0),
             stream=False,
         )
@@ -203,8 +203,13 @@ class TestStream:
         provider = MistralAIProvider()
 
         streamer = provider.stream(
-            [Message(role=Message.Role.USER, content="Hello")],
-            options=ProviderOptions(model=Model.PIXTRAL_12B_2409, max_tokens=10, temperature=0),
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
+            options=ProviderOptions(
+                model=Model.PIXTRAL_12B_2409,
+                max_tokens=10,
+                temperature=0,
+                output_schema={"type": "object"},
+            ),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             partial_output_factory=lambda x: StructuredOutput(x),
         )
@@ -241,7 +246,7 @@ class TestStream:
         provider = MistralAIProvider()
 
         streamer = provider.stream(
-            [Message(role=Message.Role.USER, content="Hello")],
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.PIXTRAL_12B_2409, max_tokens=10, temperature=0),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             partial_output_factory=lambda x: StructuredOutput(x),
@@ -263,15 +268,20 @@ class TestComplete:
 
         o = await mistral_provider.complete(
             [
-                Message(
-                    role=Message.Role.USER,
+                MessageDeprecated(
+                    role=MessageDeprecated.Role.USER,
                     content="Hello",
                     files=[
                         File(data="data", content_type="image/png"),
                     ],
                 ),
             ],
-            options=ProviderOptions(model=Model.PIXTRAL_12B_2409, max_tokens=10, temperature=0),
+            options=ProviderOptions(
+                model=Model.PIXTRAL_12B_2409,
+                max_tokens=10,
+                temperature=0,
+                output_schema={"type": "object"},
+            ),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
         )
         assert o.output
@@ -319,15 +329,19 @@ class TestComplete:
 
         o = await mistral_provider.complete(
             [
-                Message(
-                    role=Message.Role.USER,
+                MessageDeprecated(
+                    role=MessageDeprecated.Role.USER,
                     content="Hello",
                     files=[
                         File(data="data", content_type="image/png"),
                     ],
                 ),
             ],
-            options=ProviderOptions(model=Model.PIXTRAL_12B_2409, temperature=0),
+            options=ProviderOptions(
+                model=Model.PIXTRAL_12B_2409,
+                temperature=0,
+                output_schema={"type": "object"},
+            ),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
         )
         assert o.output
@@ -370,6 +384,25 @@ class TestComplete:
             # "store": True,
         }
 
+    async def test_complete_text_only(self, httpx_mock: HTTPXMock, mistral_provider: MistralAIProvider):
+        httpx_mock.add_response(
+            url="https://api.mistral.ai/v1/chat/completions",
+            json=fixtures_json("mistralai", "completion.json"),
+        )
+
+        o = await mistral_provider.complete(
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
+            options=ProviderOptions(model=Model.PIXTRAL_12B_2409, max_tokens=10, temperature=0),
+            output_factory=lambda x, _: StructuredOutput(x),
+        )
+        assert o.output
+        assert o.tool_calls is None
+
+        request = httpx_mock.get_requests()[0]
+        assert request.method == "POST"  # pyright: ignore reportUnknownMemberType
+        body = json.loads(request.read().decode())
+        assert body["response_format"]["type"] == "text"
+
     async def test_complete_500(self, httpx_mock: HTTPXMock):
         httpx_mock.add_response(
             url="https://api.mistral.ai/v1/chat/completions",
@@ -381,7 +414,7 @@ class TestComplete:
 
         with pytest.raises(ProviderInternalError) as e:
             await provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.PIXTRAL_12B_2409, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )
@@ -398,7 +431,7 @@ class TestComplete:
 
         with pytest.raises(ProviderBadRequestError) as e:
             await mistral_provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.PIXTRAL_12B_2409, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )
@@ -422,7 +455,7 @@ class TestComplete:
 
         with pytest.raises(MaxTokensExceededError) as e:
             await mistral_provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.PIXTRAL_12B_2409, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )
@@ -441,7 +474,7 @@ class TestComplete:
 
         with pytest.raises(MaxTokensExceededError) as e:
             await mistral_provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.PIXTRAL_12B_2409, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )
@@ -454,7 +487,7 @@ class TestComplete:
             json=fixtures_json("mistralai", "completion.json"),
         )
         await mistral_provider.complete(
-            [Message(role=Message.Role.USER, content="Hello")],
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.PIXTRAL_12B_2409, max_tokens=10, temperature=0),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
         )
@@ -473,7 +506,7 @@ class TestComplete:
             json=fixtures_json("mistralai", "completion.json"),
         )
         await mistral_provider.complete(
-            [Message(role=Message.Role.USER, content="Hello")],
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.PIXTRAL_12B_2409, temperature=0),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
         )
@@ -611,7 +644,7 @@ class TestMaxTokensExceeded:
         )
         with pytest.raises(MaxTokensExceededError) as e:
             await mistral_provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.PIXTRAL_12B_2409, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )

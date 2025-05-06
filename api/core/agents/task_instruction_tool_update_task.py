@@ -34,9 +34,9 @@ class TaskInstructionsToolUpdateTaskInput(BaseModel):
         def from_domain_tool(cls, tool: DTool):
             return cls(
                 handle=tool.name,
-                description=tool.description,
+                description=tool.description or "",
                 input_json_schema=tool.input_schema,
-                output_json_schema=tool.output_schema,
+                output_json_schema=tool.output_schema or {},
             )
 
     tools_to_add: list[Tool] = Field(description="The tools to add to the 'initial_task_instructions'")

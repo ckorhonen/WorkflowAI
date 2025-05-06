@@ -1,7 +1,8 @@
+import json
 import re
 from collections.abc import Awaitable, Callable
 from datetime import date
-from typing import Any
+from typing import Any, cast
 from unittest.mock import AsyncMock, Mock, PropertyMock, patch
 
 import pytest
@@ -22,7 +23,7 @@ from core.domain.errors import (
 from core.domain.fields.file import File
 from core.domain.fields.image_options import ImageOptions
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
-from core.domain.message import Message
+from core.domain.message import Message, MessageContent, MessageDeprecated, Messages
 from core.domain.metrics import Metric
 from core.domain.models import Model, Provider
 from core.domain.models.model_data import FinalModelData, LatestModel, MaxTokensData, ModelData
@@ -30,11 +31,11 @@ from core.domain.models.model_datas_mapping import MODEL_DATAS, DisplayedProvide
 from core.domain.run_output import RunOutput
 from core.domain.structured_output import StructuredOutput
 from core.domain.task_group_properties import FewShotConfiguration, FewShotExample, TaskGroupProperties
-from core.domain.task_io import SerializableTaskIO
+from core.domain.task_io import RawJSONMessageSchema, RawMessagesSchema, RawStringMessageSchema, SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.tool import Tool
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
-from core.domain.types import TaskOutputDict
+from core.domain.types import AgentOutput
 from core.providers.base.abstract_provider import AbstractProvider
 from core.providers.base.provider_options import ProviderOptions
 from core.runners.workflowai.internal_tool import InternalTool
@@ -70,8 +71,8 @@ def _build_runner(
 # TODO: merge with _build_runner
 def _build_runner2(
     mock_provider_factory: Mock,
-    input_schema: dict[str, Any],
-    output_schema: dict[str, Any],
+    input_schema: dict[str, Any] | SerializableTaskIO,
+    output_schema: dict[str, Any] | SerializableTaskIO,
     instructions: str,
     model: Model,
     has_templated_instructions: bool = False,
@@ -85,11 +86,15 @@ def _build_runner2(
             task_schema_id=1,
             name="test",
             description="test",
-            input_schema=SerializableTaskIO.from_json_schema(
+            input_schema=input_schema
+            if isinstance(input_schema, SerializableTaskIO)
+            else SerializableTaskIO.from_json_schema(
                 input_schema,
                 streamline=True,
             ),
-            output_schema=SerializableTaskIO.from_json_schema(
+            output_schema=output_schema
+            if isinstance(output_schema, SerializableTaskIO)
+            else SerializableTaskIO.from_json_schema(
                 output_schema,
                 streamline=True,
             ),
@@ -153,185 +158,6 @@ def model_data():
     )
 
 
-class TestWorkflowAIRunnerMessages:
-    async def test_default(self, mock_provider: Mock, model_data: ModelData):
-        runner = _build_runner()
-        messages = await runner._build_messages(  # pyright: ignore [reportPrivateUsage]
-            TemplateName.V2_DEFAULT,
-            {"input": "cool cool cool"},
-            mock_provider,
-            model_data,
-        )
-        assert len(messages) == 2
-
-        assert messages[0].role == Message.Role.SYSTEM
-        assert (
-            messages[0].content
-            == """<instructions>
-
-</instructions>
-
-Input will be provided in the user message using a JSON following the schema:
-```json
-{
-  "type": "object",
-  "properties": {
-    "input": {
-      "type": "string"
-    }
-  },
-  "required": [
-    "input"
-  ]
-}
-```
-
-Return a single JSON object enforcing the following schema:
-```json
-{
-  "type": "object",
-  "properties": {
-    "output": {
-      "type": "integer"
-    }
-  },
-  "required": [
-    "output"
-  ]
-}
-```"""
-        )
-
-        assert messages[1].role == Message.Role.USER
-        assert (
-            messages[1].content
-            == """Input is:
-```json
-{
-  "input": "cool cool cool"
-}
-```"""
-        )
-
-    async def test_with_examples(self, mock_provider: Mock, model_data: ModelData):
-        runner = _build_runner(
-            properties=TaskGroupProperties(
-                model=Model.GPT_3_5_TURBO_1106,
-                few_shot=FewShotConfiguration(
-                    examples=[
-                        FewShotExample(task_input={"input": "h"}, task_output={"input": "w"}),
-                        FewShotExample(task_input={"input": "h1"}, task_output={"input": "w1"}),
-                    ],
-                ),
-            ),
-        )
-
-        assert runner._options.examples and len(runner._options.examples) == 2  # pyright: ignore [reportPrivateUsage]
-
-        messages = await runner._build_messages(  # pyright: ignore [reportPrivateUsage]
-            TemplateName.V2_DEFAULT,
-            {"input": "cool cool cool"},
-            mock_provider,
-            model_data,
-        )
-
-        assert messages[0].role == Message.Role.SYSTEM
-        assert (
-            messages[0].content
-            == """<instructions>
-
-</instructions>
-
-Input will be provided in the user message using a JSON following the schema:
-```json
-{
-  "type": "object",
-  "properties": {
-    "input": {
-      "type": "string"
-    }
-  },
-  "required": [
-    "input"
-  ]
-}
-```
-
-Return a single JSON object enforcing the following schema:
-```json
-{
-  "type": "object",
-  "properties": {
-    "output": {
-      "type": "integer"
-    }
-  },
-  "required": [
-    "output"
-  ]
-}
-```"""
-        )
-
-        assert messages[1].role == Message.Role.USER
-        assert (
-            messages[1].content
-            == """Input is:
-```json
-{
-  "input": "cool cool cool"
-}
-```
-
-Examples:
-
-Input:
-```json
-{
-  "input": "h"
-}
-```
-Output:
-```json
-{
-  "input": "w"
-}
-```
-
-Input:
-```json
-{
-  "input": "h1"
-}
-```
-Output:
-```json
-{
-  "input": "w1"
-}
-```"""
-        )
-
-
-def test_init() -> None:
-    runner = WorkflowAIRunner(
-        task_variant(),
-        properties=TaskGroupProperties(
-            model=Model.GPT_4O_MINI_2024_07_18,
-            instructions="Hello, world!",
-        ),
-    )
-    assert runner.properties.model_dump(exclude_none=True) == {
-        "model": Model.GPT_4O_MINI_2024_07_18.value,
-        "temperature": 0.0,
-        "instructions": "Hello, world!",
-        "runner_name": "WorkflowAI",
-        "runner_version": "v0.1.0",
-        "task_variant_id": "task_version_id",
-        "has_templated_instructions": False,
-    }
-
-
 @pytest.fixture(scope="function")
 def mock_task():
     # Can't really use a wrap here since we use properties
@@ -378,6 +204,258 @@ def patched_runner(mock_task: Mock, mock_build_properties: Mock):
     )
 
 
+class TestWorkflowAIRunnerMessages:
+    async def test_default(self, mock_provider: Mock, model_data: ModelData):
+        runner = _build_runner()
+        messages = await runner._build_messages(  # pyright: ignore [reportPrivateUsage]
+            TemplateName.V2_DEFAULT,
+            {"input": "cool cool cool"},
+            mock_provider,
+            model_data,
+        )
+        assert len(messages) == 2
+
+        assert messages[0].role == MessageDeprecated.Role.SYSTEM
+        assert (
+            messages[0].content
+            == """<instructions>
+
+</instructions>
+
+Input will be provided in the user message using a JSON following the schema:
+```json
+{
+  "type": "object",
+  "properties": {
+    "input": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "input"
+  ]
+}
+```
+
+Return a single JSON object enforcing the following schema:
+```json
+{
+  "type": "object",
+  "properties": {
+    "output": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "output"
+  ]
+}
+```"""
+        )
+
+        assert messages[1].role == MessageDeprecated.Role.USER
+        assert (
+            messages[1].content
+            == """Input is:
+```json
+{
+  "input": "cool cool cool"
+}
+```"""
+        )
+
+    async def test_with_examples(self, mock_provider: Mock, model_data: ModelData):
+        runner = _build_runner(
+            properties=TaskGroupProperties(
+                model=Model.GPT_3_5_TURBO_1106,
+                few_shot=FewShotConfiguration(
+                    examples=[
+                        FewShotExample(task_input={"input": "h"}, task_output={"input": "w"}),
+                        FewShotExample(task_input={"input": "h1"}, task_output={"input": "w1"}),
+                    ],
+                ),
+            ),
+        )
+
+        assert runner._options.examples and len(runner._options.examples) == 2  # pyright: ignore [reportPrivateUsage]
+
+        messages = await runner._build_messages(  # pyright: ignore [reportPrivateUsage]
+            TemplateName.V2_DEFAULT,
+            {"input": "cool cool cool"},
+            mock_provider,
+            model_data,
+        )
+
+        assert messages[0].role == MessageDeprecated.Role.SYSTEM
+        assert (
+            messages[0].content
+            == """<instructions>
+
+</instructions>
+
+Input will be provided in the user message using a JSON following the schema:
+```json
+{
+  "type": "object",
+  "properties": {
+    "input": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "input"
+  ]
+}
+```
+
+Return a single JSON object enforcing the following schema:
+```json
+{
+  "type": "object",
+  "properties": {
+    "output": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "output"
+  ]
+}
+```"""
+        )
+
+        assert messages[1].role == MessageDeprecated.Role.USER
+        assert (
+            messages[1].content
+            == """Input is:
+```json
+{
+  "input": "cool cool cool"
+}
+```
+
+Examples:
+
+Input:
+```json
+{
+  "input": "h"
+}
+```
+Output:
+```json
+{
+  "input": "w"
+}
+```
+
+Input:
+```json
+{
+  "input": "h1"
+}
+```
+Output:
+```json
+{
+  "input": "w1"
+}
+```"""
+        )
+
+
+class TestInlineMessages:
+    async def test_inlined_structured_output(self, patched_runner: WorkflowAIRunner):
+        messages = await patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
+            Messages(messages=[Message(role="user", content=[MessageContent(text="cool cool cool")])]),
+            Mock(),
+            True,
+            False,
+        )
+        assert len(messages) == 1
+        assert messages[0].role == MessageDeprecated.Role.USER
+        assert messages[0].content == "cool cool cool"
+
+    async def test_inlined_no_structured_output(self, patched_runner: WorkflowAIRunner):
+        messages = await patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
+            Messages(messages=[Message(role="user", content=[MessageContent(text="cool cool cool")])]),
+            Mock(),
+            False,
+            False,
+        )
+        assert len(messages) == 2
+        assert messages[0].role == MessageDeprecated.Role.SYSTEM
+        assert (
+            messages[0].content
+            == """Return a single JSON object enforcing the following schema:
+```json
+{
+  "properties": {}
+}
+```"""
+        )
+        assert messages[1].role == MessageDeprecated.Role.USER
+        assert messages[1].content == "cool cool cool"
+
+    async def test_inlined_no_structured_output_with_tool_use(self, patched_runner: WorkflowAIRunner):
+        messages = await patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
+            Messages(messages=[Message(role="user", content=[MessageContent(text="cool cool cool")])]),
+            Mock(),
+            False,
+            True,
+        )
+        assert len(messages) == 2
+        assert messages[0].role == MessageDeprecated.Role.SYSTEM
+        assert (
+            messages[0].content
+            == """Return either tool call(s) or a single JSON object enforcing the following schema:
+```json
+{
+  "properties": {}
+}
+```"""
+        )
+        assert messages[1].role == MessageDeprecated.Role.USER
+        assert messages[1].content == "cool cool cool"
+
+    @pytest.mark.parametrize(
+        "system_message",
+        [
+            ("here is a JSON schema"),
+            ("I have a json-schema"),
+            ("objects in json that match the following json_schema"),
+        ],
+    )
+    async def test_no_addition_if_already_present(self, patched_runner: WorkflowAIRunner, system_message: str):
+        messages = await patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
+            Messages(messages=[Message(role="system", content=[MessageContent(text=system_message)])]),
+            Mock(),
+            False,
+            False,
+        )
+        assert len(messages) == 1
+        assert messages[0].content == system_message
+
+
+def test_init() -> None:
+    runner = WorkflowAIRunner(
+        task_variant(),
+        properties=TaskGroupProperties(
+            model=Model.GPT_4O_MINI_2024_07_18,
+            instructions="Hello, world!",
+        ),
+    )
+    assert runner.properties.model_dump(exclude_none=True) == {
+        "model": Model.GPT_4O_MINI_2024_07_18.value,
+        "temperature": 0.0,
+        "instructions": "Hello, world!",
+        "runner_name": "WorkflowAI",
+        "runner_version": "v0.1.0",
+        "task_variant_id": "task_version_id",
+        "has_templated_instructions": False,
+    }
+
+
 class TestStreamTaskOutputFromMessages:
     async def test_validate(
         self,
@@ -394,7 +472,7 @@ class TestStreamTaskOutputFromMessages:
         )
 
         patched_runner.properties.enabled_tools = []
-        yielded: list[TaskOutputDict] = [
+        yielded: list[AgentOutput] = [
             chunk.task_output
             async for chunk in patched_runner._stream_task_output_from_messages(  # pyright: ignore [reportPrivateUsage]
                 mock_provider,
@@ -582,9 +660,9 @@ class TestBuildMessages:
         )
 
         assert len(messages) == 2
-        assert messages[0].role == Message.Role.SYSTEM
+        assert messages[0].role == MessageDeprecated.Role.SYSTEM
         assert "Input will be provided in the user message" not in messages[0].content
-        assert messages[1].role == Message.Role.USER
+        assert messages[1].role == MessageDeprecated.Role.USER
         assert messages[1].content == "Input is a single file"
         assert messages[1].files is not None and len(messages[1].files) == 1
 
@@ -608,9 +686,9 @@ class TestBuildMessages:
         )
 
         assert len(messages) == 2
-        assert messages[0].role == Message.Role.SYSTEM
+        assert messages[0].role == MessageDeprecated.Role.SYSTEM
         assert "Input will be provided in the user message" not in messages[0].content
-        assert messages[1].role == Message.Role.USER
+        assert messages[1].role == MessageDeprecated.Role.USER
         assert messages[1].content == "Input is an array of files"
         assert messages[1].files is not None and len(messages[1].files) == 1
 
@@ -641,9 +719,9 @@ class TestBuildMessages:
         )
 
         assert len(messages) == 2
-        assert messages[0].role == Message.Role.SYSTEM
+        assert messages[0].role == MessageDeprecated.Role.SYSTEM
         assert "Input will be provided in the user message" in messages[0].content
-        assert messages[1].role == Message.Role.USER
+        assert messages[1].role == MessageDeprecated.Role.USER
         assert messages[1].content.startswith("Input is:")
         assert messages[1].files is not None and len(messages[1].files) == 2
 
@@ -671,9 +749,9 @@ class TestBuildMessages:
         )
 
         assert len(messages) == 2
-        assert messages[0].role == Message.Role.SYSTEM
+        assert messages[0].role == MessageDeprecated.Role.SYSTEM
         assert "Input will be provided in the user message" in messages[0].content
-        assert messages[1].role == Message.Role.USER
+        assert messages[1].role == MessageDeprecated.Role.USER
         assert messages[1].content.startswith("Input is:")
         assert messages[1].files is not None and len(messages[1].files) == 1
 
@@ -699,9 +777,9 @@ class TestBuildMessages:
         )
 
         assert len(messages) == 2
-        assert messages[0].role == Message.Role.SYSTEM
+        assert messages[0].role == MessageDeprecated.Role.SYSTEM
         assert "Input will be provided in the user message" in messages[0].content
-        assert messages[1].role == Message.Role.USER
+        assert messages[1].role == MessageDeprecated.Role.USER
         assert messages[1].content.startswith("Input is:")
         assert messages[1].files is None
 
@@ -716,7 +794,7 @@ class TestBuildMessages:
             model_data,
         )
         assert len(messages) == 2
-        assert messages[0].role == Message.Role.SYSTEM
+        assert messages[0].role == MessageDeprecated.Role.SYSTEM
         assert (
             messages[0].content
             == """<instructions>
@@ -738,7 +816,7 @@ Return a single JSON object enforcing the following schema:
 }
 ```"""
         )
-        assert messages[1].role == Message.Role.USER
+        assert messages[1].role == MessageDeprecated.Role.USER
         assert messages[1].content == "Follow the instructions"
 
     async def test_templated_instructions_some_consumed(self, mock_provider: Mock, model_data: ModelData):
@@ -758,7 +836,7 @@ Return a single JSON object enforcing the following schema:
         )
 
         assert len(messages) == 2
-        assert messages[0].role == Message.Role.SYSTEM
+        assert messages[0].role == MessageDeprecated.Role.SYSTEM
         assert (
             messages[0].content
             == """<instructions>
@@ -797,7 +875,7 @@ Return a single JSON object enforcing the following schema:
 }
 ```"""
         )
-        assert messages[1].role == Message.Role.USER
+        assert messages[1].role == MessageDeprecated.Role.USER
         assert (
             messages[1].content
             == """Input is:
@@ -922,8 +1000,8 @@ class TestStreamTaskOutputFromToolCalls:
                 mock_provider,
                 ProviderOptions(model=Model.GPT_4O_MINI_2024_07_18),
                 [
-                    Message(role=Message.Role.USER, content="test"),
-                    Message(role=Message.Role.SYSTEM, content="test"),
+                    MessageDeprecated(role=MessageDeprecated.Role.USER, content="test"),
+                    MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="test"),
                 ],
             )
         ]
@@ -960,8 +1038,8 @@ class TestStreamTaskOutputFromToolCalls:
                 mock_provider,
                 ProviderOptions(model=Model.GPT_4O_MINI_2024_07_18),
                 [
-                    Message(role=Message.Role.USER, content="test"),
-                    Message(role=Message.Role.SYSTEM, content="test"),
+                    MessageDeprecated(role=MessageDeprecated.Role.USER, content="test"),
+                    MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="test"),
                 ],
             ):
                 pass
@@ -1010,8 +1088,8 @@ class TestBuildTaskOutputFromMessages:
             mock_provider,
             ProviderOptions(model=Model.GPT_4O_MINI_2024_07_18),
             [
-                Message(role=Message.Role.USER, content="test"),
-                Message(role=Message.Role.SYSTEM, content="test"),
+                MessageDeprecated(role=MessageDeprecated.Role.USER, content="test"),
+                MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="test"),
             ],
         )
 
@@ -1045,8 +1123,8 @@ class TestBuildTaskOutputFromMessages:
                 mock_provider,
                 ProviderOptions(model=Model.GPT_4O_MINI_2024_07_18),
                 [
-                    Message(role=Message.Role.USER, content="test"),
-                    Message(role=Message.Role.SYSTEM, content="test"),
+                    MessageDeprecated(role=MessageDeprecated.Role.USER, content="test"),
+                    MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="test"),
                 ],
             )
 
@@ -1573,11 +1651,11 @@ class TestBuildTaskOutput:
         mock_tool_fn.assert_called_once_with(input="test")
         assert patched_provider_factory.openai.complete.call_count == 2
 
-        messages: list[Message] = patched_provider_factory.openai.complete.call_args_list[0].args[0]
+        messages: list[MessageDeprecated] = patched_provider_factory.openai.complete.call_args_list[0].args[0]
         assert len(messages) == 2
 
         # TODO[tools]: change to account for assistant message
-        messages: list[Message] = patched_provider_factory.openai.complete.call_args_list[1].args[0]
+        messages: list[MessageDeprecated] = patched_provider_factory.openai.complete.call_args_list[1].args[0]
         assert len(messages) == 4
         assert messages[-1].tool_call_results == [
             ToolCall(
@@ -1597,8 +1675,8 @@ class TestBuildTaskOutput:
     ):
         """Test that messages are correctly appended with tool calls and results"""
         initial_messages = [
-            Message(role=Message.Role.SYSTEM, content="system message"),
-            Message(role=Message.Role.USER, content="user message"),
+            MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="system message"),
+            MessageDeprecated(role=MessageDeprecated.Role.USER, content="user message"),
         ]
 
         tool_call = ToolCallRequestWithID(tool_name="test_tool", tool_input_dict={"arg": "value"})
@@ -1624,13 +1702,13 @@ class TestBuildTaskOutput:
         assert second_call_messages[0:2] == initial_messages  # Original messages preserved
 
         # Verify tool call message (assistant)
-        assert second_call_messages[2].role == Message.Role.ASSISTANT
+        assert second_call_messages[2].role == MessageDeprecated.Role.ASSISTANT
         assert len(second_call_messages[2].tool_call_requests) == 1
         assert second_call_messages[2].tool_call_requests[0].tool_name == "test_tool"
         assert second_call_messages[2].tool_call_requests[0].tool_input_dict == {"arg": "value"}
 
         # Verify tool result message (user)
-        assert second_call_messages[3].role == Message.Role.USER
+        assert second_call_messages[3].role == MessageDeprecated.Role.USER
         assert len(second_call_messages[3].tool_call_results) == 1
         assert second_call_messages[3].tool_call_results[0].tool_name == "test_tool"
         assert second_call_messages[3].tool_call_results[0].tool_input_dict == {"arg": "value"}
@@ -1645,8 +1723,8 @@ class TestBuildTaskOutput:
     ):
         """Test that multiple tool calls and results are correctly appended"""
         initial_messages = [
-            Message(role=Message.Role.SYSTEM, content="system message"),
-            Message(role=Message.Role.USER, content="user message"),
+            MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="system message"),
+            MessageDeprecated(role=MessageDeprecated.Role.USER, content="user message"),
         ]
 
         tool_calls = [
@@ -1675,7 +1753,7 @@ class TestBuildTaskOutput:
         assert second_call_messages[0:2] == initial_messages  # Original messages preserved
 
         # Verify tool calls message (assistant)
-        assert second_call_messages[2].role == Message.Role.ASSISTANT
+        assert second_call_messages[2].role == MessageDeprecated.Role.ASSISTANT
         assert len(second_call_messages[2].tool_call_requests) == 2
         assert second_call_messages[2].tool_call_requests[0].tool_name == "test_tool"
         assert second_call_messages[2].tool_call_requests[0].tool_input_dict == {"arg": "value1"}
@@ -1683,7 +1761,7 @@ class TestBuildTaskOutput:
         assert second_call_messages[2].tool_call_requests[1].tool_input_dict == {"arg": "value2"}
 
         # Verify tool results message (user)
-        assert second_call_messages[3].role == Message.Role.USER
+        assert second_call_messages[3].role == MessageDeprecated.Role.USER
         assert len(second_call_messages[3].tool_call_results) == 2
         assert second_call_messages[3].tool_call_results[0].tool_name == "test_tool"
         assert second_call_messages[3].tool_call_results[0].tool_input_dict == {"arg": "value1"}
@@ -1700,8 +1778,8 @@ class TestBuildTaskOutput:
     ):
         """Test that failed tool calls are correctly appended with error messages"""
         initial_messages = [
-            Message(role=Message.Role.SYSTEM, content="system message"),
-            Message(role=Message.Role.USER, content="user message"),
+            MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="system message"),
+            MessageDeprecated(role=MessageDeprecated.Role.USER, content="user message"),
         ]
 
         # Set up a failing tool
@@ -1726,13 +1804,13 @@ class TestBuildTaskOutput:
         assert len(second_call_messages) == 4
 
         # Verify tool call message (assistant)
-        assert second_call_messages[2].role == Message.Role.ASSISTANT
+        assert second_call_messages[2].role == MessageDeprecated.Role.ASSISTANT
         assert len(second_call_messages[2].tool_call_requests) == 1
         assert second_call_messages[2].tool_call_requests[0].tool_name == "failing_tool"
         assert second_call_messages[2].tool_call_requests[0].tool_input_dict == {"arg": "value"}
 
         # Verify tool result message with error (user)
-        assert second_call_messages[3].role == Message.Role.USER
+        assert second_call_messages[3].role == MessageDeprecated.Role.USER
         assert len(second_call_messages[3].tool_call_results) == 1
         assert second_call_messages[3].tool_call_results[0].tool_name == "failing_tool"
         assert second_call_messages[3].tool_call_results[0].tool_input_dict == {"arg": "value"}
@@ -2342,8 +2420,8 @@ class TestValidateOutputDict:
 class TestAppendToolCallsToMessages:
     def test_append_tool_calls_to_messages(self, patched_runner: WorkflowAIRunner):
         messages = [
-            Message(role=Message.Role.SYSTEM, content="system message"),
-            Message(role=Message.Role.USER, content="user message"),
+            MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="system message"),
+            MessageDeprecated(role=MessageDeprecated.Role.USER, content="user message"),
         ]
         tool_calls = [
             ToolCallRequestWithID(
@@ -2361,7 +2439,7 @@ class TestAppendToolCallsToMessages:
         assert len(result) == 3
         assert result[0] == messages[0]  # System message unchanged
         assert result[1] == messages[1]  # User message unchanged
-        assert result[2].role == Message.Role.ASSISTANT
+        assert result[2].role == MessageDeprecated.Role.ASSISTANT
 
         assert result[2].tool_call_requests == [
             ToolCallRequestWithID(
@@ -2378,8 +2456,8 @@ class TestAppendToolCallsToMessages:
 
     def test_append_tool_calls_to_messages_empty_tool_calls(self, patched_runner: WorkflowAIRunner):
         messages = [
-            Message(role=Message.Role.SYSTEM, content="system message"),
-            Message(role=Message.Role.USER, content="user message"),
+            MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="system message"),
+            MessageDeprecated(role=MessageDeprecated.Role.USER, content="user message"),
         ]
         tool_calls: list[ToolCallRequestWithID] = []
 
@@ -2388,7 +2466,7 @@ class TestAppendToolCallsToMessages:
         assert len(result) == 3
         assert result[0] == messages[0]  # System message unchanged
         assert result[1] == messages[1]  # User message unchanged
-        assert result[2].role == Message.Role.ASSISTANT
+        assert result[2].role == MessageDeprecated.Role.ASSISTANT
         assert result[2].tool_call_requests == []
 
 
@@ -2413,9 +2491,9 @@ class TestSafeExecuteTool:
         tool_call = ToolCallRequestWithID(tool_name="dummy_tool", tool_input_dict={"x": 1})
         patched_runner._internal_tool_cache.get = AsyncMock(return_value=None)  # pyright: ignore[reportPrivateUsage]
         # Create a message that contains the tool_call id
-        from core.domain.message import Message
+        from core.domain.message import MessageDeprecated
 
-        message = Message(role=Message.Role.USER, content=f"Previous call with id: {tool_call.id}")
+        message = MessageDeprecated(role=MessageDeprecated.Role.USER, content=f"Previous call with id: {tool_call.id}")
         result, is_cached = await patched_runner._safe_execute_tool(tool_call, messages=[message])  # pyright: ignore[reportPrivateUsage]
         assert is_cached is True
         expected = tool_call.with_result("Please refer to the previous messages for the result of this tool call")
@@ -2854,3 +2932,91 @@ def test_check_tool_calling_support_tool_enabled_model_supporting_tool_calling(
         )
 
         runner._check_tool_calling_support(model_data)  # pyright: ignore[reportPrivateUsage]
+
+
+def mock_complete(raw: str):
+    def _mock_complete(
+        messages: Any,
+        options: Any,
+        output_factory: Callable[[str, bool], StructuredOutput],
+    ) -> StructuredOutput:
+        return output_factory(raw, False)
+
+    return _mock_complete
+
+
+class TestRawOutput:
+    async def test_raw_string_output(self, mock_provider_factory_full: Mock):
+        runner = _build_runner2(
+            mock_provider_factory_full,
+            {"type": "object", "properties": {"text": {"type": "string"}}},
+            RawStringMessageSchema,
+            "Return a string",
+            Model.GPT_4O_LATEST,
+        )
+
+        mock_provider_factory_full.openai.complete.side_effect = mock_complete("Hello world")
+
+        builder = await runner.task_run_builder({}, start_time=0)
+        run = await runner.run(builder)
+        assert run.task_output == "Hello world"
+
+    @pytest.mark.parametrize(
+        "raw_content",
+        [
+            pytest.param({"whatever": "Hello world"}, id="dict"),
+            pytest.param(["whatever", "Hello world"], id="list"),
+        ],
+    )
+    async def test_any_json_output(self, mock_provider_factory_full: Mock, raw_content: Any):
+        """Test that in case of a wildcard json, we can return any json"""
+        runner = _build_runner2(
+            mock_provider_factory_full,
+            {"type": "object", "properties": {"text": {"type": "string"}}},
+            RawJSONMessageSchema,
+            "Return a string",
+            Model.GPT_4O_LATEST,
+        )
+        mock_provider_factory_full.openai.complete.side_effect = mock_complete(json.dumps(raw_content))
+
+        builder = await runner.task_run_builder({}, start_time=0)
+        run = await runner.run(builder)
+        assert run.task_output == raw_content
+
+
+class TestMessagesInput:
+    @pytest.mark.parametrize(
+        "input",
+        [
+            pytest.param({"messages": [{"content": [{"text": "Hello world"}], "role": "user"}]}, id="dict"),
+            pytest.param(
+                Messages(messages=[Message(role="user", content=[MessageContent(text="Hello world")])]),
+                id="messages_model",
+            ),
+        ],
+    )
+    async def test_messages_as_json_object(self, mock_provider_factory_full: Mock, input: Any):
+        """Check that we can pass raw messages to the runner"""
+        runner = _build_runner2(
+            mock_provider_factory_full,
+            RawMessagesSchema,
+            RawStringMessageSchema,
+            "Return a string",
+            Model.GPT_4O_LATEST,
+        )
+
+        mock_provider_factory_full.openai.complete.side_effect = mock_complete("Hello world")
+
+        builder = await runner.task_run_builder(
+            input,
+            start_time=0,
+        )
+        run = await runner.run(builder)
+        assert run.task_output == "Hello world"
+
+        mock_provider_factory_full.openai.complete.assert_called_once()
+        messages = mock_provider_factory_full.openai.complete.call_args_list[0].args[0]
+        assert isinstance(messages, list)
+        messages = cast(list[MessageDeprecated], messages)
+        assert len(messages) == 1
+        assert messages[0].content == "Hello world"

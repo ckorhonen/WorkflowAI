@@ -2050,3 +2050,21 @@ async def test_with_raw_code_in_template(test_client: IntegrationTestClient):
         "Please generate a valid jinja template. Using variables like {{ i_am_a_variable_not_in_the_input }}, {%if invalid_condition %}!"
         in payload[0]["content"]
     )
+
+
+async def test_bad_request(test_client: IntegrationTestClient):
+    """Check that the run is correctly stored"""
+    test_client.mock_openai_call(status_code=400, json={"error": {"message": "Bad request"}})
+    task = await test_client.create_task()
+    with pytest.raises(HTTPStatusError) as e:
+        await test_client.run_task_v1(task, version={"model": Model.GPT_4O_2024_11_20, "provider": "openai"})
+    error_body = e.value.response.json()
+    assert e.value.response.status_code == 400
+    assert error_body["error"]["message"] == "Bad request"
+    run_id = error_body["id"]
+    run = await test_client.fetch_run(task, run_id=run_id)
+    assert run
+    # Check that the run is stored correctly
+    assert run["status"] == "failure"
+    assert "task_output" in run
+    assert not run["task_output"]

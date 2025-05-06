@@ -14,9 +14,10 @@ from core.domain.errors import (
     MissingModelError,
     UnknownProviderError,
 )
+from core.domain.fields.file import File
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
 from core.domain.models.model_data import ModelData
 from core.domain.models.utils import get_model_data
@@ -37,6 +38,7 @@ from core.providers.fireworks.fireworks_domain import (
     FireworksToolMessage,
     JSONResponseFormat,
     StreamedResponse,
+    TextResponseFormat,
 )
 from core.providers.google.google_provider_domain import (
     internal_tool_name_to_native_tool_call,
@@ -44,7 +46,6 @@ from core.providers.google.google_provider_domain import (
 )
 from core.providers.openai.openai_domain import parse_tool_call_or_raise
 from core.runners.workflowai.templates import TemplateName
-from core.runners.workflowai.utils import FileWithKeyPath
 from core.utils.redis_cache import redis_cached
 
 _NAME_OVERRIDE_MAP = {
@@ -55,6 +56,8 @@ _NAME_OVERRIDE_MAP = {
     Model.LLAMA_3_2_90B_VISION_PREVIEW: "accounts/fireworks/models/llama-v3p2-90b-vision-instruct",
     Model.LLAMA_3_1_8B: "accounts/fireworks/models/llama-v3p1-8b-instruct",
     Model.QWEN_QWQ_32B_PREVIEW: "accounts/fireworks/models/qwen-qwq-32b-preview",
+    Model.QWEN3_235B_A22B: "accounts/fireworks/models/qwen3-235b-a22b",
+    Model.QWEN3_30B_A3B: "accounts/fireworks/models/qwen3-30b-a3b",
     Model.MIXTRAL_8X7B_32768: "accounts/fireworks/models/mixtral-8x7b-instruct",
     Model.LLAMA3_70B_8192: "accounts/fireworks/models/llama-v3-70b-instruct",
     Model.LLAMA3_8B_8192: "accounts/fireworks/models/llama-v3-8b-instruct",
@@ -89,6 +92,8 @@ class FireworksAIProvider(HTTPXProvider[FireworksConfig, CompletionResponse]):
     _thinking_tag_context = ContextVar[bool | None]("_thinking_tag_context", default=None)
 
     def _response_format(self, options: ProviderOptions, model_data: ModelData):
+        if not options.output_schema:
+            return TextResponseFormat()
         if options.enabled_tools:
             # We disable structured generation if tools are enabled
             # TODO: check why
@@ -104,7 +109,7 @@ class FireworksAIProvider(HTTPXProvider[FireworksConfig, CompletionResponse]):
         return _NAME_OVERRIDE_MAP.get(model, model.value)
 
     @override
-    def _build_request(self, messages: list[Message], options: ProviderOptions, stream: bool) -> BaseModel:
+    def _build_request(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool) -> BaseModel:
         # Clearing the buffer before building the request
         domain_messages: list[FireworksMessage | FireworksToolMessage] = []
         for m in messages:
@@ -313,7 +318,7 @@ class FireworksAIProvider(HTTPXProvider[FireworksConfig, CompletionResponse]):
 
     @override
     @classmethod
-    def requires_downloading_file(cls, file: FileWithKeyPath, model: Model) -> bool:
+    def requires_downloading_file(cls, file: File, model: Model) -> bool:
         return True
 
     @override
@@ -514,7 +519,7 @@ class FireworksAIProvider(HTTPXProvider[FireworksConfig, CompletionResponse]):
             )
 
             request, llm_completion = await self._prepare_completion(
-                messages=[Message(content="Generate a test output", role=Message.Role.USER)],
+                messages=[MessageDeprecated(content="Generate a test output", role=MessageDeprecated.Role.USER)],
                 options=options,
                 stream=False,
             )

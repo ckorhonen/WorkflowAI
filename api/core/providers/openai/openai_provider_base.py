@@ -16,8 +16,9 @@ from core.domain.errors import (
     StructuredGenerationError,
     UnknownProviderError,
 )
+from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model
 from core.domain.structured_output import StructuredOutput
 from core.domain.tool_call import ToolCallRequestWithID
@@ -31,7 +32,6 @@ from core.providers.google.google_provider_domain import (
     native_tool_name_to_internal,
 )
 from core.providers.openai._openai_utils import get_openai_json_schema_name, prepare_openai_json_schema
-from core.runners.workflowai.utils import FileWithKeyPath
 from core.utils.redis_cache import redis_cached
 
 from .openai_domain import (
@@ -103,7 +103,7 @@ _OpenAIConfigVar = TypeVar("_OpenAIConfigVar", bound=OpenAIProviderBaseConfig)
 
 
 class OpenAIProviderBase(HTTPXProvider[_OpenAIConfigVar, CompletionResponse], Generic[_OpenAIConfigVar]):
-    def _build_request(self, messages: list[Message], options: ProviderOptions, stream: bool) -> BaseModel:
+    def _build_request(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool) -> BaseModel:
         model_name = MODEL_NAME_MAP.get(options.model, options.model)
         is_preview_model = options.model in _O1_PREVIEW_MODELS or options.model in _AUDIO_PREVIEW_MODELS
 
@@ -149,7 +149,7 @@ class OpenAIProviderBase(HTTPXProvider[_OpenAIConfigVar, CompletionResponse], Ge
         options: ProviderOptions,
         is_preview_model: bool,
     ) -> TextResponseFormat | JSONResponseFormat | JSONSchemaResponseFormat:
-        if is_preview_model:
+        if is_preview_model or options.output_schema is None:
             return TextResponseFormat()
 
         schema = copy.deepcopy(options.output_schema)
@@ -329,7 +329,7 @@ class OpenAIProviderBase(HTTPXProvider[_OpenAIConfigVar, CompletionResponse], Ge
             return super()._unknown_error_message(response)
 
     @classmethod
-    def requires_downloading_file(cls, file: FileWithKeyPath, model: Model) -> bool:
+    def requires_downloading_file(cls, file: File, model: Model) -> bool:
         # OpenAI requires downloading files for non-image files
         return not file.is_image
 
@@ -354,7 +354,7 @@ class OpenAIProviderBase(HTTPXProvider[_OpenAIConfigVar, CompletionResponse], Ge
             )
 
             request, llm_completion = await self._prepare_completion(
-                messages=[Message(content="Generate a test output", role=Message.Role.USER)],
+                messages=[MessageDeprecated(content="Generate a test output", role=MessageDeprecated.Role.USER)],
                 options=options,
                 stream=False,
             )

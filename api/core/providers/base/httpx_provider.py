@@ -16,7 +16,7 @@ from core.domain.fields.file import File
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model
 from core.domain.structured_output import StructuredOutput
 from core.domain.tool_call import ToolCallRequestWithID
@@ -45,7 +45,7 @@ class ParsedResponse(NamedTuple):
 
 class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generic[ProviderConfigVar, ResponseModel]):
     @abstractmethod
-    def _build_request(self, messages: list[Message], options: ProviderOptions, stream: bool) -> BaseModel:
+    def _build_request(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool) -> BaseModel:
         pass
 
     @abstractmethod
@@ -129,7 +129,6 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
 
         try:
             content_str = self._extract_content_str(response_model)
-            content_str = extract_json_str(content_str)
         except ProviderError as e:
             # If the error is already a provider error, we just re-raise it
             raw_completion.response = content_str
@@ -163,7 +162,7 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
         )
 
     @classmethod
-    def _initial_usage(cls, messages: list[Message]) -> LLMUsage:
+    def _initial_usage(cls, messages: list[MessageDeprecated]) -> LLMUsage:
         image_count = 0
         has_audio = False
         for m in messages:
@@ -180,7 +179,7 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
         return usage
 
     @override
-    async def _prepare_completion(self, messages: list[Message], options: ProviderOptions, stream: bool):
+    async def _prepare_completion(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool):
         request = self._build_request(messages, options, stream=stream)
         body = request.model_dump(mode="json", exclude_none=True, by_alias=True)
 
@@ -234,13 +233,19 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
     ):
         try:
             output = output_factory(raw, False)
-        except JSONSchemaValidationError as e:
+        except (JSONDecodeError, JSONSchemaValidationError) as e:
             if not native_tools_calls:
-                raise e
+                raise cls._invalid_json_error(
+                    response=None,
+                    exception=e,
+                    raw_completion=raw,
+                    error_msg=str(e) if isinstance(e, JSONSchemaValidationError) else "Received invalid JSON",
+                    retry=True,
+                )
             # When there is a native tool call, we can afford having a JSONSchemaValidationError,
             # ex: when the models returns a raw "Let me use the @search-google tool to answer the question"  in the completion
             # This happens quite often with Claude models.
-            output = StructuredOutput(output={})
+            output = StructuredOutput(output=None)
         if reasoning_steps:
             output = output._replace(reasoning_steps=reasoning_steps)
         if native_tools_calls:
@@ -345,6 +350,8 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
 
                     # TODO: we should be using the streamed JSON here
                     try:
+                        # TODO: we should not extract a json string here but instead pass it as is to the runner
+                        # output factory
                         json_str = extract_json_str(streaming_context.streamer.raw_completion)
                     except ValueError:
                         if not streaming_context.tool_calls:

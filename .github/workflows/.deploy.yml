@@ -91,12 +91,12 @@ jobs:
                   --query "properties.runningState" \
                   -o tsv)
 
-              if [ "$revision_status" == "Running" ]; then
+              if [ "$revision_status" == "Running" ] || [ "$revision_status" == "RunningAtMaxScale" ]; then
                   echo "Revision is now running"
                   exit 0
               fi
 
-              echo "Attempt ${attempt}/${max_attempts}: Revision status is ${status}. Waiting ${sleep_time} seconds..."
+              echo "Attempt ${attempt}/${max_attempts}: Revision status is ${revision_status}. Waiting ${sleep_time} seconds..."
               sleep $sleep_time
               attempt=$((attempt + 1))
           done

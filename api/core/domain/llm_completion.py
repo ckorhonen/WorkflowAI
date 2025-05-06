@@ -3,7 +3,7 @@ from typing import Any, Optional, cast
 from pydantic import BaseModel, Field
 
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Provider
 from core.domain.tool_call import ToolCallRequestWithID
 
@@ -36,7 +36,7 @@ class LLMCompletion(BaseModel):
             return True
         return not (self.response is None and self.usage.completion_token_count == 0)
 
-    def to_messages(self) -> list[Message]:
+    def to_messages(self) -> list[MessageDeprecated]:
         # TODO: this really should not be here but we will eventually remove the standard messages so we
         # can leave for now
         from core.providers.base.models import StandardMessage, message_standard_to_domain
@@ -48,7 +48,11 @@ class LLMCompletion(BaseModel):
 
         if self.tool_calls or self.response:
             base.append(
-                Message(content=self.response or "", tool_call_requests=self.tool_calls, role=Message.Role.ASSISTANT),
+                MessageDeprecated(
+                    content=self.response or "",
+                    tool_call_requests=self.tool_calls,
+                    role=MessageDeprecated.Role.ASSISTANT,
+                ),
             )
         return base
 

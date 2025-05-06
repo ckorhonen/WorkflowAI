@@ -12,7 +12,7 @@ from core.domain.errors import (
     UnknownProviderError,
 )
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
 from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.abstract_provider import RawCompletion
@@ -58,7 +58,7 @@ MODEL_MAP = {
 
 class MistralAIProvider(HTTPXProvider[MistralAIConfig, CompletionResponse]):
     @override
-    def _build_request(self, messages: list[Message], options: ProviderOptions, stream: bool) -> BaseModel:
+    def _build_request(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool) -> BaseModel:
         domain_messages: list[MistralAIMessage | MistralToolMessage] = []
         for m in messages:
             if m.tool_call_results:
@@ -74,6 +74,8 @@ class MistralAIProvider(HTTPXProvider[MistralAIConfig, CompletionResponse]):
             max_tokens=options.max_tokens,
             stream=stream,
         )
+        if not options.output_schema:
+            request.response_format = ResponseFormat(type="text")
 
         if options.enabled_tools is not None and options.enabled_tools != []:
             # Can't use json_object with tools
@@ -84,7 +86,7 @@ class MistralAIProvider(HTTPXProvider[MistralAIConfig, CompletionResponse]):
                     type="function",
                     function=FunctionParameters(
                         name=internal_tool_name_to_native_tool_call(tool.name),
-                        description=tool.description,
+                        description=tool.description or "",
                         parameters=tool.input_schema,
                     ),
                 )

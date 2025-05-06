@@ -6,9 +6,10 @@ from typing import Any, AsyncGenerator, override
 
 from httpx import Response
 
+from core.domain.fields.file import File
 from core.domain.fields.image_options import ImageOptions
 from core.domain.llm_completion import LLMCompletion
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models.models import Model
 from core.domain.structured_output import StructuredOutput
 from core.domain.tool import Tool
@@ -18,7 +19,6 @@ from core.providers.base.models import RawCompletion, StandardMessage
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.google_imagen.google_imagen_domain import GoogleImagenRequest, GoogleImagenResponse
 from core.runners.workflowai.templates import TemplateName
-from core.runners.workflowai.utils import FileWithKeyPath
 
 _logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class GoogleImagenBaseProvider(HTTPXProviderBase[ProviderConfigVar, GoogleImagen
         return False
 
     @classmethod
-    def requires_downloading_file(cls, file: FileWithKeyPath, model: Model) -> bool:
+    def requires_downloading_file(cls, file: File, model: Model) -> bool:
         return True
 
     @override
@@ -82,7 +82,7 @@ class GoogleImagenBaseProvider(HTTPXProviderBase[ProviderConfigVar, GoogleImagen
     @override
     async def _prepare_completion(
         self,
-        messages: list[Message],
+        messages: list[MessageDeprecated],
         options: ProviderOptions,
         stream: bool,
     ) -> tuple[GoogleImagenRequest, LLMCompletion]:
@@ -171,7 +171,7 @@ class GoogleImagenBaseProvider(HTTPXProviderBase[ProviderConfigVar, GoogleImagen
         response_model = GoogleImagenResponse.model_validate(raw)
         if not response_model.predictions:
             raise self._invalid_json_error(response, None, response.text, "No predictions found in the response")
-        return StructuredOutput(output={}, files=response_model.to_files())
+        return StructuredOutput(output=None, files=response_model.to_files())
 
     @override
     def _single_stream(

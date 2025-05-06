@@ -10,7 +10,7 @@ from core.agents.task_input_import_task import (
 )
 from core.domain.errors import InvalidGenerationError
 from core.domain.task_variant import SerializableTaskVariant
-from core.domain.types import TaskInputDict
+from core.domain.types import AgentInput
 
 
 class TaskInputService:
@@ -21,7 +21,7 @@ class TaskInputService:
         self,
         task: SerializableTaskVariant,
         inputs_text: str,
-    ) -> list[TaskInputDict]:
+    ) -> list[AgentInput]:
         import_input_task_input = TaskInputImportTaskInput(
             task_name=task.name,
             input_json_schema=task.input_schema.json_schema,
@@ -37,7 +37,7 @@ class TaskInputService:
         self,
         task: SerializableTaskVariant,
         inputs_text: str,
-    ) -> AsyncIterator[tuple[int, TaskInputDict]]:
+    ) -> AsyncIterator[tuple[int, AgentInput]]:
         import_input_task_input = TaskInputImportTaskInput(
             task_name=task.name,
             input_json_schema=task.input_schema.json_schema,

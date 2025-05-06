@@ -17,7 +17,7 @@ from core.domain.errors import (
 from core.domain.fields.file import File
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.metrics import Metric
 from core.domain.models import Model, Provider
 from core.domain.models.model_data import FinalModelData, MaxTokensData
@@ -93,8 +93,8 @@ class TestBuildRequest:
             CompletionRequest,
             fireworks_provider._build_request(  # pyright: ignore [reportPrivateUsage]
                 messages=[
-                    Message(role=Message.Role.SYSTEM, content="Hello 1"),
-                    Message(role=Message.Role.USER, content="Hello"),
+                    MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="Hello 1"),
+                    MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello"),
                 ],
                 options=ProviderOptions(model=Model.LLAMA_3_3_70B, max_tokens=10, temperature=0),
                 stream=False,
@@ -121,8 +121,8 @@ class TestBuildRequest:
             CompletionRequest,
             fireworks_provider._build_request(  # pyright: ignore [reportPrivateUsage]
                 messages=[
-                    Message(role=Message.Role.SYSTEM, content="Hello 1"),
-                    Message(role=Message.Role.USER, content="Hello"),
+                    MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="Hello 1"),
+                    MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello"),
                 ],
                 options=ProviderOptions(model=Model.LLAMA_3_3_70B, temperature=0),
                 stream=False,
@@ -250,8 +250,8 @@ class TestStream:
         provider = FireworksAIProvider()
 
         streamer = provider.stream(
-            [Message(role=Message.Role.USER, content="Hello")],
-            options=ProviderOptions(model=Model.DEEPSEEK_V3_0324, temperature=0),
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
+            options=ProviderOptions(model=Model.DEEPSEEK_V3_0324, temperature=0, output_schema={"type": "object"}),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             partial_output_factory=lambda x: StructuredOutput(x),
         )
@@ -273,6 +273,7 @@ class TestStream:
                 },
             ],
             "response_format": {
+                "schema": {"type": "object"},
                 "type": "json_object",
             },
             "stream": True,
@@ -289,7 +290,7 @@ class TestStream:
         provider = FireworksAIProvider()
 
         streamer = provider.stream(
-            [Message(role=Message.Role.USER, content="Hello")],
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.LLAMA_3_3_70B, max_tokens=10, temperature=0),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             partial_output_factory=lambda x: StructuredOutput(x),
@@ -313,15 +314,20 @@ class TestComplete:
 
         o = await provider.complete(
             [
-                Message(
-                    role=Message.Role.USER,
+                MessageDeprecated(
+                    role=MessageDeprecated.Role.USER,
                     content="Hello",
                     files=[
                         File(data="data", content_type="image/png"),
                     ],
                 ),
             ],
-            options=ProviderOptions(model=Model.LLAMA_3_2_90B_VISION_PREVIEW, max_tokens=10, temperature=0),
+            options=ProviderOptions(
+                model=Model.LLAMA_3_2_90B_VISION_PREVIEW,
+                max_tokens=10,
+                temperature=0,
+                output_schema={"type": "object"},
+            ),
             output_factory=lambda x, _: StructuredOutput(json.loads(x)),
         )
         assert o.output
@@ -353,6 +359,7 @@ class TestComplete:
             ],
             "response_format": {
                 "type": "json_object",
+                "schema": {"type": "object"},
             },
             "stream": False,
             "temperature": 0.0,
@@ -369,7 +376,7 @@ class TestComplete:
 
         with pytest.raises(ProviderInternalError) as e:
             await provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.LLAMA_3_3_70B, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )
@@ -386,8 +393,8 @@ class TestComplete:
 
         o = await provider.complete(
             [
-                Message(
-                    role=Message.Role.USER,
+                MessageDeprecated(
+                    role=MessageDeprecated.Role.USER,
                     content="Hello",
                     files=[
                         File(data="data", content_type="image/png"),
@@ -439,6 +446,27 @@ class TestComplete:
             "temperature": 0.0,
         }
 
+    async def test_complete_text_only(self, httpx_mock: HTTPXMock):
+        httpx_mock.add_response(
+            url="https://api.fireworks.ai/inference/v1/chat/completions",
+            json=fixtures_json("fireworks", "completion.json"),
+        )
+
+        provider = FireworksAIProvider()
+
+        o = await provider.complete(
+            [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
+            options=ProviderOptions(model=Model.LLAMA_3_3_70B, max_tokens=10, temperature=0, output_schema=None),
+            output_factory=lambda x, _: StructuredOutput(x),
+        )
+        assert isinstance(o.output, str)
+        assert o.tool_calls is None
+
+        request = httpx_mock.get_requests()[0]
+        assert request.method == "POST"  # pyright: ignore reportUnknownMemberType
+        body = json.loads(request.read().decode())
+        assert body["response_format"]["type"] == "text"
+
     @patch("core.providers.fireworks.fireworks_provider.get_model_data")
     @pytest.mark.parametrize(
         ("max_output_tokens", "option_max_tokens", "expected"),
@@ -471,8 +499,8 @@ class TestComplete:
 
         o = await fireworks_provider.complete(
             [
-                Message(
-                    role=Message.Role.USER,
+                MessageDeprecated(
+                    role=MessageDeprecated.Role.USER,
                     content="Hello",
                     files=[
                         File(data="data", content_type="image/png"),
@@ -505,7 +533,7 @@ class TestComplete:
         )
         with pytest.raises(MissingModelError):
             await fireworks_provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.LLAMA_3_3_70B, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )
@@ -813,162 +841,6 @@ class TestRequiresDownloadingFile:
         assert FireworksAIProvider.requires_downloading_file(file, Model.LLAMA_3_3_70B)
 
 
-class TestIsSchemaSupported:
-    async def test_schema_supported(self, httpx_mock: HTTPXMock):
-        httpx_mock.add_response(
-            url="https://api.fireworks.ai/inference/v1/chat/completions",
-            json=fixtures_json("fireworks", "completion.json"),
-        )
-
-        provider = FireworksAIProvider()
-        schema = fixtures_json("jsonschemas", "schema_1.json")
-
-        with patch("core.utils.redis_cache.get_redis_client") as mock_cache:
-            mock_cache.get.return_value = None
-            is_supported = await provider.is_schema_supported_for_structured_generation(
-                task_name="test",
-                model=Model.LLAMA_3_3_70B,
-                schema=schema,
-            )
-
-        assert is_supported
-        request = httpx_mock.get_requests()[0]
-        body = json.loads(request.read().decode())
-        assert body == {
-            "max_tokens": 131072,
-            "temperature": 0.0,
-            "model": "accounts/fireworks/models/llama-v3p3-70b-instruct",
-            "messages": [{"role": "user", "content": "Generate a test output"}],
-            "response_format": {
-                "type": "json_object",
-                "schema": {
-                    "$defs": {
-                        "CalendarEventCategory": {
-                            "enum": [
-                                "UNSPECIFIED",
-                                "IN_PERSON_MEETING",
-                                "REMOTE_MEETING",
-                                "FLIGHT",
-                                "TO_DO",
-                                "BIRTHDAY",
-                            ],
-                            "title": "CalendarEventCategory",
-                            "type": "string",
-                        },
-                        "MeetingProvider": {
-                            "enum": ["ZOOM", "GOOGLE_MEET", "MICROSOFT_TEAMS", "SKYPE", "OTHER"],
-                            "title": "MeetingProvider",
-                            "type": "string",
-                        },
-                    },
-                    "description": 'The expected output of the EmailToCalendarProcessor. Each attribute corresponds to a question asked to the processor.\n\nThis class will be dynamically injected in the prompt as a "schema" for the LLM to enforce.',
-                    "properties": {
-                        "is_email_thread_about_an_event": {
-                            "title": "Is Email Thread About An Event",
-                            "type": "boolean",
-                        },
-                        "is_event_confirmed": {
-                            "anyOf": [{"type": "boolean"}, {"type": "null"}],
-                            "title": "Is Event Confirmed",
-                        },
-                        "event_category": {"anyOf": [{"$ref": "#/$defs/CalendarEventCategory"}, {"type": "null"}]},
-                        "is_event_all_day": {"title": "Is Event All Day", "type": "boolean"},
-                        "is_event_start_datetime_defined": {
-                            "anyOf": [{"type": "boolean"}, {"type": "null"}],
-                            "title": "Is Event Start Datetime Defined",
-                        },
-                        "event_start_datetime": {
-                            "anyOf": [{"format": "date-time", "type": "string"}, {"type": "null"}],
-                            "title": "Event Start Datetime",
-                        },
-                        "event_start_date": {
-                            "anyOf": [{"format": "date", "type": "string"}, {"type": "null"}],
-                            "title": "Event Start Date",
-                        },
-                        "is_event_end_datetime_defined": {
-                            "anyOf": [{"type": "boolean"}, {"type": "null"}],
-                            "title": "Is Event End Datetime Defined",
-                        },
-                        "event_end_datetime": {
-                            "anyOf": [{"format": "date-time", "type": "string"}, {"type": "null"}],
-                            "title": "Event End Datetime",
-                        },
-                        "event_end_date": {
-                            "anyOf": [{"format": "date", "type": "string"}, {"type": "null"}],
-                            "title": "Event End Date",
-                        },
-                        "event_title": {"anyOf": [{"type": "string"}, {"type": "null"}], "title": "Event Title"},
-                        "remote_meeting_provider": {"anyOf": [{"$ref": "#/$defs/MeetingProvider"}, {"type": "null"}]},
-                        "event_location_details": {
-                            "anyOf": [{"type": "string"}, {"type": "null"}],
-                            "title": "Event Location Details",
-                        },
-                        "event_participants_emails_addresses": {
-                            "anyOf": [{"items": {"type": "string"}, "type": "array"}, {"type": "null"}],
-                            "title": "Event Participants Emails Addresses",
-                        },
-                    },
-                    "required": [
-                        "is_email_thread_about_an_event",
-                        "is_event_confirmed",
-                        "event_category",
-                        "is_event_all_day",
-                        "is_event_start_datetime_defined",
-                        "event_start_datetime",
-                        "event_start_date",
-                        "is_event_end_datetime_defined",
-                        "event_end_datetime",
-                        "event_end_date",
-                        "event_title",
-                        "remote_meeting_provider",
-                        "event_location_details",
-                        "event_participants_emails_addresses",
-                    ],
-                    "title": "EmailToCalendarOutput",
-                    "type": "object",
-                },
-            },
-            "stream": False,
-            "context_length_exceeded_behavior": "truncate",
-        }
-
-    async def test_schema_not_supported_error(self, httpx_mock: HTTPXMock):
-        httpx_mock.add_response(
-            url="https://api.fireworks.ai/inference/v1/chat/completions",
-            status_code=400,
-            json={"error": {"message": "Invalid schema format"}},
-        )
-
-        provider = FireworksAIProvider()
-        schema = {"type": "invalid_schema"}
-
-        with patch("core.utils.redis_cache.get_redis_client") as mock_cache:
-            mock_cache.get.return_value = None
-            is_supported = await provider.is_schema_supported_for_structured_generation(
-                task_name="test",
-                model=Model.GPT_4O_2024_11_20,
-                schema=schema,
-            )
-
-        assert not is_supported
-
-    async def test_schema_not_supported_exception(self, httpx_mock: HTTPXMock):
-        httpx_mock.add_exception(Exception("Unexpected error"))
-
-        provider = FireworksAIProvider()
-        schema = {"type": "object"}
-
-        with patch("core.utils.redis_cache.get_redis_client") as mock_cache:
-            mock_cache.get.return_value = None
-            is_supported = await provider.is_schema_supported_for_structured_generation(
-                task_name="test",
-                model=Model.GPT_4O_2024_11_20,
-                schema=schema,
-            )
-
-        assert not is_supported
-
-
 class TestMaxTokensExceeded:
     """Occurs when the generation goes beyond the max tokens"""
 
@@ -980,7 +852,7 @@ class TestMaxTokensExceeded:
         provider = FireworksAIProvider()
         with pytest.raises(MaxTokensExceededError) as e:
             await provider.complete(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.LLAMA_3_3_70B, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )
@@ -1002,7 +874,7 @@ class TestMaxTokensExceeded:
         provider = FireworksAIProvider()
         with pytest.raises(MaxTokensExceededError) as e:
             async for _ in provider.stream(
-                [Message(role=Message.Role.USER, content="Hello")],
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
                 options=ProviderOptions(model=Model.LLAMA_3_3_70B, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
                 partial_output_factory=lambda x: StructuredOutput(x),
@@ -1019,7 +891,7 @@ class TestPrepareCompletion:
     async def test_role_before_content(self, fireworks_provider: FireworksAIProvider):
         """Test that the 'role' key appears before 'content' in the prepared request."""
         request = fireworks_provider._build_request(  # pyright: ignore[reportPrivateUsage]
-            messages=[Message(role=Message.Role.USER, content="Hello")],
+            messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
             options=ProviderOptions(model=Model.LLAMA_3_3_70B, max_tokens=10, temperature=0),
             stream=False,
         )
@@ -1043,8 +915,8 @@ class TestFireworksAIProviderNativeToolCalls:
     def test_build_request_with_tool_calls(self) -> None:
         provider = FireworksAIProvider(config=FireworksConfig(provider=Provider.FIREWORKS, api_key="test"))
         messages = [
-            Message(
-                role=Message.Role.USER,
+            MessageDeprecated(
+                role=MessageDeprecated.Role.USER,
                 content="Test content",
                 tool_call_requests=[
                     ToolCallRequestWithID(

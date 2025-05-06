@@ -1,7 +1,7 @@
 import pytest
 
 from core.domain.fields.file import File
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.mistral.mistral_domain import (
     CompletionChunk,
@@ -65,7 +65,7 @@ def test_error(payload: str) -> None:
 class TestMistralAIMessage:
     def test_from_domain_simple_message(self) -> None:
         # Given
-        message = Message(role=Message.Role.USER, content="Hello world")
+        message = MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello world")
 
         # When
         result = MistralAIMessage.from_domain(message)
@@ -77,8 +77,8 @@ class TestMistralAIMessage:
 
     def test_from_domain_with_image(self) -> None:
         # Given
-        message = Message(
-            role=Message.Role.USER,
+        message = MessageDeprecated(
+            role=MessageDeprecated.Role.USER,
             content="Check this image",
             files=[File(url="https://example.com/image.jpg", content_type="image/jpeg")],
         )
@@ -97,8 +97,8 @@ class TestMistralAIMessage:
 
     def test_from_domain_with_document(self) -> None:
         # Given
-        message = Message(
-            role=Message.Role.USER,
+        message = MessageDeprecated(
+            role=MessageDeprecated.Role.USER,
             content="Check this document",
             files=[File(url="https://example.com/document.pdf", content_type="application/pdf")],
         )
@@ -117,8 +117,8 @@ class TestMistralAIMessage:
 
     def test_from_domain_with_tool_calls(self) -> None:
         # Given
-        message = Message(
-            role=Message.Role.ASSISTANT,
+        message = MessageDeprecated(
+            role=MessageDeprecated.Role.ASSISTANT,
             content="Using calculator",
             tool_call_requests=[
                 ToolCallRequestWithID(

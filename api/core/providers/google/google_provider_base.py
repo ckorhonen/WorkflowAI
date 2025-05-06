@@ -23,7 +23,7 @@ from core.domain.errors import (
 from core.domain.fields.file import File
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_usage import LLMCompletionUsage, LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model
 from core.domain.models.utils import get_model_data
 from core.domain.tool_call import ToolCallRequestWithID
@@ -45,7 +45,6 @@ from core.providers.google.google_provider_domain import (
     message_or_system_message,
     native_tool_name_to_internal,
 )
-from core.runners.workflowai.utils import FileWithKeyPath
 from core.services.message import merge_messages
 from core.tools import ToolKind
 from core.utils.models.dumps import safe_dump_pydantic_model
@@ -118,7 +117,7 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
             completion_request.toolConfig = tool_config
 
     @override
-    def _build_request(self, messages: list[Message], options: ProviderOptions, stream: bool) -> BaseModel:
+    def _build_request(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool) -> BaseModel:
         system_message: GoogleSystemMessage | None = None
         user_messages: list[GoogleMessage] = []
 
@@ -126,15 +125,15 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
 
         if not model_data.support_system_messages:
             # For models that do not system messages, we merge all messages into a 'USER' single message
-            merged_message = merge_messages(messages, role=Message.Role.USER)
+            merged_message = merge_messages(messages, role=MessageDeprecated.Role.USER)
             user_messages = [GoogleMessage.from_domain(merged_message)]
         else:
             for message in messages:
-                if message.role == Message.Role.USER:
+                if message.role == MessageDeprecated.Role.USER:
                     user_messages.append(GoogleMessage.from_domain(message))
-                if message.role == Message.Role.ASSISTANT:
+                if message.role == MessageDeprecated.Role.ASSISTANT:
                     user_messages.append(GoogleMessage.from_domain(message))
-                if message.role == Message.Role.SYSTEM:
+                if message.role == MessageDeprecated.Role.SYSTEM:
                     if system_message is not None:
                         raise InternalError("Multiple system messages not supported")
                     system_message = GoogleSystemMessage.from_domain(message)
@@ -151,10 +150,9 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
 
         generation_config = CompletionRequest.GenerationConfig(
             temperature=options.temperature,
-            # TODO[max-tokens]: Set the max token from the context data
             maxOutputTokens=options.max_tokens,
             responseMimeType="application/json"
-            if (model_data.supports_json_mode and not options.enabled_tools)
+            if (model_data.supports_json_mode and not options.enabled_tools and options.output_schema)
             # Google does not allow setting the response mime type at all when using tools.
             else "text/plain",
             thinking_config=thinking_config,
@@ -331,7 +329,7 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
 
     @override
     @classmethod
-    def requires_downloading_file(cls, file: FileWithKeyPath, model: Model) -> bool:
+    def requires_downloading_file(cls, file: File, model: Model) -> bool:
         if model in MODELS_THAT_REQUIRE_DOWNLOADING_FILES:
             # Experimental models only support files passed by GCP URLs or base64 encoded strings
             return True

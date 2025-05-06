@@ -131,12 +131,12 @@ class TestClickhouseRunsValidate:
             "version_temperature_percent": 0,
         }
         run = ClickhouseRun.model_validate(payload)
-        assert run.output == {}
+        assert run.output is None
 
     def test_empty_payload(self):
         """Check that we can validate a partial run payload"""
         run = ClickhouseRun.model_validate({})
-        assert run.output == {}
+        assert run.output is None
 
     def test_empty_output(self):
         """Check that we can payload with an empty output"""
@@ -168,6 +168,14 @@ class TestDomainSanity:
         assert dumped["output"] == ""
         re_validated = ClickhouseRun.model_validate(dumped).to_domain("")
         assert re_validated.task_output == {}
+
+    def test_string_output(self):
+        run = task_run_ser(id=str(uuid7()), task_uid=1, task_output="Hello James!")
+        run_db = ClickhouseRun.from_domain(1, run)
+        dumped = run_db.model_dump()
+        assert dumped["output"] == '"Hello James!"'
+        re_validated = ClickhouseRun.model_validate(dumped).to_domain("")
+        assert re_validated.task_output == "Hello James!"
 
 
 class TestToClause:

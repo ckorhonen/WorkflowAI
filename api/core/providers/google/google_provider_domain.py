@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, ValidationError
 from core.domain.errors import InvalidFileError, InvalidRunOptionsError
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model
 from core.domain.tool import Tool
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
@@ -40,11 +40,11 @@ GOOGLE_CHARS_PER_TOKEN = 4
 PER_TOKEN_MODELS = [Model.LLAMA_3_2_90B, Model.LLAMA_3_1_405B]
 
 
-MESSAGE_ROLE_X_ROLE_MAP = TwoWayDict[Message.Role, GoogleRole](
-    (Message.Role.SYSTEM, "model"),
-    (Message.Role.USER, "user"),
+MESSAGE_ROLE_X_ROLE_MAP = TwoWayDict[MessageDeprecated.Role, GoogleRole](
+    (MessageDeprecated.Role.SYSTEM, "model"),
+    (MessageDeprecated.Role.USER, "user"),
     # Reverse mapping will yield assistant for model
-    (Message.Role.ASSISTANT, "model"),
+    (MessageDeprecated.Role.ASSISTANT, "model"),
 )
 
 
@@ -237,14 +237,14 @@ class GoogleMessage(BaseModel):
     parts: list[Part]
 
     @classmethod
-    def from_domain(cls, message: Message) -> Self:
+    def from_domain(cls, message: MessageDeprecated) -> Self:
         output_message = cls(
             parts=[],
             role=MESSAGE_ROLE_X_ROLE_MAP[message.role],
         )
 
-        if message.content != "":
-            output_message.parts.append(Part.from_str(message.content))
+        # Google breaks if the message does not contain a text part
+        output_message.parts.append(Part.from_str(message.content or "-"))
 
         for file in message.files or []:
             output_message.parts.append(Part.from_file(file))
@@ -258,10 +258,6 @@ class GoogleMessage(BaseModel):
             output_message.parts.extend(
                 [Part.from_tool_call_result(tool_call_result) for tool_call_result in message.tool_call_results],
             )
-
-        # This should not happen, but if this ever does, better to let the model try to figure out what is happening
-        if len(output_message.parts) == 0:
-            output_message.parts.append(Part.from_str("Empty message"))
 
         return output_message
 
@@ -323,7 +319,7 @@ class GoogleMessage(BaseModel):
             role = MESSAGE_ROLE_X_ROLE_MAP.backward(self.role)
         except KeyError:
             logger.exception("Invalid role", extra={"role": self.role})
-            role = Message.Role.USER
+            role = MessageDeprecated.Role.USER
 
         if len(content) == 1 and content[0]["type"] == "text":
             return {"role": role_domain_to_standard(role), "content": content[0]["text"]}
@@ -338,7 +334,7 @@ class GoogleSystemMessage(BaseModel):
     parts: list[Part]
 
     @classmethod
-    def from_domain(cls, message: Message) -> Self:
+    def from_domain(cls, message: MessageDeprecated) -> Self:
         # TODO: Is this correct?
         if message.files:
             raise InvalidRunOptionsError("System messages cannot contain files")
@@ -546,7 +542,7 @@ class CompletionRequest(BaseModel):
             def from_tool(cls, tool: Tool) -> Self:
                 return cls(
                     name=internal_tool_name_to_native_tool_call(tool.name),
-                    description=tool.description,
+                    description=tool.description or "",
                     parameters=Schema.from_json_schema(JsonSchema(tool.input_schema)) if tool.input_schema else None,
                     response=Schema.from_json_schema(JsonSchema(tool.output_schema)) if tool.output_schema else None,
                 )

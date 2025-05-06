@@ -388,6 +388,10 @@ class TestInternalDefs:
         internal_defs = set(_build_internal_defs().keys())
         assert FILE_DEFS.issubset(internal_defs)
 
+    def test_message(self):
+        messages_def = _build_internal_defs()["Messages"]
+        assert messages_def
+
 
 class TestGetFileFormat:
     @pytest.mark.parametrize("ref_name", [f for f in FILE_DEFS if f != FILE_REF_NAME])

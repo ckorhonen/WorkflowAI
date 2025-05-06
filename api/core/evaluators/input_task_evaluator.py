@@ -20,7 +20,7 @@ from core.domain.task_evaluation import TaskEvaluation
 from core.domain.task_evaluator import EvalV2Evaluator
 from core.domain.task_example import SerializableTaskExample
 from core.domain.task_variant import SerializableTaskVariant
-from core.domain.types import TaskInputDict, TaskOutputDict
+from core.domain.types import AgentInput, AgentOutput
 from core.evaluators.abstract_evaluator import AbstractEvaluator, InvalidEvaluationError
 from core.runners.workflowai.utils import FileWithKeyPath, download_file, extract_files
 from core.utils.dicts import set_at_keypath
@@ -133,7 +133,7 @@ class InputTaskEvaluator(AbstractEvaluator[InputTaskEvaluatorOptions]):
                 tg.create_task(self._safe_replace_text_files_by_their_content(file, set_at_keypath))
 
     # Make sure we replace files when possible before evaluating
-    async def _sanitize_files_in_input(self, files: list[FileWithKeyPath], task_input: TaskInputDict):
+    async def _sanitize_files_in_input(self, files: list[FileWithKeyPath], task_input: AgentInput):
         # Separate files into images and others
         images: list[FileWithKeyPath] = []
         text_files: list[FileWithKeyPath] = []
@@ -196,8 +196,8 @@ class InputTaskEvaluator(AbstractEvaluator[InputTaskEvaluatorOptions]):
 
     async def _call_evaluation_task(
         self,
-        evaluated_input: TaskInputDict | None,
-        evaluated_output: TaskOutputDict,
+        evaluated_input: AgentInput | None,
+        evaluated_output: AgentOutput,
     ) -> TaskEvaluation:
         task_input = EvaluateOutputTaskInput(
             task_input=json.dumps(evaluated_input) if evaluated_input else None,
@@ -226,7 +226,7 @@ class InputTaskEvaluator(AbstractEvaluator[InputTaskEvaluatorOptions]):
             ),
         )
 
-    async def _sanitize_input(self, input: TaskInputDict):
+    async def _sanitize_input(self, input: AgentInput):
         # We extract files before sanitizing since storage_url is not in the json schema
         new_payload, _, files = extract_files(self.task.input_schema.json_schema, input)
         if not files:

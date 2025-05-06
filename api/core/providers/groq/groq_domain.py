@@ -7,7 +7,7 @@ from typing_extensions import Annotated
 from core.domain.errors import ModelDoesNotSupportMode, UnpriceableRunError
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model
 from core.domain.tool import Tool
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
@@ -27,10 +27,10 @@ from core.utils.token_utils import tokens_from_string
 GroqRole = Literal["system", "user", "assistant", "tool"]
 
 
-role_to_groq_map: dict[Message.Role, Literal["system", "user", "assistant"]] = {
-    Message.Role.SYSTEM: "system",
-    Message.Role.USER: "user",
-    Message.Role.ASSISTANT: "assistant",
+role_to_groq_map: dict[MessageDeprecated.Role, Literal["system", "user", "assistant"]] = {
+    MessageDeprecated.Role.SYSTEM: "system",
+    MessageDeprecated.Role.USER: "user",
+    MessageDeprecated.Role.ASSISTANT: "assistant",
 }
 
 groq_to_role_map: dict[GroqRole, Literal["system", "user", "assistant"] | None] = {
@@ -136,7 +136,7 @@ class GroqMessage(BaseModel):
         )
 
     @classmethod
-    def from_domain(cls, message: Message):
+    def from_domain(cls, message: MessageDeprecated):
         out: list[cls] = []
 
         role = role_to_groq_map[message.role]
@@ -155,7 +155,7 @@ class GroqMessage(BaseModel):
             else:
                 raise ModelDoesNotSupportMode("Groq only supports image files in messages")
 
-        if message.content or message.tool_call_requests:
+        if content or message.tool_call_requests:
             out.append(
                 cls(
                     role=role,

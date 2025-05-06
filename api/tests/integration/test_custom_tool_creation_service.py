@@ -1,5 +1,5 @@
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from pydantic import BaseModel
 
@@ -77,21 +77,26 @@ async def test_stream_example_input() -> None:
 async def test_stream_example_output() -> None:
     """Test that stream_example_output yields the agent output correctly."""
 
-    class DummyOutput:
+    class DummyOutput(BaseModel):
         example_tool_output_string: str
         example_tool_output_json: dict[str, Any]
 
-    dummy_output = DummyOutput()
-    dummy_output.example_tool_output_string = "Output string"
-    dummy_output.example_tool_output_json = {"key": "value"}
+    dummy_output = DummyOutput(example_tool_output_string="Output string", example_tool_output_json={"key": "value"})
+    dummy_run = Mock(id="test_run_id", output=dummy_output)
 
     with patch(
-        "api.services.internal_tasks.custom_tool_creation_service.tool_output_example_agent",
-        return_value=mock_aiter(dummy_output),
+        "api.services.internal_tasks.custom_tool_creation_service.tool_output_example_agent.stream",
+        return_value=mock_aiter(dummy_run),
     ):
         results = [
             output
-            async for output in CustomToolService.stream_example_output("ToolName", "ToolDescription", {"input": "x"})
+            async for output in CustomToolService.stream_example_output(
+                "ToolName",
+                "ToolDescription",
+                {"input": "x"},
+                previous_run_id=None,
+                new_user_message=None,
+            )
         ]
         assert results, "No output received"
         output = results[0]
@@ -101,3 +106,38 @@ async def test_stream_example_output() -> None:
         assert output.example_tool_output_json == {
             "key": "value",
         }, f"Expected output json {{'key': 'value'}}, got {output.example_tool_output_json}"
+
+
+async def test_stream_example_output_with_follow_up_request() -> None:
+    """Test that stream_example_output yields the agent output correctly."""
+
+    class DummyOutput(BaseModel):
+        example_tool_output_string: str
+        example_tool_output_json: dict[str, Any]
+
+    dummy_output = DummyOutput(example_tool_output_string="Output string", example_tool_output_json={"key": "value"})
+    dummy_run = Mock(id="test_run_id", output=dummy_output)
+
+    with patch(
+        "api.services.internal_tasks.custom_tool_creation_service.tool_output_example_agent.reply",
+        return_value=dummy_run,
+    ) as mock_reply:
+        results = [
+            output
+            async for output in CustomToolService.stream_example_output(
+                "ToolName",
+                "ToolDescription",
+                {"input": "x"},
+                previous_run_id="test_run_id",
+                new_user_message="Test",
+            )
+        ]
+        assert results, "No output received"
+        output = results[0]
+        assert output.example_tool_output_string == "Output string", (
+            f"Expected 'Output string', got {output.example_tool_output_string}"
+        )
+        assert output.example_tool_output_json == {
+            "key": "value",
+        }, f"Expected output json {{'key': 'value'}}, got {output.example_tool_output_json}"
+        mock_reply.assert_called_once_with("test_run_id", "Test")

@@ -2,7 +2,7 @@ import pytest
 
 from core.domain.errors import UnpriceableRunError
 from core.domain.fields.file import File
-from core.domain.message import Message
+from core.domain.message import MessageDeprecated
 from core.domain.models import Model
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.providers.base.models import StandardMessage
@@ -69,8 +69,8 @@ class TestFireworksMessageTokenCount:
 
 class TestFireworksMessageFromDomain:
     def test_text_before_files(self):
-        message = Message(
-            role=Message.Role.USER,
+        message = MessageDeprecated(
+            role=MessageDeprecated.Role.USER,
             content="Hello world",
             files=[File(url="test.png", content_type="image/png")],
         )
@@ -87,8 +87,8 @@ class TestFireworksMessageToolCalls:
     def test_from_domain_with_files_tool_calls(self) -> None:
         # Create a Message instance with a file and simulate tool call output
         file = File(url="tool.png", content_type="image/png")
-        message = Message(
-            role=Message.Role.USER,
+        message = MessageDeprecated(
+            role=MessageDeprecated.Role.USER,
             content="Original content",
             files=[file],
         )
@@ -105,8 +105,8 @@ class TestFireworksMessageToolCalls:
 
 class TestFireworksToolMessage:
     def test_from_domain_with_tool_call_results(self) -> None:
-        message = Message(
-            role=Message.Role.USER,
+        message = MessageDeprecated(
+            role=MessageDeprecated.Role.USER,
             content="Test content",
             tool_call_results=[
                 ToolCall(
@@ -132,8 +132,8 @@ class TestFireworksToolMessage:
         assert tool_messages[1].content == "string result"
 
     def test_from_domain_without_tool_call_results(self) -> None:
-        message = Message(
-            role=Message.Role.USER,
+        message = MessageDeprecated(
+            role=MessageDeprecated.Role.USER,
             content="Test content",
         )
 
@@ -169,8 +169,8 @@ class TestFireworksToolMessage:
 
 class TestFireworksMessageNativeToolCalls:
     def test_from_domain_with_tool_call_requests(self) -> None:
-        message = Message(
-            role=Message.Role.ASSISTANT,
+        message = MessageDeprecated(
+            role=MessageDeprecated.Role.ASSISTANT,
             content="Test content",
             tool_call_requests=[
                 ToolCallRequestWithID(
