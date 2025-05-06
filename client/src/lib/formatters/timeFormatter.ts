@@ -25,3 +25,8 @@ export function formatRelativeTime(date: string | undefined) {
     .replace(' years', 'y')
     .replace(' year', 'y');
 }
+
+export function formatDateTime(date: string | undefined) {
+  if (!date) return null;
+  return dayjs(date).format('h:mma MMMM D, YYYY');
+}
