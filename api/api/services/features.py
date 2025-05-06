@@ -412,7 +412,7 @@ class FeatureService:
         # Wait for AI features collection to complete
         company_website_contents = await company_website_contents_task
 
-        agent_suggestion_input = await FeatureService._build_agent_suggestion_input(
+        agent_suggestion_input = await cls._build_agent_suggestion_input(
             company_domain=company_domain,
             company_context=company_context,
             company_website_contents=company_website_contents,
