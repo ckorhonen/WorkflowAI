@@ -11,6 +11,7 @@ from httpx import Response
 from pytest_httpx import HTTPXMock, IteratorStream
 
 from core.domain.errors import (
+    ContentModerationError,
     FailedGenerationError,
     MaxTokensExceededError,
     ProviderBadRequestError,
@@ -296,6 +297,20 @@ class TestComplete:
                     temperature=0,
                 ),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x) if x else {}),
+            )
+
+    async def test_complete_content_moderation(self, httpx_mock: HTTPXMock, groq_provider: GroqProvider):
+        httpx_mock.add_response(
+            url="https://api.groq.com/openai/v1/chat/completions",
+            json=fixtures_json("groq", "content_moderation.json"),
+            status_code=200,
+        )
+
+        with pytest.raises(ContentModerationError):
+            await groq_provider.complete(
+                [MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
+                options=ProviderOptions(model=Model.LLAMA_4_MAVERICK_BASIC, output_schema={}),
+                output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )
 
 

@@ -5,7 +5,12 @@ from httpx import Response
 from pydantic import BaseModel, ValidationError
 from typing_extensions import override
 
-from core.domain.errors import FailedGenerationError, MaxTokensExceededError, ProviderBadRequestError
+from core.domain.errors import (
+    ContentModerationError,
+    FailedGenerationError,
+    MaxTokensExceededError,
+    ProviderBadRequestError,
+)
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
@@ -41,6 +46,20 @@ class GroqConfig(BaseModel):
 
 
 class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
+    @classmethod
+    @override
+    def _invalid_json_error(
+        cls,
+        response: Response | None,
+        exception: Exception | None,
+        raw_completion: str,
+        error_msg: str,
+        retry: bool = False,
+    ) -> Exception:
+        if "i can't help with that" in raw_completion.lower():
+            return ContentModerationError(retry=retry, provider_error=raw_completion, capture=False)
+        return super()._invalid_json_error(response, exception, raw_completion, error_msg, retry)
+
     @override
     @classmethod
     def name(cls) -> Provider:
