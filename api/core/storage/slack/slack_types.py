@@ -64,7 +64,7 @@ class SlackRichTextElementContent(BaseModel):
 
 
 class SlackRichTextSection(BaseModel):
-    type: Literal["rich_text_section"]
+    type: Literal["rich_text_section", "rich_text_preformatted"]
     elements: list[SlackRichTextElementContent]
 
 
