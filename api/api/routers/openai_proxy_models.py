@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from collections.abc import Callable, Mapping
 from typing import Any, Literal
 
@@ -14,6 +15,7 @@ from core.domain.message import (
     MessageContent,
 )
 from core.domain.models.providers import Provider
+from core.domain.run_output import RunOutput
 from core.domain.tool import Tool
 from core.domain.tool_call import ToolCallRequestWithID
 from core.domain.types import AgentOutput
@@ -273,6 +275,7 @@ _IGNORED_FIELDS = {
     "user",
     "store",
     "parallel_tool_calls",
+    "stream_options",
 }
 
 
@@ -420,12 +423,33 @@ class OpenAIProxyChatCompletionResponse(BaseModel):
             model=model,
         )
 
+    @classmethod
+    def serializer(cls, model: str, deprecated_function: bool, output_mapper: Callable[[Any], str]):
+        def _serializer(run: AgentRun):
+            return cls.from_domain(run, output_mapper, model, deprecated_function)
+
+        return _serializer
+
 
 class OpenAIProxyChatCompletionChunkDelta(BaseModel):
     content: str | None = None
     function_call: OpenAIProxyFunctionCall | None = None  # Deprecated
     tool_calls: list[OpenAIProxyToolCall] | None = None
     role: Literal["user", "assistant", "system", "tool"] | None = None
+
+    @classmethod
+    def from_domain(cls, output: RunOutput, deprecated_function: bool):
+        if not output.delta and not output.tool_call_requests:
+            return None
+        return cls(
+            content=output.delta,
+            function_call=OpenAIProxyFunctionCall.from_domain(output.tool_call_requests[0])
+            if deprecated_function and output.tool_call_requests
+            else None,
+            tool_calls=[OpenAIProxyToolCall.from_domain(t) for t in output.tool_call_requests]
+            if output.tool_call_requests and not deprecated_function
+            else None,
+        )
 
 
 class OpenAIProxyChatCompletionChunkChoice(BaseModel):
@@ -442,3 +466,22 @@ class OpenAIProxyChatCompletionChunk(BaseModel):
     system_fingerprint: str | None = None
     object: Literal["chat.completion.chunk"] = "chat.completion.chunk"
     usage: OpenAIProxyCompletionUsage | None = None
+
+    @classmethod
+    def from_domain(cls, id: str, output: RunOutput, model: str, deprecated_function: bool):
+        chunk_delta = OpenAIProxyChatCompletionChunkDelta.from_domain(output, deprecated_function)
+        if not chunk_delta:
+            return None
+        return cls(
+            id=id,
+            created=int(time.time()),
+            model=model,
+            choices=[OpenAIProxyChatCompletionChunkChoice(delta=chunk_delta, finish_reason="stop", index=0)],
+        )
+
+    @classmethod
+    def stream_serializer(cls, model: str, deprecated_function: bool):
+        def _serializer(id: str, output: RunOutput):
+            return cls.from_domain(id, output, model=model, deprecated_function=deprecated_function)
+
+        return _serializer

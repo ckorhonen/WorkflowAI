@@ -213,7 +213,7 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
             if not context.last_chunk:
                 cls._get_logger().warning("No last chunk found in streaming context")
                 return partial_output_factory("")
-            raw = partial_output_factory(context.last_chunk.content)
+            raw = StructuredOutput(output=None, delta=context.last_chunk.content)
             if context.last_chunk.tool_calls:
                 raw = raw._replace(tool_calls=context.last_chunk.tool_calls)
             if context.last_chunk.reasoning_steps:
@@ -363,11 +363,11 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
                                 options,
                             )
 
-                    if streaming_context.json and not streaming_context.stream_deltas:
-                        # We only build the final structured output if we are streaming JSON
-                        yield self._build_structured_output(
-                            output_factory,
-                            streaming_context.streamer.raw_completion,
-                            streaming_context.reasoning_steps,
-                            streaming_context.tool_calls,
-                        )
+                    # Always yield the final output
+                    # This is the output that will be needed to save the run
+                    yield self._build_structured_output(
+                        output_factory,
+                        streaming_context.streamer.raw_completion,
+                        streaming_context.reasoning_steps,
+                        streaming_context.tool_calls,
+                    )

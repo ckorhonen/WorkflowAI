@@ -1003,7 +1003,7 @@ class TestStreamingHandlers:
         ):
             outputs.append(copy.deepcopy(output))  # noqa: PERF401
 
-        assert len(outputs) == 2
+        assert len(outputs) == 3
         assert outputs[0].output == "Hello"
         assert outputs[1].output == "Hello world"
 
@@ -1038,7 +1038,7 @@ class TestStreamingHandlers:
         ):
             outputs.append(copy.deepcopy(output))  # noqa: PERF401
 
-        assert len(outputs) == 2  # Two partial outputs and one final
+        assert len(outputs) == 3  # Two partial outputs and one final
         assert outputs[0].output == "Hello"
         assert outputs[1].output == " world"
 
