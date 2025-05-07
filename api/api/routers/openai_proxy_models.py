@@ -1,6 +1,6 @@
 import json
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -338,11 +338,13 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
             return [t.to_domain() for t in self.functions], True
         return None, False
 
-    def full_metadata(self) -> dict[str, Any] | None:
+    def full_metadata(self, headers: Mapping[str, Any]) -> dict[str, Any] | None:
         base = self.metadata or {}
         base[METADATA_KEY_INTEGRATION] = "openai"
         if self.user:
             base["user"] = self.user
+        if browser_agent := headers.get("user-agent"):
+            base["user-agent"] = browser_agent
         return base
 
     def _check_fields(self):

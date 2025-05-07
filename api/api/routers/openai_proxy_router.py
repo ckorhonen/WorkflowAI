@@ -156,7 +156,7 @@ async def chat_completions(
         task_run_id=None,
         stream_serializer=None,
         cache="auto",
-        metadata=body.full_metadata(),
+        metadata=body.full_metadata(request.headers),
         trigger="user",
         serializer=lambda run: OpenAIProxyChatCompletionResponse.from_domain(
             run,
