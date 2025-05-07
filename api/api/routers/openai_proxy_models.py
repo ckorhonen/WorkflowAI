@@ -15,7 +15,7 @@ from core.domain.message import (
 )
 from core.domain.models.providers import Provider
 from core.domain.tool import Tool
-from core.domain.tool_call import ToolCallRequestWithID
+from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.domain.types import AgentOutput
 from core.tools import ToolKind
 from core.utils.models.dumps import safe_dump_pydantic_model
@@ -32,6 +32,12 @@ _logger = logging.getLogger(__name__)
 class OpenAIAudioInput(BaseModel):
     data: str
     format: str
+
+    def to_domain(self) -> File:
+        content_type = self.format
+        if "/" not in content_type:
+            content_type = f"audio/{content_type}"
+        return File(data=self.data, content_type=content_type)
 
 
 class OpenAIProxyImageURL(BaseModel):
@@ -60,7 +66,8 @@ class OpenAIProxyContent(BaseModel):
             case "input_audio":
                 if not self.input_audio:
                     raise BadRequestError("Input audio content is required")
-                return MessageContent(file=File(data=self.input_audio.data, content_type=self.input_audio.format))
+
+                return MessageContent(file=self.input_audio.to_domain())
             case _:
                 raise BadRequestError(f"Unknown content type: {self.type}", capture=True)
 
@@ -200,8 +207,24 @@ class OpenAIProxyMessage(BaseModel):
             content = [c.to_domain() for c in self.content]
 
         match self.role:
-            case "user" | "tool":
+            case "user":
                 return Message(content=content, role="user")
+            case "tool":
+                return Message(
+                    content=[
+                        MessageContent(
+                            tool_call_result=ToolCall(
+                                id=self.tool_call_id or "",
+                                # TODO: this information is not available
+                                # In the message but we could grab it from the previous messages
+                                tool_name="",
+                                tool_input_dict={},
+                                result=self.content,
+                            ),
+                        ),
+                    ],
+                    role="user",
+                )
             case "assistant":
                 return Message(content=content, role="assistant")
             case "system" | "developer":
