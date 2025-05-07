@@ -6,6 +6,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from core.domain.agent_run import AgentRun
+from core.domain.consts import METADATA_KEY_INTEGRATION
 from core.domain.errors import BadRequestError
 from core.domain.fields.file import File
 from core.domain.message import (
@@ -338,10 +339,9 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
         return None, False
 
     def full_metadata(self) -> dict[str, Any] | None:
-        base = self.metadata
+        base = self.metadata or {}
+        base[METADATA_KEY_INTEGRATION] = "openai"
         if self.user:
-            if not base:
-                base = {}
             base["user"] = self.user
         return base
 
