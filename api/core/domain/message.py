@@ -59,7 +59,12 @@ class Message(BaseModel):
                     tool_call_results=tool_call_results,
                 )
             case "assistant":
-                return MessageDeprecated(role=MessageDeprecated.Role.ASSISTANT, content=content, files=files)
+                return MessageDeprecated(
+                    role=MessageDeprecated.Role.ASSISTANT,
+                    content=content,
+                    files=files,
+                    tool_call_requests=tool_call_requests,
+                )
         # We should never reach this point
         raise InternalError("Unexpected message type")
 
