@@ -340,7 +340,7 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
 
     def full_metadata(self, headers: Mapping[str, Any]) -> dict[str, Any] | None:
         base = self.metadata or {}
-        base[METADATA_KEY_INTEGRATION] = "openai"
+        base[METADATA_KEY_INTEGRATION] = "openai_chat_completions"
         if self.user:
             base["user"] = self.user
         if browser_agent := headers.get("user-agent"):
