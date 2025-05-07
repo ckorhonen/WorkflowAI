@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from collections.abc import Callable
 from json import JSONDecodeError
-from typing import Any, AsyncGenerator, AsyncIterator, Generic, NamedTuple, TypeVar
+from typing import Any, AsyncGenerator, AsyncIterator, Generic, TypeVar
 
 from httpx import Response
 from pydantic import BaseModel
@@ -24,7 +24,7 @@ from core.providers.base.abstract_provider import ProviderConfigVar, RawCompleti
 from core.providers.base.client_pool import ClientPool
 from core.providers.base.httpx_provider_base import HTTPXProviderBase
 from core.providers.base.provider_options import ProviderOptions
-from core.providers.base.streaming_context import StreamingContext, ToolCallRequestBuffer
+from core.providers.base.streaming_context import ParsedResponse, StreamingContext, ToolCallRequestBuffer
 from core.utils.background import add_background_task
 from core.utils.dicts import InvalidKeyPathError, set_at_keypath_str
 from core.utils.generics import T
@@ -33,13 +33,6 @@ from core.utils.streams import standard_wrap_sse
 ResponseModel = TypeVar("ResponseModel", bound=BaseModel)
 
 shared_client_pool = ClientPool()
-
-
-class ParsedResponse(NamedTuple):
-    content: str
-    reasoning_steps: str | None = None
-    # TODO: switch to tool call request
-    tool_calls: list[ToolCallRequestWithID] | None = None
 
 
 class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generic[ProviderConfigVar, ResponseModel]):
@@ -214,11 +207,27 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
         cls,
         partial_output_factory: Callable[[Any], StructuredOutput],
         context: StreamingContext,
+        options: ProviderOptions,
     ):
+        if options.stream_deltas:
+            if not context.last_chunk:
+                cls._get_logger().warning("No last chunk found in streaming context")
+                return partial_output_factory("")
+            raw = partial_output_factory(context.last_chunk.content)
+            if context.last_chunk.tool_calls:
+                raw = raw._replace(tool_calls=context.last_chunk.tool_calls)
+            if context.last_chunk.reasoning_steps:
+                raw = raw._replace(reasoning_steps=context.last_chunk.reasoning_steps)
+            return raw
+
         # TODO: we should not test here but instead handle the update directly in the streamer
         partial = partial_output_factory(context.agg_output if context.json else context.streamer.raw_completion)
         if context.reasoning_steps:
             partial = partial._replace(reasoning_steps=context.reasoning_steps)
+
+        # TODO: looks like we are not streaming tool calls ?
+        # if context.tool_calls:
+        #     partial = partial._replace(tool_calls=context.tool_calls)
         return partial
 
     @classmethod
@@ -299,13 +308,14 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
     def _handle_chunk(self, context: StreamingContext, chunk: bytes) -> bool:
         """Handles a chunk and returns true if there was an update"""
         delta = self._extract_stream_delta(chunk, context.raw_completion, context.tool_call_request_buffer)
+        context.last_chunk = delta
         if not delta:
             return False
 
         should_yield = self._handle_chunk_output(context, delta.content)
         should_yield |= self._handle_chunk_reasoning_steps(context, delta.reasoning_steps)
         should_yield |= self._handle_chunk_tool_calls(context, delta.tool_calls)
-        return should_yield
+        return should_yield or bool(context.stream_deltas and delta.content)
 
     @override
     async def _single_stream(  # noqa: C901
@@ -338,14 +348,22 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
                         await response.aread()
                         response.raise_for_status()
 
-                    streaming_context = StreamingContext(raw_completion, json=options.output_schema is not None)
+                    streaming_context = StreamingContext(
+                        raw_completion,
+                        json=options.output_schema is not None,
+                        stream_deltas=options.stream_deltas,
+                    )
                     async for chunk in self.wrap_sse(response.aiter_bytes()):
                         should_yield = self._handle_chunk(streaming_context, chunk)
 
                         if should_yield:
-                            yield self._partial_structured_output(partial_output_factory, streaming_context)
+                            yield self._partial_structured_output(
+                                partial_output_factory,
+                                streaming_context,
+                                options,
+                            )
 
-                    if streaming_context.json:
+                    if streaming_context.json and not streaming_context.stream_deltas:
                         # We only build the final structured output if we are streaming JSON
                         yield self._build_structured_output(
                             output_factory,
