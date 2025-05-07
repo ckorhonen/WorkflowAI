@@ -219,6 +219,7 @@ type PlaygroundOutputProps = Pick<
   addModelColumn: () => void;
   hideModelColumn: (index: number) => void;
   hiddenModelColumns: number[] | undefined;
+  isProxy: boolean;
 };
 
 export function PlaygroundOutput(props: PlaygroundOutputProps) {
@@ -234,6 +235,7 @@ export function PlaygroundOutput(props: PlaygroundOutputProps) {
     maxHeight,
     isInDemoMode,
     hiddenModelColumns,
+    isProxy,
     ...rest
   } = props;
 
@@ -331,9 +333,9 @@ export function PlaygroundOutput(props: PlaygroundOutputProps) {
         onMouseLeave={() => setIsHoveringOverHeader(false)}
       >
         <div className='flex flex-row items-center gap-3.5'>
-          <div className='font-semibold text-gray-700 text-base'>Outputs</div>
+          <div className='font-semibold text-gray-700 text-base'>{isProxy ? 'Assistant Messages' : 'Outputs'}</div>
 
-          {isHoveringOverHeader && (
+          {isHoveringOverHeader && !isProxy && (
             <Button
               variant='newDesign'
               onClick={onOutputsClick}
