@@ -33,7 +33,7 @@ from core.domain.reasoning_step import INTERNAL_REASONING_STEPS_SCHEMA_KEY
 from core.domain.run_output import RunOutput
 from core.domain.structured_output import StructuredOutput
 from core.domain.task_group_properties import FewShotConfiguration, FewShotExample, TaskGroupProperties
-from core.domain.task_io import RawMessagesSchema, RawStringMessageSchema, SerializableTaskIO
+from core.domain.task_io import RawJSONMessageSchema, RawMessagesSchema, RawStringMessageSchema, SerializableTaskIO
 from core.domain.task_run_reply import RunReply
 from core.domain.task_typology import TaskTypology
 from core.domain.task_variant import SerializableTaskVariant
@@ -966,6 +966,8 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
     ) -> PreparedOutputSchema:
         if output_schema.version == RawStringMessageSchema.version:
             return PreparedOutputSchema(prepared_schema=None)
+        if output_schema.version == RawJSONMessageSchema.version:
+            return PreparedOutputSchema(prepared_schema={})
 
         output_json_schema = deepcopy(output_schema.json_schema)
         if is_chain_of_thought_enabled:
