@@ -66,7 +66,7 @@ export function ProxyMessageView(props: Props) {
 
   return (
     <div
-      className='flex flex-col border border-gray-200 rounded-[2px] min-h-[90px]'
+      className='flex flex-col border border-gray-200 hover:border-gray-300 hover:shadow-md rounded-[2px] min-h-[90px]'
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
     >
