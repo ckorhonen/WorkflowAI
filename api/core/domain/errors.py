@@ -276,3 +276,9 @@ def message_from_validation_error(validation_error: ValidationError) -> str:
         if err := ctx.get("error"):
             return str(err)
     return errors[0]["msg"]
+
+
+class InvalidToken(DefaultError):
+    status_code: int = 401
+    default_capture: bool = True
+    default_message: str = "Invalid token"
