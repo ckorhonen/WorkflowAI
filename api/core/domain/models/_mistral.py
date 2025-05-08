@@ -139,7 +139,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             supports_input_pdf=True,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
-                max_tokens=32768,
+                max_tokens=131072,
                 source="https://docs.mistral.ai/getting-started/models/",
             ),
             provider_for_pricing=Provider.MISTRAL_AI,
@@ -239,13 +239,13 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             supports_tool_calling=True,
         ),
         Model.MISTRAL_MEDIUM_2505: ModelData(
-            display_name="Mistral Medium (25-05)",
+            display_name="Mistral Medium 3 (25-05)",
             supports_json_mode=True,
             supports_input_image=True,
             supports_input_pdf=True,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
-                max_tokens=262144,
+                max_tokens=131072,
                 # source="https://docs.mistral.ai/getting-started/models/",
                 source="https://api.mistral.ai/v1/models",
             ),

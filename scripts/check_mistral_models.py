@@ -83,7 +83,9 @@ async def _main():
             raise ValueError(f"Model {model} has a different vision support")
 
         if values_from_mistral["max_context_length"] != data.max_tokens_data.max_tokens:
-            raise ValueError(f"Model {model} has a different max context length")
+            raise ValueError(
+                f"Model {model} has a different max context length: {values_from_mistral['max_context_length']} != {data.max_tokens_data.max_tokens}",
+            )
 
 
 if __name__ == "__main__":
