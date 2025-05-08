@@ -119,3 +119,40 @@ async def test_api_key_authentication_with_api_keys(int_api_client: AsyncClient)
     # Test accessing tasks endpoint without API key should fail
     response_without_key = await int_api_client.get("/chiefofstaff.ai/api/keys", headers=headers)
     assert response_without_key.status_code == 401
+
+
+async def test_invalid_api_key(int_api_client: AsyncClient):
+    """Test that an invalid API key returns a 401 error"""
+
+    response = await int_api_client.post(
+        "/v1/_/agents/test-agent/schemas/1/run",
+        headers={"Authorization": "Bearer wai-invalid-api-key"},
+        json={"task_input": {}, "version": "production"},
+    )
+    assert response.status_code == 401
+    assert response.json() == {
+        "error": {
+            "code": "authentication_failed",
+            "message": "API Key is invalid. Please check your API Key or generate a new one "
+            "at https://workflowai.com/organization/settings/api-keys",
+            "status_code": 401,
+        },
+    }
+
+
+async def test_missing_bearer(int_api_client: AsyncClient):
+    """Test that an invalid API key returns a 401 error"""
+
+    response = await int_api_client.post(
+        "/v1/_/agents/test-agent/schemas/1/run",
+        headers={"Authorization": "wai-invalid-api-key"},
+        json={"task_input": {}, "version": "production"},
+    )
+    assert response.status_code == 401
+    assert response.json() == {
+        "error": {
+            "code": "authentication_failed",
+            "message": "Authorization header must be prefixed with 'Bearer'",
+            "status_code": 401,
+        },
+    }
