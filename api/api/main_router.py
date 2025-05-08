@@ -1,8 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies.security import URLPublicOrganizationDep, key_ring_dependency, tenant_dependency
-from api.routers import clerk_webhooks, features, feedback_v1, helpscout_webhooks, slack_webhooks, stripe_webhooks
-from api.routers.agents import meta_agent, new_tool_agent
+from api.routers import (
+    clerk_webhooks,
+    features,
+    feedback_v1,
+    integrations_router,
+    stripe_webhooks,
+)
 from api.tags import RouteTags
 from core.domain.tenant_data import PublicOrganizationData
 
@@ -29,7 +34,6 @@ def _tenant_router():
     from api.routers import (
         api_keys,
         examples_by_id,
-        integrations_router,
         organizations,
         payments,
         reviews,
@@ -42,6 +46,7 @@ def _tenant_router():
         transcriptions,
         upload,
     )
+    from api.routers.agents import meta_agent, new_tool_agent
 
     tenant_router = APIRouter(prefix="/{tenant}")
     tenant_router.include_router(stats.router, tags=[RouteTags.MONITORING])
@@ -61,7 +66,6 @@ def _tenant_router():
     tenant_router.include_router(meta_agent.router, tags=[RouteTags.PROMPT_ENGINEER_AGENT])
     tenant_router.include_router(new_tool_agent.router, tags=[RouteTags.NEW_TOOL_AGENT])
     tenant_router.include_router(tools_router.router, tags=[RouteTags.TOOLS])
-    tenant_router.include_router(integrations_router.router, tags=[RouteTags.INTEGRATIONS])
     return tenant_router
 
 
@@ -83,6 +87,7 @@ def _authenticated_router():
     authenticated_router.include_router(organizations.router)
     authenticated_router.include_router(features.router, tags=[RouteTags.FEATURES])
     authenticated_router.include_router(feedback_v1.router)
+    authenticated_router.include_router(integrations_router.router, tags=[RouteTags.INTEGRATIONS])
     return authenticated_router
 
 
