@@ -23,7 +23,7 @@ export function SidebarLinks() {
       >
         <Button
           variant='newDesignText'
-          toRoute='https://discord.gg/jSahs44g'
+          toRoute='https://discord.gg/auuf8DREZh'
           rel='noopener noreferrer'
           target='_blank'
           icon={

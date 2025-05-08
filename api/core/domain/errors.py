@@ -279,6 +279,7 @@ def message_from_validation_error(validation_error: ValidationError) -> str:
 
 
 class InvalidToken(DefaultError):
-    status_code: int = 401
+    default_status_code = 401
     default_capture: bool = True
-    default_message: str = "Invalid token"
+    default_message = "Invalid token"
+    code = "authentication_failed"
