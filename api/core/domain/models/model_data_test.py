@@ -176,14 +176,25 @@ class TestModelDataQualityIndex:
     @pytest.mark.parametrize(
         "quality_data, expected_index",
         [
+            pytest.param(QualityData(gpqa=80), 800, id="gpqa"),
             pytest.param(QualityData(index=100), 100, id="index"),
-            pytest.param(QualityData(mmlu_pro=80), 200, id="mmlu_pro"),
-            pytest.param(QualityData(mmlu=80), 120, id="mmlu"),
-            pytest.param(QualityData(mmlu=80, mmlu_pro=80), 160, id="mmlu_pro_and_mmlu"),
+            pytest.param(QualityData(mmlu_pro=80), 800, id="mmlu_pro"),
+            pytest.param(QualityData(mmlu=80), 480, id="mmlu"),
+            pytest.param(QualityData(mmlu=80, mmlu_pro=80), 640, id="mmlu_pro_and_mmlu"),
             pytest.param(
                 QualityData(equivalent_to=(Model.O3_2025_04_16_MEDIUM_REASONING_EFFORT, 1)),
                 101,
                 id="equivalent_to",
+            ),
+            pytest.param(
+                QualityData(
+                    gpqa_diamond=100,
+                    gpqa=100,
+                    mmlu=100,
+                    mmlu_pro=100,
+                ),
+                1000,
+                id="max_score",
             ),
         ],
     )

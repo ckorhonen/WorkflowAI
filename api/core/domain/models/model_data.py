@@ -65,7 +65,7 @@ class QualityData(SourcedBaseModel):
         total_score: float = 0
         for k, v in dumped.items():
             total_score += v * _quality_index_weights[k]
-        return int((total_score / len(dumped)) * 10)
+        return int((total_score / len(dumped)) * 40)
 
 
 class MaxTokensData(SourcedBaseModel):
