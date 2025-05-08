@@ -87,6 +87,7 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
             stream_options=StreamOptions(include_usage=True) if stream else None,
             response_format=self._response_format(options, model_data),
             reasoning_effort=reasoning_effort,
+            tool_choice=CompletionRequest.tool_choice_from_domain(options.tool_choice),
         )
 
         if options.enabled_tools is not None and options.enabled_tools != []:

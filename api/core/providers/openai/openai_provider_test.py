@@ -206,6 +206,34 @@ class TestBuildRequest:
             "reasoning_effort": "low",
         }
 
+    def test_build_request_with_tool_choice_none(self, openai_provider: OpenAIProvider):
+        request = cast(
+            CompletionRequest,
+            openai_provider._build_request(  # pyright: ignore [reportPrivateUsage]
+                messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
+                options=ProviderOptions(
+                    model=Model.GPT_4O_2024_11_20,
+                    tool_choice="none",
+                ),
+                stream=False,
+            ),
+        )
+        assert request.tool_choice == "none"
+
+    def test_build_request_with_tool_choice_auto(self, openai_provider: OpenAIProvider):
+        request = cast(
+            CompletionRequest,
+            openai_provider._build_request(  # pyright: ignore [reportPrivateUsage]
+                messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
+                options=ProviderOptions(
+                    model=Model.GPT_4O_2024_11_20,
+                    tool_choice="auto",
+                ),
+                stream=False,
+            ),
+        )
+        assert request.tool_choice == "auto"
+
 
 def mock_openai_stream(httpx_mock: HTTPXMock):
     httpx_mock.add_response(

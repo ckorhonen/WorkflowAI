@@ -15,6 +15,7 @@ from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.anthropic.anthropic_domain import (
     AnthropicErrorResponse,
     AnthropicMessage,
+    AntToolChoice,
     CompletionChunk,
     CompletionRequest,
     CompletionResponse,
@@ -77,6 +78,7 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
             temperature=options.temperature,
             max_tokens=max_tokens or DEFAULT_MAX_TOKENS,
             stream=stream,
+            tool_choice=AntToolChoice.from_domain(options.tool_choice),
         )
 
         if options.enabled_tools is not None and options.enabled_tools != []:

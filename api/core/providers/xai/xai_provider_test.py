@@ -142,6 +142,30 @@ class TestBuildRequest:
             "reasoning_effort": "low",
         }
 
+    def test_build_request_with_tool_choice(self, xai_provider: XAIProvider):
+        request = cast(
+            CompletionRequest,
+            xai_provider._build_request(  # pyright: ignore [reportPrivateUsage]
+                messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
+                options=ProviderOptions(
+                    model=Model.GPT_4O_2024_11_20,
+                    tool_choice="auto",
+                ),
+                stream=False,
+            ),
+        )
+        # We can exclude None values because the HTTPxProvider does the same
+        assert request.model_dump(include={"messages", "tool_choice", "model"}, exclude_none=True) == {
+            "model": "gpt-4o-2024-11-20",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "Hello",
+                },
+            ],
+            "tool_choice": "auto",
+        }
+
 
 def mock_xai_stream(httpx_mock: HTTPXMock):
     httpx_mock.add_response(

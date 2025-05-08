@@ -73,6 +73,7 @@ class MistralAIProvider(HTTPXProvider[MistralAIConfig, CompletionResponse]):
             # TODO[max-tokens]: Set the max token from the context data
             max_tokens=options.max_tokens,
             stream=stream,
+            tool_choice=CompletionRequest.tool_choice_from_domain(options.tool_choice),
         )
         if not options.output_schema:
             request.response_format = ResponseFormat(type="text")

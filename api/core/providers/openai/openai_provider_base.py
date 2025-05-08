@@ -127,6 +127,7 @@ class OpenAIProviderBase(HTTPXProvider[_OpenAIConfigVar, CompletionResponse], Ge
             # store=True,
             response_format=self._response_format(options, is_preview_model),
             reasoning_effort=_REASONING_EFFORT_FOR_MODEL.get(options.model, None),
+            tool_choice=CompletionRequest.tool_choice_from_domain(options.tool_choice),
         )
 
         if options.enabled_tools is not None and options.enabled_tools != []:

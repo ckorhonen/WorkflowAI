@@ -10,6 +10,7 @@ from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.models import Model
+from core.domain.task_group_properties import ToolChoice, ToolChoiceFunction
 from core.providers.base.models import (
     AudioContentDict,
     DocumentContentDict,
@@ -35,10 +36,6 @@ class FunctionParameters(BaseModel):
     name: str
     description: str = ""
     parameters: dict[str, Any] = Field(default_factory=dict)
-
-
-class FunctionName(BaseModel):
-    name: str
 
 
 class Tool(BaseModel):
@@ -196,11 +193,15 @@ class MistralAIMessage(BaseModel):
         return token_count
 
 
-ToolChoiceEnum = Literal["auto", "none", "required", "any"]
+MistralToolChoiceEnum = Literal["auto", "none", "required", "any"]
 
 
-class ToolChoice(BaseModel):
+class MistralToolChoice(BaseModel):
     type: Literal["function"] = "function"
+
+    class FunctionName(BaseModel):
+        name: str
+
     function: FunctionName
 
 
@@ -275,8 +276,19 @@ class CompletionRequest(BaseModel):
     messages: list[MistralAIMessage | MistralToolMessage]
     response_format: ResponseFormat = Field(default_factory=ResponseFormat)
     tools: list[Tool] | None = None
-    tool_choice: ToolChoiceEnum | ToolChoice | None = None
+    tool_choice: MistralToolChoiceEnum | MistralToolChoice | None = None
     safe_prompt: bool | None = None
+
+    @classmethod
+    def tool_choice_from_domain(
+        cls,
+        tool_choice: ToolChoice | None,
+    ) -> MistralToolChoiceEnum | MistralToolChoice | None:
+        if not tool_choice:
+            return None
+        if isinstance(tool_choice, ToolChoiceFunction):
+            return MistralToolChoice(type="function", function=MistralToolChoice.FunctionName(name=tool_choice.name))
+        return tool_choice
 
 
 class AssistantMessage(BaseModel):

@@ -150,6 +150,28 @@ class TestBuildRequest:
         request_dict = request.model_dump()
         assert request_dict["max_tokens"] is None
 
+    def test_build_request_with_tool_choice(self, mistral_provider: MistralAIProvider):
+        from core.domain.tool import Tool as DomainTool
+
+        test_tool = DomainTool(
+            name="test_tool",
+            description="A test tool",
+            input_schema={"type": "object", "properties": {"test": {"type": "string"}}},
+            output_schema={"type": "object", "properties": {"result": {"type": "string"}}},
+        )
+        request = mistral_provider._build_request(  # pyright: ignore [reportPrivateUsage]
+            messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
+            options=ProviderOptions(
+                model=Model.PIXTRAL_12B_2409,
+                temperature=0,
+                enabled_tools=[test_tool],
+                tool_choice="auto",
+            ),
+            stream=False,
+        )
+        request_dict = request.model_dump(exclude_none=True)
+        assert request_dict["tool_choice"] == "auto"
+
 
 class TestSingleStream:
     async def test_stream_data(self, httpx_mock: HTTPXMock):
