@@ -19,10 +19,10 @@ from core.domain.models import Model, Provider
 from core.domain.models.model_data import ModelData
 from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.abstract_provider import RawCompletion
-from core.providers.base.httpx_provider import HTTPXProvider, ParsedResponse
+from core.providers.base.httpx_provider import HTTPXProvider
 from core.providers.base.models import StandardMessage
 from core.providers.base.provider_options import ProviderOptions
-from core.providers.base.streaming_context import ToolCallRequestBuffer
+from core.providers.base.streaming_context import ParsedResponse, ToolCallRequestBuffer
 from core.providers.base.utils import get_provider_config_env
 from core.providers.google.google_provider_domain import native_tool_name_to_internal
 from core.providers.groq.groq_domain import (

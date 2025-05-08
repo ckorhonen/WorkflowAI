@@ -29,10 +29,10 @@ from core.domain.structured_output import StructuredOutput
 from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.anthropic.anthropic_domain import CompletionResponse
 from core.providers.base.abstract_provider import RawCompletion
-from core.providers.base.httpx_provider import HTTPXProvider, ParsedResponse
+from core.providers.base.httpx_provider import HTTPXProvider
 from core.providers.base.models import StandardMessage
 from core.providers.base.provider_options import ProviderOptions
-from core.providers.base.streaming_context import ToolCallRequestBuffer
+from core.providers.base.streaming_context import ParsedResponse, ToolCallRequestBuffer
 from core.providers.openai.openai_provider import OpenAIProvider
 from tests.utils import mock_aiter
 
@@ -1003,9 +1003,46 @@ class TestStreamingHandlers:
         ):
             outputs.append(copy.deepcopy(output))  # noqa: PERF401
 
-        assert len(outputs) == 2  # Two partial outputs and one final
+        assert len(outputs) == 3
         assert outputs[0].output == "Hello"
         assert outputs[1].output == "Hello world"
+
+    async def test_stream_deltas(self, mocked_provider: MockedProvider, httpx_mock: HTTPXMock):
+        sse_stream = IteratorStream(
+            [
+                b'data: {"content": "Hello"}\n\n',
+                b'data: {"content": " world"}\n\n',
+                b"data: [DONE]\n\n",
+            ],
+        )
+        httpx_mock.add_response(
+            url="https://api.openai.com/v1/chat/completions",
+            stream=sse_stream,
+            status_code=200,
+        )
+
+        # Setup mock for stream delta extraction
+        mocked_provider.mock._extract_stream_delta.side_effect = [
+            ParsedResponse(content="Hello"),
+            ParsedResponse(content=" world"),
+            None,
+        ]
+
+        outputs: list[StructuredOutput] = []
+        async for output in mocked_provider._single_stream(  # pyright: ignore[reportPrivateUsage]
+            request={},
+            output_factory=lambda x, _: StructuredOutput(output=x),
+            partial_output_factory=lambda x: StructuredOutput(output=x),
+            raw_completion=RawCompletion(response="", usage=LLMUsage()),
+            options=ProviderOptions(model=Model.GPT_4O_2024_05_13, stream_deltas=True, output_schema={}),
+        ):
+            outputs.append(copy.deepcopy(output))  # noqa: PERF401
+
+        assert len(outputs) == 3  # Two partial outputs and one final
+        assert outputs[0].delta == "Hello"
+        assert outputs[1].delta == " world"
+        assert outputs[2].delta is None
+        assert outputs[2].output == "Hello world"
 
 
 class TestBuildStructuredOutput:
