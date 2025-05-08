@@ -1110,11 +1110,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
             release_date=date(2025, 4, 5),
-            quality_data=QualityData(
-                mmlu_pro=79.4,
-                gpqa=67.7,
-                source="https://www.vals.ai/models/together_meta-llama_Llama-4-Maverick-17B-128E-Instruct-FP8",
-            ),
+            quality_data=QualityData(equivalent_to=(Model.LLAMA_4_MAVERICK_FAST, 0)),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=False,
             supports_structured_output=True,
@@ -1134,12 +1130,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
             release_date=date(2025, 4, 5),
-            # https://ai.meta.com/blog/llama-4-multimodal-intelligence/
-            quality_data=QualityData(
-                mmlu_pro=69.6,
-                gpqa=44.4,
-                source="https://www.vals.ai/models/together_meta-llama_Llama-4-Scout-17B-16E-Instruct",
-            ),
+            quality_data=QualityData(equivalent_to=(Model.LLAMA_4_SCOUT_FAST, 0)),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=False,
             supports_structured_output=True,
