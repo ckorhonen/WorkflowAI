@@ -1039,8 +1039,10 @@ class TestStreamingHandlers:
             outputs.append(copy.deepcopy(output))  # noqa: PERF401
 
         assert len(outputs) == 3  # Two partial outputs and one final
-        assert outputs[0].output == "Hello"
-        assert outputs[1].output == " world"
+        assert outputs[0].delta == "Hello"
+        assert outputs[1].delta == " world"
+        assert outputs[2].delta is None
+        assert outputs[2].output == "Hello world"
 
 
 class TestBuildStructuredOutput:
