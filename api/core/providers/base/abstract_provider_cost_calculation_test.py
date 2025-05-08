@@ -6,6 +6,7 @@ from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
+from core.domain.models.model_data import FinalModelData
 from core.domain.models.utils import get_model_data
 from core.providers.base.abstract_provider import AbstractProvider
 from core.providers.base.provider_options import ProviderOptions
@@ -35,6 +36,8 @@ def active_models_with_price(providers: set[Provider] | None = None):
 
     for model in Model:
         model_data = get_model_data(model)
+        if not isinstance(model_data, FinalModelData):  # pyright: ignore [reportUnnecessaryIsInstance]
+            raise ValueError(f"Model {model} is not a FinalModelData")
         pricing_data = model_data.provider_data_for_pricing()
         if pricing_data.text_price.prompt_cost_per_token == 0:
             continue

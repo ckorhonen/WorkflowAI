@@ -1,7 +1,7 @@
 from datetime import date
 
 from core.domain.models._displayed_provider import DisplayedProvider
-from core.domain.models.model_data import DeprecatedModel, LatestModel, MaxTokensData, ModelData
+from core.domain.models.model_data import DeprecatedModel, LatestModel, MaxTokensData, ModelData, QualityData
 from core.domain.models.models import Model
 from core.domain.models.providers import Provider
 
@@ -29,7 +29,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/mistral.svg",
             latest_model=Model.MISTRAL_LARGE_2_LATEST,
             release_date=date(2024, 7, 24),
-            quality_index=549,  # MMLU=84.00, GPQA=46.09
+            quality_data=QualityData(mmlu=84, gpqa=46.09),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
         ),
@@ -51,7 +51,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/mistral.svg",
             latest_model=Model.MISTRAL_LARGE_LATEST,
             release_date=date(2024, 11, 24),
-            quality_index=702,  # MMLU=84.00, GPQA=59.10
+            quality_data=QualityData(mmlu=84, gpqa=59.1),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
         ),
@@ -73,7 +73,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/mistral.svg",
             latest_model=Model.PIXTRAL_LARGE_LATEST,
             release_date=date(2024, 11, 24),
-            quality_index=531,  # MMLU=70.10, GPQA=39.30
+            quality_data=QualityData(mmlu=70.1, gpqa=39.3),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
         ),
@@ -90,7 +90,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.MISTRAL_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/mistral.svg",
             release_date=date(2024, 9, 17),
-            quality_index=526,  # MMLU=69.20, GPQA=39.00
+            quality_data=QualityData(mmlu=69.2, gpqa=39),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
         ),
@@ -107,7 +107,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.MISTRAL_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/mistral.svg",
             release_date=date(2024, 10, 24),
-            quality_index=317,  # MMLU=33.90, GPQA=33.59
+            quality_data=QualityData(mmlu=33.9, gpqa=33.59),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
         ),
@@ -124,7 +124,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.MISTRAL_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/mistral.svg",
             release_date=date(2024, 10, 24),
-            quality_index=426,  # MMLU=63.40, GPQA=33.80
+            quality_data=QualityData(mmlu=63.4, gpqa=33.8),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
         ),
@@ -139,13 +139,13 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             supports_input_pdf=True,
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
-                max_tokens=32768,
+                max_tokens=131072,
                 source="https://docs.mistral.ai/getting-started/models/",
             ),
             provider_for_pricing=Provider.MISTRAL_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/mistral.svg",
             release_date=date(2025, 3, 17),
-            quality_index=377,  # MMLU=52.90, GPQA=33.80
+            quality_data=QualityData(mmlu=52.9, gpqa=33.8),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
             latest_model=Model.MISTRAL_SMALL_LATEST,
@@ -163,7 +163,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.MISTRAL_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/mistral.svg",
             release_date=date(2025, 1, 13),
-            quality_index=377,  # MMLU=52.90, GPQA=33.80
+            quality_data=QualityData(mmlu=52.9, gpqa=33.8),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
             latest_model=Model.MISTRAL_SMALL_LATEST,
@@ -181,7 +181,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.MISTRAL_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/mistral.svg",
             release_date=date(2024, 9, 24),
-            quality_index=377,  # MMLU=52.90, GPQA=33.80
+            quality_data=QualityData(mmlu=52.9, gpqa=33.8),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
             latest_model=Model.MISTRAL_SMALL_LATEST,
@@ -199,7 +199,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.MISTRAL_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/mistral.svg",
             release_date=date(2025, 2, 17),
-            quality_index=377,  # MMLU=52.90, GPQA=33.80
+            quality_data=QualityData(mmlu=52.9, gpqa=33.8),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
         ),
@@ -216,7 +216,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.MISTRAL_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/mistral.svg",
             release_date=date(2025, 1, 13),
-            quality_index=481,  # MMLU=63.47, GPQA=38.35
+            quality_data=QualityData(mmlu=63.47, gpqa=38.35),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
         ),
@@ -234,7 +234,29 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.MISTRAL_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/mistral.svg",
             release_date=date(2024, 7, 24),
-            quality_index=481,  # MMLU=63.47, GPQA=38.35
+            quality_data=QualityData(mmlu=63.47, gpqa=38.35),
+            provider_name=DisplayedProvider.MISTRAL_AI.value,
+            supports_tool_calling=True,
+        ),
+        Model.MISTRAL_MEDIUM_2505: ModelData(
+            display_name="Mistral Medium 3 (25-05)",
+            supports_json_mode=True,
+            supports_input_image=True,
+            supports_input_pdf=True,
+            supports_input_audio=False,
+            max_tokens_data=MaxTokensData(
+                max_tokens=131072,
+                # source="https://docs.mistral.ai/getting-started/models/",
+                source="https://api.mistral.ai/v1/models",
+            ),
+            provider_for_pricing=Provider.MISTRAL_AI,
+            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/mistral.svg",
+            release_date=date(2024, 7, 24),
+            quality_data=QualityData(
+                mmlu_pro=77.2,
+                gpqa_diamond=57.1,
+                source="https://mistral.ai/news/mistral-medium-3",
+            ),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
         ),
