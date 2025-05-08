@@ -10,7 +10,6 @@ from typing_extensions import override
 from core.domain.errors import (
     ContentModerationError,
     FailedGenerationError,
-    InternalError,
     MaxTokensExceededError,
     MissingModelError,
     ModelDoesNotSupportMode,
@@ -116,27 +115,35 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
             completion_request.tools = tools
             completion_request.toolConfig = tool_config
 
-    @override
-    def _build_request(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool) -> BaseModel:
-        system_message: GoogleSystemMessage | None = None
+    @classmethod
+    def _convert_messages(
+        cls,
+        messages: list[MessageDeprecated],
+        support_system_messages: bool,
+    ) -> tuple[list[GoogleMessage], GoogleSystemMessage | None]:
         user_messages: list[GoogleMessage] = []
+        system_message: GoogleSystemMessage | None = None
 
-        model_data = get_model_data(model=options.model)
-
-        if not model_data.support_system_messages:
-            # For models that do not system messages, we merge all messages into a 'USER' single message
+        if not support_system_messages:
+            # TODO: This feels really weird. We should not need to do this.
+            # For now it's only activated on gemini flash 2.0
             merged_message = merge_messages(messages, role=MessageDeprecated.Role.USER)
             user_messages = [GoogleMessage.from_domain(merged_message)]
+            return user_messages, None
+
+        if messages[0].role == MessageDeprecated.Role.SYSTEM:
+            system_message = GoogleSystemMessage.from_domain(messages[0])
+            messages = messages[1:]
         else:
-            for message in messages:
-                if message.role == MessageDeprecated.Role.USER:
-                    user_messages.append(GoogleMessage.from_domain(message))
-                if message.role == MessageDeprecated.Role.ASSISTANT:
-                    user_messages.append(GoogleMessage.from_domain(message))
-                if message.role == MessageDeprecated.Role.SYSTEM:
-                    if system_message is not None:
-                        raise InternalError("Multiple system messages not supported")
-                    system_message = GoogleSystemMessage.from_domain(message)
+            system_message = None
+
+        return [GoogleMessage.from_domain(message) for message in messages], system_message
+
+    @override
+    def _build_request(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool) -> BaseModel:
+        model_data = get_model_data(model=options.model)
+
+        user_messages, system_message = self._convert_messages(messages, model_data.support_system_messages)
 
         # See https://ai.google.dev/gemini-api/docs/thinking
         # Thinking is enabled by default on thinking models so we just need to "turn off" thinking
