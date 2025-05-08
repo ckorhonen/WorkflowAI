@@ -76,7 +76,7 @@ def _generate_cache_key(
 
 
 def redis_cached(expiration_seconds: int = 60 * 60 * 24) -> Callable[[F], F]:  # noqa: C901
-    def decorator(func: F) -> F:
+    def decorator(func: F) -> F:  # noqa: C901
         @functools.wraps(func)
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             if not shared_redis_client:
