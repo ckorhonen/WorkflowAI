@@ -60,7 +60,7 @@ export function PlagroundParametersToolbox(props: PlagroundParametersToolboxProp
           </Button>
         ))
       ) : (
-        <div className='text-[12px] text-gray-500'>Add a tool to improve your instructions</div>
+        <div className='text-[12px] text-gray-500'>Add tools (Search, Web Browsing, …)</div>
       )}
       {selectedTool && (
         <Dialog open={!!selectedTool} onOpenChange={() => setSelectedTool(undefined)}>
