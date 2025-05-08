@@ -251,7 +251,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             ),
             provider_for_pricing=Provider.MISTRAL_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/mistral.svg",
-            release_date=date(2024, 7, 24),
+            release_date=date(2025, 5, 8),
             quality_data=QualityData(
                 mmlu_pro=77.2,
                 gpqa_diamond=57.1,
