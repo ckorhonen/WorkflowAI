@@ -431,6 +431,8 @@ class OpenAIProxyChatCompletionResponse(BaseModel):
     object: Literal["chat.completion"] = "chat.completion"
     usage: OpenAIProxyCompletionUsage | None = None
 
+    cost_usd: float | None = Field(description="The cost of the completion in USD, WorkflowAI specific")
+
     @classmethod
     def from_domain(
         cls,
@@ -444,6 +446,7 @@ class OpenAIProxyChatCompletionResponse(BaseModel):
             choices=[OpenAIProxyChatCompletionChoice.from_domain(run, output_mapper, deprecated_function)],
             created=int(run.created_at.timestamp()),
             model=model,
+            cost_usd=run.cost_usd,
         )
 
     @classmethod

@@ -21,6 +21,7 @@ async def test_raw_string_output(test_client: IntegrationTestClient, openai_clie
     )
 
     assert res.choices[0].message.content == "Hello James!"
+    assert res.model_extra and res.model_extra["cost_usd"]
 
     await test_client.wait_for_completed_tasks()
 
