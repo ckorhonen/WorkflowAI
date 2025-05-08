@@ -16,15 +16,12 @@ from core.domain.errors import BadRequestError
 from core.domain.message import Messages
 from core.domain.models.models import Model
 from core.domain.task_group_properties import TaskGroupProperties
-from core.domain.task_io import RawJSONMessageSchema, RawStringMessageSchema, SerializableTaskIO
+from core.domain.task_io import RawJSONMessageSchema, RawMessagesSchema, RawStringMessageSchema, SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.types import AgentOutput
 from core.domain.version_reference import VersionReference
 
 router = APIRouter(prefix="", tags=["openai"])
-
-
-_raw_messages_input_schema = SerializableTaskIO.from_model(Messages)
 
 
 _model_mapping = {
@@ -75,8 +72,6 @@ def _output_json_mapper(output: AgentOutput) -> str:
 
 
 def _build_variant(agent_slug: str, response_format: OpenAIProxyResponseFormat | None):
-    input_schema = _raw_messages_input_schema
-
     if response_format:
         match response_format.type:
             case "text":
@@ -100,7 +95,7 @@ def _build_variant(agent_slug: str, response_format: OpenAIProxyResponseFormat |
         id="",
         task_schema_id=0,
         task_id=agent_slug,
-        input_schema=input_schema,
+        input_schema=RawMessagesSchema,
         output_schema=output_schema,
         name=agent_slug,
     ), mapper
@@ -153,21 +148,26 @@ async def chat_completions(
         reference=VersionReference(properties=properties),
         provider_settings=None,
         variant=variant,
+        stream_deltas=body.stream is True,
     )
 
     return await run_service.run(
         runner=runner,
         task_input=Messages(messages=[m.to_domain() for m in body.messages]),
         task_run_id=None,
-        stream_serializer=None,
         cache="auto",
-        metadata=body.full_metadata(),
+        metadata=body.full_metadata(request.headers),
         trigger="user",
-        serializer=lambda run: OpenAIProxyChatCompletionResponse.from_domain(
-            run,
-            output_mapper,
-            body.model,
-            deprecated_function,
+        serializer=OpenAIProxyChatCompletionResponse.serializer(
+            model=body.model,
+            deprecated_function=deprecated_function,
+            output_mapper=output_mapper,
         ),
         start_time=request_start_time,
+        stream_serializer=OpenAIProxyChatCompletionChunk.stream_serializer(
+            model=body.model,
+            deprecated_function=deprecated_function,
+        )
+        if body.stream is True
+        else None,
     )
