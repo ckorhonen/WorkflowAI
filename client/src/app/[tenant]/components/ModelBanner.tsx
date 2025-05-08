@@ -17,14 +17,16 @@ function ModelLink(props: { model: [string, string] }) {
     model: [modelName, modelId],
   } = props;
 
+  const className = 'text-white text-[13px] font-medium underline';
+
   if (!taskId || !taskSchemaId) {
-    return <span>{modelName}</span>;
+    return <span className={className}>{modelName}</span>;
   }
 
   const link = taskSideBySideRoute(tenant, taskId, taskSchemaId, { requestedRightModelId: modelId });
 
   return (
-    <Link className='text-white text-[13px] font-medium underline' href={link}>
+    <Link className={className} href={link}>
       {modelName}
     </Link>
   );
