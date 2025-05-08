@@ -9,9 +9,14 @@ type ModelToAdvertise = {
 
 const MODELS_TO_ADVERTISE: ModelToAdvertise[] = [
   {
-    name: 'Qwen3',
-    date: '2025-05-05',
-    modelId: 'qwen3-235b-a22b',
+    name: 'Mistral Medium 3',
+    date: '2025-05-08',
+    modelId: 'mistral-medium-2505',
+  },
+  {
+    name: 'Gemini 2.5 Pro Preview',
+    date: '2025-05-08',
+    modelId: 'gemini-2.5-pro-preview-05-06',
   },
 ];
 
@@ -20,8 +25,8 @@ const STORAGE_KEY = 'dismissedModels';
 export function useModelToAdvertise() {
   const [dismissedModels, setDismissedModels] = useLocalStorage<string[]>(STORAGE_KEY, []);
 
-  const modelToAdvertise = useMemo(() => {
-    const result = MODELS_TO_ADVERTISE.find((model) => {
+  const modelsToAdvertise = useMemo(() => {
+    const result = MODELS_TO_ADVERTISE.filter((model) => {
       if (dismissedModels.includes(model.name)) {
         return false;
       }
@@ -33,19 +38,22 @@ export function useModelToAdvertise() {
       return diffDays <= 3;
     });
 
-    return result;
+    if (result.length === 0) {
+      return undefined;
+    }
+
+    return result.map((model) => [model.name, model.modelId]) as [string, string][];
   }, [dismissedModels]);
 
   const dismiss = useCallback(
-    (model: string) => {
-      setDismissedModels((prev) => [...prev, model]);
+    (models: [string, string][]) => {
+      setDismissedModels((prev) => [...prev, ...models.map((model) => model[1])]);
     },
     [setDismissedModels]
   );
 
   return {
-    modelToAdvertise: modelToAdvertise?.name,
-    modelId: modelToAdvertise?.modelId,
+    modelsToAdvertise,
     dismiss,
   };
 }
