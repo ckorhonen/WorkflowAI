@@ -54,6 +54,7 @@ type ModelOutputProps = {
   isInDemoMode: boolean;
   isHideModelColumnAvaible: boolean;
   hideModelColumn: () => void;
+  isProxy: boolean;
 };
 
 function ModelOutput(props: ModelOutputProps) {
@@ -79,6 +80,7 @@ function ModelOutput(props: ModelOutputProps) {
     isInDemoMode,
     isHideModelColumnAvaible,
     hideModelColumn,
+    isProxy,
   } = props;
 
   const taskRun = taskRunner.data;
@@ -186,6 +188,7 @@ function ModelOutput(props: ModelOutputProps) {
               isInDemoMode={isInDemoMode}
               isHideModelColumnAvaible={isHideModelColumnAvaible}
               hideModelColumn={hideModelColumn}
+              isProxy={isProxy}
             />
           </div>
         )}
@@ -390,6 +393,7 @@ export function PlaygroundOutput(props: PlaygroundOutputProps) {
               isInDemoMode={isInDemoMode}
               isHideModelColumnAvaible={isHideModelColumnAvaible}
               hideModelColumn={() => onHideModelColumn(index)}
+              isProxy={isProxy}
             />
           ))}
         </div>

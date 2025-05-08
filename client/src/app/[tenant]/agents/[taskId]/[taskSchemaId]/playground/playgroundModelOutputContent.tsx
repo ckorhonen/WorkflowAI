@@ -44,6 +44,7 @@ type ModelOutputContentProps = {
   isInDemoMode: boolean;
   isHideModelColumnAvaible: boolean;
   hideModelColumn: () => void;
+  isProxy: boolean;
 };
 
 export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
@@ -70,6 +71,7 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
     isInDemoMode,
     isHideModelColumnAvaible,
     hideModelColumn,
+    isProxy,
   } = props;
 
   const onCopyTaskRunUrl = useCopyRunURL(tenant, taskId, taskRun?.id);
@@ -158,9 +160,14 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
         />
         {!!taskId && !!taskRun && !hasInputChanged && (
           <div className='flex flex-col w-full overflow-hidden max-h-[400px]'>
-            <ImprovePrompt onImprovePrompt={onImprovePrompt} />
+            {!isProxy && <ImprovePrompt onImprovePrompt={onImprovePrompt} />}
 
-            <AIEvaluationReview tenant={tenant} taskId={taskId} runId={taskRun.id} onImprovePrompt={onImprovePrompt} />
+            <AIEvaluationReview
+              tenant={tenant}
+              taskId={taskId}
+              runId={taskRun.id}
+              onImprovePrompt={isProxy ? undefined : onImprovePrompt}
+            />
           </div>
         )}
         <TaskRunOutputRows

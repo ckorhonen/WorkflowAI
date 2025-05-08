@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { TemperatureSelector } from '@/components/TemperatureSelector/TemperatureSelector';
+import { ToolKind, Tool_Output } from '@/types/workflowAI';
 import { ProxyTextarea } from './ProxyTextarea';
 import { ProxyMessage, ProxyMessageContent, createEmptySystemMessage } from './utils';
 
@@ -9,6 +10,8 @@ type ProxyParametersProps = {
   temperature: number;
   setTemperature: (temperature: number) => void;
   handleRunTasks: () => void;
+  toolCalls: (ToolKind | Tool_Output)[] | undefined;
+  setToolCalls: (toolCalls: (ToolKind | Tool_Output)[] | undefined) => void;
 };
 
 export function ProxyParameters(props: ProxyParametersProps) {

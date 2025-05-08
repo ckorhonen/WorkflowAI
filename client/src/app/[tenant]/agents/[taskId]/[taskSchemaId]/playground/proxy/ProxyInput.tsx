@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { GeneralizedTaskInput } from '@/types/task_run';
+import { ToolKind, Tool_Output } from '@/types/workflowAI';
 import { ProxyMessagesView } from './ProxyMessagesView';
 import { ProxyParameters } from './ProxyParameters';
 import { ProxyMessage, createEmptySystemMessage, createEmptyUserMessage } from './utils';
@@ -10,10 +11,12 @@ interface Props {
   temperature: number;
   setTemperature: (temperature: number) => void;
   handleRunTasks: () => void;
+  toolCalls: (ToolKind | Tool_Output)[] | undefined;
+  setToolCalls: (toolCalls: (ToolKind | Tool_Output)[] | undefined) => void;
 }
 
 export function ProxyInput(props: Props) {
-  const { input, setInput, temperature, setTemperature, handleRunTasks } = props;
+  const { input, setInput, temperature, setTemperature, handleRunTasks, toolCalls, setToolCalls } = props;
 
   const [systemMessage, setSystemMessage] = useState<ProxyMessage>(createEmptySystemMessage());
   const [otherMessages, setOtherMessages] = useState<ProxyMessage[]>([createEmptyUserMessage()]);
@@ -64,6 +67,8 @@ export function ProxyInput(props: Props) {
           temperature={temperature}
           setTemperature={setTemperature}
           handleRunTasks={handleRunTasks}
+          toolCalls={toolCalls}
+          setToolCalls={setToolCalls}
         />
       </div>
     </div>

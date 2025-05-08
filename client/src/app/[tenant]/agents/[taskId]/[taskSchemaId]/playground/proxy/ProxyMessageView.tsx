@@ -1,6 +1,8 @@
 import { useCallback, useMemo } from 'react';
 import { ProxyFile } from './ProxyFile';
 import { ProxyTextarea } from './ProxyTextarea';
+import { ProxyToolCallRequest } from './ProxyToolCallRequest';
+import { ProxyToolCallResult } from './ProxyToolCallResult';
 import { ProxyMessage, ProxyMessageContent } from './utils';
 
 type Props = {
@@ -38,25 +40,39 @@ export function ProxyMessageView(props: Props) {
       <div className='flex w-full px-4 py-2 text-[13px] text-gray-900 font-medium border-b border-gray-200 border-dashed'>
         {title}
       </div>
-      {message.content.map((content, index) => (
-        <div key={index} className='flex flex-col gap-2'>
-          {content.text && (
-            <div className='flex w-full px-4 py-3 last:border-b-0 border-b border-gray-200 border-dashed'>
-              <ProxyTextarea
-                key={index}
-                content={content}
-                setContent={(content) => onMessageChange(index, content)}
-                placeholder='Message text content'
-              />
-            </div>
-          )}
-          {content.file && (
-            <div className='flex w-full px-4 py-3 last:border-b-0 border-b border-gray-200 border-dashed'>
-              <ProxyFile content={content} setContent={(content) => onMessageChange(index, content)} />
-            </div>
-          )}
-        </div>
-      ))}
+      {message.content.map((content, index) => {
+        const isFileEmpty = !!content.file && !content.file.data && !content.file.url;
+        const showText = content.text || isFileEmpty;
+        return (
+          <div key={index} className='flex flex-col gap-2'>
+            {showText && (
+              <div className='flex w-full px-4 py-3 last:border-b-0 border-b border-gray-200 border-dashed'>
+                <ProxyTextarea
+                  key={index}
+                  content={content}
+                  setContent={(content) => onMessageChange(index, content)}
+                  placeholder='Message text content'
+                />
+              </div>
+            )}
+            {content.file && (
+              <div className='flex w-full px-4 py-3 last:border-b-0 border-b border-gray-200 border-dashed'>
+                <ProxyFile content={content} setContent={(content) => onMessageChange(index, content)} />
+              </div>
+            )}
+            {content.tool_call_request && (
+              <div className='flex w-full px-4 py-3 last:border-b-0 border-b border-gray-200 border-dashed'>
+                <ProxyToolCallRequest request={content.tool_call_request} />
+              </div>
+            )}
+            {content.tool_call_result && (
+              <div className='flex w-full px-4 py-3 last:border-b-0 border-b border-gray-200 border-dashed'>
+                <ProxyToolCallResult result={content.tool_call_result} />
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

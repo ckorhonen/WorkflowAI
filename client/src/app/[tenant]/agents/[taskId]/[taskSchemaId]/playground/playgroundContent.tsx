@@ -55,6 +55,9 @@ import {
   RunResponseStreamChunk,
   RunV1,
   SelectedModels,
+  TaskGroupProperties_Input,
+  ToolKind,
+  Tool_Output,
   VersionV1,
 } from '@/types/workflowAI';
 import { PlaygroundChat } from './components/Chat/PlaygroundChat';
@@ -226,6 +229,11 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
   });
 
   const { version: currentVersion } = useOrFetchVersion(tenant, taskId, versionId ?? persistedVersionId);
+
+  const [proxyToolCalls, setProxyToolCalls] = useState<(ToolKind | Tool_Output)[] | undefined>(undefined);
+  useEffect(() => {
+    setProxyToolCalls(currentVersion?.properties.enabled_tools ?? undefined);
+  }, [currentVersion]);
 
   const allVersions = useMemo(() => {
     if (!currentVersion) {
@@ -420,12 +428,17 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
         setAbortController(index, abortController);
 
         try {
-          const properties = {
+          const properties: TaskGroupProperties_Input = {
             model,
             instructions: finalInstructions,
             temperature: finalTemperature,
             task_variant_id: finalVariantId,
           };
+
+          if (isProxy) {
+            properties.enabled_tools = proxyToolCalls;
+          }
+
           // We need to find or create the version that corresponds to these properties
           let id: string | undefined;
           try {
@@ -545,6 +558,8 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
       fetchOrganizationSettings,
       setAbortController,
       findAbortController,
+      isProxy,
+      proxyToolCalls,
     ]
   );
 
@@ -1175,6 +1190,8 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
                   temperature={temperature}
                   setTemperature={setTemperature}
                   handleRunTasks={onUserRunTasks}
+                  toolCalls={proxyToolCalls}
+                  setToolCalls={setProxyToolCalls}
                 />
               ) : (
                 <PlaygroundInputContainer
