@@ -1,4 +1,5 @@
 import { Dismiss12Regular } from '@fluentui/react-icons';
+import { cx } from 'class-variance-authority';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { useTaskParams } from '@/lib/hooks/useTaskParams';
@@ -17,7 +18,7 @@ function ModelLink(props: { model: [string, string] }) {
     model: [modelName, modelId],
   } = props;
 
-  const className = 'text-white text-[13px] font-medium underline';
+  const className = 'text-white text-[13px] font-medium';
 
   if (!taskId || !taskSchemaId) {
     return <span className={className}>{modelName}</span>;
@@ -26,7 +27,7 @@ function ModelLink(props: { model: [string, string] }) {
   const link = taskSideBySideRoute(tenant, taskId, taskSchemaId, { requestedRightModelId: modelId });
 
   return (
-    <Link className={className} href={link}>
+    <Link className={cx(className, 'underline')} href={link}>
       {modelName}
     </Link>
   );
