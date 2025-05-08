@@ -1,7 +1,7 @@
 ![header](/assets/readme-header.png)
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Discord](https://img.shields.io/badge/Discord-Join%20Server-7289DA?logo=discord&logoColor=white)](https://discord.com/invite/qcsq8Kva)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Server-7289DA?logo=discord&logoColor=white)](https://discord.gg/auuf8DREZh)
 
 ## Demo: build an AI feature in 1 minute
 
@@ -193,7 +193,7 @@ variables are loaded by default (see the [sample env](.env.sample) for the avail
 
 ## Support
 
-To find answers to your questions, please refer to the [Documentation](https://docs.workflowai.com), ask a question in the [Q&A section of our GitHub Discussions](https://github.com/WorkflowAI/WorkflowAI/discussions/categories/q-a) or join our [Discord](https://discord.gg/jSahs44g).
+To find answers to your questions, please refer to the [Documentation](https://docs.workflowai.com), ask a question in the [Q&A section of our GitHub Discussions](https://github.com/WorkflowAI/WorkflowAI/discussions/categories/q-a) or join our [Discord](https://discord.gg/auuf8DREZh).
 
 ## License
 
