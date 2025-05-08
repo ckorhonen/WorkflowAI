@@ -1,7 +1,7 @@
 ![header](/assets/readme-header.png)
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![Discord](https://img.shields.io/badge/Discord-Join%20Server-7289DA?logo=discord&logoColor=white)](https://discord.com/invite/qcsq8Kva)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Server-7289DA?logo=discord&logoColor=white)](https://discord.gg/auuf8DREZh)
 
 ## Demo: build an AI feature in 1 minute
 
