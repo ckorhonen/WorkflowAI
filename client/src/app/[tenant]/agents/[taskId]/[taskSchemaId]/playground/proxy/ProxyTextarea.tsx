@@ -1,6 +1,6 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Textarea } from '@/components/ui/Textarea';
-import { ProxyMessageContent, createEmptyMessageContent } from './utils';
+import { ProxyMessageContent, createEmptyMessageContent, formatResponseToText } from './utils';
 
 type ProxyTextareaProps = {
   content: ProxyMessageContent | undefined;
@@ -21,12 +21,16 @@ export function ProxyTextarea(props: ProxyTextareaProps) {
     [content, setContent]
   );
 
+  const text = useMemo(() => {
+    return formatResponseToText(content?.text);
+  }, [content]);
+
   return (
     <Textarea
       className='flex text-gray-900 placeholder:text-gray-500 font-normal text-[13px] rounded-[2px] border-gray-300 overflow-y-auto focus-within:ring-inset'
       style={{ minHeight: minHeight }}
       placeholder={placeholder}
-      value={content?.text}
+      value={text}
       onChange={(e) => onChange(e.target.value)}
     />
   );

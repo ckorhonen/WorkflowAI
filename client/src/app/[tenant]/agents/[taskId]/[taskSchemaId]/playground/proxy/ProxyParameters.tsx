@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { TemperatureSelector } from '@/components/TemperatureSelector/TemperatureSelector';
 import { ToolKind, Tool_Output } from '@/types/workflowAI';
 import { ProxyTextarea } from './ProxyTextarea';
+import { ProxyTools } from './ProxyTools';
 import { ProxyMessage, ProxyMessageContent, createEmptySystemMessage } from './utils';
 
 type ProxyParametersProps = {
@@ -15,7 +16,8 @@ type ProxyParametersProps = {
 };
 
 export function ProxyParameters(props: ProxyParametersProps) {
-  const { systemMessage, setSystemMessage, temperature, setTemperature, handleRunTasks } = props;
+  const { systemMessage, setSystemMessage, temperature, setTemperature, handleRunTasks, toolCalls, setToolCalls } =
+    props;
 
   const onSystemMessageChange = useCallback(
     (index: number, content: ProxyMessageContent) => {
@@ -43,6 +45,10 @@ export function ProxyParameters(props: ProxyParametersProps) {
             minHeight={80}
           />
         ))}
+      </div>
+      <div className='flex flex-col gap-1 px-4 pt-3'>
+        <div className='flex w-full items-center font-medium text-[13px] text-gray-900'>Tools</div>
+        <ProxyTools toolCalls={toolCalls} setToolCalls={setToolCalls} />
       </div>
       <div className='flex flex-col gap-1 px-4 pt-3 pb-4'>
         <div className='flex w-full items-center font-medium text-[13px] text-gray-900'>Temperature</div>

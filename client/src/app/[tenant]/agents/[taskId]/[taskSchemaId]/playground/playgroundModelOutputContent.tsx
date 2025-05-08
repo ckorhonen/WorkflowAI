@@ -20,6 +20,7 @@ import { ModelResponse, ReasoningStep, VersionV1 } from '@/types/workflowAI';
 import { ImprovePrompt } from './ImprovePrompt';
 import { AIEvaluationReview } from './components/AIEvaluation/AIEvaluationReview';
 import { TaskRunOutputRows } from './components/TaskRunOutputRows/TaskRunOutputRows';
+import { ProxyOutputViewer } from './proxy/ProxyOutputViewer';
 
 type ModelOutputContentProps = {
   currentAIModel: ModelResponse | undefined;
@@ -140,24 +141,33 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
       className='flex flex-col w-full sm:h-full'
     >
       <div className='flex flex-col sm:flex-1 rounded-[2px] overflow-hidden my-3 border border-gray-200'>
-        <TaskOutputViewer
-          schema={outputSchema}
-          value={taskOutput}
-          referenceValue={referenceValue}
-          defs={outputSchema?.$defs}
-          textColor='text-gray-900'
-          className={cn(
-            'flex sm:flex-1 w-full border-b border-gray-200 border-dashed bg-white sm:overflow-y-scroll',
-            !!taskOutput && 'min-h-[150px]'
-          )}
-          showTypes={emptyMode}
-          showExamplesHints
-          onShowEditDescriptionModal={isInDemoMode ? undefined : onShowEditDescriptionModal}
-          streamLoading={streamLoading}
-          toolCalls={toolCallsPreview}
-          reasoningSteps={reasoningSteps}
-          showDescriptionExamples={emptyMode ? 'all' : undefined}
-        />
+        {isProxy ? (
+          <ProxyOutputViewer
+            taskOutput={taskOutput}
+            toolCalls={toolCallsPreview}
+            reasoningSteps={reasoningSteps}
+            streamLoading={streamLoading}
+          />
+        ) : (
+          <TaskOutputViewer
+            schema={outputSchema}
+            value={taskOutput}
+            referenceValue={referenceValue}
+            defs={outputSchema?.$defs}
+            textColor='text-gray-900'
+            className={cn(
+              'flex sm:flex-1 w-full border-b border-gray-200 border-dashed bg-white sm:overflow-y-scroll',
+              !!taskOutput && 'min-h-[150px]'
+            )}
+            showTypes={emptyMode}
+            showExamplesHints
+            onShowEditDescriptionModal={isInDemoMode ? undefined : onShowEditDescriptionModal}
+            streamLoading={streamLoading}
+            toolCalls={toolCallsPreview}
+            reasoningSteps={reasoningSteps}
+            showDescriptionExamples={emptyMode ? 'all' : undefined}
+          />
+        )}
         {!!taskId && !!taskRun && !hasInputChanged && (
           <div className='flex flex-col w-full overflow-hidden max-h-[400px]'>
             {!isProxy && <ImprovePrompt onImprovePrompt={onImprovePrompt} />}

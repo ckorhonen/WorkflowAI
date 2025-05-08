@@ -1,13 +1,16 @@
-import { useCallback, useMemo } from 'react';
+import { Add16Regular } from '@fluentui/react-icons';
+import { useCallback, useMemo, useState } from 'react';
+import { Button } from '@/components/ui/Button';
 import { ProxyFile } from './ProxyFile';
+import { ProxyRemovableContent } from './ProxyRemovableContent';
 import { ProxyTextarea } from './ProxyTextarea';
 import { ProxyToolCallRequest } from './ProxyToolCallRequest';
 import { ProxyToolCallResult } from './ProxyToolCallResult';
-import { ProxyMessage, ProxyMessageContent } from './utils';
+import { ProxyMessage, ProxyMessageContent, createEmptyMessageContent } from './utils';
 
 type Props = {
   message: ProxyMessage;
-  setMessage: (message: ProxyMessage) => void;
+  setMessage: (message: ProxyMessage | undefined) => void;
 };
 
 export function ProxyMessageView(props: Props) {
@@ -24,6 +27,8 @@ export function ProxyMessageView(props: Props) {
     }
   }, [message.role]);
 
+  const isEditable = message.role === 'user';
+
   const onMessageChange = useCallback(
     (index: number, content: ProxyMessageContent) => {
       const newMessage = {
@@ -35,18 +40,55 @@ export function ProxyMessageView(props: Props) {
     [message, setMessage]
   );
 
+  const onAddContentEntry = useCallback(
+    (type: 'text' | 'document' | 'image' | 'audio') => {
+      const newMessage = {
+        ...message,
+        content: [...message.content, createEmptyMessageContent(type)],
+      };
+      setMessage(newMessage);
+    },
+    [message, setMessage]
+  );
+
+  const onRemoveContentEntry = useCallback(
+    (index: number) => {
+      const newMessage = {
+        ...message,
+        content: message.content.filter((_, i) => i !== index),
+      };
+      setMessage(newMessage);
+    },
+    [message, setMessage]
+  );
+
+  const [isHovering, setIsHovering] = useState(false);
+
   return (
-    <div className='flex flex-col border border-gray-200 rounded-[2px]'>
-      <div className='flex w-full px-4 py-2 text-[13px] text-gray-900 font-medium border-b border-gray-200 border-dashed'>
-        {title}
+    <div
+      className='flex flex-col border border-gray-200 rounded-[2px] min-h-[90px]'
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+    >
+      <div className='flex w-full px-4 text-[13px] text-gray-900 font-medium border-b border-gray-200 border-dashed justify-between items-center'>
+        <div className='py-3'>{title}</div>
+        {isHovering && (
+          <Button variant='destructive' size='sm' onClick={() => setMessage(undefined)}>
+            Remove Message
+          </Button>
+        )}
       </div>
       {message.content.map((content, index) => {
-        const isFileEmpty = !!content.file && !content.file.data && !content.file.url;
-        const showText = content.text || isFileEmpty;
+        const isRemovable = isEditable && !content.tool_call_request && !content.tool_call_result;
         return (
-          <div key={index} className='flex flex-col gap-2'>
-            {showText && (
-              <div className='flex w-full px-4 py-3 last:border-b-0 border-b border-gray-200 border-dashed'>
+          <ProxyRemovableContent
+            key={index}
+            className='flex flex-col gap-2 last:border-b-0 border-b border-gray-200 border-dashed'
+            isRemovable={isRemovable}
+            onRemove={() => onRemoveContentEntry(index)}
+          >
+            {content.text !== undefined && (
+              <div className='flex w-full px-4 py-3'>
                 <ProxyTextarea
                   key={index}
                   content={content}
@@ -56,23 +98,36 @@ export function ProxyMessageView(props: Props) {
               </div>
             )}
             {content.file && (
-              <div className='flex w-full px-4 py-3 last:border-b-0 border-b border-gray-200 border-dashed'>
+              <div className='flex w-full px-4 py-3'>
                 <ProxyFile content={content} setContent={(content) => onMessageChange(index, content)} />
               </div>
             )}
             {content.tool_call_request && (
-              <div className='flex w-full px-4 py-3 last:border-b-0 border-b border-gray-200 border-dashed'>
+              <div className='flex w-full px-4 py-3'>
                 <ProxyToolCallRequest request={content.tool_call_request} />
               </div>
             )}
             {content.tool_call_result && (
-              <div className='flex w-full px-4 py-3 last:border-b-0 border-b border-gray-200 border-dashed'>
+              <div className='flex w-full px-4 py-3'>
                 <ProxyToolCallResult result={content.tool_call_result} />
               </div>
             )}
-          </div>
+          </ProxyRemovableContent>
         );
       })}
+      {isHovering && isEditable && (
+        <div className='flex w-full gap-1 px-4 py-2 items-center justify-start'>
+          <Button variant='newDesign' size='sm' icon={<Add16Regular />} onClick={() => onAddContentEntry('text')}>
+            Text
+          </Button>
+          <Button variant='newDesign' size='sm' icon={<Add16Regular />} onClick={() => onAddContentEntry('document')}>
+            File
+          </Button>
+          <Button variant='newDesign' size='sm' icon={<Add16Regular />} onClick={() => onAddContentEntry('audio')}>
+            Audio
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

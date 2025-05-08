@@ -18,12 +18,37 @@ export type ProxyMessage = {
   content: ProxyMessageContent[];
 };
 
-export function createEmptyMessageContent(): ProxyMessageContent {
-  return {
-    text: undefined,
-    file: undefined,
-    tool_call_request: undefined,
-  };
+export function createEmptyMessageContent(type?: 'text' | 'document' | 'image' | 'audio'): ProxyMessageContent {
+  if (!type) {
+    return {
+      text: undefined,
+      file: undefined,
+      tool_call_request: undefined,
+    };
+  }
+
+  switch (type) {
+    case 'text':
+      return { text: '' };
+    case 'document':
+      return {
+        file: {
+          content_type: 'application/pdf',
+        },
+      };
+    case 'image':
+      return {
+        file: {
+          content_type: 'image/jpeg',
+        },
+      };
+    case 'audio':
+      return {
+        file: {
+          content_type: 'audio/mpeg',
+        },
+      };
+  }
 }
 
 export function createEmptySystemMessage(): ProxyMessage {
@@ -33,9 +58,22 @@ export function createEmptySystemMessage(): ProxyMessage {
   };
 }
 
-export function createEmptyUserMessage(): ProxyMessage {
+export function createEmptyUserMessage(type?: 'text' | 'document' | 'image' | 'audio'): ProxyMessage {
   return {
     role: 'user',
-    content: [createEmptyMessageContent()],
+    content: [createEmptyMessageContent(type)],
   };
+}
+
+export function formatResponseToText(response: unknown) {
+  if (!response) return undefined;
+
+  const text = typeof response === 'string' ? response : JSON.stringify(response);
+
+  try {
+    const json = JSON.parse(text);
+    return JSON.stringify(json, null, 2);
+  } catch {
+    return text;
+  }
 }

@@ -13,10 +13,11 @@ interface Props {
   handleRunTasks: () => void;
   toolCalls: (ToolKind | Tool_Output)[] | undefined;
   setToolCalls: (toolCalls: (ToolKind | Tool_Output)[] | undefined) => void;
+  maxHeight: number | undefined;
 }
 
 export function ProxyInput(props: Props) {
-  const { input, setInput, temperature, setTemperature, handleRunTasks, toolCalls, setToolCalls } = props;
+  const { input, setInput, temperature, setTemperature, handleRunTasks, toolCalls, setToolCalls, maxHeight } = props;
 
   const [systemMessage, setSystemMessage] = useState<ProxyMessage>(createEmptySystemMessage());
   const [otherMessages, setOtherMessages] = useState<ProxyMessage[]>([createEmptyUserMessage()]);
@@ -53,8 +54,11 @@ export function ProxyInput(props: Props) {
   );
 
   return (
-    <div className='flex w-full items-stretch border-b border-gray-200 border-dashed'>
-      <div className='w-1/2'>
+    <div
+      className='flex w-full items-stretch border-b border-gray-200 border-dashed overflow-hidden'
+      style={{ maxHeight }}
+    >
+      <div className='w-1/2 border-r border-gray-200 border-dashed overflow-hidden'>
         <ProxyMessagesView
           messages={otherMessages}
           setMessages={(messages) => onUpdateInput(systemMessage, messages)}

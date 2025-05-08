@@ -1192,6 +1192,7 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
                   handleRunTasks={onUserRunTasks}
                   toolCalls={proxyToolCalls}
                   setToolCalls={setProxyToolCalls}
+                  maxHeight={isMobile ? undefined : containerHeight - 50}
                 />
               ) : (
                 <PlaygroundInputContainer
