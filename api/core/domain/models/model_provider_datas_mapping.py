@@ -752,6 +752,13 @@ MISTRAL_PROVIDER_DATA: ProviderDataByModel = {
             source="https://mistral.ai/products/la-plateforme#pricing",
         ),
     ),
+    Model.MISTRAL_MEDIUM_2505: ModelProviderData(
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=0.4 / 1_000_000,
+            completion_cost_per_token=2 / 1_000_000,
+            source="https://mistral.ai/products/la-plateforme#pricing",
+        ),
+    ),
 }
 
 ANTHROPIC_PROVIDER_DATA: ProviderDataByModel = {
@@ -941,7 +948,7 @@ GOOGLE_GEMINI_API_PROVIDER_DATA: ProviderDataByModel = {
             audio_input_cost_per_token=1.0 * ONE_MILLION_TH,
         ),
     ),
-    Model.GEMINI_2_5_PRO_PREVIEW_0325: ModelProviderData(
+    Model.GEMINI_2_5_PRO_PREVIEW_0506: ModelProviderData(
         text_price=TextPricePerToken(
             prompt_cost_per_token=1.25 / 1_000_000,
             completion_cost_per_token=10 / 1_000_000,

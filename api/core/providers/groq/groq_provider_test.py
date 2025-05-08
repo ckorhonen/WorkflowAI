@@ -22,7 +22,7 @@ from core.domain.errors import (
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
-from core.domain.models.model_data import MaxTokensData, ModelData
+from core.domain.models.model_data import MaxTokensData, ModelData, QualityData
 from core.domain.models.model_datas_mapping import DisplayedProvider
 from core.domain.structured_output import StructuredOutput
 from core.domain.tool import Tool
@@ -360,7 +360,7 @@ class TestSanitizeModelData:
             max_tokens_data=MaxTokensData(source="", max_tokens=100),
             provider_for_pricing=Provider.GROQ,
             release_date=date(2024, 1, 1),
-            quality_index=100,
+            quality_data=QualityData(index=100),
             provider_name=DisplayedProvider.GROQ.value,
             supports_tool_calling=True,
         )

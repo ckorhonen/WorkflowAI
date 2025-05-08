@@ -70,6 +70,7 @@ def today():
 
 
 class TestDeprecatedModels:
+    # TODO: We should allow nested replacement and compute them at build
     def test_no_nested_replacement(self):
         # Check all replacement models do not have a replacement model themselves
         for value in MODEL_DATAS.values():

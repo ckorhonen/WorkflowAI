@@ -26,7 +26,7 @@ from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.message import Message, MessageContent, MessageDeprecated, Messages
 from core.domain.metrics import Metric
 from core.domain.models import Model, Provider
-from core.domain.models.model_data import FinalModelData, LatestModel, MaxTokensData, ModelData
+from core.domain.models.model_data import FinalModelData, LatestModel, MaxTokensData, ModelData, QualityData
 from core.domain.models.model_datas_mapping import MODEL_DATAS, DisplayedProvider
 from core.domain.run_output import RunOutput
 from core.domain.structured_output import StructuredOutput
@@ -152,7 +152,7 @@ def model_data():
         icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
         latest_model=Model.GPT_4O_LATEST,
         release_date=date(2024, 11, 20),
-        quality_index=100,
+        quality_data=QualityData(index=100),
         provider_name=DisplayedProvider.OPEN_AI.value,
         supports_tool_calling=True,
     )
@@ -1833,6 +1833,7 @@ class TestBuildProviderData:
             provider_for_pricing=Provider.AZURE_OPEN_AI,
             providers=[],
             release_date=date(2024, 1, 1),
+            quality_data=QualityData(index=100),
             quality_index=100,
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
@@ -1898,6 +1899,7 @@ class TestBuildProviderData:
             providers=[],
             release_date=date(2024, 1, 1),
             quality_index=100,
+            quality_data=QualityData(index=100),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
         )
@@ -1948,6 +1950,7 @@ class TestBuildProviderData:
             providers=[],
             release_date=date(2024, 1, 1),
             quality_index=100,
+            quality_data=QualityData(index=100),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
         )

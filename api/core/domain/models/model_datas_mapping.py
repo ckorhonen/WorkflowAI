@@ -4,7 +4,15 @@ from core.domain.models import Model, Provider
 from core.domain.models._displayed_provider import DisplayedProvider
 from core.domain.models._mistral import mistral_models
 
-from .model_data import DeprecatedModel, FinalModelData, LatestModel, MaxTokensData, ModelData
+from .model_data import (
+    DeprecatedModel,
+    FinalModelData,
+    LatestModel,
+    MaxTokensData,
+    ModelData,
+    ModelDataMapping,
+    QualityData,
+)
 
 
 def _char_to_token(char_count: int) -> int:
@@ -12,8 +20,8 @@ def _char_to_token(char_count: int) -> int:
     return int(round(char_count / 4))
 
 
-def _build_model_datas():
-    models = {
+def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
+    return {
         Model.GPT_4O_LATEST: LatestModel(
             model=Model.GPT_4O_2024_11_20,
             display_name="GPT-4o (latest)",
@@ -35,7 +43,7 @@ def _build_model_datas():
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             latest_model=Model.GPT_4O_LATEST,
             release_date=date(2024, 11, 20),
-            quality_index=641,  # MMLU=85.70, GPQA=46.00
+            quality_data=QualityData(mmlu=85.70, gpqa=46.00),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
         ),
@@ -54,7 +62,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.OPEN_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             release_date=date(2024, 8, 6),
-            quality_index=674,  # MMLU=88.70, GPQA=53.10
+            quality_data=QualityData(mmlu=88.70, gpqa=53.10),
             latest_model=Model.GPT_4O_LATEST,
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
@@ -80,7 +88,7 @@ def _build_model_datas():
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             latest_model=Model.GPT_41_LATEST,
             release_date=date(2025, 4, 14),
-            quality_index=782,  # MMLU=90.2, GPQA=66.3
+            quality_data=QualityData(mmlu=90.2, gpqa=66.3),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
         ),
@@ -105,7 +113,7 @@ def _build_model_datas():
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             latest_model=Model.GPT_41_MINI_LATEST,
             release_date=date(2025, 4, 14),
-            quality_index=762,  # MMLU=87.5, GPQA=65
+            quality_data=QualityData(mmlu=87.5, gpqa=65),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
         ),
@@ -129,7 +137,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.OPEN_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             release_date=date(2025, 4, 14),
-            quality_index=650,  # MMLU=80, GPQA=50
+            quality_data=QualityData(mmlu=80, gpqa=50),
             latest_model=Model.GPT_41_NANO_LATEST,
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
@@ -149,7 +157,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.OPEN_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             release_date=date(2025, 2, 27),
-            quality_index=782,  # MMLU=85.10, GPQA=71.40
+            quality_data=QualityData(mmlu=85.10, gpqa=71.40),
             latest_model=Model.GPT_4O_LATEST,
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
@@ -178,7 +186,7 @@ def _build_model_datas():
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             latest_model=Model.GPT_4O_MINI_LATEST,
             release_date=date(2024, 7, 18),
-            quality_index=611,  # MMLU=82.00, GPQA=40.20
+            quality_data=QualityData(mmlu=82.00, gpqa=40.20),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
         ),
@@ -200,7 +208,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.OPEN_AI_IMAGE,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             release_date=date(2025, 4, 23),
-            quality_index=611,  # TODO: a bit difficult to estimate here
+            quality_data=QualityData(index=611),  # TODO: a bit difficult to estimate here
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=False,
             is_default=True,
@@ -226,7 +234,7 @@ def _build_model_datas():
             is_default=True,
             release_date=date(2024, 12, 17),
             provider_name=DisplayedProvider.OPEN_AI.value,
-            quality_index=675,  # MMLU=88.70, GPQA=53.60
+            quality_data=QualityData(mmlu=88.70, gpqa=53.60),
             supports_tool_calling=False,
         ),
         Model.GPT_40_AUDIO_PREVIEW_2024_10_01: DeprecatedModel(replacement_model=Model.GPT_4O_AUDIO_PREVIEW_2024_12_17),
@@ -244,7 +252,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.OPEN_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             release_date=date(2024, 9, 12),
-            quality_index=833,  # MMLU=90.80, GPQA=78.30
+            quality_data=QualityData(mmlu=90.80, gpqa=78.30),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=False,  # OpenAI returns 400 "model_does_not_support_mode"
         ),
@@ -264,7 +272,7 @@ def _build_model_datas():
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             latest_model=Model.O1_MINI_LATEST,
             release_date=date(2024, 9, 12),
-            quality_index=751,  # MMLU=85.20, GPQA=70.00
+            quality_data=QualityData(mmlu=85.20, gpqa=70.00),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=False,  # OpenAI returns 400 "model_does_not_support_mode"
         ),
@@ -288,7 +296,7 @@ def _build_model_datas():
             supports_input_audio=False,
             supports_structured_output=True,
             release_date=date(2025, 1, 31),
-            quality_index=833,  # MMLU=86.90, GPQA=79.70
+            quality_data=QualityData(mmlu=86.90, gpqa=79.70),
             provider_name=DisplayedProvider.OPEN_AI.value,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             max_tokens_data=MaxTokensData(
@@ -308,7 +316,7 @@ def _build_model_datas():
             supports_input_audio=False,
             supports_structured_output=True,
             release_date=date(2025, 1, 31),
-            quality_index=828,  # MMLU=88.70, GPQA=77.00
+            quality_data=QualityData(mmlu=88.70, gpqa=77.00),
             provider_name=DisplayedProvider.OPEN_AI.value,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             max_tokens_data=MaxTokensData(
@@ -328,7 +336,7 @@ def _build_model_datas():
             supports_input_audio=False,
             supports_structured_output=True,
             release_date=date(2025, 1, 31),
-            quality_index=780,  # MMLU=79.10, GPQA=77.00
+            quality_data=QualityData(mmlu=79.10, gpqa=77.00),
             provider_name=DisplayedProvider.OPEN_AI.value,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             max_tokens_data=MaxTokensData(
@@ -360,7 +368,9 @@ def _build_model_datas():
             supports_input_audio=False,
             supports_structured_output=True,
             release_date=date(2025, 4, 16),
-            quality_index=843,  # TODO
+            quality_data=QualityData(
+                equivalent_to=(Model.O4_MINI_2025_04_16_MEDIUM_REASONING_EFFORT, 5),
+            ),
             provider_name=DisplayedProvider.OPEN_AI.value,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             max_tokens_data=MaxTokensData(
@@ -380,7 +390,11 @@ def _build_model_datas():
             supports_input_audio=False,
             supports_structured_output=True,
             release_date=date(2025, 4, 16),
-            quality_index=838,  #  TODO
+            quality_data=QualityData(
+                mmlu_pro=80.6,
+                gpqa=74.5,
+                source="https://www.vals.ai/models/openai_o4-mini-2025-04-16",
+            ),
             provider_name=DisplayedProvider.OPEN_AI.value,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             max_tokens_data=MaxTokensData(
@@ -400,7 +414,9 @@ def _build_model_datas():
             supports_input_audio=False,
             supports_structured_output=True,
             release_date=date(2025, 4, 16),
-            quality_index=833,  # TODO
+            quality_data=QualityData(
+                equivalent_to=(Model.O4_MINI_2025_04_16_MEDIUM_REASONING_EFFORT, -5),
+            ),
             provider_name=DisplayedProvider.OPEN_AI.value,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             max_tokens_data=MaxTokensData(
@@ -432,7 +448,9 @@ def _build_model_datas():
             supports_input_audio=False,
             supports_structured_output=True,
             release_date=date(2025, 4, 16),
-            quality_index=847,  # TODO
+            quality_data=QualityData(
+                equivalent_to=(Model.O4_MINI_2025_04_16_MEDIUM_REASONING_EFFORT, 5),
+            ),
             provider_name=DisplayedProvider.OPEN_AI.value,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             max_tokens_data=MaxTokensData(
@@ -452,7 +470,11 @@ def _build_model_datas():
             supports_input_audio=False,
             supports_structured_output=True,
             release_date=date(2025, 4, 16),
-            quality_index=842,  # TODO
+            quality_data=QualityData(
+                gpqa_diamond=83.6,
+                mmlu_pro=85.6,
+                source="https://www.vals.ai/models/openai_o3-2025-04-16",
+            ),
             provider_name=DisplayedProvider.OPEN_AI.value,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             max_tokens_data=MaxTokensData(
@@ -472,7 +494,9 @@ def _build_model_datas():
             supports_input_audio=False,
             supports_structured_output=True,
             release_date=date(2025, 4, 16),
-            quality_index=837,  # TODO
+            quality_data=QualityData(
+                equivalent_to=(Model.O4_MINI_2025_04_16_MEDIUM_REASONING_EFFORT, -5),
+            ),
             provider_name=DisplayedProvider.OPEN_AI.value,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             max_tokens_data=MaxTokensData(
@@ -501,7 +525,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.GOOGLE,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2025, 2, 5),
-            quality_index=675,  # MMLU=83.50, GPQA=51.50
+            quality_data=QualityData(mmlu=83.5, gpqa=51.5),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
         ),
@@ -521,7 +545,7 @@ def _build_model_datas():
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2025, 2, 5),
             latest_model=Model.GEMINI_2_0_FLASH_LATEST,
-            quality_index=718,  # MMLU=76.40, GPQA=74.20
+            quality_data=QualityData(mmlu=76.4, gpqa=74.2),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
         ),
@@ -541,7 +565,10 @@ def _build_model_datas():
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2025, 4, 17),
             # https://www.vals.ai/benchmarks/gpqa-04-04-2025
-            quality_index=832,  # TODO
+            quality_data=QualityData(
+                gpqa=53.3,
+                source="https://www.vals.ai/models/google_gemini-2.5-flash-preview-04-17",
+            ),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
             reasoning_level="none",
@@ -562,13 +589,15 @@ def _build_model_datas():
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2025, 4, 17),
             # https://www.vals.ai/benchmarks/gpqa-04-04-2025
-            quality_index=832,  # TODO
+            quality_data=QualityData(
+                equivalent_to=(Model.GEMINI_2_5_FLASH_PREVIEW_0417, 5),
+            ),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
             reasoning_level="medium",
         ),
-        Model.GEMINI_2_5_PRO_PREVIEW_0325: ModelData(
-            display_name="Gemini 2.5 Pro Preview (0325)",
+        Model.GEMINI_2_5_PRO_PREVIEW_0506: ModelData(
+            display_name="Gemini 2.5 Pro Preview (0506)",
             supports_json_mode=True,
             supports_input_image=True,
             supports_input_pdf=True,
@@ -582,13 +611,16 @@ def _build_model_datas():
             provider_for_pricing=Provider.GOOGLE_GEMINI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2025, 3, 25),
-            # https://www.vals.ai/benchmarks/gpqa-04-04-2025
-            quality_index=842,  # TODO: GEMINI_2_0_PRO_EXP + 1
+            quality_data=QualityData(
+                gpqa_diamond=83,
+                source="https://deepmind.google/technologies/gemini/pro/",
+            ),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
         ),
-        Model.GEMINI_2_5_PRO_EXP_0325: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0325),
-        Model.GEMINI_2_0_PRO_EXP: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0325),
+        Model.GEMINI_2_5_PRO_PREVIEW_0325: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0506),
+        Model.GEMINI_2_5_PRO_EXP_0325: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0506),
+        Model.GEMINI_2_0_PRO_EXP: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0506),
         Model.GEMINI_2_0_FLASH_EXP: ModelData(
             display_name="Gemini 2.0 Flash Exp (Image Generation)",
             supports_json_mode=False,
@@ -606,7 +638,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.GOOGLE_GEMINI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2025, 2, 5),
-            quality_index=718,
+            quality_data=QualityData(equivalent_to=(Model.GEMINI_2_0_FLASH_001, 0)),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
             is_default=True,
@@ -643,7 +675,7 @@ def _build_model_datas():
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             latest_model=Model.GEMINI_1_5_PRO_LATEST,
             release_date=date(2024, 9, 24),
-            quality_index=721,  # MMLU=85.14, GPQA=59.10
+            quality_data=QualityData(mmlu=85.14, gpqa=59.10),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
         ),
@@ -663,7 +695,7 @@ def _build_model_datas():
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             latest_model=Model.GEMINI_1_5_PRO_LATEST,
             release_date=date(2024, 5, 24),
-            quality_index=705,  # MMLU=81.90, GPQA=59.10
+            quality_data=QualityData(mmlu=81.9, gpqa=59.1),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
         ),
@@ -695,7 +727,7 @@ def _build_model_datas():
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/anthropic.svg",
             release_date=date(2025, 2, 19),
             # TODO: quality index, for now quality index of CLAUDE_3_5_SONNET_20241022 + 1
-            quality_index=878,  # MMLU=90.80, GPQA=84.80
+            quality_data=QualityData(mmlu=90.8, gpqa=84.8, gpqa_diamond=69.7),
             latest_model=Model.CLAUDE_3_7_SONNET_LATEST,
             provider_name=DisplayedProvider.ANTHROPIC.value,
             supports_tool_calling=True,
@@ -714,7 +746,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.AMAZON_BEDROCK,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/anthropic.svg",
             release_date=date(2024, 10, 22),
-            quality_index=768,  # MMLU=86.00, GPQA=68.00
+            quality_data=QualityData(mmlu=86, gpqa=68),
             latest_model=Model.CLAUDE_3_5_SONNET_LATEST,
             provider_name=DisplayedProvider.ANTHROPIC.value,
             supports_tool_calling=True,
@@ -735,7 +767,7 @@ def _build_model_datas():
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             latest_model=Model.GEMINI_1_5_FLASH_LATEST,
             release_date=date(2024, 9, 24),
-            quality_index=650,  # MMLU=78.90, GPQA=51.00
+            quality_data=QualityData(mmlu=78.9, gpqa=51),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
         ),
@@ -755,7 +787,7 @@ def _build_model_datas():
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             latest_model=Model.GEMINI_1_5_FLASH_LATEST,
             release_date=date(2024, 5, 24),
-            quality_index=650,  # MMLU=78.90, GPQA=51.00
+            quality_data=QualityData(mmlu=78.9, gpqa=51),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
         ),
@@ -781,7 +813,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.OPEN_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             release_date=date(2024, 12, 17),
-            quality_index=839,  # MMLU=90.80, GPQA=78.30
+            quality_data=QualityData(mmlu=90.8, gpqa=78.3),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
         ),
@@ -800,7 +832,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.OPEN_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             release_date=date(2024, 12, 17),
-            quality_index=853,  # MMLU=87.00, GPQA=91.60
+            quality_data=QualityData(mmlu=87, gpqa=91.6),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
         ),
@@ -819,7 +851,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.OPEN_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             release_date=date(2024, 12, 17),
-            quality_index=798,  # MMLU=84.10, GPQA=78.00
+            quality_data=QualityData(mmlu=84.1, gpqa=78),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
         ),
@@ -838,7 +870,7 @@ def _build_model_datas():
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/anthropic.svg",
             latest_model=Model.CLAUDE_3_5_SONNET_LATEST,
             release_date=date(2024, 6, 20),
-            quality_index=738,  # MMLU=88.30, GPQA=59.40
+            quality_data=QualityData(mmlu=88.3, gpqa=59.4),
             provider_name=DisplayedProvider.ANTHROPIC.value,
             supports_tool_calling=True,
         ),
@@ -856,7 +888,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.AMAZON_BEDROCK,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/anthropic.svg",
             release_date=date(2024, 2, 29),
-            quality_index=693,  # MMLU=88.20, GPQA=50.40
+            quality_data=QualityData(mmlu=88.2, gpqa=50.4),
             provider_name=DisplayedProvider.ANTHROPIC.value,
             supports_tool_calling=True,
         ),
@@ -875,7 +907,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.AMAZON_BEDROCK,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/anthropic.svg",
             release_date=date(2024, 3, 7),
-            quality_index=550,  #  MMLU=76.7, GPQA=33.3
+            quality_data=QualityData(mmlu=76.7, gpqa=33.3),
             provider_name=DisplayedProvider.ANTHROPIC.value,
             supports_tool_calling=True,
         ),
@@ -898,7 +930,7 @@ def _build_model_datas():
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/anthropic.svg",
             latest_model=Model.CLAUDE_3_5_HAIKU_LATEST,
             release_date=date(2024, 10, 22),
-            quality_index=595,  # MMLU=76.7, QPAQ=41.6
+            quality_data=QualityData(mmlu=76.7, gpqa=41.6),
             provider_name=DisplayedProvider.ANTHROPIC.value,
             supports_tool_calling=True,
         ),
@@ -917,7 +949,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
             release_date=date(2024, 7, 23),
-            quality_index=754,  # MMLU=88.60, GPQA=73.90
+            quality_data=QualityData(mmlu=88.6, gpqa=73.9),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=True,
         ),
@@ -936,7 +968,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
             release_date=date(2024, 12, 6),
-            quality_index=682,  # MMLU=86.00, GPQA=50.50
+            quality_data=QualityData(mmlu=86, gpqa=50.5),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=False,
         ),
@@ -954,7 +986,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
             release_date=date(2024, 7, 23),
-            quality_index=654,  # MMLU=86.00, GPQA=48.00
+            quality_data=QualityData(mmlu=86, gpqa=48),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=True,
         ),
@@ -973,7 +1005,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
             release_date=date(2024, 7, 23),
-            quality_index=494,  # MMLU=66.70, GPQA=33.80
+            quality_data=QualityData(mmlu=66.7, gpqa=33.8),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=False,
         ),
@@ -1001,12 +1033,12 @@ def _build_model_datas():
             provider_for_pricing=Provider.GOOGLE_GEMINI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2024, 10, 3),
-            quality_index=485,  # MMLU=58.7, GPQA=38.4
+            quality_data=QualityData(mmlu=58.7, gpqa=38.4),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
         ),
-        Model.GEMINI_EXP_1206: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0325),
-        Model.GEMINI_EXP_1121: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0325),
+        Model.GEMINI_EXP_1206: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0506),
+        Model.GEMINI_EXP_1121: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0506),
         Model.QWEN_QWQ_32B: ModelData(
             display_name="Qwen QWQ (32B)",
             supports_json_mode=True,
@@ -1021,7 +1053,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/qwen.svg",
             release_date=date(2025, 3, 6),
-            quality_index=693,  # MMLU=83.30, GPQA=59.10
+            quality_data=QualityData(mmlu=83.3, gpqa=59.1),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=False,
         ),
@@ -1039,7 +1071,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/qwen.svg",
             release_date=date(2025, 4, 29),
-            quality_index=789,  # GPQA = 70 MMLU = 87.8 https://qwenlm.github.io/blog/qwen3/, https://x.com/ArtificialAnlys/status/1917246369510879280
+            quality_data=QualityData(mmlu=87.8, gpqa=70, source="https://qwenlm.github.io/blog/qwen3/"),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=True,
         ),
@@ -1057,7 +1089,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/qwen.svg",
             release_date=date(2025, 4, 29),
-            quality_index=710,  # GPQA = 62 MMLU = 80 https://qwenlm.github.io/blog/qwen3/, https://x.com/ArtificialAnlys/status/1917246369510879280 MMLU could not be found, so we use QWEN3_235B_A22B - 10
+            quality_data=QualityData(mmlu=80, gpqa=62, source="https://qwenlm.github.io/blog/qwen3/"),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=True,
         ),
@@ -1078,7 +1110,11 @@ def _build_model_datas():
             provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
             release_date=date(2025, 4, 5),
-            quality_index=878,  # TODO: same as CLAUDE_3_7_SONNET_20250219 for now
+            quality_data=QualityData(
+                mmlu_pro=79.4,
+                gpqa=67.7,
+                source="https://www.vals.ai/models/together_meta-llama_Llama-4-Maverick-17B-128E-Instruct-FP8",
+            ),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=False,
             supports_structured_output=True,
@@ -1099,7 +1135,11 @@ def _build_model_datas():
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
             release_date=date(2025, 4, 5),
             # https://ai.meta.com/blog/llama-4-multimodal-intelligence/
-            quality_index=870,  # TODO: a bit less than CLAUDE_3_7_SONNET_20250219 for now
+            quality_data=QualityData(
+                mmlu_pro=69.6,
+                gpqa=44.4,
+                source="https://www.vals.ai/models/together_meta-llama_Llama-4-Scout-17B-16E-Instruct",
+            ),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=False,
             supports_structured_output=True,
@@ -1117,7 +1157,12 @@ def _build_model_datas():
             provider_for_pricing=Provider.GROQ,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
             release_date=date(2025, 4, 5),
-            quality_index=878,  # TODO: same as CLAUDE_3_7_SONNET_20250219 for now
+            quality_data=QualityData(
+                mmlu_pro=79.4,
+                gpqa=67.7,
+                gpqa_diamond=61.1,
+                source="https://www.vals.ai/models/together_meta-llama_Llama-4-Maverick-17B-128E-Instruct-FP8",
+            ),
             provider_name=DisplayedProvider.GROQ.value,
             supports_tool_calling=True,
             supports_structured_output=True,
@@ -1137,7 +1182,11 @@ def _build_model_datas():
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
             release_date=date(2025, 4, 5),
             # https://ai.meta.com/blog/llama-4-multimodal-intelligence/
-            quality_index=870,  # TODO: a bit less than CLAUDE_3_7_SONNET_20250219 for now
+            quality_data=QualityData(
+                mmlu_pro=69.6,
+                gpqa=44.4,
+                source="https://www.vals.ai/models/together_meta-llama_Llama-4-Scout-17B-16E-Instruct",
+            ),
             provider_name=DisplayedProvider.GROQ.value,
             supports_tool_calling=True,
             supports_structured_output=True,
@@ -1156,7 +1205,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/deepseek.svg",
             release_date=date(2024, 12, 30),
-            quality_index=738,  # MMLU=88.50, GPQA=59.10
+            quality_data=QualityData(mmlu=88.5, gpqa=59.1),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=True,
             supports_structured_output=True,
@@ -1177,7 +1226,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/deepseek.svg",
             release_date=date(2025, 1, 20),
-            quality_index=812,  # MMLU=90.80, GPQA=71.50
+            quality_data=QualityData(mmlu=90.8, gpqa=71.5),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=True,
         ),
@@ -1196,7 +1245,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/deepseek.svg",
             release_date=date(2025, 3, 18),
-            quality_index=812,  # MMLU=90.80, GPQA=71.50
+            quality_data=QualityData(mmlu=90.8, gpqa=71.5),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=True,
         ),
@@ -1214,8 +1263,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/deepseek.svg",
             release_date=date(2025, 3, 24),
-            # TODO: Update the quality index once the values are out
-            quality_index=739,  # MMLU=88.50, GPQA=59.10
+            quality_data=QualityData(mmlu=88.5, gpqa=59.1),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=True,
             latest_model=Model.DEEPSEEK_V3_LATEST,
@@ -1238,8 +1286,11 @@ def _build_model_datas():
             provider_for_pricing=Provider.X_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/xai.svg",
             release_date=date(2025, 4, 10),
-            # TODO: Update the quality index
-            quality_index=835,
+            quality_data=QualityData(
+                mmlu_pro=79.9,
+                gpqa=73.7,
+                source="https://www.vals.ai/models/grok_grok-3-fast-beta",
+            ),
             provider_name=DisplayedProvider.X_AI.value,
             supports_tool_calling=True,
             supports_structured_output=True,
@@ -1257,8 +1308,11 @@ def _build_model_datas():
             provider_for_pricing=Provider.X_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/xai.svg",
             release_date=date(2025, 4, 10),
-            # TODO: Update the quality index
-            quality_index=835,
+            quality_data=QualityData(
+                mmlu_pro=79.9,
+                gpqa=73.7,
+                source="https://www.vals.ai/models/grok_grok-3-fast-beta",
+            ),
             provider_name=DisplayedProvider.X_AI.value,
             supports_tool_calling=True,
             supports_structured_output=True,
@@ -1276,8 +1330,11 @@ def _build_model_datas():
             provider_for_pricing=Provider.X_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/xai.svg",
             release_date=date(2025, 4, 10),
-            # TODO: Update the quality index
-            quality_index=820,
+            quality_data=QualityData(
+                mmlu_pro=81.4,
+                gpqa=79,
+                source="https://www.vals.ai/models/grok_grok-3-mini-fast-beta-high-reasoning",
+            ),
             provider_name=DisplayedProvider.X_AI.value,
             supports_tool_calling=True,
             supports_structured_output=True,
@@ -1296,7 +1353,11 @@ def _build_model_datas():
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/xai.svg",
             release_date=date(2025, 4, 10),
             # TODO: Update the quality index
-            quality_index=815,
+            quality_data=QualityData(
+                mmlu_pro=80,
+                gpqa=72.7,
+                source="https://www.vals.ai/models/grok_grok-3-mini-fast-beta-low-reasoning",
+            ),
             provider_name=DisplayedProvider.X_AI.value,
             supports_tool_calling=True,
             supports_structured_output=True,
@@ -1315,7 +1376,11 @@ def _build_model_datas():
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/xai.svg",
             release_date=date(2025, 4, 10),
             # TODO: Update the quality index
-            quality_index=820,
+            quality_data=QualityData(
+                mmlu_pro=81.4,
+                gpqa=79,
+                source="https://www.vals.ai/models/grok_grok-3-mini-fast-beta-high-reasoning",
+            ),
             provider_name=DisplayedProvider.X_AI.value,
             supports_tool_calling=True,
             supports_structured_output=True,
@@ -1334,7 +1399,11 @@ def _build_model_datas():
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/xai.svg",
             release_date=date(2025, 4, 10),
             # TODO: Update the quality index
-            quality_index=815,
+            quality_data=QualityData(
+                mmlu_pro=80,
+                gpqa=72.7,
+                source="https://www.vals.ai/models/grok_grok-3-mini-fast-beta-low-reasoning",
+            ),
             provider_name=DisplayedProvider.X_AI.value,
             supports_tool_calling=True,
             supports_structured_output=True,
@@ -1359,7 +1428,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.GOOGLE_IMAGEN,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2025, 1, 23),
-            quality_index=600,  # TODO: Update the quality index
+            quality_data=QualityData(index=50),  # TODO: Update the quality index
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=False,
             latest_model=Model.IMAGEN_3_0_LATEST,
@@ -1379,7 +1448,7 @@ def _build_model_datas():
             provider_for_pricing=Provider.GOOGLE_IMAGEN,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2024, 7, 31),
-            quality_index=600,  # TODO: Update the quality index
+            quality_data=QualityData(index=500),  # TODO: Update the quality index
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=False,
             latest_model=Model.IMAGEN_3_0_LATEST,
@@ -1399,12 +1468,16 @@ def _build_model_datas():
             provider_for_pricing=Provider.GOOGLE_IMAGEN,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2024, 7, 31),
-            quality_index=600,  # TODO: Update the quality index
+            quality_data=QualityData(index=500),  # TODO: Update the quality index
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=False,
         ),
         **mistral_models(),
     }
+
+
+def _build_model_datas() -> ModelDataMapping:
+    models = _raw_model_data()
 
     from .model_provider_datas_mapping import MODEL_PROVIDER_DATAS
 
@@ -1418,7 +1491,14 @@ def _build_model_datas():
         if not isinstance(model_data, ModelData):
             return model_data
         # Enumerating the provider enum to get the same order
-        final_model_data = FinalModelData.model_validate({**model_data.model_dump(), "model": model, "providers": []})
+        final_model_data = FinalModelData.model_validate(
+            {
+                **model_data.model_dump(),
+                "model": model,
+                "providers": [],
+                "quality_index": model_data.quality_data.quality_index(models),
+            },
+        )
         for provider in Provider:
             data = MODEL_PROVIDER_DATAS[provider]
             try:

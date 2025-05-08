@@ -5,14 +5,23 @@ import pytest
 
 from core.domain.errors import ProviderDoesNotSupportModelError
 from core.domain.models import Model, Provider
+from core.domain.models._displayed_provider import DisplayedProvider
 from core.domain.models.model_data import (
     FinalModelData,
     MaxTokensData,
     ModelData,
+    ModelDataMapping,
+    QualityData,
 )
-from core.domain.models.model_datas_mapping import MODEL_DATAS, DisplayedProvider
 from core.domain.models.model_provider_data import ModelProviderData, TextPricePerToken
 from core.domain.task_typology import SchemaTypology, TaskTypology
+
+
+@pytest.fixture(scope="session")
+def model_data_mapping() -> ModelDataMapping:
+    from core.domain.models.model_datas_mapping import MODEL_DATAS
+
+    return MODEL_DATAS
 
 
 def _md(**kwargs: Any) -> FinalModelData:
@@ -34,6 +43,7 @@ def _md(**kwargs: Any) -> FinalModelData:
         icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
         release_date=date(2024, 11, 6),
         quality_index=100,
+        quality_data=QualityData(index=100),
         provider_name=DisplayedProvider.OPEN_AI.value,
         supports_tool_calling=False,
         model=Model.GPT_3_5_TURBO_1106,
@@ -128,6 +138,7 @@ class TestFinalModelData:
             provider_for_pricing=Provider.OPEN_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             release_date=date(2024, 11, 6),
+            quality_data=QualityData(index=100),
             quality_index=100,
             provider_name=DisplayedProvider.OPEN_AI.value,
             display_name="GPT-3.5 Turbo (1106)",
@@ -142,8 +153,8 @@ class TestFinalModelData:
 
 
 class TestModelDataRequestMaxOutputTokens:
-    def test_request_max_output_tokens_always_set_for_model_data(self):
-        for m in MODEL_DATAS.values():
+    def test_request_max_output_tokens_always_set_for_model_data(self, model_data_mapping: ModelDataMapping):
+        for m in model_data_mapping.values():
             if not isinstance(m, ModelData):
                 continue
 
@@ -152,10 +163,32 @@ class TestModelDataRequestMaxOutputTokens:
             # TODO[max-tokens]: We should sanitize to always have output tokens
             # assert m.max_tokens_data.max_output_tokens > 0
 
-    def test_all_anthropic_models_have_max_output_tokens(self):
+    def test_all_anthropic_models_have_max_output_tokens(self, model_data_mapping: ModelDataMapping):
         from core.domain.models.model_provider_datas_mapping import ANTHROPIC_PROVIDER_DATA
 
         for model in ANTHROPIC_PROVIDER_DATA.keys():
-            model_data = MODEL_DATAS[model]
+            model_data = model_data_mapping[model]
             assert isinstance(model_data, ModelData)
             assert model_data.max_tokens_data.max_output_tokens
+
+
+class TestModelDataQualityIndex:
+    @pytest.mark.parametrize(
+        "quality_data, expected_index",
+        [
+            pytest.param(QualityData(index=100), 100, id="index"),
+            pytest.param(QualityData(mmlu_pro=80), 200, id="mmlu_pro"),
+            pytest.param(QualityData(mmlu=80), 120, id="mmlu"),
+            pytest.param(QualityData(mmlu=80, mmlu_pro=80), 160, id="mmlu_pro_and_mmlu"),
+            pytest.param(
+                QualityData(equivalent_to=(Model.O3_2025_04_16_MEDIUM_REASONING_EFFORT, 1)),
+                101,
+                id="equivalent_to",
+            ),
+        ],
+    )
+    def test_quality_index(self, quality_data: QualityData, expected_index: int):
+        mapping = {
+            Model.O3_2025_04_16_MEDIUM_REASONING_EFFORT: _md(quality_data=QualityData(index=100)),
+        }
+        assert quality_data.quality_index(mapping) == expected_index

@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Literal
+from typing import Any, Literal, TypeAlias
 
 from pydantic import BaseModel, Field
 
@@ -11,7 +11,61 @@ from ._sourced_base_model import SourcedBaseModel
 from .model_data_supports import ModelDataSupports
 from .model_provider_data import ModelProviderData
 
-# --- Max tokens data models --- #
+# Weights were computed by o3 by comparing the median scores of models
+# on the different score datasets
+# https://chatgpt.com/share/681cb51b-6aa4-800e-b966-b6b8a4e58021
+_quality_index_weights = {
+    "mmlu": 0.15,
+    "gpqa": 0.25,
+    "mmlu_pro": 0.25,
+    "gpqa_diamond": 0.35,
+}
+
+
+class QualityData(SourcedBaseModel):
+    mmlu: float | None = None
+    gpqa: float | None = None
+    mmlu_pro: float | None = None
+    gpqa_diamond: float | None = None
+    index: int | None = Field(
+        default=None,
+        description="A forced value for the quality index",
+    )
+
+    equivalent_to: tuple[Model, int] | None = Field(
+        default=None,
+        description="When data is not available for a model, we can use the quality index of an equivalent model",
+    )
+
+    # TODO: remove the default value
+    source: str = ""
+
+    def _quality_index_from_equivalent_model(self, mapping: dict[Model, Any]) -> int:
+        if not self.equivalent_to:
+            raise ValueError("Equivalent model is none")
+
+        model, offset = self.equivalent_to
+
+        raw_data = mapping[model]
+        if not isinstance(raw_data, ModelData):
+            raise ValueError(f"Equivalent model {model} is not a ModelData")
+        if raw_data.quality_data.equivalent_to is not None:
+            raise ValueError(f"Equivalent model {model} has an equivalent model of its own")
+        return raw_data.quality_data.quality_index(mapping) + offset
+
+    def quality_index(self, mapping: dict[Model, Any]) -> int:
+        if self.index is not None:
+            return self.index
+        if self.equivalent_to:
+            return self._quality_index_from_equivalent_model(mapping)
+
+        # We do a weighed sum of the different scores
+        dumped = self.model_dump(exclude_none=True, exclude={"source"})
+
+        total_score: float = 0
+        for k, v in dumped.items():
+            total_score += v * _quality_index_weights[k]
+        return int((total_score / len(dumped)) * 10)
 
 
 class MaxTokensData(SourcedBaseModel):
@@ -46,8 +100,8 @@ class ModelData(ModelDataSupports):
 
     release_date: date = Field(description="The date the model was released")
 
-    quality_index: int = Field(
-        description="The quality index of the model. None if not available, calculated from MMLU and GPQA scores quality index = ((MMLU + QPQA) / 2) * 10",
+    quality_data: QualityData = Field(
+        description="The quality data of the model which allows computing the quality index",
     )
 
     provider_name: str = Field(
@@ -83,6 +137,8 @@ class FinalModelData(ModelData):
     providers: list[tuple[Provider, ModelProviderData]] = Field(
         description="The provider data for the model. Extracted from the model provider data list",
     )
+
+    quality_index: int
 
     def supported_by_provider(self, provider: Provider) -> bool:
         return any(p == provider for p, _ in self.providers)
@@ -152,3 +208,6 @@ class LatestModel(BaseModel):
 
 class DeprecatedModel(BaseModel):
     replacement_model: Model
+
+
+ModelDataMapping: TypeAlias = dict[Model, FinalModelData | LatestModel | DeprecatedModel]
