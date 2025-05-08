@@ -10,7 +10,15 @@ import pytest
 from pydantic import BaseModel, ValidationError
 from pytest_httpx import HTTPXMock, IteratorStream
 
-from core.domain.errors import (
+from core.domain.llm_completion import LLMCompletion
+from core.domain.llm_usage import LLMUsage
+from core.domain.message import MessageDeprecated
+from core.domain.models import Model, Provider
+from core.domain.models.model_data import ModelData
+from core.domain.models.model_datas_mapping import MODEL_DATAS
+from core.domain.structured_output import StructuredOutput
+from core.providers.base.abstract_provider import RawCompletion
+from core.providers.base.provider_error import (
     FailedGenerationError,
     MaxTokensExceededError,
     MissingModelError,
@@ -21,14 +29,6 @@ from core.domain.errors import (
     ProviderInvalidFileError,
     UnknownProviderError,
 )
-from core.domain.llm_completion import LLMCompletion
-from core.domain.llm_usage import LLMUsage
-from core.domain.message import MessageDeprecated
-from core.domain.models import Model, Provider
-from core.domain.models.model_data import ModelData
-from core.domain.models.model_datas_mapping import MODEL_DATAS
-from core.domain.structured_output import StructuredOutput
-from core.providers.base.abstract_provider import RawCompletion
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.google.google_provider import (
     _VERTEX_API_EXCLUDED_REGIONS_METADATA_KEY,  # pyright: ignore [reportPrivateUsage]

@@ -3,11 +3,12 @@ from typing import Any, cast
 
 import pytest
 
-from core.domain.errors import FailedGenerationError, ProviderError, UnpriceableRunError
+from core.domain.errors import UnpriceableRunError
 from core.domain.fields.file import File
 from core.domain.message import MessageDeprecated
 from core.domain.models import Model
 from core.providers.base.models import StandardMessage, ToolCallResultDict
+from core.providers.base.provider_error import FailedGenerationError, ProviderError
 from core.providers.xai.xai_domain import (
     AudioContent,
     CompletionResponse,

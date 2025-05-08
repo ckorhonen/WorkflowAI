@@ -8,15 +8,13 @@ from api.services.run import RunService
 from core.domain.analytics_events.analytics_events import RunTrigger
 from core.domain.errors import (
     InternalError,
-    ProviderRateLimitError,
-    ProviderUnavailableError,
-    ServerOverloadedError,
 )
 from core.domain.events import EventRouter, RecomputeReviewBenchmarkEvent, TriggerTaskRunEvent
 from core.domain.task_run_query import SerializableTaskRunQuery
 from core.domain.types import AgentInput
 from core.domain.users import UserIdentifier
 from core.domain.version_reference import VersionReference
+from core.providers.base.provider_error import ProviderRateLimitError, ProviderUnavailableError, ServerOverloadedError
 from core.storage import ObjectNotFoundException, TaskTuple
 from core.storage.backend_storage import BackendStorage
 from core.utils.uuid import uuid7

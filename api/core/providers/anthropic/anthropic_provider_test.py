@@ -8,14 +8,6 @@ import pytest
 from httpx import Response
 from pytest_httpx import HTTPXMock, IteratorStream
 
-from core.domain.errors import (
-    FailedGenerationError,
-    MaxTokensExceededError,
-    ProviderBadRequestError,
-    ProviderError,
-    ProviderInternalError,
-    ServerOverloadedError,
-)
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
@@ -23,9 +15,11 @@ from core.domain.models import Model
 from core.domain.models.model_provider_datas_mapping import ANTHROPIC_PROVIDER_DATA
 from core.domain.models.utils import get_model_data
 from core.domain.structured_output import StructuredOutput
+from core.domain.task_group_properties import ToolChoice, ToolChoiceFunction
 from core.domain.tool import Tool
 from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.anthropic.anthropic_domain import (
+    AntToolChoice,
     CompletionRequest,
     CompletionResponse,
     ContentBlock,
@@ -33,6 +27,14 @@ from core.providers.anthropic.anthropic_domain import (
 )
 from core.providers.anthropic.anthropic_provider import AnthropicConfig, AnthropicProvider
 from core.providers.base.models import RawCompletion
+from core.providers.base.provider_error import (
+    FailedGenerationError,
+    MaxTokensExceededError,
+    ProviderBadRequestError,
+    ProviderError,
+    ProviderInternalError,
+    ServerOverloadedError,
+)
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ToolCallRequestBuffer
 from tests.utils import fixture_bytes, fixtures_json, mock_aiter
@@ -140,6 +142,36 @@ class TestBuildRequest:
         assert tool["name"] == "dummy"
         assert tool["description"] == "A dummy tool"
         assert tool["input_schema"] == {"type": "object", "properties": {}}
+
+    @pytest.mark.parametrize(
+        "tool_choice_option, expected_ant_tool_choice",
+        [
+            pytest.param("none", AntToolChoice(type="none"), id="None"),
+            pytest.param("auto", AntToolChoice(type="auto"), id="AUTO"),
+            pytest.param("required", AntToolChoice(type="any"), id="required"),
+            pytest.param(
+                ToolChoiceFunction(name="specific_tool_name"),
+                AntToolChoice(type="tool", name="specific_tool_name"),
+                id="TOOL_NAME",
+            ),
+        ],
+    )
+    def test_build_request_with_tool_choice(
+        self,
+        anthropic_provider: AnthropicProvider,
+        tool_choice_option: ToolChoice | None,
+        expected_ant_tool_choice: AntToolChoice,
+    ):
+        model = Model.CLAUDE_3_5_SONNET_20241022  # Use a specific model for simplicity
+        request = cast(
+            CompletionRequest,
+            anthropic_provider._build_request(  # pyright: ignore[reportPrivateUsage]
+                messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
+                options=ProviderOptions(model=model, tool_choice=tool_choice_option),
+                stream=False,
+            ),
+        )
+        assert request.tool_choice == expected_ant_tool_choice
 
 
 class TestSingleStream:

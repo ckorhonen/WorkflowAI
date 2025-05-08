@@ -5,15 +5,6 @@ from typing import Any, override
 from httpx import Response
 from pydantic import BaseModel, ValidationError
 
-from core.domain.errors import (
-    ContentModerationError,
-    FailedGenerationError,
-    MaxTokensExceededError,
-    ModelDoesNotSupportMode,
-    ProviderError,
-    ProviderInvalidFileError,
-    UnknownProviderError,
-)
 from core.domain.fields.file import File
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_usage import LLMUsage
@@ -24,6 +15,15 @@ from core.domain.models.utils import get_model_data
 from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.httpx_provider import HTTPXProvider
 from core.providers.base.models import RawCompletion, StandardMessage
+from core.providers.base.provider_error import (
+    ContentModerationError,
+    FailedGenerationError,
+    MaxTokensExceededError,
+    ModelDoesNotSupportMode,
+    ProviderError,
+    ProviderInvalidFileError,
+    UnknownProviderError,
+)
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ParsedResponse, ToolCallRequestBuffer
 from core.providers.base.utils import get_provider_config_env, get_unique_schema_name, should_use_structured_output
@@ -87,6 +87,7 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
             stream_options=StreamOptions(include_usage=True) if stream else None,
             response_format=self._response_format(options, model_data),
             reasoning_effort=reasoning_effort,
+            tool_choice=CompletionRequest.tool_choice_from_domain(options.tool_choice),
         )
 
         if options.enabled_tools is not None and options.enabled_tools != []:

@@ -16,6 +16,7 @@ from core.domain.message import (
 )
 from core.domain.models.providers import Provider
 from core.domain.run_output import RunOutput
+from core.domain.task_group_properties import ToolChoice, ToolChoiceFunction
 from core.domain.tool import Tool
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.domain.types import AgentOutput
@@ -288,7 +289,6 @@ _UNSUPPORTED_FIELDS = {
     "seed",
     "service_tier",
     "stop",
-    "tool_choice",
     "top_logprobs",
     "top_p",
     "web_search_options",
@@ -391,6 +391,23 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
                 _logger.warning("Received an unsupported provider", extra={"provider": self.provider})
                 return None
         return None
+
+    @property
+    def worflowai_tool_choice(self) -> ToolChoice | None:
+        if not self.tool_choice:
+            return None
+        if isinstance(self.tool_choice, OpenAIProxyToolChoice):
+            return ToolChoiceFunction(name=self.tool_choice.function.name)
+        match self.tool_choice:
+            case "auto":
+                return "auto"
+            case "none":
+                return "none"
+            case "required":
+                return "required"
+            case _:
+                _logger.warning("Received an unsupported tool choice", extra={"tool_choice": self.tool_choice})
+                return None
 
 
 # --- Response Models ---

@@ -5,11 +5,12 @@ from pydantic import BaseModel, Field
 
 from core.domain.fields.image_options import ImageOptions
 from core.domain.models import Model, Provider
-from core.domain.task_group_properties import FewShotExample
+from core.domain.task_group_properties import FewShotExample, ToolChoice
 from core.domain.tool import Tool
 from core.runners.workflowai.templates import TemplateName
 from core.tools import ToolKind
 
+# TODO: remove
 GLOBAL_DEFAULT_MODEL = Model(os.environ.get("WORKFLOWAI_DEFAULT_MODEL", Model.GPT_4O_2024_08_06))
 TEXT_EQUIVALENCE_TASK_MODEL = Model(Model.GEMINI_1_5_PRO_001)
 
@@ -46,3 +47,5 @@ class WorkflowAIRunnerOptions(BaseModel):
     has_templated_instructions: bool | None = None
 
     image_options: ImageOptions | None = None
+
+    tool_choice: ToolChoice | None = None

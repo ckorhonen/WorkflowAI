@@ -7,15 +7,6 @@ from typing import Any, Generic, Protocol, TypeVar, override
 from httpx import Response
 from pydantic import BaseModel, ValidationError
 
-from core.domain.errors import (
-    ContentModerationError,
-    FailedGenerationError,
-    MaxTokensExceededError,
-    ModelDoesNotSupportMode,
-    ProviderBadRequestError,
-    StructuredGenerationError,
-    UnknownProviderError,
-)
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
@@ -25,6 +16,15 @@ from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.abstract_provider import ProviderConfigInterface, RawCompletion
 from core.providers.base.httpx_provider import HTTPXProvider
 from core.providers.base.models import StandardMessage
+from core.providers.base.provider_error import (
+    ContentModerationError,
+    FailedGenerationError,
+    MaxTokensExceededError,
+    ModelDoesNotSupportMode,
+    ProviderBadRequestError,
+    StructuredGenerationError,
+    UnknownProviderError,
+)
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ParsedResponse, ToolCallRequestBuffer
 from core.providers.google.google_provider_domain import (
@@ -127,6 +127,7 @@ class OpenAIProviderBase(HTTPXProvider[_OpenAIConfigVar, CompletionResponse], Ge
             # store=True,
             response_format=self._response_format(options, is_preview_model),
             reasoning_effort=_REASONING_EFFORT_FOR_MODEL.get(options.model, None),
+            tool_choice=CompletionRequest.tool_choice_from_domain(options.tool_choice),
         )
 
         if options.enabled_tools is not None and options.enabled_tools != []:

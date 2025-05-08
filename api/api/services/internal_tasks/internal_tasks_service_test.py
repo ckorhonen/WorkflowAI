@@ -63,7 +63,7 @@ from core.agents.task_instructions_migration_task import (
     AgentInstructionsMigrationOutput,
 )
 from core.domain.deprecated.task import Task
-from core.domain.errors import FailedGenerationError, JSONSchemaValidationError, UnparsableChunkError
+from core.domain.errors import JSONSchemaValidationError, UnparsableChunkError
 from core.domain.fields.chat_message import ChatMessage, UserChatMessage
 from core.domain.fields.file import File
 from core.domain.task_group import TaskGroup
@@ -73,6 +73,7 @@ from core.domain.task_io import SerializableTaskIO
 from core.domain.task_preview import TaskPreview
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.version_reference import VersionReference
+from core.providers.base.provider_error import FailedGenerationError
 from core.storage.mongo.models.task_group import TaskGroupDocument
 from core.tools import ToolKind
 from tests.utils import mock_aiter

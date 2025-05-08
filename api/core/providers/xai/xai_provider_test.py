@@ -7,7 +7,15 @@ import pytest
 from httpx import Response
 from pytest_httpx import HTTPXMock, IteratorStream
 
-from core.domain.errors import (
+from core.domain.fields.file import File
+from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
+from core.domain.llm_usage import LLMUsage
+from core.domain.message import MessageDeprecated
+from core.domain.models import Model
+from core.domain.structured_output import StructuredOutput
+from core.providers.base.abstract_provider import RawCompletion
+from core.providers.base.models import StandardMessage
+from core.providers.base.provider_error import (
     ContentModerationError,
     MaxTokensExceededError,
     ModelDoesNotSupportMode,
@@ -17,14 +25,6 @@ from core.domain.errors import (
     StructuredGenerationError,
     UnknownProviderError,
 )
-from core.domain.fields.file import File
-from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
-from core.domain.llm_usage import LLMUsage
-from core.domain.message import MessageDeprecated
-from core.domain.models import Model
-from core.domain.structured_output import StructuredOutput
-from core.providers.base.abstract_provider import RawCompletion
-from core.providers.base.models import StandardMessage
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.xai.xai_domain import CompletionRequest
 from core.providers.xai.xai_provider import XAIConfig, XAIProvider
@@ -140,6 +140,30 @@ class TestBuildRequest:
                 },
             ],
             "reasoning_effort": "low",
+        }
+
+    def test_build_request_with_tool_choice(self, xai_provider: XAIProvider):
+        request = cast(
+            CompletionRequest,
+            xai_provider._build_request(  # pyright: ignore [reportPrivateUsage]
+                messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
+                options=ProviderOptions(
+                    model=Model.GPT_4O_2024_11_20,
+                    tool_choice="auto",
+                ),
+                stream=False,
+            ),
+        )
+        # We can exclude None values because the HTTPxProvider does the same
+        assert request.model_dump(include={"messages", "tool_choice", "model"}, exclude_none=True) == {
+            "model": "gpt-4o-2024-11-20",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "Hello",
+                },
+            ],
+            "tool_choice": "auto",
         }
 
 

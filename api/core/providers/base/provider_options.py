@@ -3,6 +3,7 @@ from typing import Any, Optional
 from pydantic import BaseModel
 
 from core.domain.models import Model
+from core.domain.task_group_properties import ToolChoice
 from core.domain.tool import Tool
 
 
@@ -17,3 +18,4 @@ class ProviderOptions(BaseModel):
     enabled_tools: list[Tool] | None = None
     tenant: str | None = None
     stream_deltas: bool = False
+    tool_choice: ToolChoice | None = None

@@ -3,16 +3,11 @@ from typing import Any, List, Literal, Optional
 from httpx import Response
 from pydantic import BaseModel
 
-from core.domain.errors import (
-    InternalError,
-    MaxTokensExceededError,
-    ProviderBadRequestError,
-    ServerOverloadedError,
-    UnknownProviderError,
-)
+from core.domain.errors import InternalError
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
+from core.domain.task_group_properties import ToolChoice, ToolChoiceFunction
 from core.providers.base.models import (
     DocumentContentDict,
     DocumentURLDict,
@@ -22,6 +17,12 @@ from core.providers.base.models import (
     TextContentDict,
     ToolCallRequestDict,
     ToolCallResultDict,
+)
+from core.providers.base.provider_error import (
+    MaxTokensExceededError,
+    ProviderBadRequestError,
+    ServerOverloadedError,
+    UnknownProviderError,
 )
 from core.providers.google.google_provider_domain import (
     internal_tool_name_to_native_tool_call,
@@ -210,12 +211,30 @@ class AnthropicMessage(BaseModel):
         return {"role": self.role, "content": [item.to_standard() for item in self.content]}
 
 
+class AntToolChoice(BaseModel):
+    name: str | None = None  # required if type is tool
+    type: Literal["tool", "none", "any", "auto"]
+    # Not used yet
+    # disable_parallel_tool_use: bool | None = None
+
+    @classmethod
+    def from_domain(cls, tool_choice: ToolChoice | None):
+        if not tool_choice:
+            return None
+        if isinstance(tool_choice, ToolChoiceFunction):
+            return cls(name=tool_choice.name, type="tool")
+        if tool_choice == "required":
+            return cls(type="any")
+        return cls(type=tool_choice)
+
+
 class CompletionRequest(BaseModel):
     messages: List[AnthropicMessage]
     model: str
     max_tokens: int
     temperature: float
     stream: bool
+    tool_choice: AntToolChoice | None = None
 
     class Tool(BaseModel):
         name: str

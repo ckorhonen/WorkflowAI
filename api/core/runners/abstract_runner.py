@@ -7,7 +7,7 @@ from typing import Any, Generic, Literal, Optional, Protocol, TypeVar
 from pydantic import BaseModel, ValidationError
 
 from core.domain.agent_run import AgentRun
-from core.domain.errors import InvalidRunnerOptionsError, MissingCacheError, ProviderError
+from core.domain.errors import InvalidRunnerOptionsError, MissingCacheError
 from core.domain.message import Messages
 from core.domain.metrics import measure_time, send_counter
 from core.domain.run_output import RunOutput
@@ -16,6 +16,7 @@ from core.domain.task_run_builder import TaskRunBuilder
 from core.domain.task_run_reply import RunReply
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.types import AgentInput, CacheUsage
+from core.providers.base.provider_error import ProviderError
 from core.runners.builder_context import builder_context
 from core.storage import TaskTuple
 from core.utils.tags import compute_tags

@@ -3,11 +3,11 @@ import base64
 import pytest
 from pytest_httpx import HTTPXMock
 
-from core.domain.errors import ContentModerationError
 from core.domain.fields.file import File
 from core.domain.message import MessageDeprecated
 from core.domain.models.models import Model
 from core.domain.structured_output import StructuredOutput
+from core.providers.base.provider_error import ContentModerationError
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.openai_image.openai_image_provider import OpenAIImageProvider
 from core.runners.builder_context import BuilderInterface

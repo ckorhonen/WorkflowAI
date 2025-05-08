@@ -10,10 +10,8 @@ from pydantic import ValidationError
 
 from core.domain.errors import (
     InternalError,
-    InvalidGenerationError,
     JSONSchemaValidationError,
     ProviderDoesNotSupportModelError,
-    ProviderError,
     UnpriceableRunError,
 )
 from core.domain.fields.file import File
@@ -34,6 +32,7 @@ from core.domain.models.utils import get_model_data, get_model_provider_data, ge
 from core.domain.structured_output import StructuredOutput
 from core.domain.tool import Tool
 from core.providers.base.models import RawCompletion, StandardMessage
+from core.providers.base.provider_error import InvalidGenerationError, ProviderError
 from core.providers.base.provider_options import ProviderOptions
 from core.runners.builder_context import builder_context
 from core.runners.workflowai.templates import TemplateName

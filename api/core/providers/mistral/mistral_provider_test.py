@@ -6,13 +6,6 @@ import pytest
 from pytest import MonkeyPatch
 from pytest_httpx import HTTPXMock, IteratorStream
 
-from core.domain.errors import (
-    FailedGenerationError,
-    MaxTokensExceededError,
-    ProviderBadRequestError,
-    ProviderInternalError,
-    UnknownProviderError,
-)
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
@@ -22,6 +15,13 @@ from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.abstract_provider import RawCompletion
 from core.providers.base.httpx_provider import ParsedResponse
 from core.providers.base.models import StandardMessage
+from core.providers.base.provider_error import (
+    FailedGenerationError,
+    MaxTokensExceededError,
+    ProviderBadRequestError,
+    ProviderInternalError,
+    UnknownProviderError,
+)
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.mistral.mistral_domain import (
     CompletionRequest,
@@ -149,6 +149,28 @@ class TestBuildRequest:
         )
         request_dict = request.model_dump()
         assert request_dict["max_tokens"] is None
+
+    def test_build_request_with_tool_choice(self, mistral_provider: MistralAIProvider):
+        from core.domain.tool import Tool as DomainTool
+
+        test_tool = DomainTool(
+            name="test_tool",
+            description="A test tool",
+            input_schema={"type": "object", "properties": {"test": {"type": "string"}}},
+            output_schema={"type": "object", "properties": {"result": {"type": "string"}}},
+        )
+        request = mistral_provider._build_request(  # pyright: ignore [reportPrivateUsage]
+            messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
+            options=ProviderOptions(
+                model=Model.PIXTRAL_12B_2409,
+                temperature=0,
+                enabled_tools=[test_tool],
+                tool_choice="auto",
+            ),
+            stream=False,
+        )
+        request_dict = request.model_dump(exclude_none=True)
+        assert request_dict["tool_choice"] == "auto"
 
 
 class TestSingleStream:

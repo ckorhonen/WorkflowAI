@@ -9,8 +9,8 @@ from core.agents.moderation_task import (
     run_task_run_moderation_task,
     run_task_version_moderation_task,
 )
-from core.domain.errors import ContentModerationError
 from core.domain.fields.chat_message import ChatMessage
+from core.providers.base.provider_error import ContentModerationError
 
 
 def capture_content_moderation_error(e: ContentModerationError, tenant: str, task_name: str):

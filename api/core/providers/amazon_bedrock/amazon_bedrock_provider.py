@@ -7,13 +7,6 @@ import httpx
 from pydantic import BaseModel
 from typing_extensions import override
 
-from core.domain.errors import (
-    MaxTokensExceededError,
-    ModelDoesNotSupportMode,
-    ProviderBadRequestError,
-    ProviderInternalError,
-    UnknownProviderError,
-)
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
@@ -38,6 +31,13 @@ from core.providers.amazon_bedrock.amazon_bedrock_domain import (
 from core.providers.base.abstract_provider import RawCompletion
 from core.providers.base.httpx_provider import HTTPXProvider
 from core.providers.base.models import StandardMessage
+from core.providers.base.provider_error import (
+    MaxTokensExceededError,
+    ModelDoesNotSupportMode,
+    ProviderBadRequestError,
+    ProviderInternalError,
+    UnknownProviderError,
+)
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ParsedResponse, ToolCallRequestBuffer
 from core.providers.google.google_provider_domain import (
