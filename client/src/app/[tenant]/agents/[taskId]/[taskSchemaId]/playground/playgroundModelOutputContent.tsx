@@ -1,6 +1,12 @@
 'use client';
 
-import { ArrowCircleUp16Regular, ArrowExpand16Regular, Code16Regular, Link16Regular } from '@fluentui/react-icons';
+import {
+  Add16Filled,
+  ArrowCircleUp16Regular,
+  ArrowExpand16Regular,
+  Code16Regular,
+  Link16Regular,
+} from '@fluentui/react-icons';
 import { useRouter } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
 import { useDeployVersionModal } from '@/components/DeployIterationModal/DeployVersionModal';
@@ -17,10 +23,12 @@ import { useVersions } from '@/store/versions';
 import { JsonSchema, TaskOutput, TaskRun, ToolCallPreview } from '@/types';
 import { TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
 import { ModelResponse, ReasoningStep, VersionV1 } from '@/types/workflowAI';
+import { TaskInputDict } from '@/types/workflowAI';
 import { ImprovePrompt } from './ImprovePrompt';
 import { AIEvaluationReview } from './components/AIEvaluation/AIEvaluationReview';
 import { TaskRunOutputRows } from './components/TaskRunOutputRows/TaskRunOutputRows';
 import { ProxyOutputViewer } from './proxy/ProxyOutputViewer';
+import { ProxyReplyView } from './proxy/ProxyReplyView';
 
 type ModelOutputContentProps = {
   currentAIModel: ModelResponse | undefined;
@@ -46,6 +54,7 @@ type ModelOutputContentProps = {
   isHideModelColumnAvaible: boolean;
   hideModelColumn: () => void;
   isProxy: boolean;
+  updateInputAndRun: (input: TaskInputDict) => void;
 };
 
 export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
@@ -73,6 +82,7 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
     isHideModelColumnAvaible,
     hideModelColumn,
     isProxy,
+    updateInputAndRun,
   } = props;
 
   const onCopyTaskRunUrl = useCopyRunURL(tenant, taskId, taskRun?.id);
@@ -134,6 +144,9 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
 
   const outputSchema = (version?.output_schema as JsonSchema) ?? outputSchemaFromProps;
 
+  const [showReplyView, setShowReplyView] = useState(false);
+  const showReplyButton = isProxy && !!taskRun && !showReplyView;
+
   return (
     <div
       onMouseEnter={() => setIsHovering(true)}
@@ -191,7 +204,28 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
           contextWindowInformation={contextWindowInformation}
           showTaskIterationDetails={true}
         />
+        {showReplyView && !!taskRun && (
+          <ProxyReplyView
+            input={taskRun.task_input}
+            output={taskRun.task_output}
+            updateInputAndRun={updateInputAndRun}
+          />
+        )}
       </div>
+
+      {showReplyButton && (
+        <div className='flex w-full overflow-hidden pb-2'>
+          <Button
+            variant='newDesignGray'
+            size='sm'
+            onClick={() => setShowReplyView(true)}
+            icon={<Add16Filled className='h-3.5 w-3.5' />}
+          >
+            User Message
+          </Button>
+        </div>
+      )}
+
       <div className={cn('sm:flex hidden items-center justify-between', isHovering ? 'opacity-100' : 'opacity-0')}>
         <div className='flex items-center gap-2'>
           <SimpleTooltip content='Copy Link to Run'>

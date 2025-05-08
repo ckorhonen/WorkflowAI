@@ -13,6 +13,7 @@ import { useOrFetchOrganizationSettings } from '@/store';
 import { GeneralizedTaskInput, JsonSchema, TaskRun } from '@/types';
 import { Model, TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
 import { ModelResponse, VersionV1 } from '@/types/workflowAI';
+import { TaskInputDict } from '@/types/workflowAI';
 import { FreeCreditsLimitReachedInfo } from './FreeCreditsLimitReachedInfo';
 import { CreateTaskRunButton } from './components/CreateTaskRunButton';
 import { ModelOutputErrorInformation } from './components/ModelOutputErrorInformation';
@@ -55,6 +56,7 @@ type ModelOutputProps = {
   isHideModelColumnAvaible: boolean;
   hideModelColumn: () => void;
   isProxy: boolean;
+  updateInputAndRun: (input: TaskInputDict) => void;
 };
 
 function ModelOutput(props: ModelOutputProps) {
@@ -81,6 +83,7 @@ function ModelOutput(props: ModelOutputProps) {
     isHideModelColumnAvaible,
     hideModelColumn,
     isProxy,
+    updateInputAndRun,
   } = props;
 
   const taskRun = taskRunner.data;
@@ -189,6 +192,7 @@ function ModelOutput(props: ModelOutputProps) {
               isHideModelColumnAvaible={isHideModelColumnAvaible}
               hideModelColumn={hideModelColumn}
               isProxy={isProxy}
+              updateInputAndRun={updateInputAndRun}
             />
           </div>
         )}
@@ -223,6 +227,7 @@ type PlaygroundOutputProps = Pick<
   hideModelColumn: (index: number) => void;
   hiddenModelColumns: number[] | undefined;
   isProxy: boolean;
+  updateInputAndRun: (input: TaskInputDict) => void;
 };
 
 export function PlaygroundOutput(props: PlaygroundOutputProps) {
@@ -239,6 +244,7 @@ export function PlaygroundOutput(props: PlaygroundOutputProps) {
     isInDemoMode,
     hiddenModelColumns,
     isProxy,
+    updateInputAndRun,
     ...rest
   } = props;
 
@@ -394,6 +400,7 @@ export function PlaygroundOutput(props: PlaygroundOutputProps) {
               isHideModelColumnAvaible={isHideModelColumnAvaible}
               hideModelColumn={() => onHideModelColumn(index)}
               isProxy={isProxy}
+              updateInputAndRun={updateInputAndRun}
             />
           ))}
         </div>

@@ -45,7 +45,7 @@ export function ProxyMessagesView(props: Props) {
           </Button>
         )}
       </div>
-      <div className='flex overflow-y-auto'>
+      <div className='flex overflow-y-auto' id='proxy-messages-view'>
         <div className='flex flex-col gap-2 px-4 py-4 h-max w-full'>
           {messages.map((message, index) => (
             <ProxyMessageView key={index} message={message} setMessage={(message) => onMessageChange(message, index)} />

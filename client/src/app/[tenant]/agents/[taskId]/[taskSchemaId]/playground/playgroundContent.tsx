@@ -45,6 +45,7 @@ import { useUpload } from '@/store/upload';
 import { buildScopeKey } from '@/store/utils';
 import { useVersions } from '@/store/versions';
 import { StreamedChunk, TaskRun, TaskSchemaResponseWithSchema } from '@/types';
+import { GeneralizedTaskInput } from '@/types';
 import { ModelOptional, TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
 import { StreamError, captureIfNeeded } from '@/types/errors';
 import {
@@ -56,6 +57,7 @@ import {
   RunV1,
   SelectedModels,
   TaskGroupProperties_Input,
+  TaskInputDict,
   ToolKind,
   Tool_Output,
   VersionV1,
@@ -228,6 +230,9 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
     hiddenModelColumnsParam,
   });
 
+  const latestInputRef = useRef<GeneralizedTaskInput | undefined>(persistedGeneratedInput);
+  latestInputRef.current = persistedGeneratedInput;
+
   const { version: currentVersion } = useOrFetchVersion(tenant, taskId, versionId ?? persistedVersionId);
 
   const [proxyToolCalls, setProxyToolCalls] = useState<(ToolKind | Tool_Output)[] | undefined>(undefined);
@@ -391,7 +396,7 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
         const { finalGeneratedInput, finalInstructions, finalTemperature, finalVariantId } = pickFinalRunProperties(
           runOptions,
           {
-            generatedInput,
+            generatedInput: latestInputRef.current,
             instructions,
             temperature,
             variantId,
@@ -537,7 +542,6 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
         }
       }),
     [
-      generatedInput,
       instructions,
       temperature,
       variantId,
@@ -1146,6 +1150,23 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
     [hiddenModelColumns, setHiddenModelColumns]
   );
 
+  const scrollToBottomOfProxyMessages = useCallback(() => {
+    const proxyMessagesView = document.getElementById('proxy-messages-view');
+    if (proxyMessagesView) {
+      proxyMessagesView.scrollTop = proxyMessagesView.scrollHeight;
+    }
+  }, []);
+
+  const updateInputAndRun = useCallback(
+    async (input: TaskInputDict) => {
+      setGeneratedInput(input);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      scrollToBottomOfProxyMessages();
+      handleRunTasks();
+    },
+    [setGeneratedInput, scrollToBottomOfProxyMessages, handleRunTasks]
+  );
+
   return (
     <div className='flex flex-row h-full w-full'>
       <div className='flex h-full flex-1 overflow-hidden'>
@@ -1266,6 +1287,7 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
                   hideModelColumn={hideModelColumn}
                   hiddenModelColumns={hiddenModelColumns}
                   isProxy={isProxy}
+                  updateInputAndRun={updateInputAndRun}
                 />
               </div>
               <TaskRunModal
