@@ -76,17 +76,21 @@ def _generate_cache_key(
 
 
 def redis_cached(expiration_seconds: int = 60 * 60 * 24) -> Callable[[F], F]:  # noqa: C901
-    if not shared_redis_client:
-        _logger.warning("Redis cache is not available, skipping redis_cached")
-
-        def decorator(func: F) -> F:
-            return func
-
-        return decorator
-
     def decorator(func: F) -> F:
         @functools.wraps(func)
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            if not shared_redis_client:
+                _logger.warning(
+                    "Redis cache is not available, skipping redis_cached",
+                    extra={"func": f"{func.__module__}.{func.__name__}"},
+                )
+                # Fallback to direct execution
+                if asyncio.iscoroutinefunction(func):
+                    return await func(*args, **kwargs)
+                result = func(*args, **kwargs)
+                if inspect.isawaitable(result):
+                    result = await result
+                return result
             try:
                 cache_key = _generate_cache_key(func, args, kwargs)
 
@@ -99,7 +103,7 @@ def redis_cached(expiration_seconds: int = 60 * 60 * 24) -> Callable[[F], F]:  #
                     result = await func(*args, **kwargs)
                 else:
                     result = func(*args, **kwargs)
-                    # Handle the case where a non-async function returns an awaitable (happens in tests with AsyncMock)
+                    # Handle the case where a non-async function returns an awaitable
                     if inspect.isawaitable(result):
                         result = await result
 
@@ -107,7 +111,7 @@ def redis_cached(expiration_seconds: int = 60 * 60 * 24) -> Callable[[F], F]:  #
                 return result
             except Exception as e:
                 _logger.exception("Exception in redis_cached", extra={"error": str(e)})
-                # Handle fallback execution the same way as normal execution
+                # Fallback execution
                 if asyncio.iscoroutinefunction(func):
                     return await func(*args, **kwargs)
                 result = func(*args, **kwargs)
@@ -149,24 +153,19 @@ def redis_cached_generator_last_chunk(expiration_seconds: int = 60 * 60 * 24) ->
         - It does not cache the intermediate streamed items.
     """
 
-    if not shared_redis_client:
-        _logger.warning("Redis cache is not available, skipping redis_cached_generator")
-
-        def decorator(func: AG) -> AG:
-            return func
-
-        return decorator
-
     def decorator(func: AG) -> AG:
         @functools.wraps(func)
         async def async_generator_wrapper(*args: Any, **kwargs: Any) -> AsyncIterator[Any]:
-            cache_key = _generate_cache_key(func, args, kwargs, suffix=".generator_result")
-
-            if shared_redis_client is None:
-                # This code should never be reached, it's here for typing reasons.
-                raise Exception(
-                    "'async_generator_wrapper' is used, but redis cache is not available, this should not happen",
+            if not shared_redis_client:
+                _logger.warning(
+                    "Redis cache is not available, skipping redis_cached_generator",
+                    extra={"func": f"{func.__module__}.{func.__name__}"},
                 )
+                async for item in func(*args, **kwargs):
+                    yield item
+                return
+
+            cache_key = _generate_cache_key(func, args, kwargs, suffix=".generator_result")
 
             try:
                 # Check for cached result
@@ -191,7 +190,6 @@ def redis_cached_generator_last_chunk(expiration_seconds: int = 60 * 60 * 24) ->
                         "Generator yielded no items for nothing to cache.",
                         extra={"cache_key": cache_key},
                     )
-
             except Exception as e:
                 _logger.exception("Error in cached generator for", extra={"cache_key": cache_key, "error": str(e)})
                 # Fallback to original function on error
