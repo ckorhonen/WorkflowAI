@@ -12,7 +12,6 @@ from api.dependencies.security import user_organization
 from api.routers.run import DeprecatedVersionReference, version_reference_to_domain
 from core.domain.agent_run import AgentRun
 from core.domain.ban import Ban
-from core.domain.errors import InvalidGenerationError, ProviderRateLimitError
 from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
 from core.domain.major_minor import MajorMinor
@@ -26,6 +25,7 @@ from core.domain.task_variant import SerializableTaskVariant
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.domain.version_environment import VersionEnvironment
 from core.domain.version_reference import VersionReference
+from core.providers.base.provider_error import InvalidGenerationError, ProviderRateLimitError
 from core.runners.abstract_runner import AbstractRunner
 from core.runners.workflowai.workflowai_runner import WorkflowAIRunner
 from tests.models import task_run_ser

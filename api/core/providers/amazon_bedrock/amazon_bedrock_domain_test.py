@@ -3,7 +3,7 @@ from typing import List
 
 import pytest
 
-from core.domain.errors import InvalidRunOptionsError, ModelDoesNotSupportMode, UnpriceableRunError
+from core.domain.errors import InvalidRunOptionsError, UnpriceableRunError
 from core.domain.message import File, MessageDeprecated
 from core.domain.models import Model
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
@@ -12,6 +12,7 @@ from core.providers.amazon_bedrock.amazon_bedrock_domain import (
     AmazonBedrockSystemMessage,
     ContentBlock,
 )
+from core.providers.base.provider_error import ModelDoesNotSupportMode
 
 
 def test_AmazonBedrockMessage_from_domain():

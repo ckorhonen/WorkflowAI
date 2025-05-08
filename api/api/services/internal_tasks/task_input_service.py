@@ -8,9 +8,9 @@ from core.agents.task_input_import_task import (
     stream_task_inputs_import_task,
     task_input_import,
 )
-from core.domain.errors import InvalidGenerationError
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.types import AgentInput
+from core.providers.base.provider_error import InvalidGenerationError
 
 
 class TaskInputService:

@@ -38,7 +38,6 @@ from core.domain.analytics_events.analytics_events import (
     VersionProperties,
 )
 from core.domain.error_response import ErrorResponse
-from core.domain.errors import ProviderError
 from core.domain.events import RunCreatedEvent
 from core.domain.page import Page
 from core.domain.task_example import SerializableTaskExample
@@ -49,6 +48,7 @@ from core.domain.task_io import SerializableTaskIO
 from core.domain.types import AgentInput
 from core.domain.users import UserIdentifier
 from core.domain.version_environment import VersionEnvironment
+from core.providers.base.provider_error import ProviderError
 from core.storage.models import TaskUpdate
 from core.tools import ToolKind
 from core.utils.file_utils.file_utils import extract_text_from_file_base64

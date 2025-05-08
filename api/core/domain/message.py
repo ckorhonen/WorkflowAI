@@ -4,7 +4,6 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from core.domain.errors import InternalError
 from core.domain.fields.file import File
 from core.domain.fields.image_options import ImageOptions
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
@@ -66,6 +65,8 @@ class Message(BaseModel):
                     tool_call_requests=tool_call_requests,
                 )
         # We should never reach this point
+        from core.domain.errors import InternalError
+
         raise InternalError("Unexpected message type")
 
 

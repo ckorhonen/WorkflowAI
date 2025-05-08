@@ -6,13 +6,6 @@ import pytest
 from pytest import MonkeyPatch
 from pytest_httpx import HTTPXMock, IteratorStream
 
-from core.domain.errors import (
-    FailedGenerationError,
-    MaxTokensExceededError,
-    ProviderBadRequestError,
-    ProviderInternalError,
-    UnknownProviderError,
-)
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
@@ -22,6 +15,13 @@ from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.abstract_provider import RawCompletion
 from core.providers.base.httpx_provider import ParsedResponse
 from core.providers.base.models import StandardMessage
+from core.providers.base.provider_error import (
+    FailedGenerationError,
+    MaxTokensExceededError,
+    ProviderBadRequestError,
+    ProviderInternalError,
+    UnknownProviderError,
+)
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.mistral.mistral_domain import (
     CompletionRequest,

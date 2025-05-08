@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -40,6 +40,13 @@ class FewShotConfiguration(BaseModel):
 
     def compute_tags(self) -> list[str]:
         return compute_tags(self.model_dump(exclude_none=True))
+
+
+class ToolChoiceFunction(BaseModel):
+    name: str
+
+
+ToolChoice: TypeAlias = Literal["auto", "none", "required"] | ToolChoiceFunction
 
 
 class TaskGroupProperties(BaseModel):
@@ -87,6 +94,8 @@ class TaskGroupProperties(BaseModel):
     has_templated_instructions: bool | None = None
 
     image_options: ImageOptions | None = None
+
+    tool_choice: ToolChoice | None = None
 
     def model_hash(self) -> str:
         # Excluding fields are compiled from other fields

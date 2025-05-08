@@ -2,12 +2,12 @@ from typing import Any
 
 import pytest
 
-from core.domain.errors import MaxTokensExceededError
 from core.domain.llm_usage import LLMUsage
 from core.domain.models import Model, Provider
 from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.abstract_provider import RawCompletion
 from core.providers.base.httpx_provider import ParsedResponse
+from core.providers.base.provider_error import MaxTokensExceededError
 from core.providers.base.streaming_context import StreamingContext
 from core.providers.openai.openai_domain import (
     ChoiceDelta,

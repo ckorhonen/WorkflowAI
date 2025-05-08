@@ -23,11 +23,9 @@ from api.utils import (
     set_start_time,
     setup_metrics,
 )
-from core.domain.errors import (
-    DefaultError,
-    ProviderError,
-)
+from core.domain.errors import DefaultError
 from core.domain.models import Model
+from core.providers.base.provider_error import ProviderError
 from core.storage import ObjectNotFoundException
 from core.storage.mongo.migrations.migrate import check_migrations, migrate
 from core.utils import no_op

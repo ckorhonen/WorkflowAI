@@ -8,14 +8,6 @@ import pytest
 from httpx import Response
 from pytest_httpx import HTTPXMock, IteratorStream
 
-from core.domain.errors import (
-    FailedGenerationError,
-    MaxTokensExceededError,
-    ProviderBadRequestError,
-    ProviderError,
-    ProviderInternalError,
-    ServerOverloadedError,
-)
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
@@ -33,6 +25,14 @@ from core.providers.anthropic.anthropic_domain import (
 )
 from core.providers.anthropic.anthropic_provider import AnthropicConfig, AnthropicProvider
 from core.providers.base.models import RawCompletion
+from core.providers.base.provider_error import (
+    FailedGenerationError,
+    MaxTokensExceededError,
+    ProviderBadRequestError,
+    ProviderError,
+    ProviderInternalError,
+    ServerOverloadedError,
+)
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ToolCallRequestBuffer
 from tests.utils import fixture_bytes, fixtures_json, mock_aiter

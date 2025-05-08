@@ -11,14 +11,8 @@ from pydantic import BaseModel
 from pytest_httpx import HTTPXMock
 
 from core.domain.errors import (
-    AgentRunFailedError,
     JSONSchemaValidationError,
-    MaxToolCallIterationError,
-    ModelDoesNotSupportMode,
     ProviderDoesNotSupportModelError,
-    ProviderInternalError,
-    ProviderUnavailableError,
-    StructuredGenerationError,
 )
 from core.domain.fields.file import File
 from core.domain.fields.image_options import ImageOptions
@@ -37,6 +31,14 @@ from core.domain.tool import Tool
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.domain.types import AgentOutput
 from core.providers.base.abstract_provider import AbstractProvider
+from core.providers.base.provider_error import (
+    AgentRunFailedError,
+    MaxToolCallIterationError,
+    ModelDoesNotSupportMode,
+    ProviderInternalError,
+    ProviderUnavailableError,
+    StructuredGenerationError,
+)
 from core.providers.base.provider_options import ProviderOptions
 from core.runners.workflowai.internal_tool import InternalTool
 from core.runners.workflowai.templates import TemplateName

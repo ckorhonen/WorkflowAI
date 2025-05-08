@@ -4,9 +4,7 @@ from typing import Annotated, Any, Literal, Self
 from pydantic import BaseModel, ConfigDict, Field
 
 from core.domain.errors import (
-    FailedGenerationError,
     InternalError,
-    ModelDoesNotSupportMode,
     UnpriceableRunError,
 )
 from core.domain.fields.file import File
@@ -22,6 +20,7 @@ from core.providers.base.models import (
     ToolCallRequestDict,
     ToolCallResultDict,
 )
+from core.providers.base.provider_error import FailedGenerationError, ModelDoesNotSupportMode
 from core.providers.google.google_provider_domain import (
     internal_tool_name_to_native_tool_call,
     native_tool_name_to_internal,

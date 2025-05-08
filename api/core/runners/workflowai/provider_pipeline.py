@@ -5,12 +5,13 @@ from contextlib import contextmanager
 from typing import Any, NoReturn, Protocol
 
 from core.domain.error_response import ProviderErrorCode
-from core.domain.errors import InternalError, NoProviderSupportingModelError, ProviderError, StructuredGenerationError
+from core.domain.errors import InternalError, NoProviderSupportingModelError
 from core.domain.models.model_data import FinalModelData, ModelData
 from core.domain.models.providers import Provider
 from core.domain.models.utils import get_model_data
 from core.domain.tenant_data import ProviderSettings
 from core.providers.base.abstract_provider import AbstractProvider
+from core.providers.base.provider_error import ProviderError, StructuredGenerationError
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.factory.abstract_provider_factory import AbstractProviderFactory
 from core.runners.workflowai.templates import TemplateName

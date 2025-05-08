@@ -3,11 +3,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from core.domain.errors import ProviderRateLimitError
 from core.domain.models import Model, Provider
 from core.domain.tenant_data import ProviderSettings
 from core.providers.base.abstract_provider import AbstractProvider
 from core.providers.base.config import ProviderConfig
+from core.providers.base.provider_error import ProviderRateLimitError
 from core.providers.factory.abstract_provider_factory import AbstractProviderFactory
 from core.providers.factory.local_provider_factory import LocalProviderFactory
 from core.runners.workflowai.provider_pipeline import ProviderPipeline, ProviderPipelineBuilder

@@ -9,13 +9,17 @@ from httpx import Response
 from pydantic import BaseModel
 from typing_extensions import override
 
-from core.domain.errors import (
+from core.domain.errors import InternalError, JSONSchemaValidationError
+from core.domain.llm_usage import LLMUsage
+from core.domain.message import MessageDeprecated
+from core.domain.structured_output import StructuredOutput
+from core.providers.base.abstract_provider import AbstractProvider, ProviderConfigVar, ProviderRequestVar, RawCompletion
+from core.providers.base.client_pool import ClientPool
+from core.providers.base.provider_error import (
     ContentModerationError,
     FailedGenerationError,
-    InternalError,
     InvalidGenerationError,
     InvalidProviderConfig,
-    JSONSchemaValidationError,
     ProviderError,
     ProviderInternalError,
     ProviderRateLimitError,
@@ -25,11 +29,6 @@ from core.domain.errors import (
     ServerOverloadedError,
     UnknownProviderError,
 )
-from core.domain.llm_usage import LLMUsage
-from core.domain.message import MessageDeprecated
-from core.domain.structured_output import StructuredOutput
-from core.providers.base.abstract_provider import AbstractProvider, ProviderConfigVar, ProviderRequestVar, RawCompletion
-from core.providers.base.client_pool import ClientPool
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import StreamingContext
 from core.utils.background import add_background_task

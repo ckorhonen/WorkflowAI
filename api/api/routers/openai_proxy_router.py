@@ -139,6 +139,7 @@ async def chat_completions(
         max_tokens=body.max_completion_tokens or body.max_tokens,
         temperature=body.temperature,
         provider=body.workflowai_provider,
+        tool_choice=body.worflowai_tool_choice,
     )
     properties.task_variant_id = variant.id
 

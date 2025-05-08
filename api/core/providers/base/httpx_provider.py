@@ -10,7 +10,6 @@ from typing_extensions import override
 from core.domain.errors import (
     InternalError,
     JSONSchemaValidationError,
-    ProviderError,
 )
 from core.domain.fields.file import File
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
@@ -23,6 +22,7 @@ from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.abstract_provider import ProviderConfigVar, RawCompletion
 from core.providers.base.client_pool import ClientPool
 from core.providers.base.httpx_provider_base import HTTPXProviderBase
+from core.providers.base.provider_error import ProviderError
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ParsedResponse, StreamingContext, ToolCallRequestBuffer
 from core.utils.background import add_background_task

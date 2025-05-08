@@ -101,7 +101,7 @@ from core.agents.url_finder_agent import URLFinderAgentInput, url_finder_agent
 from core.deprecated.workflowai import WorkflowAI
 from core.domain.changelogs import VersionChangelog
 from core.domain.deprecated.task import Task, TaskInput, TaskOutput
-from core.domain.errors import FailedGenerationError, InternalError, JSONSchemaValidationError, UnparsableChunkError
+from core.domain.errors import InternalError, JSONSchemaValidationError, UnparsableChunkError
 from core.domain.events import AgentInstructionsGeneratedEvent, EventRouter
 from core.domain.fields.chat_message import ChatMessage
 from core.domain.fields.file import File
@@ -116,6 +116,7 @@ from core.domain.task_variant import SerializableTaskVariant
 from core.domain.types import AgentInput, CacheUsage
 from core.domain.url_content import URLContent
 from core.domain.version_reference import VersionReference
+from core.providers.base.provider_error import FailedGenerationError
 from core.runners.workflowai.utils import FileWithKeyPath
 from core.runners.workflowai.workflowai_runner import WorkflowAIRunner
 from core.storage.backend_storage import BackendStorage, SystemBackendStorage

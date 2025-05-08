@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, field_validator
 
-from core.domain.errors import InvalidProviderConfig, UnknownProviderError
+from core.providers.base.provider_error import InvalidProviderConfig, UnknownProviderError
 from core.providers.base.utils import get_provider_config_env
 from core.providers.google import google_provider_auth
 
