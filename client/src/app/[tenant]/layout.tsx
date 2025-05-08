@@ -26,7 +26,7 @@ export default function Layout({ children }: Readonly<{ children: React.ReactNod
 
   const showTaskBanner = !isSignedIn && tenant === TENANT_PLACEHOLDER && !!taskId;
 
-  const { modelToAdvertise, dismiss, modelId: modelToAdvertiseId } = useModelToAdvertise();
+  const { modelsToAdvertise, dismiss } = useModelToAdvertise();
   const { state: paymentBannerState } = usePaymentBanners(isSignedIn);
 
   const showBanner = !showTaskBanner && !isSignedIn;
@@ -46,9 +46,7 @@ export default function Layout({ children }: Readonly<{ children: React.ReactNod
         <div className='flex flex-col h-full max-h-screen overflow-hidden bg-custom-gradient-1'>
           {showBanner && <LoggedOutBanner />}
           {showTaskBanner && <LoggedOutBannerForDemoTask name={task?.name ?? taskId} />}
-          {!!modelToAdvertise && !paymentBannerState && (
-            <ModelBanner model={modelToAdvertise} modelId={modelToAdvertiseId} onClose={dismiss} />
-          )}
+          {!!modelsToAdvertise && !paymentBannerState && <ModelBanner models={modelsToAdvertise} onClose={dismiss} />}
           {!!paymentBannerState && <PaymentBanner state={paymentBannerState} />}
           <div className='flex flex-1 sm:flex-row flex-col overflow-hidden'>
             <Sidebar />
