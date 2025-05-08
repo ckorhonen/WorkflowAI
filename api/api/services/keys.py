@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives.asymmetric.ec import (
 from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 from pydantic import BaseModel
 
-from core.domain.errors import DefaultError
+from core.domain.errors import InvalidToken
 from core.utils.strings import b64_urldecode
 
 
@@ -63,12 +63,6 @@ class Claims(BaseModel):
 
 
 T = TypeVar("T", bound=Claims)
-
-
-class InvalidToken(DefaultError):
-    status_code: int = 401
-    default_capture: bool = True
-    default_message: str = "Invalid token"
 
 
 class KeyRing:

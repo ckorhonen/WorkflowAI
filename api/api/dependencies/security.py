@@ -15,6 +15,7 @@ from api.services.api_keys import APIKeyService
 from api.services.event_handler import system_event_router
 from api.services.security_svc import SecurityService
 from api.utils import set_tenant_slug
+from core.domain.errors import InvalidToken
 from core.domain.tenant_data import (
     ProviderSettings,
     PublicOrganizationData,
@@ -27,7 +28,7 @@ from core.storage.organization_storage import OrganizationSystemStorage
 from core.utils import no_op
 from core.utils.encryption import Encryption
 
-from ..services.keys import JWK, Claims, InvalidToken, KeyRing
+from ..services.keys import JWK, Claims, KeyRing
 
 logger = logging.getLogger(__name__)
 

@@ -5,6 +5,7 @@ from fastapi import HTTPException
 
 from api.dependencies.security import UserClaims
 from api.services.security_svc import SecurityService
+from core.domain.errors import InvalidToken
 from core.domain.events import EventRouter
 from core.domain.tenant_data import TenantData
 from core.domain.users import User
@@ -83,12 +84,15 @@ class TestUserOrganization:
     ):
         mock_org_storage.find_tenant_for_api_key.side_effect = ObjectNotFoundException()
 
-        result = await security_svc.find_tenant(None, "sk-12345678")
+        with pytest.raises(InvalidToken) as e:
+            await security_svc.find_tenant(None, "sk-12345678")
         mock_org_storage.find_tenant_for_api_key.assert_called_once_with(
             "db722c9c5c5fbe334dd0e95a7406d76fcde6396e9d3495edf174ad689fda5dc2",
         )
-
-        assert result is None
+        assert (
+            str(e.value)
+            == "API Key is invalid. Please check your API Key or generate a new one at https://workflowai.com/organization/settings/api-keys"
+        )
 
     async def test_with_user(
         self,
