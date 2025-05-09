@@ -3,9 +3,10 @@ from typing import Any
 
 from typing_extensions import override
 
-from core.domain.errors import InvalidProviderConfig, ProviderDoesNotSupportModelError
+from core.domain.errors import ProviderDoesNotSupportModelError
 from core.domain.models import Model, Provider
 from core.domain.tool import Tool
+from core.providers.base.provider_error import InvalidProviderConfig
 from core.providers.base.utils import get_provider_config_env
 from core.providers.openai.azure_open_ai_provider.azure_openai_config import AzureOpenAIConfig
 from core.providers.openai.openai_domain import MODEL_NAME_MAP

@@ -14,12 +14,9 @@ from api.services.providers_service import shared_provider_factory
 from core.domain.agent_run_result import INTERNAL_AGENT_RUN_RESULT_SCHEMA_KEY, AgentRunResult
 from core.domain.consts import METADATA_KEY_PROVIDER_NAME, METADATA_KEY_USED_MODEL, METADATA_KEY_USED_PROVIDERS
 from core.domain.errors import (
-    AgentRunFailedError,
     BadRequestError,
     InvalidFileError,
     InvalidRunOptionsError,
-    MaxToolCallIterationError,
-    ModelDoesNotSupportMode,
 )
 from core.domain.fields.file import File
 from core.domain.fields.image_options import ImageOptions
@@ -42,6 +39,11 @@ from core.domain.tool import Tool
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.domain.types import AgentInput
 from core.providers.base.abstract_provider import AbstractProvider
+from core.providers.base.provider_error import (
+    AgentRunFailedError,
+    MaxToolCallIterationError,
+    ModelDoesNotSupportMode,
+)
 from core.providers.base.provider_options import ProviderOptions
 from core.runners.abstract_runner import AbstractRunner, CacheFetcher
 from core.runners.workflowai.internal_tool import build_all_internal_tools

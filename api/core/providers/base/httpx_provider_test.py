@@ -9,17 +9,7 @@ from httpx import ConnectError, ReadError, ReadTimeout, RemoteProtocolError, Res
 from pydantic import BaseModel
 from pytest_httpx import HTTPXMock, IteratorStream
 
-from core.domain.errors import (
-    ContentModerationError,
-    FailedGenerationError,
-    InvalidGenerationError,
-    JSONSchemaValidationError,
-    ProviderInternalError,
-    ProviderTimeoutError,
-    ProviderUnavailableError,
-    ReadTimeOutError,
-    UnknownProviderError,
-)
+from core.domain.errors import JSONSchemaValidationError
 from core.domain.fields.file import File
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_usage import LLMUsage
@@ -31,6 +21,16 @@ from core.providers.anthropic.anthropic_domain import CompletionResponse
 from core.providers.base.abstract_provider import RawCompletion
 from core.providers.base.httpx_provider import HTTPXProvider
 from core.providers.base.models import StandardMessage
+from core.providers.base.provider_error import (
+    ContentModerationError,
+    FailedGenerationError,
+    InvalidGenerationError,
+    ProviderInternalError,
+    ProviderTimeoutError,
+    ProviderUnavailableError,
+    ReadTimeOutError,
+    UnknownProviderError,
+)
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ParsedResponse, ToolCallRequestBuffer
 from core.providers.openai.openai_provider import OpenAIProvider

@@ -10,15 +10,6 @@ import pytest
 from httpx import Response
 from pytest_httpx import HTTPXMock, IteratorStream
 
-from core.domain.errors import (
-    ContentModerationError,
-    FailedGenerationError,
-    MaxTokensExceededError,
-    ProviderBadRequestError,
-    ProviderError,
-    ProviderInternalError,
-    UnknownProviderError,
-)
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
@@ -27,6 +18,15 @@ from core.domain.models.model_datas_mapping import DisplayedProvider
 from core.domain.structured_output import StructuredOutput
 from core.domain.tool import Tool
 from core.providers.base.models import RawCompletion
+from core.providers.base.provider_error import (
+    ContentModerationError,
+    FailedGenerationError,
+    MaxTokensExceededError,
+    ProviderBadRequestError,
+    ProviderError,
+    ProviderInternalError,
+    UnknownProviderError,
+)
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.groq.groq_domain import Choice, CompletionResponse, GroqMessage, Usage
 from core.providers.groq.groq_provider import GroqConfig, GroqProvider

@@ -18,9 +18,9 @@ from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.abstract_provider import (
     AbstractProvider,
     ProviderConfigInterface,
-    ProviderError,
 )
 from core.providers.base.models import RawCompletion, StandardMessage
+from core.providers.base.provider_error import ProviderError
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.factory.local_provider_factory import LocalProviderFactory
 from core.providers.openai.openai_provider import OpenAIProvider

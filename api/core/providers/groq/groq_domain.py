@@ -4,7 +4,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated
 
-from core.domain.errors import ModelDoesNotSupportMode, UnpriceableRunError
+from core.domain.errors import UnpriceableRunError
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
@@ -20,6 +20,7 @@ from core.providers.base.models import (
     ToolCallRequestDict,
     ToolCallResultDict,
 )
+from core.providers.base.provider_error import ModelDoesNotSupportMode
 from core.providers.google.google_provider_domain import native_tool_name_to_internal
 from core.providers.openai.openai_domain import parse_tool_call_or_raise
 from core.utils.token_utils import tokens_from_string

@@ -8,7 +8,14 @@ import pytest
 from httpx import Response
 from pytest_httpx import HTTPXMock, IteratorStream
 
-from core.domain.errors import (
+from core.domain.fields.file import File
+from core.domain.llm_usage import LLMUsage
+from core.domain.message import MessageDeprecated
+from core.domain.models import Model, Provider
+from core.domain.structured_output import StructuredOutput
+from core.providers.base.abstract_provider import RawCompletion
+from core.providers.base.models import StandardMessage
+from core.providers.base.provider_error import (
     ContentModerationError,
     FailedGenerationError,
     MaxTokensExceededError,
@@ -19,13 +26,6 @@ from core.domain.errors import (
     StructuredGenerationError,
     UnknownProviderError,
 )
-from core.domain.fields.file import File
-from core.domain.llm_usage import LLMUsage
-from core.domain.message import MessageDeprecated
-from core.domain.models import Model, Provider
-from core.domain.structured_output import StructuredOutput
-from core.providers.base.abstract_provider import RawCompletion
-from core.providers.base.models import StandardMessage
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.openai.openai_domain import CompletionRequest
 from core.providers.openai.openai_provider import OpenAIConfig, OpenAIProvider
@@ -205,6 +205,34 @@ class TestBuildRequest:
             ],
             "reasoning_effort": "low",
         }
+
+    def test_build_request_with_tool_choice_none(self, openai_provider: OpenAIProvider):
+        request = cast(
+            CompletionRequest,
+            openai_provider._build_request(  # pyright: ignore [reportPrivateUsage]
+                messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
+                options=ProviderOptions(
+                    model=Model.GPT_4O_2024_11_20,
+                    tool_choice="none",
+                ),
+                stream=False,
+            ),
+        )
+        assert request.tool_choice == "none"
+
+    def test_build_request_with_tool_choice_auto(self, openai_provider: OpenAIProvider):
+        request = cast(
+            CompletionRequest,
+            openai_provider._build_request(  # pyright: ignore [reportPrivateUsage]
+                messages=[MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello")],
+                options=ProviderOptions(
+                    model=Model.GPT_4O_2024_11_20,
+                    tool_choice="auto",
+                ),
+                stream=False,
+            ),
+        )
+        assert request.tool_choice == "auto"
 
 
 def mock_openai_stream(httpx_mock: HTTPXMock):

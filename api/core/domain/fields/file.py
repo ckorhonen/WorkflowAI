@@ -5,7 +5,6 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field, model_validator
 
-from core.domain.errors import InternalError
 from core.utils.file_utils.file_utils import guess_content_type
 
 _logger = logging.getLogger(__file__)
@@ -32,6 +31,8 @@ class File(BaseModel):
             return f"data:{self.content_type or default_content_type};base64,{self.data}"
         if self.url:
             return self.url
+        from core.domain.errors import InternalError
+
         raise InternalError("No data or URL provided for image")
 
     @model_validator(mode="after")

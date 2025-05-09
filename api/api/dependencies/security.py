@@ -15,6 +15,7 @@ from api.services.api_keys import APIKeyService
 from api.services.event_handler import system_event_router
 from api.services.security_svc import SecurityService
 from api.utils import set_tenant_slug
+from core.domain.errors import InvalidToken
 from core.domain.tenant_data import (
     ProviderSettings,
     PublicOrganizationData,
@@ -27,7 +28,7 @@ from core.storage.organization_storage import OrganizationSystemStorage
 from core.utils import no_op
 from core.utils.encryption import Encryption
 
-from ..services.keys import JWK, Claims, InvalidToken, KeyRing
+from ..services.keys import JWK, Claims, KeyRing
 
 logger = logging.getLogger(__name__)
 
@@ -84,15 +85,17 @@ BearerDep = Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)]
 async def user_auth_dependency(
     keys: KeyRingDep,
     credentials: BearerDep,
+    request: Request,
 ) -> User | None:
     if credentials is not None:
         if APIKeyService.is_api_key(credentials.credentials):
             return None
-        try:
-            claims = await keys.verify(credentials.credentials, returns=UserClaims)
-            return claims.to_domain()
-        except InvalidToken as e:
-            raise HTTPException(401, detail=str(e))
+
+        claims = await keys.verify(credentials.credentials, returns=UserClaims)
+        return claims.to_domain()
+
+    if request.headers.get("Authorization"):
+        raise InvalidToken("Authorization header must be prefixed with 'Bearer'")
 
     return None
 

@@ -8,12 +8,6 @@ import pytest
 from httpx import Response
 from pytest_httpx import HTTPXMock, IteratorStream
 
-from core.domain.errors import (
-    MaxTokensExceededError,
-    MissingModelError,
-    ProviderInternalError,
-    UnknownProviderError,
-)
 from core.domain.fields.file import File
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_usage import LLMUsage
@@ -27,6 +21,12 @@ from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.abstract_provider import RawCompletion
 from core.providers.base.httpx_provider import ParsedResponse
 from core.providers.base.models import StandardMessage
+from core.providers.base.provider_error import (
+    MaxTokensExceededError,
+    MissingModelError,
+    ProviderInternalError,
+    UnknownProviderError,
+)
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ToolCallRequestBuffer
 from core.providers.fireworks.fireworks_domain import (

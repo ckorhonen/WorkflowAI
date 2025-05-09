@@ -1,51 +1,63 @@
 import { Dismiss12Regular } from '@fluentui/react-icons';
+import { cx } from 'class-variance-authority';
 import Link from 'next/link';
-import { useMemo } from 'react';
 import { Button } from '@/components/ui/Button';
 import { useTaskParams } from '@/lib/hooks/useTaskParams';
 import { taskSideBySideRoute } from '@/lib/routeFormatter';
 
 type ModelBannerProps = {
-  model: string;
-  modelId?: string;
-  onClose: (model: string) => void;
+  // A tuple modelName, modelId
+  models: [string, string][];
+  onClose: (model: [string, string][]) => void;
   routeForSignUp?: string;
 };
 
-export function ModelBanner(props: ModelBannerProps) {
-  const { model, modelId, onClose, routeForSignUp } = props;
-
+function ModelLink(props: { model: [string, string] }) {
   const { tenant, taskId, taskSchemaId } = useTaskParams();
+  const {
+    model: [modelName, modelId],
+  } = props;
 
-  const tryItOutLink = useMemo(() => {
-    if (!modelId || !taskId || !taskSchemaId) {
-      return null;
-    }
+  const className = 'text-white text-[13px] font-medium';
 
-    return taskSideBySideRoute(tenant, taskId, taskSchemaId, { requestedRightModelId: modelId });
-  }, [modelId, tenant, taskId, taskSchemaId]);
+  if (!taskId || !taskSchemaId) {
+    return <span className={className}>{modelName}</span>;
+  }
+
+  const link = taskSideBySideRoute(tenant, taskId, taskSchemaId, { requestedRightModelId: modelId });
+
+  return (
+    <Link className={cx(className, 'underline')} href={link}>
+      {modelName}
+    </Link>
+  );
+}
+
+export function ModelBanner(props: ModelBannerProps) {
+  const { models, onClose, routeForSignUp } = props;
 
   return (
     <div className='flex w-full h-9 bg-indigo-500 text-white justify-between items-center px-4 flex-shrink-0'>
       <div />
       <div className='flex flex-row gap-2 items-center'>
         <div className='font-semibold text-indigo-50 text-[12px] px-[6px] py-[2px] rounded-[2px] bg-indigo-400'>
-          New
+          New model{models.length > 1 ? 's' : ''} available
         </div>
-        <div className='text-white text-[13px] font-medium'>{model} available</div>
+
+        {models.map((model, idx) => (
+          <>
+            <ModelLink key={model[1]} model={model} />
+            {idx < models.length - 1 && <span> </span>}
+          </>
+        ))}
         {routeForSignUp && (
           <Link href={routeForSignUp} className='text-white text-[13px] font-medium underline'>
             Sign up to try
           </Link>
         )}
-        {tryItOutLink && (
-          <Link href={tryItOutLink} className='text-white text-[13px] font-medium underline'>
-            Try it out
-          </Link>
-        )}
       </div>
       <Button
-        onClick={() => onClose(model)}
+        onClick={() => onClose(models)}
         variant='default'
         icon={<Dismiss12Regular className='w-4 h-4' />}
         className='w-4 h-4 text-white hover:text-white/60 bg-transparent hover:bg-transparent'

@@ -5,14 +5,7 @@ from httpx import Response
 from pydantic import BaseModel
 from typing_extensions import override
 
-from core.domain.errors import (
-    FailedGenerationError,
-    MaxTokensExceededError,
-    ProviderError,
-    ProviderInternalError,
-    UnknownProviderError,
-    UnpriceableRunError,
-)
+from core.domain.errors import UnpriceableRunError
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
@@ -22,6 +15,7 @@ from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.anthropic.anthropic_domain import (
     AnthropicErrorResponse,
     AnthropicMessage,
+    AntToolChoice,
     CompletionChunk,
     CompletionRequest,
     CompletionResponse,
@@ -32,6 +26,13 @@ from core.providers.anthropic.anthropic_domain import (
 )
 from core.providers.base.httpx_provider import HTTPXProvider
 from core.providers.base.models import RawCompletion, StandardMessage
+from core.providers.base.provider_error import (
+    FailedGenerationError,
+    MaxTokensExceededError,
+    ProviderError,
+    ProviderInternalError,
+    UnknownProviderError,
+)
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ParsedResponse, ToolCallRequestBuffer
 from core.providers.base.utils import get_provider_config_env
@@ -77,6 +78,7 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
             temperature=options.temperature,
             max_tokens=max_tokens or DEFAULT_MAX_TOKENS,
             stream=stream,
+            tool_choice=AntToolChoice.from_domain(options.tool_choice),
         )
 
         if options.enabled_tools is not None and options.enabled_tools != []:

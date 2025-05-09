@@ -5,12 +5,6 @@ from httpx import Response
 from pydantic import BaseModel, ValidationError
 from typing_extensions import override
 
-from core.domain.errors import (
-    FailedGenerationError,
-    MaxTokensExceededError,
-    ProviderBadRequestError,
-    UnknownProviderError,
-)
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.models import Model, Provider
@@ -18,6 +12,12 @@ from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.abstract_provider import RawCompletion
 from core.providers.base.httpx_provider import HTTPXProvider
 from core.providers.base.models import StandardMessage
+from core.providers.base.provider_error import (
+    FailedGenerationError,
+    MaxTokensExceededError,
+    ProviderBadRequestError,
+    UnknownProviderError,
+)
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ParsedResponse, ToolCallRequestBuffer
 from core.providers.base.utils import get_provider_config_env
@@ -73,6 +73,7 @@ class MistralAIProvider(HTTPXProvider[MistralAIConfig, CompletionResponse]):
             # TODO[max-tokens]: Set the max token from the context data
             max_tokens=options.max_tokens,
             stream=stream,
+            tool_choice=CompletionRequest.tool_choice_from_domain(options.tool_choice),
         )
         if not options.output_schema:
             request.response_format = ResponseFormat(type="text")

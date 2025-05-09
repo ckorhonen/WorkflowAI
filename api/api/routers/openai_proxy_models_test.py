@@ -1,3 +1,7 @@
+from typing import Any
+
+import pytest
+
 from api.routers.openai_proxy_models import (
     OpenAIProxyChatCompletionRequest,
     OpenAIProxyContent,
@@ -6,6 +10,7 @@ from api.routers.openai_proxy_models import (
 )
 from core.domain.fields.file import File
 from core.domain.message import Message, MessageContent
+from core.domain.task_group_properties import ToolChoiceFunction
 from core.domain.tool_call import ToolCall
 
 
@@ -52,3 +57,29 @@ class TestOpenAIProxyMessageToDomain:
                 ),
             ],
         )
+
+
+class TestOpenAIProxyChatCompletionRequestToolChoice:
+    @pytest.mark.parametrize(
+        "tool_choice_input, expected_tool_choice_output",
+        [
+            (None, None),
+            ("auto", "auto"),
+            ("none", "none"),
+            ("required", "required"),
+            (
+                {"type": "function", "function": {"name": "my_function"}},
+                ToolChoiceFunction(name="my_function"),
+            ),
+            ("invalid_choice", None),
+        ],
+    )
+    def test_workflowai_tool_choice(self, tool_choice_input: Any, expected_tool_choice_output: Any):
+        payload = OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "messages": [{"role": "user", "content": "Hello, world!"}],
+                "model": "gpt-4o",
+                "tool_choice": tool_choice_input,
+            },
+        )
+        assert payload.worflowai_tool_choice == expected_tool_choice_output

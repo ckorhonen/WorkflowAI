@@ -7,13 +7,6 @@ from typing import Any, AsyncIterator, Literal, override
 from httpx import Response
 from pydantic import BaseModel, ValidationError
 
-from core.domain.errors import (
-    FailedGenerationError,
-    InvalidGenerationError,
-    MaxTokensExceededError,
-    MissingModelError,
-    UnknownProviderError,
-)
 from core.domain.fields.file import File
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_usage import LLMUsage
@@ -25,6 +18,13 @@ from core.domain.structured_output import StructuredOutput
 from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.httpx_provider import HTTPXProvider
 from core.providers.base.models import RawCompletion, StandardMessage
+from core.providers.base.provider_error import (
+    FailedGenerationError,
+    InvalidGenerationError,
+    MaxTokensExceededError,
+    MissingModelError,
+    UnknownProviderError,
+)
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ParsedResponse, ToolCallRequestBuffer
 from core.providers.base.utils import get_provider_config_env

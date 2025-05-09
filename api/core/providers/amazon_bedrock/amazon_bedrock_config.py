@@ -6,9 +6,9 @@ from pydantic import BaseModel, Field
 
 from core.domain.errors import (
     MissingEnvVariablesError,
-    MissingModelError,
 )
 from core.domain.models import Model, Provider
+from core.providers.base.provider_error import MissingModelError
 from core.providers.base.utils import get_provider_config_env
 
 logger = logging.getLogger(__name__)

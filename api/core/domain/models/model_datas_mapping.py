@@ -610,7 +610,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             ),
             provider_for_pricing=Provider.GOOGLE_GEMINI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
-            release_date=date(2025, 3, 25),
+            release_date=date(2025, 5, 8),
             quality_data=QualityData(
                 gpqa_diamond=83,
                 source="https://deepmind.google/technologies/gemini/pro/",

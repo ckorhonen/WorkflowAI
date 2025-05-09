@@ -16,10 +16,8 @@ from core.domain.analytics_events.analytics_events import RanTaskEventProperties
 from core.domain.error_response import ErrorResponse
 from core.domain.errors import (
     BadRequestError,
-    ContentModerationError,
     DefaultError,
     InternalError,
-    ProviderError,
 )
 from core.domain.events import EventRouter, StoreTaskRunEvent
 from core.domain.message import Messages
@@ -30,6 +28,7 @@ from core.domain.task_variant import SerializableTaskVariant
 from core.domain.tool_call import ToolCall, ToolCallOutput, ToolCallRequestWithID
 from core.domain.types import CacheUsage
 from core.domain.users import UserIdentifier
+from core.providers.base.provider_error import ContentModerationError, ProviderError
 from core.runners.abstract_runner import AbstractRunner
 from core.runners.workflowai.workflowai_runner import WorkflowAIRunner
 from core.storage import TenantTuple

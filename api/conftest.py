@@ -452,9 +452,10 @@ def test_app(
 
     async def _mock_user_auth_dependency(
         keys: KeyRingDep,
-        request: BearerDep,
+        credentials: BearerDep,
+        request: Request,
     ) -> User:
-        return await mock_user_dep(keys, request)  # type:ignore
+        return await mock_user_dep(keys, credentials, request)  # type:ignore
 
     async def _mock_tenant_dependancy(
         user: UserDep,

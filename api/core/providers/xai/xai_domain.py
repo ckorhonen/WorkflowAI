@@ -4,15 +4,14 @@ from typing import Annotated, Any, Literal, Self
 from pydantic import BaseModel, ConfigDict, Field
 
 from core.domain.errors import (
-    FailedGenerationError,
     InternalError,
-    ModelDoesNotSupportMode,
     UnpriceableRunError,
 )
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.models import Model
+from core.domain.task_group_properties import ToolChoice, ToolChoiceFunction
 from core.providers.base.models import (
     AudioContentDict,
     DocumentContentDict,
@@ -22,6 +21,7 @@ from core.providers.base.models import (
     ToolCallRequestDict,
     ToolCallResultDict,
 )
+from core.providers.base.provider_error import FailedGenerationError, ModelDoesNotSupportMode
 from core.providers.google.google_provider_domain import (
     internal_tool_name_to_native_tool_call,
     native_tool_name_to_internal,
@@ -164,6 +164,15 @@ class ToolFunction(BaseModel):
 class Tool(BaseModel):
     type: Literal["function"]
     function: ToolFunction
+
+
+class XAIToolChoice(BaseModel):
+    type: Literal["function"]
+
+    class Function(BaseModel):
+        name: str
+
+    function: Function
 
 
 class XAIToolMessage(BaseModel):
@@ -376,6 +385,18 @@ class CompletionRequest(BaseModel):
     # store: bool | None = None
     metadata: dict[str, Any] | None = None
     tools: list[Tool] | None = None
+    tool_choice: XAIToolChoice | Literal["none", "auto", "required"] | None = None
+
+    @classmethod
+    def tool_choice_from_domain(
+        cls,
+        tool_choice: ToolChoice | None,
+    ) -> XAIToolChoice | Literal["none", "auto", "required"] | None:
+        if tool_choice is None:
+            return None
+        if isinstance(tool_choice, ToolChoiceFunction):
+            return XAIToolChoice(type="function", function=XAIToolChoice.Function(name=tool_choice.name))
+        return tool_choice
 
 
 class _BaseChoice(BaseModel):

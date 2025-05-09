@@ -64,11 +64,13 @@ export function LandingPage() {
     });
   }, [openNewTaskModal, isMobile]);
 
-  const { modelToAdvertise, dismiss } = useModelToAdvertise();
+  const { modelsToAdvertise, dismiss } = useModelToAdvertise();
 
   return (
     <div className='flex flex-col w-full h-full'>
-      {!!modelToAdvertise && <ModelBanner model={modelToAdvertise} onClose={dismiss} routeForSignUp={routeForSignUp} />}
+      {!!modelsToAdvertise && (
+        <ModelBanner models={modelsToAdvertise} onClose={dismiss} routeForSignUp={routeForSignUp} />
+      )}
       <LandingPageContainer scrollToPricing={scrollToPricing}>
         <HeaderComponent className='mt-10' showSuggestedFeaturesModal={onNewTask} routeForSignUp={routeForSignUp} />
         <VideosComponent className='sm:mt-10 mt-7' />

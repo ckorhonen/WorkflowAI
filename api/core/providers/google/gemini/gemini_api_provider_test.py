@@ -7,7 +7,6 @@ import pytest
 from pydantic import BaseModel
 from pytest_httpx import HTTPXMock, IteratorStream
 
-from core.domain.errors import MaxTokensExceededError, ProviderInternalError
 from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
@@ -15,6 +14,7 @@ from core.domain.models import Model, Provider
 from core.domain.models.model_provider_datas_mapping import GOOGLE_GEMINI_API_PROVIDER_DATA
 from core.domain.structured_output import StructuredOutput
 from core.providers.base.models import RawCompletion
+from core.providers.base.provider_error import MaxTokensExceededError, ProviderInternalError
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.google.gemini.gemini_api_provider import GoogleGeminiAPIProvider, GoogleGeminiAPIProviderConfig
 from core.providers.google.google_provider_domain import (

@@ -4,15 +4,14 @@ from typing import Annotated, Any, Literal, Self
 from pydantic import BaseModel, ConfigDict, Field
 
 from core.domain.errors import (
-    FailedGenerationError,
     InternalError,
-    ModelDoesNotSupportMode,
     UnpriceableRunError,
 )
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.models import Model
+from core.domain.task_group_properties import ToolChoice, ToolChoiceFunction
 from core.providers.base.models import (
     AudioContentDict,
     DocumentContentDict,
@@ -22,6 +21,7 @@ from core.providers.base.models import (
     ToolCallRequestDict,
     ToolCallResultDict,
 )
+from core.providers.base.provider_error import FailedGenerationError, ModelDoesNotSupportMode
 from core.providers.google.google_provider_domain import (
     internal_tool_name_to_native_tool_call,
     native_tool_name_to_internal,
@@ -372,6 +372,15 @@ ResponseFormat = Annotated[
 ]
 
 
+class OAIToolFunctionChoice(BaseModel):
+    type: Literal["function"]
+
+    class Function(BaseModel):
+        name: str
+
+    function: Function
+
+
 class CompletionRequest(BaseModel):
     temperature: float
     max_tokens: int | None
@@ -384,6 +393,19 @@ class CompletionRequest(BaseModel):
     # store: bool | None = None
     metadata: dict[str, Any] | None = None
     tools: list[Tool] | None = None
+    tool_choice: OAIToolFunctionChoice | Literal["auto", "required", "none"] | None = None
+
+    @classmethod
+    def tool_choice_from_domain(
+        cls,
+        tool_choice: ToolChoice | None,
+    ) -> OAIToolFunctionChoice | Literal["auto", "required", "none"] | None:
+        if isinstance(tool_choice, ToolChoiceFunction):
+            return OAIToolFunctionChoice(
+                type="function",
+                function=OAIToolFunctionChoice.Function(name=tool_choice.name),
+            )
+        return tool_choice
 
 
 class _BaseChoice(BaseModel):

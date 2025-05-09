@@ -7,7 +7,17 @@ import httpx
 from pydantic import BaseModel
 from typing_extensions import override
 
-from core.domain.errors import (
+from core.domain.fields.file import File
+from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
+from core.domain.llm_usage import LLMCompletionUsage, LLMUsage
+from core.domain.message import MessageDeprecated
+from core.domain.models import Model
+from core.domain.models.utils import get_model_data
+from core.domain.tool_call import ToolCallRequestWithID
+from core.providers.base.abstract_provider import ProviderConfigInterface
+from core.providers.base.httpx_provider import HTTPXProvider
+from core.providers.base.models import RawCompletion, StandardMessage
+from core.providers.base.provider_error import (
     ContentModerationError,
     FailedGenerationError,
     MaxTokensExceededError,
@@ -19,16 +29,6 @@ from core.domain.errors import (
     ProviderRateLimitError,
     UnknownProviderError,
 )
-from core.domain.fields.file import File
-from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
-from core.domain.llm_usage import LLMCompletionUsage, LLMUsage
-from core.domain.message import MessageDeprecated
-from core.domain.models import Model
-from core.domain.models.utils import get_model_data
-from core.domain.tool_call import ToolCallRequestWithID
-from core.providers.base.abstract_provider import ProviderConfigInterface
-from core.providers.base.httpx_provider import HTTPXProvider
-from core.providers.base.models import RawCompletion, StandardMessage
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ParsedResponse, ToolCallRequestBuffer
 from core.providers.google.google_provider_domain import (

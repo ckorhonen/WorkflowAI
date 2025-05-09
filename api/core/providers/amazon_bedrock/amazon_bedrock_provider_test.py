@@ -13,9 +13,6 @@ from pytest_httpx import HTTPXMock
 
 from core.domain.errors import (
     InternalError,
-    ModelDoesNotSupportMode,
-    ProviderBadRequestError,
-    ProviderInternalError,
     UnpriceableRunError,
 )
 from core.domain.llm_completion import LLMCompletion
@@ -39,9 +36,14 @@ from core.providers.amazon_bedrock.amazon_bedrock_domain import (
 from core.providers.amazon_bedrock.amazon_bedrock_provider import (
     AmazonBedrockConfig,
     AmazonBedrockProvider,
-    MaxTokensExceededError,
 )
 from core.providers.base.models import RawCompletion
+from core.providers.base.provider_error import (
+    MaxTokensExceededError,
+    ModelDoesNotSupportMode,
+    ProviderBadRequestError,
+    ProviderInternalError,
+)
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ToolCallRequestBuffer
 from core.runners.builder_context import builder_context

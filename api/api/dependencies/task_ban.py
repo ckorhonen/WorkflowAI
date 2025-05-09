@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import Depends
 
 from api.dependencies.task_info import TaskInfoDep
-from core.domain.errors import TaskBannedError
+from core.providers.base.provider_error import TaskBannedError
 
 
 async def check_task_banned_dependency(
