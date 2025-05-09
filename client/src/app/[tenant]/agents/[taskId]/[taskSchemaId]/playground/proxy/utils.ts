@@ -1,9 +1,12 @@
+import { nanoid } from 'nanoid';
 import { FileValueType } from '@/components/ObjectViewer/FileViewers/utils';
 import { ToolCallRequestWithID } from '@/types/workflowAI/models';
 
 export type ToolCallResult = {
   id?: string;
   result?: unknown;
+  tool_name?: string;
+  tool_input_dict?: Record<string, unknown>;
 };
 
 export type ProxyMessageContent = {
@@ -18,12 +21,15 @@ export type ProxyMessage = {
   content: ProxyMessageContent[];
 };
 
-export function createEmptyMessageContent(type?: 'text' | 'document' | 'image' | 'audio'): ProxyMessageContent {
+export function createEmptyMessageContent(
+  type?: 'text' | 'document' | 'image' | 'audio' | 'toolCallResult' | 'toolCallRequest'
+): ProxyMessageContent {
   if (!type) {
     return {
       text: undefined,
       file: undefined,
       tool_call_request: undefined,
+      tool_call_result: undefined,
     };
   }
 
@@ -48,6 +54,25 @@ export function createEmptyMessageContent(type?: 'text' | 'document' | 'image' |
           content_type: 'audio/mpeg',
         },
       };
+    case 'toolCallResult':
+      return {
+        tool_call_result: {
+          id: nanoid(),
+          result: 'Result of the tool call',
+          tool_name: '',
+          tool_input_dict: {},
+        } as ToolCallResult,
+      };
+    case 'toolCallRequest':
+      return {
+        tool_call_request: {
+          tool_input_dict: {
+            parameter: 'value',
+          },
+          tool_name: 'tool_name',
+          id: nanoid(),
+        } as ToolCallRequestWithID,
+      };
   }
 }
 
@@ -65,6 +90,13 @@ export function createEmptyUserMessage(type?: 'text' | 'document' | 'image' | 'a
   };
 }
 
+export function createEmptyAgentMessage(type?: 'text' | 'document' | 'image' | 'audio'): ProxyMessage {
+  return {
+    role: 'assistant',
+    content: [createEmptyMessageContent(type)],
+  };
+}
+
 export function formatResponseToText(response: unknown) {
   if (!response) return undefined;
 
@@ -73,6 +105,16 @@ export function formatResponseToText(response: unknown) {
   try {
     const json = JSON.parse(text);
     return JSON.stringify(json, null, 2);
+  } catch {
+    return text;
+  }
+}
+
+export function formatTextToResponse(text: string | undefined): unknown {
+  if (!text) return undefined;
+
+  try {
+    return JSON.parse(text);
   } catch {
     return text;
   }

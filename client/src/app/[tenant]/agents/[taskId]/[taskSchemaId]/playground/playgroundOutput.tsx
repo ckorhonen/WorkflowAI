@@ -56,7 +56,7 @@ type ModelOutputProps = {
   isHideModelColumnAvaible: boolean;
   hideModelColumn: () => void;
   isProxy: boolean;
-  updateInputAndRun: (input: TaskInputDict) => void;
+  updateInputAndRun: (input: TaskInputDict) => Promise<void>;
 };
 
 function ModelOutput(props: ModelOutputProps) {
@@ -227,7 +227,7 @@ type PlaygroundOutputProps = Pick<
   hideModelColumn: (index: number) => void;
   hiddenModelColumns: number[] | undefined;
   isProxy: boolean;
-  updateInputAndRun: (input: TaskInputDict) => void;
+  updateInputAndRun: (input: TaskInputDict) => Promise<void>;
 };
 
 export function PlaygroundOutput(props: PlaygroundOutputProps) {

@@ -1,8 +1,10 @@
 import { Add16Regular } from '@fluentui/react-icons';
 import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { Popover, PopoverContent } from '@/components/ui/Popover';
+import { PopoverTrigger } from '@/components/ui/Popover';
 import { ProxyMessageView } from './ProxyMessageView';
-import { ProxyMessage, createEmptyUserMessage } from './utils';
+import { ProxyMessage, createEmptyAgentMessage, createEmptyUserMessage } from './utils';
 
 type Props = {
   messages: ProxyMessage[];
@@ -25,11 +27,18 @@ export function ProxyMessagesView(props: Props) {
     [messages, setMessages]
   );
 
-  const addMessage = useCallback(() => {
+  const [isHovering, setIsHovering] = useState(false);
+  const [showAddMessagePopover, setShowAddMessagePopover] = useState(false);
+
+  const addUserMessage = useCallback(() => {
+    setShowAddMessagePopover(false);
     setMessages([...messages, createEmptyUserMessage('text')]);
   }, [messages, setMessages]);
 
-  const [isHovering, setIsHovering] = useState(false);
+  const addAgentMessage = useCallback(() => {
+    setShowAddMessagePopover(false);
+    setMessages([...messages, createEmptyAgentMessage('text')]);
+  }, [messages, setMessages]);
 
   return (
     <div
@@ -39,10 +48,35 @@ export function ProxyMessagesView(props: Props) {
     >
       <div className='flex w-full items-center px-4 h-[48px] border-b border-gray-200 border-dashed font-semibold text-[16px] text-gray-700 flex-shrink-0 justify-between'>
         <div>Messages</div>
-        {isHovering && (
-          <Button variant='newDesign' size='sm' icon={<Add16Regular />} onClick={() => addMessage()}>
-            Add Message
-          </Button>
+        {(isHovering || showAddMessagePopover) && (
+          <Popover open={showAddMessagePopover} onOpenChange={setShowAddMessagePopover}>
+            <PopoverTrigger asChild>
+              <Button
+                variant='newDesign'
+                size='sm'
+                icon={<Add16Regular />}
+                onClick={() => setShowAddMessagePopover(true)}
+              >
+                Add Message
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className='flex flex-col w-full p-1'>
+              <Button
+                variant='newDesignText'
+                onClick={() => addUserMessage()}
+                className='w-full justify-start hover:bg-gray-100 hover:text-gray-900 font-normal'
+              >
+                User Message
+              </Button>
+              <Button
+                variant='newDesignText'
+                onClick={() => addAgentMessage()}
+                className='w-full justify-start hover:bg-gray-100 hover:text-gray-900 font-normal'
+              >
+                Agent Message
+              </Button>
+            </PopoverContent>
+          </Popover>
         )}
       </div>
       <div className='flex overflow-y-auto' id='proxy-messages-view'>

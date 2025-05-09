@@ -1153,7 +1153,10 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
   const scrollToBottomOfProxyMessages = useCallback(() => {
     const proxyMessagesView = document.getElementById('proxy-messages-view');
     if (proxyMessagesView) {
-      proxyMessagesView.scrollTop = proxyMessagesView.scrollHeight;
+      proxyMessagesView.scrollTo({
+        top: proxyMessagesView.scrollHeight,
+        behavior: 'auto',
+      });
     }
   }, []);
 
@@ -1202,6 +1205,7 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
               containerRef(element);
               scrollRef.current = element;
             }}
+            id='playground-scroll'
           >
             <div className='flex flex-col w-full sm:pb-0 pb-20'>
               {isProxy ? (

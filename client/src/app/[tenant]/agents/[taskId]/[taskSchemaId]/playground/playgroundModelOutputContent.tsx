@@ -8,7 +8,7 @@ import {
   Link16Regular,
 } from '@fluentui/react-icons';
 import { useRouter } from 'next/navigation';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDeployVersionModal } from '@/components/DeployIterationModal/DeployVersionModal';
 import { TaskOutputViewer } from '@/components/ObjectViewer/TaskOutputViewer';
 import { Button } from '@/components/ui/Button';
@@ -54,7 +54,7 @@ type ModelOutputContentProps = {
   isHideModelColumnAvaible: boolean;
   hideModelColumn: () => void;
   isProxy: boolean;
-  updateInputAndRun: (input: TaskInputDict) => void;
+  updateInputAndRun: (input: TaskInputDict) => Promise<void>;
 };
 
 export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
@@ -147,6 +147,26 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
   const [showReplyView, setShowReplyView] = useState(false);
   const showReplyButton = isProxy && !!taskRun && !showReplyView;
 
+  const scrollToBottom = useCallback(() => {
+    const proxyMessagesView = document.getElementById('playground-scroll');
+    if (proxyMessagesView) {
+      proxyMessagesView.scrollTo({
+        top: proxyMessagesView.scrollHeight,
+        behavior: 'auto',
+      });
+    }
+  }, []);
+
+  const onShowReplyView = useCallback(() => {
+    setShowReplyView(true);
+  }, []);
+
+  useEffect(() => {
+    if (showReplyView) {
+      scrollToBottom();
+    }
+  }, [showReplyView, scrollToBottom]);
+
   return (
     <div
       onMouseEnter={() => setIsHovering(true)}
@@ -206,6 +226,7 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
         />
         {showReplyView && !!taskRun && (
           <ProxyReplyView
+            toolCalls={toolCallsPreview}
             input={taskRun.task_input}
             output={taskRun.task_output}
             updateInputAndRun={updateInputAndRun}
@@ -218,7 +239,7 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
           <Button
             variant='newDesignGray'
             size='sm'
-            onClick={() => setShowReplyView(true)}
+            onClick={onShowReplyView}
             icon={<Add16Filled className='h-3.5 w-3.5' />}
           >
             User Message

@@ -27,7 +27,7 @@ export function ProxyMessageView(props: Props) {
     }
   }, [message.role]);
 
-  const isEditable = message.role === 'user';
+  const isEditable = message.role === 'user' || message.role === 'assistant';
 
   const onMessageChange = useCallback(
     (index: number, content: ProxyMessageContent) => {
@@ -41,7 +41,7 @@ export function ProxyMessageView(props: Props) {
   );
 
   const onAddContentEntry = useCallback(
-    (type: 'text' | 'document' | 'image' | 'audio') => {
+    (type: 'text' | 'document' | 'image' | 'audio' | 'toolCallResult' | 'toolCallRequest') => {
       const newMessage = {
         ...message,
         content: [...message.content, createEmptyMessageContent(type)],
@@ -79,12 +79,11 @@ export function ProxyMessageView(props: Props) {
         )}
       </div>
       {message.content.map((content, index) => {
-        const isRemovable = isEditable && !content.tool_call_request && !content.tool_call_result;
         return (
           <ProxyRemovableContent
             key={index}
             className='flex flex-col gap-2 last:border-b-0 border-b border-gray-200 border-dashed'
-            isRemovable={isRemovable}
+            isRemovable={!content.tool_call_request && !content.tool_call_result}
             onRemove={() => onRemoveContentEntry(index)}
           >
             {content.text !== undefined && (
@@ -104,12 +103,20 @@ export function ProxyMessageView(props: Props) {
             )}
             {content.tool_call_request && (
               <div className='flex w-full px-4 py-3'>
-                <ProxyToolCallRequest request={content.tool_call_request} />
+                <ProxyToolCallRequest
+                  content={content}
+                  setContent={(content) => onMessageChange(index, content)}
+                  onRemove={() => onRemoveContentEntry(index)}
+                />
               </div>
             )}
             {content.tool_call_result && (
               <div className='flex w-full px-4 py-3'>
-                <ProxyToolCallResult result={content.tool_call_result} />
+                <ProxyToolCallResult
+                  result={content.tool_call_result}
+                  setContent={(content) => onMessageChange(index, content)}
+                  onRemove={() => onRemoveContentEntry(index)}
+                />
               </div>
             )}
           </ProxyRemovableContent>
@@ -120,12 +127,43 @@ export function ProxyMessageView(props: Props) {
           <Button variant='newDesign' size='sm' icon={<Add16Regular />} onClick={() => onAddContentEntry('text')}>
             Text
           </Button>
-          <Button variant='newDesign' size='sm' icon={<Add16Regular />} onClick={() => onAddContentEntry('document')}>
-            File
-          </Button>
-          <Button variant='newDesign' size='sm' icon={<Add16Regular />} onClick={() => onAddContentEntry('audio')}>
-            Audio
-          </Button>
+          {message.role === 'user' && (
+            <>
+              <Button
+                variant='newDesign'
+                size='sm'
+                icon={<Add16Regular />}
+                onClick={() => onAddContentEntry('document')}
+              >
+                File
+              </Button>
+              <Button variant='newDesign' size='sm' icon={<Add16Regular />} onClick={() => onAddContentEntry('audio')}>
+                Audio
+              </Button>
+              <div className='flex flex-row px-2 ml-1 border-l border-gray-200'>
+                <Button
+                  variant='newDesign'
+                  size='sm'
+                  icon={<Add16Regular />}
+                  onClick={() => onAddContentEntry('toolCallResult')}
+                >
+                  Tool Call Result
+                </Button>
+              </div>
+            </>
+          )}
+          {message.role === 'assistant' && (
+            <div className='flex flex-row px-2 ml-1 border-l border-gray-200'>
+              <Button
+                variant='newDesign'
+                size='sm'
+                icon={<Add16Regular />}
+                onClick={() => onAddContentEntry('toolCallRequest')}
+              >
+                Tool Call Request
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>
