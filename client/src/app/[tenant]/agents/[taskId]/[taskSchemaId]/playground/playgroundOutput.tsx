@@ -152,6 +152,7 @@ function ModelOutput(props: ModelOutputProps) {
             fitToContent={false}
             open={openModelCombobox}
             setOpen={setOpenModelCombobox}
+            isProxy={isProxy}
           />
           <CreateTaskRunButton
             taskRunner={taskRunner}

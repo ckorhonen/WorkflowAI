@@ -1,13 +1,10 @@
 import { nanoid } from 'nanoid';
 import { useCallback, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { DialogContent } from '@/components/ui/Dialog';
-import { Dialog } from '@/components/ui/Dialog';
 import { Textarea } from '@/components/ui/Textarea';
 import { ToolCallPreview } from '@/types/task_run';
 import { TaskInputDict, TaskOutputDict, ToolCallRequestWithID } from '@/types/workflowAI';
-import { ProxyEditToolCallResult } from './ProxyEditToolCallResult';
-import { ProxyMessage, ProxyMessageContent, ToolCallResult } from './utils';
+import { ProxyMessage, ProxyMessageContent } from './utils';
 
 type Props = {
   input: TaskInputDict;
@@ -124,7 +121,7 @@ export function ProxyReplyView(props: Props) {
             </Button>
           )}
         </div>
-        <div className='text-[12px] text-gray-500'>Will be send to all models</div>
+        <div className='text-[12px] text-gray-500'>Will be sent to all models</div>
       </div>
     </div>
   );

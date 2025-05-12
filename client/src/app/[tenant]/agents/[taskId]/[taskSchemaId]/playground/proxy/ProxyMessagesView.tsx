@@ -60,7 +60,7 @@ export function ProxyMessagesView(props: Props) {
                 Add Message
               </Button>
             </PopoverTrigger>
-            <PopoverContent className='flex flex-col w-full p-1'>
+            <PopoverContent className='flex flex-col w-full p-1 rounded-[2px]'>
               <Button
                 variant='newDesignText'
                 onClick={() => addUserMessage()}

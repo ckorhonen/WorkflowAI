@@ -201,7 +201,7 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
             showDescriptionExamples={emptyMode ? 'all' : undefined}
           />
         )}
-        {!!taskId && !!taskRun && !hasInputChanged && (
+        {!!taskId && !!taskRun && !hasInputChanged && !isProxy && (
           <div className='flex flex-col w-full overflow-hidden max-h-[400px]'>
             {!isProxy && <ImprovePrompt onImprovePrompt={onImprovePrompt} />}
 
@@ -223,6 +223,7 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
           showVersion={true}
           contextWindowInformation={contextWindowInformation}
           showTaskIterationDetails={true}
+          isProxy={isProxy}
         />
         {showReplyView && !!taskRun && (
           <ProxyReplyView

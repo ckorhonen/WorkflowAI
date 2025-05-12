@@ -26,10 +26,11 @@ type TriggerContentProps = {
   value: string;
   selectedOption: AIModelComboboxOption | undefined;
   defaultLabel: string;
+  isProxy?: boolean;
 };
 
 function TriggerContent(props: TriggerContentProps) {
-  const { value, selectedOption, defaultLabel } = props;
+  const { value, selectedOption, defaultLabel, isProxy } = props;
   if (!value) {
     return (
       <div className='flex items-center gap-2'>
@@ -39,7 +40,7 @@ function TriggerContent(props: TriggerContentProps) {
     );
   }
   if (selectedOption) {
-    return selectedOption.renderLabel({ isSelected: true, showCheck: false });
+    return selectedOption.renderLabel({ isSelected: true, showCheck: false, isProxy: isProxy });
   }
   return defaultLabel;
 }
@@ -55,6 +56,7 @@ export type AIModelComboboxProps = {
   fitToContent?: boolean;
   open?: boolean;
   setOpen?: (open: boolean) => void;
+  isProxy?: boolean;
 };
 
 export function AIModelCombobox(props: AIModelComboboxProps) {
@@ -69,6 +71,7 @@ export function AIModelCombobox(props: AIModelComboboxProps) {
     fitToContent = true,
     open: propsOpen,
     setOpen: propsSetOpen,
+    isProxy = false,
   } = props;
   const [internalOpen, setInternalOpen] = React.useState(false);
 
@@ -159,7 +162,12 @@ export function AIModelCombobox(props: AIModelComboboxProps) {
             fitToContent ? 'min-w-[75px] justify-between' : 'w-full justify-between'
           )}
         >
-          <TriggerContent value={value} selectedOption={selectedOption} defaultLabel={noOptionsMessage} />
+          <TriggerContent
+            value={value}
+            selectedOption={selectedOption}
+            defaultLabel={noOptionsMessage}
+            isProxy={isProxy}
+          />
           <ChevronUpDownFilled className='h-4 w-4 shrink-0 text-gray-500 ml-2' />
         </div>
       </PopoverTrigger>

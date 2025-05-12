@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GeneralizedTaskInput } from '@/types/task_run';
 import { ToolKind, Tool_Output } from '@/types/workflowAI';
 import { ProxyMessagesView } from './ProxyMessagesView';
@@ -15,39 +15,63 @@ interface Props {
   setToolCalls: (toolCalls: (ToolKind | Tool_Output)[] | undefined) => void;
   maxHeight: number | undefined;
 }
+const areMessagesEqual = (prev: ProxyMessage[], next: ProxyMessage[]) => {
+  return JSON.stringify(prev) === JSON.stringify(next);
+};
 
 export function ProxyInput(props: Props) {
   const { input, setInput, temperature, setTemperature, handleRunTasks, toolCalls, setToolCalls, maxHeight } = props;
 
-  const [systemMessage, setSystemMessage] = useState<ProxyMessage>(createEmptySystemMessage());
+  const [systemMessages, setSystemMessages] = useState<ProxyMessage[]>([createEmptySystemMessage()]);
   const [otherMessages, setOtherMessages] = useState<ProxyMessage[]>([createEmptyUserMessage()]);
 
-  useEffect(() => {
+  const systemMessagesRef = useRef(systemMessages);
+  systemMessagesRef.current = systemMessages;
+
+  const otherMessagesRef = useRef(otherMessages);
+  otherMessagesRef.current = otherMessages;
+
+  const { newSystemMessages, newOtherMessages } = useMemo(() => {
     if (!input || !('messages' in input)) {
-      return;
+      return { newSystemMessages: [], newOtherMessages: [] };
     }
 
     const taskInput = input as Record<string, unknown>;
     const messages = taskInput?.messages as ProxyMessage[];
 
-    const systemMessage = messages.find((message) => message.role === 'system');
-    const otherMessages = messages.filter((message) => message.role !== 'system');
-
-    if (systemMessage) {
-      setSystemMessage(systemMessage);
-    }
-
-    if (otherMessages.length > 0) {
-      setOtherMessages(otherMessages);
-    }
+    return {
+      newSystemMessages: messages.filter((message) => message.role === 'system'),
+      newOtherMessages: messages.filter((message) => message.role !== 'system'),
+    };
   }, [input]);
 
+  useEffect(() => {
+    setSystemMessages((prev) => {
+      if (!areMessagesEqual(prev, newSystemMessages)) {
+        return newSystemMessages;
+      }
+      return prev;
+    });
+  }, [newSystemMessages]);
+
+  useEffect(() => {
+    setOtherMessages((prev) => {
+      if (!areMessagesEqual(prev, newOtherMessages)) {
+        return newOtherMessages;
+      }
+      return prev;
+    });
+  }, [newOtherMessages]);
+
   const onUpdateInput = useCallback(
-    (systemMessage: ProxyMessage, otherMessages: ProxyMessage[]) => {
-      const messages = [systemMessage, ...otherMessages];
+    (systemMessages: ProxyMessage[], otherMessages: ProxyMessage[]) => {
+      const messages = [...systemMessages, ...otherMessages];
       const taskInput = {
         messages,
       };
+
+      setSystemMessages(systemMessages);
+      setOtherMessages(otherMessages);
       setInput(taskInput as GeneralizedTaskInput);
     },
     [setInput]
@@ -61,13 +85,13 @@ export function ProxyInput(props: Props) {
       <div className='w-1/2 border-r border-gray-200 border-dashed overflow-hidden'>
         <ProxyMessagesView
           messages={otherMessages}
-          setMessages={(messages) => onUpdateInput(systemMessage, messages)}
+          setMessages={(messages) => onUpdateInput(systemMessages, messages)}
         />
       </div>
       <div className='w-1/2'>
         <ProxyParameters
-          systemMessage={systemMessage}
-          setSystemMessage={(message) => onUpdateInput(message, otherMessages)}
+          systemMessages={systemMessages}
+          setSystemMessages={(messages) => onUpdateInput(messages, otherMessages)}
           temperature={temperature}
           setTemperature={setTemperature}
           handleRunTasks={handleRunTasks}

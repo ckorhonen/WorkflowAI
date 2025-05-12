@@ -25,10 +25,11 @@ type ModelLabelProps = {
   dropdownOpen: boolean | undefined;
   information: 'price' | 'intelligence' | 'latest';
   allIntelligenceScores: number[] | undefined;
+  isProxy?: boolean;
 };
 
 export function ModelLabel(props: ModelLabelProps) {
-  const { isSelected, showCheck = true, model, dropdownOpen, information, allIntelligenceScores } = props;
+  const { isSelected, showCheck = true, model, dropdownOpen, information, allIntelligenceScores, isProxy } = props;
   const disabled = !!model.is_not_supported_reason;
 
   const autoScrollRef = useAutoScrollRef({
@@ -76,11 +77,11 @@ export function ModelLabel(props: ModelLabelProps) {
         <div className='w-6 h-6 rounded-[2px] bg-white flex items-center justify-center border border-gray-100'>
           <Image src={model.icon_url} alt='' width={20} height={20} className='w-4 h-4 flex-shrink-0' />
         </div>
-        <div className='overflow-hidden text-ellipsis truncate whitespace-nowrap text-gray-900 text-[13px] font-normal flex-1'>
-          {model.name}
-        </div>
-        <div className='ml-auto flex flex-row gap-1 items-center'>
-          {isHovering && (
+        <div className='flex-1 flex items-center gap-0.5 overflow-hidden'>
+          <div className='overflow-hidden text-ellipsis truncate whitespace-nowrap text-gray-900 text-[13px] font-normal'>
+            {model.name}
+          </div>
+          {isHovering && isProxy && (
             <SimpleTooltip
               content={
                 <div>
@@ -100,7 +101,8 @@ export function ModelLabel(props: ModelLabelProps) {
               />
             </SimpleTooltip>
           )}
-
+        </div>
+        <div className='ml-auto flex flex-row gap-1 items-center'>
           {information === 'price' && (
             <TaskCostBadge
               cost={price}
@@ -144,7 +146,7 @@ export function formatAIModels(
     label: model.name,
     disabled: !!model.is_not_supported_reason,
     isLatest: model.is_latest ?? true,
-    renderLabel: ({ isSelected, showCheck = true, dropdownOpen }) => (
+    renderLabel: ({ isSelected, showCheck = true, dropdownOpen, isProxy }) => (
       <ModelLabel
         isSelected={isSelected}
         showCheck={showCheck}
@@ -152,6 +154,7 @@ export function formatAIModels(
         dropdownOpen={dropdownOpen}
         information={information}
         allIntelligenceScores={allIntelligenceScores}
+        isProxy={isProxy}
       />
     ),
   }));
@@ -177,7 +180,7 @@ export function formatAIModel(
     label: model.name,
     disabled: !!model.is_not_supported_reason,
     isLatest: model.is_latest ?? true,
-    renderLabel: ({ isSelected, showCheck = true, dropdownOpen }) => (
+    renderLabel: ({ isSelected, showCheck = true, dropdownOpen, isProxy }) => (
       <ModelLabel
         isSelected={isSelected}
         showCheck={showCheck}
@@ -185,6 +188,7 @@ export function formatAIModel(
         dropdownOpen={dropdownOpen}
         information={information}
         allIntelligenceScores={allIntelligenceScores}
+        isProxy={isProxy}
       />
     ),
   };
