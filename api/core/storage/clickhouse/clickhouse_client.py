@@ -528,6 +528,7 @@ class ClickhouseClient(TaskRunStorage):
         is_active: bool = True,
         limit: int = 100,
     ) -> AsyncIterator[AgentRun]:
+        # TODO: use SerializableTaskRunQuery instead
         w = W("created_at_date", type="Date", value=since_date.strftime("%Y-%m-%d"), operator=">=") & W(
             "run_uuid",
             type="UInt128",

@@ -123,4 +123,5 @@ async def get_integration_chat_answer(
         ):
             yield chunk
 
+    # TODO: directly return integration_service.stream_integration_chat_response, solve typing issues first
     return safe_streaming_response(_stream)
