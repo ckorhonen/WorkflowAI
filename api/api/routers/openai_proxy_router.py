@@ -20,7 +20,6 @@ from core.domain.task_io import RawJSONMessageSchema, RawMessagesSchema, RawStri
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.types import AgentOutput
 from core.domain.version_reference import VersionReference
-from core.runners.workflowai.workflowai_runner import WorkflowAIRunner
 from core.utils.schemas import schema_from_data
 from core.utils.strings import to_pascal_case
 from core.utils.templates import extract_variable_schema
@@ -157,14 +156,6 @@ async def chat_completions(
     raw_variant, output_mapper = _build_variant(messages, agent_slug, body.input, body.response_format)
     variant, _ = await storage.store_task_resource(raw_variant)
 
-    if body.input:
-        # If we have an input, the input schema in the variant must not be the RawMessagesSchema
-        # otherwise _build_variant would have raised an error
-        # So we can check that the input schema matches and then template the messages as needed
-        # We don't remove any extras from the input, we just validate it
-        raw_variant.input_schema.enforce(body.input)
-        messages = await messages.templated(WorkflowAIRunner.template_manager.renderer(body.input))
-
     tool_calls, deprecated_function = body.domain_tools()
     properties = TaskGroupProperties(
         model=model,
@@ -174,6 +165,18 @@ async def chat_completions(
         provider=body.workflowai_provider,
         tool_choice=body.worflowai_tool_choice,
     )
+
+    if body.input:
+        # If we have an input, the input schema in the variant must not be the RawMessagesSchema
+        # otherwise _build_variant would have raised an error
+        # So we can check that the input schema matches and then template the messages as needed
+        # We don't remove any extras from the input, we just validate it
+        raw_variant.input_schema.enforce(body.input)
+        properties.messages = messages.messages
+        final_input: dict[str, Any] | Messages = body.input
+    else:
+        final_input = messages
+
     properties.task_variant_id = variant.id
 
     runner, _ = await group_service.sanitize_groups_for_internal_runner(
@@ -187,7 +190,7 @@ async def chat_completions(
 
     return await run_service.run(
         runner=runner,
-        task_input=messages,
+        task_input=final_input,
         task_run_id=None,
         cache="auto",
         metadata=body.full_metadata(request.headers),

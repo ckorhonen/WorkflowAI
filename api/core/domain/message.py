@@ -56,11 +56,14 @@ class MessageContent(BaseModel):
             yield self.file.url
 
 
+MessageRole = Literal["system", "user", "assistant"]
+
+
 class Message(BaseModel):
     # It would be nice to use strict validation since we know that certain roles are not allowed to
     # have certain content. Unfortunately it would mean that we would have oneOfs in the schema which
     # we currently do not handle client side
-    role: Literal["system", "user", "assistant"]
+    role: MessageRole
     content: list[MessageContent]
     image_options: ImageOptions | None = None
 
@@ -109,6 +112,10 @@ class Message(BaseModel):
         from core.domain.errors import InternalError
 
         raise InternalError("Unexpected message type")
+
+    @classmethod
+    def with_text(cls, text: str, role: MessageRole = "user") -> "Message":
+        return cls(role=role, content=[MessageContent(text=text)])
 
 
 class Messages(BaseModel):

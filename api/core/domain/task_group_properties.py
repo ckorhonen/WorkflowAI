@@ -4,6 +4,7 @@ from typing import Any, Literal, Optional, TypeAlias
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from core.domain.fields.image_options import ImageOptions
+from core.domain.message import Message
 from core.domain.tool import Tool
 from core.tools import ToolKind
 from core.utils.hash import compute_model_hash, compute_obj_hash
@@ -96,6 +97,8 @@ class TaskGroupProperties(BaseModel):
     image_options: ImageOptions | None = None
 
     tool_choice: ToolChoice | None = None
+
+    messages: list[Message] | None = None
 
     def model_hash(self) -> str:
         # Excluding fields are compiled from other fields

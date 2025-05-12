@@ -1,3 +1,5 @@
+import json
+
 import openai
 import pytest
 from openai import AsyncOpenAI
@@ -281,3 +283,26 @@ async def test_stream_structured_output(test_client: IntegrationTestClient, open
 
     chunks = [c async for c in streamer]
     assert len(chunks) == 2
+
+
+async def test_templated_variables(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+    test_client.mock_openai_call()
+
+    res = await openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "Hello, {{ name }}!"}],
+        extra_body={"input": {"name": "John"}},
+    )
+    assert res.choices[0].message.content == '{"greeting": "Hello James!"}'
+
+    await test_client.wait_for_completed_tasks()
+
+    run = await test_client.get("/v1/_/agents/default/runs/latest")
+    assert run["task_output"] == {"greeting": "Hello James!"}
+    assert run["task_input"] == {"name": "John"}
+
+    request = test_client.httpx_mock.get_request(url="https://api.openai.com/v1/chat/completions")
+    assert request
+    body = json.loads(request.content)
+    assert len(body["messages"]) == 1
+    assert body["messages"][0]["content"] == "Hello, John!"

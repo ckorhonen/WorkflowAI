@@ -540,7 +540,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         text_content.text = f"{prefix}{suffix}"
         return messages.to_deprecated()
 
-    def _extract_raw_messages(self, input: AgentInput | Messages):
+    async def _extract_raw_messages(self, input: AgentInput):
         if self.task.input_schema.version == RawMessagesSchema.version:
             if isinstance(input, list):
                 input = {"messages": input}
@@ -549,6 +549,10 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             except ValidationError as e:
                 # Capturing for now just in case
                 raise BadRequestError(f"Input is not a valid list of messages: {str(e)}", capture=True) from e
+        if self._options.messages:
+            # Then the current version is a full message template
+            # So we just need to return the messages
+            return await Messages(messages=self._options.messages).templated(self.template_manager.renderer(input))
         return None
 
     async def _build_messages(  # noqa: C901
@@ -578,7 +582,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         # If the input is a raw messages schema we have to extract the messages
         # and use. It would be nice to merge with the above call but it would break
         # the typeguard on the input object
-        if raw_messages := self._extract_raw_messages(input):
+        if raw_messages := await self._extract_raw_messages(input):
             return await self._inline_messages(
                 raw_messages,
                 provider,
