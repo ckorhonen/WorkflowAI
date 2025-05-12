@@ -208,8 +208,8 @@ class SecurityService:
             return res
         except ObjectNotFoundException:
             raise InvalidToken(
-                "API Key is invalid. Please check your API Key or generate a "
-                f"new one at {WORKFLOWAI_APP_URL}/organization/settings/api-keys",
+                f"""Oops! Invalid API key.
+Grab a fresh one (plus $5 in free LLM credits for new users) at {WORKFLOWAI_APP_URL}/keys 🚀""",
             )
 
     async def _find_anonymous_tenant(self, unknown_user_id: str) -> TenantData:
