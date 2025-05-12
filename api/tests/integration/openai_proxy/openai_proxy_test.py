@@ -324,6 +324,14 @@ async def test_deployment(test_client: IntegrationTestClient, openai_client: Asy
     saved_version = await test_client.post(f"/v1/_/agents/{agent_id}/runs/{run_id}/version/save")
     version_id = saved_version["id"]
 
+    # Checking the agent schema
+    agent = await test_client.get(f"/_/agents/{agent_id}/schemas/1")
+    assert agent["input_schema"]["json_schema"] == {
+        "format": "messages",
+        "type": "object",
+        "properties": {"name": {"type": "string"}},
+    }
+
     # Now we can deploy the version
     await test_client.post(
         f"/v1/_/agents/{agent_id}/versions/{version_id}/deploy",
@@ -346,3 +354,28 @@ async def test_deployment(test_client: IntegrationTestClient, openai_client: Asy
     assert len(requests) == 2
     body = json.loads(requests[-1].content)
     assert body["messages"][0]["content"] == "Hello, Cecily!"
+
+    # I can also follow up with a new message
+    # TODO: would be good to change the output here but overriding mocks does not seem to be working for now
+    test_client.mock_openai_call(raw_content="I'm good, thank you!")
+
+    res = await openai_client.chat.completions.create(
+        model="my-agent/#1/production",
+        messages=[{"role": "assistant", "content": "Hello, Cecily!"}, {"role": "user", "content": "How are you?"}],
+        extra_body={"input": {"name": "Cecily"}},
+    )
+    assert res.choices[0].message.content == "I'm good, thank you!"
+
+    await test_client.wait_for_completed_tasks()
+
+    # Check the run
+    run = await test_client.get(f"/v1/_/agents/{agent_id}/runs/latest")
+    assert run["task_output"] == "I'm good, thank you!"
+    assert run["task_input"] == {
+        "name": "Cecily",
+        "workflowai.replies": [
+            {"role": "assistant", "content": [{"text": "Hello, Cecily!"}]},
+            {"role": "user", "content": [{"text": "How are you?"}]},
+        ],
+    }
+    assert run["version"]["id"] == version_id

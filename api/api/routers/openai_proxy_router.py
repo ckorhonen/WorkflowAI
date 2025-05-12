@@ -15,6 +15,7 @@ from api.routers.openai_proxy_models import (
     OpenAIProxyResponseFormat,
 )
 from api.utils import get_start_time
+from core.domain.consts import INPUT_KEY_MESSAGES
 from core.domain.errors import BadRequestError
 from core.domain.events import ProxyAgentCreatedEvent
 from core.domain.message import Messages
@@ -50,7 +51,7 @@ def _json_schema_from_input(messages: Messages, input: dict[str, Any] | None) ->
         return RawMessagesSchema
     if not schema_from_input:
         raise BadRequestError("Messages are templated but no input variables are provided")
-    return SerializableTaskIO.from_json_schema(schema_from_template, streamline=True)
+    return SerializableTaskIO.from_json_schema({**schema_from_template, "format": "messages"}, streamline=True)
 
 
 def _build_variant(
@@ -140,7 +141,11 @@ async def chat_completions(
             variant = _build_variant(messages, agent_ref.agent_id, body.input, body.response_format)
 
         final_input = body.input
-        # TODO: we should pass the messages as well here to append if needed
+        if messages.messages:
+            final_input = {
+                **final_input,
+                INPUT_KEY_MESSAGES: messages.model_dump(mode="json", exclude_none=True)["messages"],
+            }
     else:
         raw_variant = _build_variant(messages, agent_ref.agent_id, body.input, body.response_format)
         variant, new_variant_created = await storage.store_task_resource(raw_variant)

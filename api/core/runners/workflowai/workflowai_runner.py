@@ -12,7 +12,12 @@ from typing_extensions import override
 
 from api.services.providers_service import shared_provider_factory
 from core.domain.agent_run_result import INTERNAL_AGENT_RUN_RESULT_SCHEMA_KEY, AgentRunResult
-from core.domain.consts import METADATA_KEY_PROVIDER_NAME, METADATA_KEY_USED_MODEL, METADATA_KEY_USED_PROVIDERS
+from core.domain.consts import (
+    INPUT_KEY_MESSAGES,
+    METADATA_KEY_PROVIDER_NAME,
+    METADATA_KEY_USED_MODEL,
+    METADATA_KEY_USED_PROVIDERS,
+)
 from core.domain.errors import (
     BadRequestError,
     InvalidFileError,
@@ -540,7 +545,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         text_content.text = f"{prefix}{suffix}"
         return messages.to_deprecated()
 
-    async def _extract_raw_messages(self, input: AgentInput):
+    async def _extract_raw_messages(self, input: AgentInput) -> Messages | None:
         if self.task.input_schema.version == RawMessagesSchema.version:
             if isinstance(input, list):
                 input = {"messages": input}
@@ -549,11 +554,22 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             except ValidationError as e:
                 # Capturing for now just in case
                 raise BadRequestError(f"Input is not a valid list of messages: {str(e)}", capture=True) from e
-        if self._options.messages:
-            # Then the current version is a full message template
-            # So we just need to return the messages
-            return await Messages(messages=self._options.messages).templated(self.template_manager.renderer(input))
-        return None
+        if not self._options.messages:
+            return None
+        # Then the current version is a full message template
+        # So we just need to return the messages
+        base = await Messages(messages=self._options.messages).templated(self.template_manager.renderer(input))
+        if self.task.input_schema.json_schema.get("format") == "messages" and (
+            input_messages := input.get(INPUT_KEY_MESSAGES)
+        ):
+            # We have extra messages to append
+            try:
+                input_messages = Messages.model_validate({"messages": input_messages})
+                base.messages.extend(input_messages.messages)
+            except ValidationError:
+                # That should never happen, the messages should have been validated upstream
+                logger.exception("Invalid messages in input", input_messages)
+        return base
 
     async def _build_messages(  # noqa: C901
         self,
