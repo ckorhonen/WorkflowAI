@@ -11,6 +11,7 @@ from core.domain.agent_run import AgentRun
 from core.domain.consts import METADATA_KEY_INTEGRATION
 from core.domain.errors import BadRequestError
 from core.domain.fields.file import File
+from core.domain.llm_completion import LLMCompletion
 from core.domain.message import (
     Message,
     MessageContent,
@@ -299,10 +300,8 @@ _UNSUPPORTED_FIELDS = {
 }
 _IGNORED_FIELDS = {
     "function_call",
-    "user",
     "store",
     "parallel_tool_calls",
-    "stream_options",
 }
 
 
@@ -534,6 +533,21 @@ class OpenAIProxyCompletionUsage(BaseModel):
     prompt_tokens: int
     total_tokens: int
 
+    @classmethod
+    def from_domain(cls, completion: LLMCompletion):
+        if (
+            not completion.usage
+            or completion.usage.prompt_token_count is None
+            or completion.usage.completion_token_count is None
+        ):
+            return None
+
+        return cls(
+            completion_tokens=int(completion.usage.completion_token_count),
+            prompt_tokens=int(completion.usage.prompt_token_count),
+            total_tokens=int(completion.usage.prompt_token_count + completion.usage.completion_token_count),
+        )
+
 
 class OpenAIProxyChatCompletionChoice(BaseModel):
     finish_reason: Literal["stop", "length", "tool_calls", "content_filter", "function_call"]
@@ -580,6 +594,7 @@ class OpenAIProxyChatCompletionResponse(BaseModel):
             created=int(run.created_at.timestamp()),
             model=model,
             cost_usd=run.cost_usd,
+            usage=OpenAIProxyCompletionUsage.from_domain(run.task_output),
         )
 
     @classmethod
