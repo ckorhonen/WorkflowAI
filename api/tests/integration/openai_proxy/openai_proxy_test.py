@@ -379,3 +379,15 @@ async def test_deployment(test_client: IntegrationTestClient, openai_client: Asy
         ],
     }
     assert run["version"]["id"] == version_id
+
+
+async def test_deployment_missing_error(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+    with pytest.raises(openai.BadRequestError) as e:
+        await openai_client.chat.completions.create(
+            model="my-agent/#1/production",
+            messages=[],
+            extra_body={"input": {"name": "John"}},
+        )
+
+    assert e.value.status_code == 400
+    assert "Deployment not found" in e.value.message
