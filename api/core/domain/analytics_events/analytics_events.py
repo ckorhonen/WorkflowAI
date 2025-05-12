@@ -17,10 +17,11 @@ class SourceType(StrEnum):
     SDK = "sdk"
     WEB = "web"
     API = "api"
+    PROXY = "proxy"
 
     @property
     def is_active(self) -> bool:
-        return self == SourceType.API or self == SourceType.SDK
+        return self != SourceType.WEB
 
 
 class UserProperties(BaseModel):

@@ -17,6 +17,7 @@ from api.routers.openai_proxy_models import (
 )
 from api.services.openai_proxy_service import OpenAIProxyService
 from api.utils import get_start_time
+from core.domain.analytics_events.analytics_events import SourceType
 from core.domain.consts import INPUT_KEY_MESSAGES
 from core.domain.errors import BadRequestError
 from core.domain.events import ProxyAgentCreatedEvent
@@ -221,6 +222,7 @@ async def chat_completions(
         cache=body.use_cache or "auto",
         metadata=body.full_metadata(request.headers),
         trigger="user",
+        source=SourceType.PROXY,
         serializer=OpenAIProxyChatCompletionResponse.serializer(
             model=body.model,
             deprecated_function=body.uses_deprecated_functions,
