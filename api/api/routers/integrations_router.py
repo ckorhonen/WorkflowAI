@@ -14,7 +14,7 @@ from core.domain.integration_domain import OFFICIAL_INTEGRATIONS, IntegrationKin
 from core.domain.integration_domain import Integration as DomainIntegration
 from core.utils.stream_response_utils import safe_streaming_response
 
-router = APIRouter(prefix="/integrations")
+router = APIRouter(prefix="/v1/integrations")
 
 
 class Integration(BaseModel):
