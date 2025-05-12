@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Request, Response
@@ -6,6 +7,7 @@ from fastapi import APIRouter, Request, Response
 from api.dependencies.services import GroupServiceDep, RunServiceDep
 from api.dependencies.storage import StorageDep
 from api.routers.openai_proxy_models import (
+    EnvironmentRef,
     OpenAIProxyChatCompletionChunk,
     OpenAIProxyChatCompletionRequest,
     OpenAIProxyChatCompletionResponse,
@@ -14,7 +16,6 @@ from api.routers.openai_proxy_models import (
 from api.utils import get_start_time
 from core.domain.errors import BadRequestError
 from core.domain.message import Messages
-from core.domain.models.models import Model
 from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_io import RawJSONMessageSchema, RawMessagesSchema, RawStringMessageSchema, SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
@@ -24,46 +25,9 @@ from core.utils.schemas import schema_from_data
 from core.utils.strings import to_pascal_case
 from core.utils.templates import extract_variable_schema
 
+_logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="", tags=["openai"])
-
-
-_model_mapping = {
-    "gpt-4o": Model.GPT_4O_LATEST,
-}
-
-
-def _parse_model(model: str) -> Model:
-    if model in _model_mapping:
-        return _model_mapping[model]
-
-    # We try to parse the model as a Model
-    try:
-        return Model(model)
-    except ValueError:
-        pass
-
-    # Then we check if it's a unversioned model, called "latest" here
-    try:
-        return Model(model + "-latest")
-    except ValueError:
-        pass
-
-    raise BadRequestError(f"Model does not exist {model}")
-
-
-def _agent_and_model(model: str) -> tuple[str | None, Model]:
-    agent_and_model = model.split("/")
-    if len(agent_and_model) > 2:
-        raise BadRequestError(f"Invalid model: {model}")
-
-    if len(agent_and_model) == 1:
-        agent_name = None
-        model_str = agent_and_model[0]
-    else:
-        agent_name = agent_and_model[0]
-        model_str = agent_and_model[1]
-
-    return agent_name, _parse_model(model_str)
 
 
 def _raw_string_mapper(output: Any) -> str:
@@ -99,20 +63,16 @@ def _build_variant(
         match response_format.type:
             case "text":
                 output_schema = RawStringMessageSchema
-                mapper = _raw_string_mapper
             case "json_object":
                 output_schema = RawJSONMessageSchema
-                mapper = _output_json_mapper
             case "json_schema":
                 if not response_format.json_schema:
                     raise BadRequestError("JSON schema is required for json_schema response format")
                 output_schema = SerializableTaskIO.from_json_schema(response_format.json_schema.schema_)
-                mapper = _output_json_mapper
             case _:
                 raise BadRequestError(f"Invalid response format: {response_format.type}")
     else:
         output_schema = RawStringMessageSchema
-        mapper = _raw_string_mapper
 
     if not agent_slug:
         agent_slug = "default"
@@ -124,7 +84,7 @@ def _build_variant(
         input_schema=input_schema,
         output_schema=output_schema,
         name=to_pascal_case(agent_slug),
-    ), mapper
+    )
 
 
 @router.post(
@@ -149,35 +109,61 @@ async def chat_completions(
     run_service: RunServiceDep,
     request: Request,
 ) -> Response:
+    # TODO: content of this function should be split into smaller functions and migrated to a service
     messages = Messages(messages=[m.to_domain() for m in body.messages])
     request_start_time = get_start_time(request)
     # First we need to locate the agent
-    agent_slug, model = _agent_and_model(body.model)
-    raw_variant, output_mapper = _build_variant(messages, agent_slug, body.input, body.response_format)
-    variant, _ = await storage.store_task_resource(raw_variant)
+    agent_ref = body.extract_references()
+    if isinstance(agent_ref, EnvironmentRef):
+        if body.input is None:
+            raise BadRequestError("Input is required when using a deployment")
 
-    tool_calls, deprecated_function = body.domain_tools()
-    properties = TaskGroupProperties(
-        model=model,
-        enabled_tools=tool_calls,
-        max_tokens=body.max_completion_tokens or body.max_tokens,
-        temperature=body.temperature,
-        provider=body.workflowai_provider,
-        tool_choice=body.worflowai_tool_choice,
-    )
+        deployment = await storage.task_deployments.get_task_deployment(
+            agent_ref.agent_id,
+            agent_ref.schema_id,
+            agent_ref.environment,
+        )
+        properties = deployment.properties
+        if variant_id := deployment.properties.task_variant_id:
+            variant = await storage.task_version_resource_by_id(
+                agent_ref.agent_id,
+                variant_id,
+            )
+        else:
+            _logger.warning(
+                "No variant id found for deployment, building a new variant",
+                extra={"agent_ref": agent_ref},
+            )
+            variant = _build_variant(messages, agent_ref.agent_id, body.input, body.response_format)
 
-    if body.input:
-        # If we have an input, the input schema in the variant must not be the RawMessagesSchema
-        # otherwise _build_variant would have raised an error
-        # So we can check that the input schema matches and then template the messages as needed
-        # We don't remove any extras from the input, we just validate it
-        raw_variant.input_schema.enforce(body.input)
-        properties.messages = messages.messages
-        final_input: dict[str, Any] | Messages = body.input
+        final_input = body.input
+        # TODO: we should pass the messages as well here to append if needed
     else:
-        final_input = messages
+        raw_variant = _build_variant(messages, agent_ref.agent_id, body.input, body.response_format)
+        variant, _ = await storage.store_task_resource(raw_variant)
 
-    properties.task_variant_id = variant.id
+        properties = TaskGroupProperties(
+            model=agent_ref.model,
+            max_tokens=body.max_completion_tokens or body.max_tokens,
+            temperature=body.temperature,
+            provider=body.workflowai_provider,
+            tool_choice=body.worflowai_tool_choice,
+        )
+        properties.task_variant_id = variant.id
+
+        if body.input:
+            # If we have an input, the input schema in the variant must not be the RawMessagesSchema
+            # otherwise _build_variant would have raised an error
+            # So we can check that the input schema matches and then template the messages as needed
+            # We don't remove any extras from the input, we just validate it
+            raw_variant.input_schema.enforce(body.input)
+            properties.messages = messages.messages
+            final_input: dict[str, Any] | Messages = body.input
+        else:
+            final_input = messages
+
+    if tools := body.domain_tools():
+        properties.enabled_tools = tools
 
     runner, _ = await group_service.sanitize_groups_for_internal_runner(
         task_id=variant.task_id,
@@ -186,6 +172,10 @@ async def chat_completions(
         provider_settings=None,
         variant=variant,
         stream_deltas=body.stream is True,
+    )
+
+    output_mapper = (
+        _raw_string_mapper if variant.output_schema.version == RawStringMessageSchema.version else _output_json_mapper
     )
 
     return await run_service.run(
@@ -197,13 +187,13 @@ async def chat_completions(
         trigger="user",
         serializer=OpenAIProxyChatCompletionResponse.serializer(
             model=body.model,
-            deprecated_function=deprecated_function,
+            deprecated_function=body.uses_deprecated_functions,
             output_mapper=output_mapper,
         ),
         start_time=request_start_time,
         stream_serializer=OpenAIProxyChatCompletionChunk.stream_serializer(
             model=body.model,
-            deprecated_function=deprecated_function,
+            deprecated_function=body.uses_deprecated_functions,
         )
         if body.stream is True
         else None,
