@@ -17,10 +17,12 @@ export type AIModelComboboxOption = {
     isSelected,
     showCheck,
     dropdownOpen,
+    isProxy,
   }: {
     isSelected: boolean;
     showCheck?: boolean;
     dropdownOpen?: boolean;
+    isProxy?: boolean;
   }) => React.ReactNode;
   disabled?: boolean;
   isLatest?: boolean;
