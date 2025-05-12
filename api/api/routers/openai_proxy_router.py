@@ -4,6 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter, Request, Response
 
+from api.dependencies.event_router import EventRouterDep
 from api.dependencies.services import GroupServiceDep, RunServiceDep
 from api.dependencies.storage import StorageDep
 from api.routers.openai_proxy_models import (
@@ -15,6 +16,7 @@ from api.routers.openai_proxy_models import (
 )
 from api.utils import get_start_time
 from core.domain.errors import BadRequestError
+from core.domain.events import ProxyAgentCreatedEvent
 from core.domain.message import Messages
 from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_io import RawJSONMessageSchema, RawMessagesSchema, RawStringMessageSchema, SerializableTaskIO
@@ -107,6 +109,7 @@ async def chat_completions(
     group_service: GroupServiceDep,
     storage: StorageDep,
     run_service: RunServiceDep,
+    event_router: EventRouterDep,
     request: Request,
 ) -> Response:
     # TODO: content of this function should be split into smaller functions and migrated to a service
@@ -140,7 +143,16 @@ async def chat_completions(
         # TODO: we should pass the messages as well here to append if needed
     else:
         raw_variant = _build_variant(messages, agent_ref.agent_id, body.input, body.response_format)
-        variant, _ = await storage.store_task_resource(raw_variant)
+        variant, new_variant_created = await storage.store_task_resource(raw_variant)
+
+        if new_variant_created:
+            event_router(
+                ProxyAgentCreatedEvent(
+                    agent_slug=raw_variant.task_id,
+                    task_id=variant.task_id,
+                    task_schema_id=variant.task_schema_id,
+                ),
+            )
 
         properties = TaskGroupProperties(
             model=agent_ref.model,
