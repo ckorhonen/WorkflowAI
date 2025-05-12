@@ -391,3 +391,15 @@ async def test_deployment_missing_error(test_client: IntegrationTestClient, open
 
     assert e.value.status_code == 400
     assert "Deployment not found" in e.value.message
+
+
+async def test_missing_model_error(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+    test_client.mock_internal_task("model_suggester", {"suggested_model": "gpt-4o-mini-latest"})
+
+    with pytest.raises(openai.BadRequestError) as e:
+        await openai_client.chat.completions.create(
+            # Not a valid model
+            model="gpt-4",
+            messages=[],
+        )
+    assert "Did you mean gpt-4o-mini-latest" in e.value.message

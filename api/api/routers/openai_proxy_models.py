@@ -23,6 +23,7 @@ from core.domain.tool import Tool
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.domain.types import AgentOutput
 from core.domain.version_environment import VersionEnvironment
+from core.providers.base.provider_error import MissingModelError
 from core.tools import ToolKind
 from core.utils.models.dumps import safe_dump_pydantic_model
 
@@ -517,12 +518,7 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
             return env
 
         if not model:
-            raise BadRequestError(
-                # TODO: prettify error
-                f"Invalid model {self.model}",
-                capture=True,
-                extras={"model": self.model, "environment": self.environment, "schema_id": self.schema_id},
-            )
+            raise MissingModelError(model=splits[-1])
 
         return ModelRef(
             model=model,

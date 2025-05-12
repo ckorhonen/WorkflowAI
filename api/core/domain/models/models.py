@@ -193,9 +193,6 @@ class Model(StrEnum):
 
     @classmethod
     def from_permissive(cls, model: str) -> "Model | None":
-        if model in _model_mapping:
-            return _model_mapping[model]
-
         # We try to parse the model as a Model
         try:
             return Model(model)
@@ -209,9 +206,3 @@ class Model(StrEnum):
             pass
 
         return None
-
-
-# TODO: we should use a proper aliasing system
-_model_mapping = {
-    "gpt-4o": Model.GPT_4O_LATEST,
-}

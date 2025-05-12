@@ -15,6 +15,7 @@ from api.routers.openai_proxy_models import (
     OpenAIProxyChatCompletionResponse,
     OpenAIProxyResponseFormat,
 )
+from api.services.openai_proxy_service import OpenAIProxyService
 from api.utils import get_start_time
 from core.domain.consts import INPUT_KEY_MESSAGES
 from core.domain.errors import BadRequestError
@@ -25,6 +26,7 @@ from core.domain.task_io import RawJSONMessageSchema, RawMessagesSchema, RawStri
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.types import AgentOutput
 from core.domain.version_reference import VersionReference
+from core.providers.base.provider_error import MissingModelError
 from core.storage import ObjectNotFoundException
 from core.utils.schemas import schema_from_data
 from core.utils.strings import to_pascal_case
@@ -120,7 +122,12 @@ async def chat_completions(
     messages = Messages(messages=[m.to_domain() for m in body.messages])
     request_start_time = get_start_time(request)
     # First we need to locate the agent
-    agent_ref = body.extract_references()
+
+    try:
+        agent_ref = body.extract_references()
+    except MissingModelError as e:
+        raise await OpenAIProxyService.missing_model_error(e.extras.get("model"))
+
     if isinstance(agent_ref, EnvironmentRef):
         try:
             deployment = await storage.task_deployments.get_task_deployment(
