@@ -99,7 +99,7 @@ class _SchemaBuilder(NodeVisitor):
         self._aliases: list[Mapping[str, Any]] = []
         self._existing_schema = JsonSchema(existing_schema) if existing_schema else None
 
-    def build_schema(self) -> Mapping[str, Any]:
+    def build_schema(self) -> dict[str, Any]:
         if not self._visited_paths:
             return {}
         schema: dict[str, Any] = {}
@@ -117,10 +117,11 @@ class _SchemaBuilder(NodeVisitor):
 
     def _handle_components(self, schema: dict[str, Any], existing: JsonSchema | None, components: dict[str, Any]):
         if not components:
+            # No component so we are in a leaf
             if existing:
+                # If existing, we use whatever we have in the existing schema
                 schema.update(copy.deepcopy(existing.schema))
-                return
-            schema.setdefault("type", "string")
+            # Otherwise, we leave the schema as is. Meaning that Any type will be accepted
             return
 
         if len(components) == 1 and "*" in components:
@@ -230,7 +231,7 @@ class _SchemaBuilder(NodeVisitor):
         raise BadRequestError("Template functions are not supported", capture=True)
 
 
-def extract_variable_schema(template: str, existing_schema: dict[str, Any] | None = None) -> Mapping[str, Any]:
+def extract_variable_schema(template: str, existing_schema: dict[str, Any] | None = None) -> dict[str, Any]:
     env = Environment()
     try:
         ast = env.parse(template)

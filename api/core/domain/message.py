@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from enum import StrEnum, auto
 from typing import Literal
 
@@ -49,6 +49,12 @@ class MessageContent(BaseModel):
             tool_call_request=self.tool_call_request,
         )
 
+    def content_iterator(self) -> Iterator[str]:
+        if self.text:
+            yield self.text
+        if self.file is not None and self.file.url:
+            yield self.file.url
+
 
 class Message(BaseModel):
     # It would be nice to use strict validation since we know that certain roles are not allowed to
@@ -69,8 +75,11 @@ class Message(BaseModel):
             role=self.role,
             content=contents,
             image_options=self.image_options,
-            tool_call=self.tool_call,
         )
+
+    def content_iterator(self) -> Iterator[str]:
+        for c in self.content:
+            yield from c.content_iterator()
 
     def to_deprecated(self) -> MessageDeprecated:
         # TODO: remove this method
@@ -104,6 +113,11 @@ class Message(BaseModel):
 
 class Messages(BaseModel):
     messages: list[Message]
+
+    def content_iterator(self) -> Iterator[str]:
+        """Iterates over all content"""
+        for m in self.messages:
+            yield from m.content_iterator()
 
     async def templated(self, renderer: TemplateRenderer):
         try:

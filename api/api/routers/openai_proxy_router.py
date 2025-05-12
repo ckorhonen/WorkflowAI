@@ -20,7 +20,10 @@ from core.domain.task_io import RawJSONMessageSchema, RawMessagesSchema, RawStri
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.types import AgentOutput
 from core.domain.version_reference import VersionReference
+from core.runners.workflowai.workflowai_runner import WorkflowAIRunner
+from core.utils.schemas import schema_from_data
 from core.utils.strings import to_pascal_case
+from core.utils.templates import extract_variable_schema
 
 router = APIRouter(prefix="", tags=["openai"])
 
@@ -73,7 +76,16 @@ def _output_json_mapper(output: AgentOutput) -> str:
 
 
 def _json_schema_from_input(messages: Messages, input: dict[str, Any] | None) -> SerializableTaskIO:
-    raise NotImplementedError("Not implemented")
+    templatable = " ".join(messages.content_iterator())
+    schema_from_input: dict[str, Any] | None = schema_from_data(input) if input else None
+    schema_from_template = extract_variable_schema(templatable, existing_schema=schema_from_input)
+    if not schema_from_template:
+        if schema_from_input:
+            raise BadRequestError("Input variables are provided but the messages do not contain a valid template")
+        return RawMessagesSchema
+    if not schema_from_input:
+        raise BadRequestError("Messages are templated but no input variables are provided")
+    return SerializableTaskIO.from_json_schema(schema_from_template, streamline=True)
 
 
 def _build_variant(
@@ -110,7 +122,7 @@ def _build_variant(
         id="",
         task_schema_id=0,
         task_id=agent_slug,
-        input_schema=RawMessagesSchema,
+        input_schema=input_schema,
         output_schema=output_schema,
         name=to_pascal_case(agent_slug),
     ), mapper
@@ -144,6 +156,14 @@ async def chat_completions(
     agent_slug, model = _agent_and_model(body.model)
     raw_variant, output_mapper = _build_variant(messages, agent_slug, body.input, body.response_format)
     variant, _ = await storage.store_task_resource(raw_variant)
+
+    if body.input:
+        # If we have an input, the input schema in the variant must not be the RawMessagesSchema
+        # otherwise _build_variant would have raised an error
+        # So we can check that the input schema matches and then template the messages as needed
+        # We don't remove any extras from the input, we just validate it
+        raw_variant.input_schema.enforce(body.input)
+        messages = await messages.templated(WorkflowAIRunner.template_manager.renderer(body.input))
 
     tool_calls, deprecated_function = body.domain_tools()
     properties = TaskGroupProperties(

@@ -641,18 +641,18 @@ def _is_enum_or_boolean(schema: dict[str, Any]) -> bool:
     return False
 
 
-def build_from_data(data: Any) -> RawJsonSchema:
+def schema_from_data(data: Any) -> dict[str, Any]:
     if isinstance(data, dict):
         return {
             "type": "object",
-            "properties": {k: build_from_data(v) for k, v in data.items()},  # pyright: ignore[reportUnknownVariableType]
+            "properties": {k: schema_from_data(v) for k, v in data.items()},  # pyright: ignore[reportUnknownVariableType]
         }
     if isinstance(data, list):
         if not data:
             return {"type": "array"}
         return {
             "type": "array",
-            "items": build_from_data(data[0]),  # pyright: ignore[reportUnknownVariableType]
+            "items": schema_from_data(data[0]),  # pyright: ignore[reportUnknownVariableType]
         }
     if isinstance(data, bool):
         return {"type": "boolean"}
