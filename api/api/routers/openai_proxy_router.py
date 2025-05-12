@@ -119,9 +119,6 @@ async def chat_completions(
     # First we need to locate the agent
     agent_ref = body.extract_references()
     if isinstance(agent_ref, EnvironmentRef):
-        if body.input is None:
-            raise BadRequestError("Input is required when using a deployment")
-
         deployment = await storage.task_deployments.get_task_deployment(
             agent_ref.agent_id,
             agent_ref.schema_id,
@@ -140,12 +137,15 @@ async def chat_completions(
             )
             variant = _build_variant(messages, agent_ref.agent_id, body.input, body.response_format)
 
-        final_input = body.input
-        if messages.messages:
-            final_input = {
-                **final_input,
-                INPUT_KEY_MESSAGES: messages.model_dump(mode="json", exclude_none=True)["messages"],
-            }
+        if body.input is None:
+            final_input = messages
+        else:
+            final_input = body.input
+            if messages.messages:
+                final_input = {
+                    **final_input,
+                    INPUT_KEY_MESSAGES: messages.model_dump(mode="json", exclude_none=True)["messages"],
+                }
     else:
         raw_variant = _build_variant(messages, agent_ref.agent_id, body.input, body.response_format)
         variant, new_variant_created = await storage.store_task_resource(raw_variant)
