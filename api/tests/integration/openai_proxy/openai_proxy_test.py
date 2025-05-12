@@ -1,3 +1,5 @@
+import json
+
 import openai
 import pytest
 from openai import AsyncOpenAI
@@ -281,3 +283,99 @@ async def test_stream_structured_output(test_client: IntegrationTestClient, open
 
     chunks = [c async for c in streamer]
     assert len(chunks) == 2
+
+
+async def test_templated_variables(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+    test_client.mock_openai_call()
+
+    res = await openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "Hello, {{ name }}!"}],
+        extra_body={"input": {"name": "John"}},
+    )
+    assert res.choices[0].message.content == '{"greeting": "Hello James!"}'
+
+    await test_client.wait_for_completed_tasks()
+
+    run = await test_client.get("/v1/_/agents/default/runs/latest")
+    assert run["task_output"] == {"greeting": "Hello James!"}
+    assert run["task_input"] == {"name": "John"}
+
+    request = test_client.httpx_mock.get_request(url="https://api.openai.com/v1/chat/completions")
+    assert request
+    body = json.loads(request.content)
+    assert len(body["messages"]) == 1
+    assert body["messages"][0]["content"] == "Hello, John!"
+
+
+async def test_deployment(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+    test_client.mock_openai_call(raw_content="Hello James!")
+
+    # First create a run with a templated variable and deployment
+    res = await openai_client.chat.completions.create(
+        model="my-agent/gpt-4o",
+        messages=[{"role": "user", "content": "Hello, {{ name }}!"}],
+        extra_body={"input": {"name": "John"}},
+    )
+    await test_client.wait_for_completed_tasks()
+
+    # Now save and deploy the associated version
+    agent_id, run_id = res.id.split("/")
+    saved_version = await test_client.post(f"/v1/_/agents/{agent_id}/runs/{run_id}/version/save")
+    version_id = saved_version["id"]
+
+    # Checking the agent schema
+    agent = await test_client.get(f"/_/agents/{agent_id}/schemas/1")
+    assert agent["input_schema"]["json_schema"] == {
+        "format": "messages",
+        "type": "object",
+        "properties": {"name": {"type": "string"}},
+    }
+
+    # Now we can deploy the version
+    await test_client.post(
+        f"/v1/_/agents/{agent_id}/versions/{version_id}/deploy",
+        json={
+            "environment": "production",
+        },
+    )
+
+    # Now we can make a new run with the deployment
+    test_client.mock_openai_call(raw_content="Hello James!")
+
+    res = await openai_client.chat.completions.create(
+        model="my-agent/#1/production",
+        messages=[],
+        extra_body={"input": {"name": "Cecily"}},
+    )
+
+    # Get the latest request
+    requests = test_client.httpx_mock.get_requests(url="https://api.openai.com/v1/chat/completions")
+    assert len(requests) == 2
+    body = json.loads(requests[-1].content)
+    assert body["messages"][0]["content"] == "Hello, Cecily!"
+
+    # I can also follow up with a new message
+    # TODO: would be good to change the output here but overriding mocks does not seem to be working for now
+    test_client.mock_openai_call(raw_content="I'm good, thank you!")
+
+    res = await openai_client.chat.completions.create(
+        model="my-agent/#1/production",
+        messages=[{"role": "assistant", "content": "Hello, Cecily!"}, {"role": "user", "content": "How are you?"}],
+        extra_body={"input": {"name": "Cecily"}},
+    )
+    assert res.choices[0].message.content == "I'm good, thank you!"
+
+    await test_client.wait_for_completed_tasks()
+
+    # Check the run
+    run = await test_client.get(f"/v1/_/agents/{agent_id}/runs/latest")
+    assert run["task_output"] == "I'm good, thank you!"
+    assert run["task_input"] == {
+        "name": "Cecily",
+        "workflowai.replies": [
+            {"role": "assistant", "content": [{"text": "Hello, Cecily!"}]},
+            {"role": "user", "content": [{"text": "How are you?"}]},
+        ],
+    }
+    assert run["version"]["id"] == version_id

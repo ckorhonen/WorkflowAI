@@ -190,3 +190,28 @@ class Model(StrEnum):
     GROK_3_MINI_BETA_HIGH_REASONING_EFFORT = "grok-3-mini-beta-high"
     GROK_3_MINI_FAST_BETA_LOW_REASONING_EFFORT = "grok-3-mini-fast-beta-low"
     GROK_3_MINI_FAST_BETA_HIGH_REASONING_EFFORT = "grok-3-mini-fast-beta-high"
+
+    @classmethod
+    def from_permissive(cls, model: str) -> "Model | None":
+        if model in _model_mapping:
+            return _model_mapping[model]
+
+        # We try to parse the model as a Model
+        try:
+            return Model(model)
+        except ValueError:
+            pass
+
+        # Then we check if it's a unversioned model, called "latest" here
+        try:
+            return Model(model + "-latest")
+        except ValueError:
+            pass
+
+        return None
+
+
+# TODO: we should use a proper aliasing system
+_model_mapping = {
+    "gpt-4o": Model.GPT_4O_LATEST,
+}

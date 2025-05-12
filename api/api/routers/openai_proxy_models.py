@@ -1,8 +1,9 @@
 import json
 import logging
+import re
 import time
 from collections.abc import Callable, Mapping
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -14,12 +15,14 @@ from core.domain.message import (
     Message,
     MessageContent,
 )
+from core.domain.models.models import Model
 from core.domain.models.providers import Provider
 from core.domain.run_output import RunOutput
 from core.domain.task_group_properties import ToolChoice, ToolChoiceFunction
 from core.domain.tool import Tool
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.domain.types import AgentOutput
+from core.domain.version_environment import VersionEnvironment
 from core.tools import ToolKind
 from core.utils.models.dumps import safe_dump_pydantic_model
 
@@ -302,6 +305,24 @@ _IGNORED_FIELDS = {
 }
 
 
+class EnvironmentRef(NamedTuple):
+    """A reference to a deployed environment"""
+
+    agent_id: str
+    schema_id: int
+    environment: VersionEnvironment
+
+
+class ModelRef(NamedTuple):
+    """A reference to a model with an optional agent id"""
+
+    model: Model
+    agent_id: str | None
+
+
+_agent_schema_env_regex = re.compile(rf"^([^/]+)/#(\d+)/({'|'.join(VersionEnvironment)})$")
+
+
 class OpenAIProxyChatCompletionRequest(BaseModel):
     messages: list[OpenAIProxyMessage]
     model: str
@@ -354,15 +375,31 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
         description="The id of the agent to use for the request. If not provided, the default agent is used.",
     )
 
+    environment: str | None = Field(
+        default=None,
+        description="A reference to an environment where the agent is deployed. It can also be provided in the model "
+        "with the format `agent_id/#schema_id/environment`",
+    )
+
+    schema_id: int | None = Field(
+        default=None,
+        description="The agent schema id. Required when using a deployment. It can also be provided in the model "
+        "with the format `agent_id/#schema_id/environment`",
+    )
+
     model_config = ConfigDict(extra="allow")
 
-    def domain_tools(self) -> tuple[list[Tool | ToolKind] | None, bool]:
+    @property
+    def uses_deprecated_functions(self) -> bool:
+        return self.functions is not None
+
+    def domain_tools(self) -> list[Tool | ToolKind] | None:
         """Returns a tuple of the tools and a boolean indicating if the function call is deprecated"""
         if self.tools:
-            return [t.to_domain() for t in self.tools], False
+            return [t.to_domain() for t in self.tools]
         if self.functions:
-            return [t.to_domain() for t in self.functions], True
-        return None, False
+            return [t.to_domain() for t in self.functions]
+        return None
 
     def full_metadata(self, headers: Mapping[str, Any]) -> dict[str, Any] | None:
         base = self.metadata or {}
@@ -408,6 +445,89 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
             case _:
                 _logger.warning("Received an unsupported tool choice", extra={"tool_choice": self.tool_choice})
                 return None
+
+    def _env_from_model_str(self) -> EnvironmentRef | None:
+        if match := _agent_schema_env_regex.match(self.model):
+            try:
+                return EnvironmentRef(
+                    agent_id=match.group(1),
+                    schema_id=int(match.group(2)),
+                    environment=VersionEnvironment(match.group(3)),
+                )
+            except Exception:
+                # That should really not happen. It would be pretty bad because it might mean that our regexp
+                # is broken
+                _logger.exception(
+                    "Model matched regexp but we failed to parse the values",
+                    extra={"model": self.model},
+                )
+        return None
+
+    def _env_from_fields(self, agent_id: str | None, model: Model | None) -> EnvironmentRef | None:
+        if not (self.environment or self.schema_id):
+            return None
+        if not (self.environment and self.schema_id and agent_id):
+            raise BadRequestError(
+                "When an environment or schema_id is provided, agent_id, environment and schema_id must be provided",
+                capture=True,
+                extras={"model": self.model, "environment": self.environment, "schema_id": self.schema_id},
+            )
+
+        try:
+            environment = VersionEnvironment(self.environment)
+        except Exception:
+            if model:
+                # That's ok. It could mean that someone passed an extra body parameter that's also called
+                # environment. We can probably ignore it.
+                _logger.warning(
+                    "Received an invalid environment",
+                    extra={"environment": self.environment, "model": self.model},
+                )
+                return None
+            # We don't have a model. Meaning that it's likely a user error
+            raise BadRequestError(
+                f"Environment {self.environment} is not a valid environment. Valid environments are: {', '.join(VersionEnvironment)}",
+                capture=True,
+                extras={"model": self.model, "environment": self.environment, "schema_id": self.schema_id},
+            )
+        return EnvironmentRef(
+            agent_id=agent_id,
+            schema_id=self.schema_id,
+            environment=environment,
+        )
+
+    def extract_references(self) -> EnvironmentRef | ModelRef:
+        """Extracts the model, agent_id, schema_id and environment from the model string
+        and other body optional parameters.
+        References can come from either:
+        - the model string with a format either "<model>", "<agent_id>/<model>" or "<agent_id>/#<schema_id>/<environment>"
+        - the body parameters environment, schema_id and agent_id
+        """
+
+        if env := self._env_from_model_str():
+            return env
+
+        splits = self.model.split("/")
+        agent_id = self.agent_id or (splits[0] if len(splits) > 1 else None)
+        # Getting the model from the last component. This is to support cases like litellm that
+        # prefix the model string with the provider
+        model = Model.from_permissive(splits[-1])
+
+        if env := self._env_from_fields(agent_id, model):
+            return env
+
+        if not model:
+            raise BadRequestError(
+                # TODO: prettify error
+                f"Invalid model {self.model}",
+                capture=True,
+                extras={"model": self.model, "environment": self.environment, "schema_id": self.schema_id},
+            )
+
+        return ModelRef(
+            model=model,
+            agent_id=agent_id,
+        )
 
 
 # --- Response Models ---

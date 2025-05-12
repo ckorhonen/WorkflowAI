@@ -69,13 +69,13 @@ class TestRenderTemplate:
 class TestExtractVariableSchema:
     def test_extract_variable_schema(self):
         schema = extract_variable_schema("Hello, {{ name }}!")
-        assert schema == {"type": "object", "properties": {"name": {"type": "string"}}}
+        assert schema == {"type": "object", "properties": {"name": {}}}
 
     def test_attribute_access(self):
         schema = extract_variable_schema("User: {{ user.name }}")
         assert schema == {
             "type": "object",
-            "properties": {"user": {"type": "object", "properties": {"name": {"type": "string"}}}},
+            "properties": {"user": {"type": "object", "properties": {"name": {}}}},
         }
 
     def test_nested_attribute_access(self):
@@ -88,7 +88,7 @@ class TestExtractVariableSchema:
                     "properties": {
                         "profile": {
                             "type": "object",
-                            "properties": {"email": {"type": "string"}},
+                            "properties": {"email": {}},
                         },
                     },
                 },
@@ -105,7 +105,7 @@ class TestExtractVariableSchema:
                     "type": "array",
                     "items": {
                         "type": "object",
-                        "properties": {"name": {"type": "string"}},
+                        "properties": {"name": {}},
                     },
                 },
             },
@@ -121,7 +121,7 @@ class TestExtractVariableSchema:
                     "type": "array",
                     "items": {
                         "type": "object",
-                        "properties": {"name": {"type": "string"}},
+                        "properties": {"name": {}},
                     },
                 },
             },
@@ -142,7 +142,7 @@ class TestExtractVariableSchema:
                                 "type": "array",
                                 "items": {
                                     "type": "object",
-                                    "properties": {"title": {"type": "string"}},
+                                    "properties": {"title": {}},
                                 },
                             },
                         },
@@ -160,8 +160,8 @@ class TestExtractVariableSchema:
                 "user": {
                     "type": "object",
                     "properties": {
-                        "is_admin": {"type": "string"},  # Type defaults to string
-                        "name": {"type": "string"},
+                        "is_admin": {},  # Type defaults to string
+                        "name": {},
                     },
                 },
             },
@@ -176,12 +176,12 @@ class TestExtractVariableSchema:
                 "user": {
                     "type": "object",
                     "properties": {
-                        "name": {"type": "string"},
+                        "name": {},
                         "projects": {
                             "type": "array",
                             "items": {
                                 "type": "object",
-                                "properties": {"id": {"type": "string"}},
+                                "properties": {"id": {}},
                             },
                         },
                     },
@@ -191,9 +191,66 @@ class TestExtractVariableSchema:
 
     def test_no_variables(self):
         schema = extract_variable_schema("Just plain text.")
-        assert schema == {"type": "object", "properties": {}}
+        assert schema == {}
 
     def test_function_call_raises_error(self):
         # Functions are not supported
         with pytest.raises(BadRequestError, match="Template functions are not supported"):
             extract_variable_schema("{{ my_func() }}")
+
+    def test_single_array(self):
+        schema = extract_variable_schema("{% for item in seq %}{{ item }}{% endfor %}")
+        assert schema == {
+            "type": "object",
+            "properties": {"seq": {"type": "array", "items": {}}},
+        }
+
+    def test_existing_schema(self):
+        schema = extract_variable_schema(
+            "{{ name }} {{ counter}}",
+            existing_schema={
+                "type": "object",
+                "properties": {
+                    "counter": {"type": "integer", "description": "The counter"},
+                },
+            },
+        )
+        assert schema == {
+            "type": "object",
+            "properties": {
+                "name": {},
+                "counter": {"type": "integer", "description": "The counter"},
+            },
+        }
+
+    def test_existing_schema_with_array(self):
+        schema = extract_variable_schema(
+            "{% for user in users %}{{ user.name }} {{ user.counter }} {% endfor %}",
+            existing_schema={
+                "type": "object",
+                "properties": {
+                    "users": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {"name": {"type": "string", "description": "The name of the user"}},
+                        },
+                    },
+                },
+            },
+        )
+        assert schema == {
+            "type": "object",
+            "properties": {
+                "users": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string", "description": "The name of the user"},
+                            "counter": {},
+                        },
+                    },
+                },
+            },
+        }

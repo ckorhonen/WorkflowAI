@@ -61,6 +61,9 @@ class CreateVersionRequest(BaseModel):
     )
 
 
+# TODO: duplicate from runs_v1 CreateVersionResponse, we should remove this once
+# versions are not stored until saved
+# ref https://linear.app/workflowai/issue/WOR-4485/stop-storing-non-saved-versions-and-attach-them-to-runs-instead
 class CreateVersionResponse(BaseModel):
     id: str
     # TODO[versionsv1]: Remove this once the usage of iteration is removed
@@ -78,6 +81,7 @@ class CreateVersionResponse(BaseModel):
         )
 
 
+# TODO: remove https://linear.app/workflowai/issue/WOR-4485/stop-storing-non-saved-versions-and-attach-them-to-runs-instead
 @router.post(
     "/schemas/{task_schema_id}/versions",
     description="Create a new version for a agent."

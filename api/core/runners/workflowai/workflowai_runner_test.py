@@ -75,11 +75,12 @@ def _build_runner2(
     mock_provider_factory: Mock,
     input_schema: dict[str, Any] | SerializableTaskIO,
     output_schema: dict[str, Any] | SerializableTaskIO,
-    instructions: str,
-    model: Model,
+    instructions: str | None = None,
+    model: Model = Model.GPT_4O_2024_08_06,
     has_templated_instructions: bool = False,
     is_chain_of_thought_enabled: bool | None = None,
     enabled_tools: list[ToolKind | Tool] | None = None,
+    messages: list[Message] | None = None,
 ):
     runner = WorkflowAIRunner(
         task=SerializableTaskVariant(
@@ -108,6 +109,7 @@ def _build_runner2(
             is_chain_of_thought_enabled=is_chain_of_thought_enabled,
             enabled_tools=enabled_tools,
             provider=None,
+            messages=messages,
         ),
     )
     runner.provider_factory = mock_provider_factory
@@ -3036,3 +3038,32 @@ class TestMessagesInput:
         messages = cast(list[MessageDeprecated], messages)
         assert len(messages) == 1
         assert messages[0].content == "Hello world"
+
+
+class TestTemplatedMessages:
+    async def test_templated_messages(self, mock_provider_factory_full: Mock):
+        runner = _build_runner2(
+            mock_provider_factory_full,
+            SerializableTaskIO.from_json_schema({"type": "object", "properties": {"text": {"type": "string"}}}),
+            RawStringMessageSchema,
+            messages=[Message.with_text("Hello {{text}}")],
+        )
+
+        mock_provider_factory_full.openai.complete.side_effect = mock_complete("Hello world")
+
+        builder = await runner.task_run_builder(
+            {
+                "text": "bla",
+            },
+            start_time=0,
+        )
+        run = await runner.run(builder)
+        assert run.task_output == "Hello world"
+
+        mock_provider_factory_full.openai.complete.assert_called_once()
+
+        messages = mock_provider_factory_full.openai.complete.call_args_list[0].args[0]
+        assert isinstance(messages, list)
+        messages = cast(list[MessageDeprecated], messages)
+        assert len(messages) == 1
+        assert messages[0].content == "Hello bla"

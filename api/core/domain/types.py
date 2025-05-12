@@ -1,3 +1,4 @@
+from collections.abc import Callable, Coroutine
 from typing import Any, Literal
 
 type CacheUsage = Literal["auto", "always", "never", "when_available", "only"]
@@ -5,3 +6,5 @@ type CacheUsage = Literal["auto", "always", "never", "when_available", "only"]
 
 AgentInput = dict[str, Any]
 AgentOutput = str | list[Any] | dict[str, Any]
+
+TemplateRenderer = Callable[[str | None], Coroutine[Any, Any, str | None]]
