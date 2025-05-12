@@ -386,6 +386,9 @@ class CompletionRequest(BaseModel):
     metadata: dict[str, Any] | None = None
     tools: list[Tool] | None = None
     tool_choice: XAIToolChoice | Literal["none", "auto", "required"] | None = None
+    top_p: float | None = None
+    presence_penalty: float | None = None
+    frequency_penalty: float | None = None
 
     @classmethod
     def tool_choice_from_domain(

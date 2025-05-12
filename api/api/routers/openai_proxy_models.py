@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping
 from typing import Any, Literal, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field
+from workflowai import CacheUsage
 
 from core.domain.agent_run import AgentRun
 from core.domain.consts import METADATA_KEY_INTEGRATION
@@ -283,22 +284,18 @@ class OpenAIProxyWebSearchOptions(BaseModel):
 
 
 _UNSUPPORTED_FIELDS = {
-    "frequency_penalty",
     "logit_bias",
     "logprobs",
     "modalities",
     "n",
     "prediction",
-    "presence_penalty",
-    "reasoning_effort",
     "seed",
-    "service_tier",
     "stop",
     "top_logprobs",
-    "top_p",
     "web_search_options",
 }
 _IGNORED_FIELDS = {
+    "service_tier",
     "function_call",
     "store",
     "parallel_tool_calls",
@@ -386,6 +383,8 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
         description="The agent schema id. Required when using a deployment. It can also be provided in the model "
         "with the format `agent_id/#schema_id/environment`",
     )
+
+    use_cache: CacheUsage | None = None
 
     model_config = ConfigDict(extra="allow")
 
@@ -511,7 +510,7 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
         agent_id = self.agent_id or (splits[0] if len(splits) > 1 else None)
         # Getting the model from the last component. This is to support cases like litellm that
         # prefix the model string with the provider
-        model = Model.from_permissive(splits[-1])
+        model = Model.from_permissive(splits[-1], reasoning_effort=self.reasoning_effort)
 
         if env := self._env_from_fields(agent_id, model):
             return env

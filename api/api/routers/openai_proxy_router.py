@@ -182,6 +182,8 @@ async def chat_completions(
             temperature=body.temperature,
             provider=body.workflowai_provider,
             tool_choice=body.worflowai_tool_choice,
+            top_p=body.top_p,
+            presence_penalty=body.presence_penalty,
         )
         properties.task_variant_id = variant.id
 
@@ -216,7 +218,7 @@ async def chat_completions(
         runner=runner,
         task_input=final_input,
         task_run_id=None,
-        cache="auto",
+        cache=body.use_cache or "auto",
         metadata=body.full_metadata(request.headers),
         trigger="user",
         serializer=OpenAIProxyChatCompletionResponse.serializer(

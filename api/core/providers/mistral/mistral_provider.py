@@ -70,10 +70,12 @@ class MistralAIProvider(HTTPXProvider[MistralAIConfig, CompletionResponse]):
             messages=domain_messages,
             model=MODEL_MAP.get(options.model, options.model),
             temperature=options.temperature,
-            # TODO[max-tokens]: Set the max token from the context data
             max_tokens=options.max_tokens,
             stream=stream,
             tool_choice=CompletionRequest.tool_choice_from_domain(options.tool_choice),
+            top_p=options.top_p,
+            presence_penalty=options.presence_penalty,
+            frequency_penalty=options.frequency_penalty,
         )
         if not options.output_schema:
             request.response_format = ResponseFormat(type="text")

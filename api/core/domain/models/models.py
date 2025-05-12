@@ -1,4 +1,5 @@
 from enum import StrEnum
+from typing import Iterator
 
 
 # All models that were supported at one point by WorkflowAI
@@ -192,17 +193,19 @@ class Model(StrEnum):
     GROK_3_MINI_FAST_BETA_HIGH_REASONING_EFFORT = "grok-3-mini-fast-beta-high"
 
     @classmethod
-    def from_permissive(cls, model: str) -> "Model | None":
-        # We try to parse the model as a Model
-        try:
-            return Model(model)
-        except ValueError:
-            pass
+    def possible_models(cls, model: str, reasoning_effort: str | None = None) -> Iterator[str]:
+        if reasoning_effort:
+            yield f"{model}-{reasoning_effort}"
+            yield f"{model}-latest-{reasoning_effort}"
 
-        # Then we check if it's a unversioned model, called "latest" here
-        try:
-            return Model(model + "-latest")
-        except ValueError:
-            pass
+        yield model
+        yield f"{model}-latest"
 
+    @classmethod
+    def from_permissive(cls, model: str, reasoning_effort: str | None = None) -> "Model | None":
+        for possible_model in cls.possible_models(model, reasoning_effort):
+            try:
+                return Model(possible_model)
+            except ValueError:
+                pass
         return None

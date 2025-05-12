@@ -81,8 +81,9 @@ class AmazonBedrockProvider(HTTPXProvider[AmazonBedrockConfig, CompletionRespons
             messages=user_messages,
             inferenceConfig=CompletionRequest.InferenceConfig(
                 temperature=options.temperature,
-                # TODO[max_tokens]: Add max tokens from model data when we have e2e tests
                 maxTokens=options.max_tokens,
+                topP=options.top_p,
+                # Presence and frequency penalties are not yet supported by Amazon Bedrock
             ),
         )
 

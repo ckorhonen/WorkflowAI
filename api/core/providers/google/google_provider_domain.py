@@ -11,6 +11,7 @@ from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.models import Model
+from core.domain.task_group_properties import ToolChoice
 from core.domain.tool import Tool
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.providers.base.models import (
@@ -557,6 +558,22 @@ class CompletionRequest(BaseModel):
             mode: Literal["MODE_UNSPECIFIED", "AUTO", "ANY", "NONE"] = "AUTO"
             allowedFunctionNames: list[str] | None = None
 
+            @classmethod
+            def from_domain(cls, tool_config: ToolChoice | None):
+                if not tool_config:
+                    return cls(mode="AUTO")
+
+                if isinstance(tool_config, str):
+                    match tool_config:
+                        case "auto":
+                            return cls(mode="AUTO")
+                        case "none":
+                            return cls(mode="NONE")
+                        case _:
+                            return cls(mode="ANY")
+
+                return cls(mode="ANY", allowedFunctionNames=[tool_config.name])
+
         functionCallingConfig: FunctionCallingConfig
 
     toolConfig: ToolConfig | None = None
@@ -576,6 +593,10 @@ class CompletionRequest(BaseModel):
 
         thinking_config: ThinkingConfig | None = None
         responseModalities: list[Literal["TEXT", "IMAGE"]] | None = None
+
+        presencePenalty: float | None = None
+        frequencyPenalty: float | None = None
+        topP: float | None = None
 
     generationConfig: GenerationConfig
 

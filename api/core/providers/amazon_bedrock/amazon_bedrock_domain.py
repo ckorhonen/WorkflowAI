@@ -257,14 +257,17 @@ class BedrockToolConfig(BaseModel):
     tools: list[BedrockTool]
 
 
+# https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html#API_runtime_Converse_RequestBody
 class CompletionRequest(BaseModel):
     system: list[AmazonBedrockSystemMessage]
     messages: list[AmazonBedrockMessage]
     toolConfig: BedrockToolConfig | None = None
 
+    # https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_InferenceConfiguration.html
     class InferenceConfig(BaseModel):
         maxTokens: int | None = None
-        temperature: float = 0.0
+        temperature: float | None = None
+        topP: float | None = None
 
     inferenceConfig: InferenceConfig
 

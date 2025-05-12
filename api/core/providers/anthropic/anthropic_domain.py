@@ -235,6 +235,7 @@ class CompletionRequest(BaseModel):
     temperature: float
     stream: bool
     tool_choice: AntToolChoice | None = None
+    top_p: float | None = None
 
     class Tool(BaseModel):
         name: str
