@@ -7,7 +7,6 @@ import workflowai
 
 from api.services.api_keys import APIKeyService
 from api.services.internal_tasks.integration_service import (
-    DEFAULT_AGENT_ID,
     ApiKeyResult,
     IntegrationAgentInput,
     IntegrationChatMessage,
@@ -20,6 +19,7 @@ from api.services.runs import RunsService
 from core.agents.agent_name_suggestion_agent import (
     AgentNameSuggestionAgentOutput,
 )
+from core.constants import DEFAULT_AGENT_ID
 from core.domain.agent_run import AgentRun
 from core.domain.errors import ObjectNotFoundError
 from core.domain.events import EventRouter

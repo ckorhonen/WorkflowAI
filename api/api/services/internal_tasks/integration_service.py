@@ -22,6 +22,7 @@ from core.agents.integration_agent import (
     IntegrationAgentInput,
     integration_chat_agent,
 )
+from core.constants import DEFAULT_AGENT_ID
 from core.domain.agent_run import AgentRun
 from core.domain.errors import ObjectNotFoundError
 from core.domain.events import EventRouter
@@ -37,8 +38,6 @@ from core.domain.task_variant import SerializableTaskVariant
 from core.domain.users import User
 from core.storage.backend_storage import BackendStorage
 from core.utils.redis_cache import redis_cached
-
-DEFAULT_AGENT_ID = "default"
 
 
 class ApiKeyResult(NamedTuple):

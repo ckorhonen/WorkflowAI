@@ -45,7 +45,7 @@ class MongoTaskVariantsStorage(PartialStorage[TaskVariantDocument]):
         return None
 
     async def get_task_variant_by_uid(self, task_uid: int) -> SerializableTaskVariant:
-        doc = await self._find_one(filter={"task_uid": task_uid})
+        doc = await self._find_one(filter={"task_uid": task_uid}, sort=[("created_at", -1)])
         if doc:
             return TaskVariantDocument.model_validate(doc).to_resource()
         raise ObjectNotFoundException(f"Task variant with uid {task_uid} not found")
