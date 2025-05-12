@@ -306,3 +306,43 @@ async def test_templated_variables(test_client: IntegrationTestClient, openai_cl
     body = json.loads(request.content)
     assert len(body["messages"]) == 1
     assert body["messages"][0]["content"] == "Hello, John!"
+
+
+async def test_deployment(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+    test_client.mock_openai_call(raw_content="Hello James!")
+
+    # First create a run with a templated variable and deployment
+    res = await openai_client.chat.completions.create(
+        model="my-agent/gpt-4o",
+        messages=[{"role": "user", "content": "Hello, {{ name }}!"}],
+        extra_body={"input": {"name": "John"}},
+    )
+    await test_client.wait_for_completed_tasks()
+
+    # Now save and deploy the associated version
+    agent_id, run_id = res.id.split("/")
+    saved_version = await test_client.post(f"/v1/_/agents/{agent_id}/runs/{run_id}/version/save")
+    version_id = saved_version["id"]
+
+    # Now we can deploy the version
+    await test_client.post(
+        f"/v1/_/agents/{agent_id}/versions/{version_id}/deploy",
+        json={
+            "environment": "production",
+        },
+    )
+
+    # Now we can make a new run with the deployment
+    test_client.mock_openai_call(raw_content="Hello James!")
+
+    res = await openai_client.chat.completions.create(
+        model="my-agent/#1/production",
+        messages=[],
+        extra_body={"input": {"name": "Cecily"}},
+    )
+
+    # Get the latest request
+    requests = test_client.httpx_mock.get_requests(url="https://api.openai.com/v1/chat/completions")
+    assert len(requests) == 2
+    body = json.loads(requests[-1].content)
+    assert body["messages"][0]["content"] == "Hello, Cecily!"

@@ -110,12 +110,13 @@ class RunsService:
         self,
         task_id: TaskTuple,
         id: str,
+        include: set[SerializableTaskRunField] | None = None,
         exclude: set[SerializableTaskRunField] | None = None,
         max_wait_ms: int | None = None,
         retry_delay_ms: int = 100,
     ) -> AgentRun:
         async def _find_run():
-            raw = await self._storage.task_runs.fetch_task_run_resource(task_id, id, exclude=exclude)
+            raw = await self._storage.task_runs.fetch_task_run_resource(task_id, id, exclude=exclude, include=include)
             run = self._sanitize_run(raw)
             await apply_reviews(self._storage.reviews, task_id[0], [run], _logger)
             return run
