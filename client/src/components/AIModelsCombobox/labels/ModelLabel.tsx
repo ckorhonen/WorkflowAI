@@ -11,6 +11,7 @@ import { displaySuccessToaster } from '@/components/ui/Sonner';
 import { formatDate } from '@/lib/date';
 import { useAutoScrollRef } from '@/lib/hooks/useAutoScrollRef';
 import { cn } from '@/lib/utils';
+import { TaskID } from '@/types/aliases';
 import { ModelResponse } from '@/types/workflowAI';
 import { SimpleTooltip } from '../../ui/Tooltip';
 import { TaskCostBadge } from '../../v2/TaskCostBadge';
@@ -19,6 +20,7 @@ import { IntelliganceProgress } from './IntelliganceProgress';
 import { ModelDetailsTooltip } from './ModelDetailsTooltip';
 
 type ModelLabelProps = {
+  taskId?: TaskID;
   isSelected: boolean;
   showCheck?: boolean;
   model: ModelResponse;
@@ -29,7 +31,16 @@ type ModelLabelProps = {
 };
 
 export function ModelLabel(props: ModelLabelProps) {
-  const { isSelected, showCheck = true, model, dropdownOpen, information, allIntelligenceScores, isProxy } = props;
+  const {
+    isSelected,
+    showCheck = true,
+    model,
+    dropdownOpen,
+    information,
+    allIntelligenceScores,
+    isProxy,
+    taskId,
+  } = props;
   const disabled = !!model.is_not_supported_reason;
 
   const autoScrollRef = useAutoScrollRef({
@@ -49,10 +60,11 @@ export function ModelLabel(props: ModelLabelProps) {
   const onCopyModelId = useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {
       event.stopPropagation();
-      copy(model.id);
+      const text = taskId ? `${taskId}/${model.id}` : model.id;
+      copy(text);
       displaySuccessToaster('Copied to clipboard');
     },
-    [model.id, copy]
+    [model.id, copy, taskId]
   );
 
   return (
@@ -86,7 +98,7 @@ export function ModelLabel(props: ModelLabelProps) {
               content={
                 <div>
                   <span>Copy model id: </span>
-                  <span className='text-gray-300'>{model.id}</span>
+                  <span className='text-gray-300'>{`${taskId}/${model.id}`}</span>
                 </div>
               }
               side='top'
@@ -146,7 +158,7 @@ export function formatAIModels(
     label: model.name,
     disabled: !!model.is_not_supported_reason,
     isLatest: model.is_latest ?? true,
-    renderLabel: ({ isSelected, showCheck = true, dropdownOpen, isProxy }) => (
+    renderLabel: ({ isSelected, showCheck = true, dropdownOpen, isProxy, taskId }) => (
       <ModelLabel
         isSelected={isSelected}
         showCheck={showCheck}
@@ -155,6 +167,7 @@ export function formatAIModels(
         information={information}
         allIntelligenceScores={allIntelligenceScores}
         isProxy={isProxy}
+        taskId={taskId}
       />
     ),
   }));
@@ -180,7 +193,7 @@ export function formatAIModel(
     label: model.name,
     disabled: !!model.is_not_supported_reason,
     isLatest: model.is_latest ?? true,
-    renderLabel: ({ isSelected, showCheck = true, dropdownOpen, isProxy }) => (
+    renderLabel: ({ isSelected, showCheck = true, dropdownOpen, isProxy, taskId }) => (
       <ModelLabel
         isSelected={isSelected}
         showCheck={showCheck}
@@ -189,6 +202,7 @@ export function formatAIModel(
         information={information}
         allIntelligenceScores={allIntelligenceScores}
         isProxy={isProxy}
+        taskId={taskId}
       />
     ),
   };

@@ -2800,3 +2800,19 @@ export type WeeklyRun = {
   run_count: number;
   overhead_ms: number;
 };
+
+export type Integration = {
+  id: string;
+  display_name: string;
+  programming_language: string;
+  logo_url: string;
+  code_snippet: string;
+  structured_output_snipped: string | null;
+};
+
+export type IntegrationChatMessage = {
+  sent_at: string;
+  role: 'USER' | 'ASSISTANT';
+  content: string;
+  message_kind: 'initial_code_snippet' | 'agent_name_definition_code_snippet' | 'non_specific';
+};

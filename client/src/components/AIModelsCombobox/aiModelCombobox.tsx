@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/Command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
 import { ScrollArea } from '@/components/ui/ScrollArea';
-import { Model } from '@/types/aliases';
+import { Model, TaskID } from '@/types/aliases';
 import { ModelResponse } from '@/types/workflowAI';
 import { MysteryModelIcon } from '../icons/models/mysteryModelIcon';
 import { SimpleTooltip } from '../ui/Tooltip';
@@ -27,10 +27,11 @@ type TriggerContentProps = {
   selectedOption: AIModelComboboxOption | undefined;
   defaultLabel: string;
   isProxy?: boolean;
+  taskId?: TaskID;
 };
 
 function TriggerContent(props: TriggerContentProps) {
-  const { value, selectedOption, defaultLabel, isProxy } = props;
+  const { value, selectedOption, defaultLabel, isProxy, taskId } = props;
   if (!value) {
     return (
       <div className='flex items-center gap-2'>
@@ -40,7 +41,12 @@ function TriggerContent(props: TriggerContentProps) {
     );
   }
   if (selectedOption) {
-    return selectedOption.renderLabel({ isSelected: true, showCheck: false, isProxy: isProxy });
+    return selectedOption.renderLabel({
+      isSelected: true,
+      showCheck: false,
+      isProxy: isProxy,
+      taskId: taskId,
+    });
   }
   return defaultLabel;
 }
@@ -57,6 +63,7 @@ export type AIModelComboboxProps = {
   open?: boolean;
   setOpen?: (open: boolean) => void;
   isProxy?: boolean;
+  taskId?: TaskID;
 };
 
 export function AIModelCombobox(props: AIModelComboboxProps) {
@@ -72,6 +79,7 @@ export function AIModelCombobox(props: AIModelComboboxProps) {
     open: propsOpen,
     setOpen: propsSetOpen,
     isProxy = false,
+    taskId,
   } = props;
   const [internalOpen, setInternalOpen] = React.useState(false);
 
@@ -167,6 +175,7 @@ export function AIModelCombobox(props: AIModelComboboxProps) {
             selectedOption={selectedOption}
             defaultLabel={noOptionsMessage}
             isProxy={isProxy}
+            taskId={taskId}
           />
           <ChevronUpDownFilled className='h-4 w-4 shrink-0 text-gray-500 ml-2' />
         </div>
@@ -239,6 +248,8 @@ export function AIModelCombobox(props: AIModelComboboxProps) {
                     {option.renderLabel({
                       isSelected: value === option.value,
                       dropdownOpen: open,
+                      isProxy: isProxy,
+                      taskId: taskId,
                     })}
                   </CommandItem>
                 ))}
