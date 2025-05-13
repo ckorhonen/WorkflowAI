@@ -286,7 +286,7 @@ class TestFindRelevantRunAndAgent:
     ):
         start_time = datetime.datetime.now()
         # Mock list_runs_since to return an async iterator
-        integration_service.storage.task_runs.list_runs_since = lambda *args, **kwargs: mock_aiter()  # type: ignore[reportUnknownLambdaType]
+        integration_service.storage.task_runs.list_latest_runs = lambda *args, **kwargs: mock_aiter()  # type: ignore[reportUnknownLambdaType]
 
         result = await integration_service._find_relevant_run_and_agent(start_time)  # pyright: ignore[reportPrivateUsage]
         assert result is None
@@ -306,7 +306,7 @@ class TestFindRelevantRunAndAgent:
         mock_agent.name = DEFAULT_AGENT_ID
 
         # Setup the storage mock to return our mock run and agent
-        integration_service.storage.task_runs.list_runs_since = lambda *args, **kwargs: mock_aiter(mock_run)  # type: ignore[reportUnknownLambdaType]
+        integration_service.storage.task_runs.list_latest_runs = lambda *args, **kwargs: mock_aiter(mock_run)  # type: ignore[reportUnknownLambdaType]
 
         # Patch the _get_agent_by_uid method to return our mock agent
         with patch.object(
@@ -337,7 +337,7 @@ class TestFindRelevantRunAndAgent:
         mock_agent.created_at = start_time + datetime.timedelta(minutes=5)
 
         # Setup the storage mock to return our mock run and agent
-        integration_service.storage.task_runs.list_runs_since = lambda *args, **kwargs: mock_aiter(mock_run)  # type: ignore[reportUnknownLambdaType]
+        integration_service.storage.task_runs.list_latest_runs = lambda *args, **kwargs: mock_aiter(mock_run)  # type: ignore[reportUnknownLambdaType]
 
         # Patch the _get_agent_by_uid method to return our mock agent
         with patch.object(
@@ -368,7 +368,7 @@ class TestFindRelevantRunAndAgent:
         mock_agent.created_at = start_time - datetime.timedelta(minutes=5)
 
         # Setup the storage mock to return our mock run and agent
-        integration_service.storage.task_runs.list_runs_since = lambda *args, **kwargs: mock_aiter(mock_run)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownLambdaType]
+        integration_service.storage.task_runs.list_latest_runs = lambda *args, **kwargs: mock_aiter(mock_run)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownLambdaType]
 
         # Patch the _get_agent_by_uid method to return our mock agent
         with patch.object(
@@ -560,6 +560,7 @@ class TestStreamIntegrationChatResponse:
         mock_agent = Mock(spec=SerializableTaskVariant)
         mock_agent.name = "named-agent"
         mock_agent.task_id = "named-agent"
+        mock_agent.task_schema_id = 123
 
         # Patch methods
         with (
@@ -588,7 +589,7 @@ class TestStreamIntegrationChatResponse:
             assert isinstance(results[0], IntegrationChatResponse)
             assert results[0].messages == []
             assert results[0].redirect_to_agent_playground is not None
-            assert results[0].redirect_to_agent_playground.agent_name == "named-agent"
+            assert results[0].redirect_to_agent_playground.agent_id == "named-agent"
 
     @patch("api.services.internal_tasks.integration_service.integration_chat_agent")
     async def test_user_message(
