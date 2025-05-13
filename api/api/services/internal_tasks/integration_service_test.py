@@ -560,6 +560,7 @@ class TestStreamIntegrationChatResponse:
         mock_agent = Mock(spec=SerializableTaskVariant)
         mock_agent.name = "named-agent"
         mock_agent.task_id = "named-agent"
+        mock_agent.task_schema_id = 123
 
         # Patch methods
         with (
@@ -588,7 +589,7 @@ class TestStreamIntegrationChatResponse:
             assert isinstance(results[0], IntegrationChatResponse)
             assert results[0].messages == []
             assert results[0].redirect_to_agent_playground is not None
-            assert results[0].redirect_to_agent_playground.agent_name == "named-agent"
+            assert results[0].redirect_to_agent_playground.agent_id == "named-agent"
 
     @patch("api.services.internal_tasks.integration_service.integration_chat_agent")
     async def test_user_message(
