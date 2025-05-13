@@ -93,7 +93,8 @@ class OpenAIProxyFunctionCall(BaseModel):
     def from_domain(cls, tool_call: ToolCallRequestWithID):
         return cls(
             name=tool_call.tool_name,
-            arguments=json.dumps(tool_call.tool_input_dict) if tool_call.tool_input_dict else None,
+            # The OpenAI SDK does not like None here so we send an empty string instead
+            arguments=json.dumps(tool_call.tool_input_dict) if tool_call.tool_input_dict else "",
         )
 
     def safely_parsed_argument(self) -> dict[str, Any]:
@@ -593,7 +594,7 @@ class OpenAIProxyChatCompletionResponse(BaseModel):
             created=int(run.created_at.timestamp()),
             model=model,
             cost_usd=run.cost_usd,
-            usage=OpenAIProxyCompletionUsage.from_domain(run.task_output),
+            usage=OpenAIProxyCompletionUsage.from_domain(run.llm_completions[-1]) if run.llm_completions else None,
         )
 
     @classmethod
