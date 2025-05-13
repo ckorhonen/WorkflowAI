@@ -16,6 +16,7 @@ from core.domain.message import Message, MessageContent
 from core.domain.models.models import Model
 from core.domain.task_group_properties import ToolChoiceFunction
 from core.domain.tool_call import ToolCall
+from core.providers.base.provider_error import MissingModelError
 
 
 class TestOpenAIProxyChatCompletionRequest:
@@ -155,9 +156,8 @@ class TestOpenAIProxyChatCompletionRequestExtractReferences:
                 "model": "invalid-model",
             },
         )
-        with pytest.raises(BadRequestError) as exc_info:
+        with pytest.raises(MissingModelError):
             payload.extract_references()
-        assert "Invalid model" in str(exc_info.value)
 
     def test_invalid_environment(self):
         """Test with invalid environment"""
