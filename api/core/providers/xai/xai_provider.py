@@ -88,6 +88,9 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
             response_format=self._response_format(options, model_data),
             reasoning_effort=reasoning_effort,
             tool_choice=CompletionRequest.tool_choice_from_domain(options.tool_choice),
+            top_p=options.top_p,
+            presence_penalty=options.presence_penalty,
+            frequency_penalty=options.frequency_penalty,
         )
 
         if options.enabled_tools is not None and options.enabled_tools != []:

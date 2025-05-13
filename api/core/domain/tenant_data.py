@@ -3,6 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, computed_field
 
+from core.domain.consts import WORKFLOWAI_APP_URL
 from core.domain.models import Provider
 from core.providers.base.config import ProviderConfig
 
@@ -75,3 +76,13 @@ class TenantData(PublicOrganizationData):
             return False
 
         return True
+
+    @property
+    def base_app_url(self) -> str:
+        return f"{WORKFLOWAI_APP_URL}/{self.slug}"
+
+    def app_schema_url(self, agent_id: str, schema_id: int):
+        return f"{self.base_app_url}/agents/{agent_id}/{schema_id}"
+
+    def app_deployments_url(self, agent_id: str, schema_id: int):
+        return f"{self.app_schema_url(agent_id, schema_id)}/deployments"

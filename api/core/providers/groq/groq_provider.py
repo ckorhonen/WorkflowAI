@@ -124,6 +124,9 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
             tools=[GroqToolDescription.from_domain(t) for t in options.enabled_tools]
             if options.enabled_tools
             else None,
+            top_p=options.top_p,
+            presence_penalty=options.presence_penalty,
+            frequency_penalty=options.frequency_penalty,
         )
 
     @override

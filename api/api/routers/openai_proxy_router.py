@@ -5,6 +5,7 @@ from typing import Any
 from fastapi import APIRouter, Request, Response
 
 from api.dependencies.event_router import EventRouterDep
+from api.dependencies.security import RequiredUserOrganizationDep
 from api.dependencies.services import GroupServiceDep, RunServiceDep
 from api.dependencies.storage import StorageDep
 from api.routers.openai_proxy_models import (
@@ -14,7 +15,9 @@ from api.routers.openai_proxy_models import (
     OpenAIProxyChatCompletionResponse,
     OpenAIProxyResponseFormat,
 )
+from api.services.openai_proxy_service import OpenAIProxyService
 from api.utils import get_start_time
+from core.domain.analytics_events.analytics_events import SourceType
 from core.domain.consts import INPUT_KEY_MESSAGES
 from core.domain.errors import BadRequestError
 from core.domain.events import ProxyAgentCreatedEvent
@@ -24,6 +27,8 @@ from core.domain.task_io import RawJSONMessageSchema, RawMessagesSchema, RawStri
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.types import AgentOutput
 from core.domain.version_reference import VersionReference
+from core.providers.base.provider_error import MissingModelError
+from core.storage import ObjectNotFoundException
 from core.utils.schemas import schema_from_data
 from core.utils.strings import to_pascal_case
 from core.utils.templates import extract_variable_schema
@@ -112,18 +117,31 @@ async def chat_completions(
     run_service: RunServiceDep,
     event_router: EventRouterDep,
     request: Request,
+    user_org: RequiredUserOrganizationDep,
 ) -> Response:
     # TODO: content of this function should be split into smaller functions and migrated to a service
     messages = Messages(messages=[m.to_domain() for m in body.messages])
     request_start_time = get_start_time(request)
     # First we need to locate the agent
-    agent_ref = body.extract_references()
+
+    try:
+        agent_ref = body.extract_references()
+    except MissingModelError as e:
+        raise await OpenAIProxyService.missing_model_error(e.extras.get("model"))
+
     if isinstance(agent_ref, EnvironmentRef):
-        deployment = await storage.task_deployments.get_task_deployment(
-            agent_ref.agent_id,
-            agent_ref.schema_id,
-            agent_ref.environment,
-        )
+        try:
+            deployment = await storage.task_deployments.get_task_deployment(
+                agent_ref.agent_id,
+                agent_ref.schema_id,
+                agent_ref.environment,
+            )
+        except ObjectNotFoundException:
+            raise BadRequestError(
+                f"Deployment not found for agent {agent_ref.agent_id}/{agent_ref.schema_id} in "
+                f"environment {agent_ref.environment}. Check your deployments "
+                f"at {user_org.app_deployments_url(agent_ref.agent_id, agent_ref.schema_id)}",
+            )
         properties = deployment.properties
         if variant_id := deployment.properties.task_variant_id:
             variant = await storage.task_version_resource_by_id(
@@ -165,6 +183,8 @@ async def chat_completions(
             temperature=body.temperature,
             provider=body.workflowai_provider,
             tool_choice=body.worflowai_tool_choice,
+            top_p=body.top_p,
+            presence_penalty=body.presence_penalty,
         )
         properties.task_variant_id = variant.id
 
@@ -199,9 +219,10 @@ async def chat_completions(
         runner=runner,
         task_input=final_input,
         task_run_id=None,
-        cache="auto",
+        cache=body.use_cache or "auto",
         metadata=body.full_metadata(request.headers),
         trigger="user",
+        source=SourceType.PROXY,
         serializer=OpenAIProxyChatCompletionResponse.serializer(
             model=body.model,
             deprecated_function=body.uses_deprecated_functions,

@@ -278,6 +278,9 @@ class CompletionRequest(BaseModel):
     tools: list[Tool] | None = None
     tool_choice: MistralToolChoiceEnum | MistralToolChoice | None = None
     safe_prompt: bool | None = None
+    presence_penalty: float | None = None
+    frequency_penalty: float | None = None
+    top_p: float | None = None
 
     @classmethod
     def tool_choice_from_domain(

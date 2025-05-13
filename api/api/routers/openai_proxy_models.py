@@ -6,11 +6,13 @@ from collections.abc import Callable, Mapping
 from typing import Any, Literal, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field
+from workflowai import CacheUsage
 
 from core.domain.agent_run import AgentRun
 from core.domain.consts import METADATA_KEY_INTEGRATION
 from core.domain.errors import BadRequestError
 from core.domain.fields.file import File
+from core.domain.llm_completion import LLMCompletion
 from core.domain.message import (
     Message,
     MessageContent,
@@ -23,6 +25,7 @@ from core.domain.tool import Tool
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.domain.types import AgentOutput
 from core.domain.version_environment import VersionEnvironment
+from core.providers.base.provider_error import MissingModelError
 from core.tools import ToolKind
 from core.utils.models.dumps import safe_dump_pydantic_model
 
@@ -90,7 +93,8 @@ class OpenAIProxyFunctionCall(BaseModel):
     def from_domain(cls, tool_call: ToolCallRequestWithID):
         return cls(
             name=tool_call.tool_name,
-            arguments=json.dumps(tool_call.tool_input_dict) if tool_call.tool_input_dict else None,
+            # The OpenAI SDK does not like None here so we send an empty string instead
+            arguments=json.dumps(tool_call.tool_input_dict) if tool_call.tool_input_dict else "",
         )
 
     def safely_parsed_argument(self) -> dict[str, Any]:
@@ -281,27 +285,21 @@ class OpenAIProxyWebSearchOptions(BaseModel):
 
 
 _UNSUPPORTED_FIELDS = {
-    "frequency_penalty",
     "logit_bias",
     "logprobs",
     "modalities",
     "n",
     "prediction",
-    "presence_penalty",
-    "reasoning_effort",
     "seed",
-    "service_tier",
     "stop",
     "top_logprobs",
-    "top_p",
     "web_search_options",
 }
 _IGNORED_FIELDS = {
+    "service_tier",
     "function_call",
-    "user",
     "store",
     "parallel_tool_calls",
-    "stream_options",
 }
 
 
@@ -386,6 +384,8 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
         description="The agent schema id. Required when using a deployment. It can also be provided in the model "
         "with the format `agent_id/#schema_id/environment`",
     )
+
+    use_cache: CacheUsage | None = None
 
     model_config = ConfigDict(extra="allow")
 
@@ -511,18 +511,13 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
         agent_id = self.agent_id or (splits[0] if len(splits) > 1 else None)
         # Getting the model from the last component. This is to support cases like litellm that
         # prefix the model string with the provider
-        model = Model.from_permissive(splits[-1])
+        model = Model.from_permissive(splits[-1], reasoning_effort=self.reasoning_effort)
 
         if env := self._env_from_fields(agent_id, model):
             return env
 
         if not model:
-            raise BadRequestError(
-                # TODO: prettify error
-                f"Invalid model {self.model}",
-                capture=True,
-                extras={"model": self.model, "environment": self.environment, "schema_id": self.schema_id},
-            )
+            raise MissingModelError(model=splits[-1])
 
         return ModelRef(
             model=model,
@@ -537,6 +532,21 @@ class OpenAIProxyCompletionUsage(BaseModel):
     completion_tokens: int
     prompt_tokens: int
     total_tokens: int
+
+    @classmethod
+    def from_domain(cls, completion: LLMCompletion):
+        if (
+            not completion.usage
+            or completion.usage.prompt_token_count is None
+            or completion.usage.completion_token_count is None
+        ):
+            return None
+
+        return cls(
+            completion_tokens=int(completion.usage.completion_token_count),
+            prompt_tokens=int(completion.usage.prompt_token_count),
+            total_tokens=int(completion.usage.prompt_token_count + completion.usage.completion_token_count),
+        )
 
 
 class OpenAIProxyChatCompletionChoice(BaseModel):
@@ -584,6 +594,7 @@ class OpenAIProxyChatCompletionResponse(BaseModel):
             created=int(run.created_at.timestamp()),
             model=model,
             cost_usd=run.cost_usd,
+            usage=OpenAIProxyCompletionUsage.from_domain(run.llm_completions[-1]) if run.llm_completions else None,
         )
 
     @classmethod

@@ -16,7 +16,10 @@ _logger = logging.getLogger(__name__)
 
 def analytics_user_properties(user: UserDep, request: Request) -> UserProperties:
     try:
-        source = SourceType(request.headers.get("x-workflowai-source", "api"))
+        if request.url.path == "/v1/chat/completions":
+            source = SourceType.PROXY
+        else:
+            source = SourceType(request.headers.get("x-workflowai-source", "api"))
     except ValueError:
         _logger.warning("Invalid source type", extra={"source": request.headers.get("x-workflowai-source")})
         source = SourceType.API

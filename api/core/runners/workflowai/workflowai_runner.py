@@ -1041,6 +1041,9 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             structured_generation=is_structured_generation_enabled,
             tenant=self.task.tenant,
             stream_deltas=self._stream_deltas,
+            top_p=self._options.top_p,
+            presence_penalty=self._options.presence_penalty,
+            frequency_penalty=self._options.frequency_penalty,
         )
 
         model_data_copy = model_data.model_copy()

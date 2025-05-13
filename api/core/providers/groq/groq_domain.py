@@ -240,6 +240,9 @@ class CompletionRequest(BaseModel):
 
     tools_choice: Literal["auto", "none", "required"] | None = None
     tools: list[GroqToolDescription] | None = None
+    top_p: float | None = None
+    presence_penalty: float | None = None
+    frequency_penalty: float | None = None
 
 
 class _BaseChoice(BaseModel):

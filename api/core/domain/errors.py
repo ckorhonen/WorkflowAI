@@ -21,7 +21,7 @@ class ScopeConfigurableError(Exception, ABC):
 class DefaultError(ScopeConfigurableError):
     """An error that is automatically caught and converted to a proper response"""
 
-    code: ErrorCode = "internal_error"
+    code: ErrorCode | str = "internal_error"
     default_status_code: int | None = None
     default_capture: bool = True
     default_message: str = "An error occurred"

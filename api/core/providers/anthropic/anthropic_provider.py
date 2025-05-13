@@ -79,6 +79,8 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
             max_tokens=max_tokens or DEFAULT_MAX_TOKENS,
             stream=stream,
             tool_choice=AntToolChoice.from_domain(options.tool_choice),
+            top_p=options.top_p,
+            # Presence and frequency penalties are not yet supported by Anthropic
         )
 
         if options.enabled_tools is not None and options.enabled_tools != []:

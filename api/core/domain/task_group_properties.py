@@ -98,6 +98,12 @@ class TaskGroupProperties(BaseModel):
 
     tool_choice: ToolChoice | None = None
 
+    top_p: float | None = None
+
+    presence_penalty: float | None = None
+
+    frequency_penalty: float | None = None
+
     messages: list[Message] | None = None
 
     def model_hash(self) -> str:
