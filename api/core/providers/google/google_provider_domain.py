@@ -533,11 +533,13 @@ class CompletionRequest(BaseModel):
     systemInstruction: GoogleSystemMessage | None
 
     class Tool(BaseModel):
+        # https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.cachedContents#FunctionDeclaration
         class FunctionDeclaration(BaseModel):
             name: str
             description: str
             parameters: Schema | None = None
             response: Schema | None = None
+            # No strict mode yet
 
             @classmethod
             def from_tool(cls, tool: Tool) -> Self:
