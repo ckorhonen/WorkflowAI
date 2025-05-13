@@ -323,7 +323,7 @@ well organized (by agent) on WorkflowAI (trust me, makes everything easier).
                 # Where the onboarded user is from workflowai.
                 yield IntegrationChatResponse(
                     messages=[],
-                    redirect_to_agent_playground=PlaygroundRedirection(agent_name=relevant_run_and_agent.agent.name),
+                    redirect_to_agent_playground=PlaygroundRedirection(agent_name=relevant_run_and_agent.agent.task_id),
                 )
                 return
 
