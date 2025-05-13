@@ -73,6 +73,7 @@ class GroqToolDescription(BaseModel):
         name: str
         description: str | None = None
         parameters: dict[str, Any] | None = None
+        # strict is not supported by Groq
 
     function: Function
 
