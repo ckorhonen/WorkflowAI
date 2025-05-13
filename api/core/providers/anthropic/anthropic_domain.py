@@ -31,7 +31,7 @@ from core.providers.google.google_provider_domain import (
 )
 
 _role_to_map: dict[MessageDeprecated.Role, Literal["user", "assistant"]] = {
-    MessageDeprecated.Role.SYSTEM: "assistant",
+    MessageDeprecated.Role.SYSTEM: "user",
     MessageDeprecated.Role.USER: "user",
     MessageDeprecated.Role.ASSISTANT: "assistant",
 }
@@ -230,6 +230,7 @@ class AntToolChoice(BaseModel):
 
 
 class CompletionRequest(BaseModel):
+    # https://docs.anthropic.com/en/api/messages#body-messages
     messages: List[AnthropicMessage]
     model: str
     max_tokens: int
@@ -237,6 +238,10 @@ class CompletionRequest(BaseModel):
     stream: bool
     tool_choice: AntToolChoice | None = None
     top_p: float | None = None
+
+    # https://docs.anthropic.com/en/api/messages#body-system
+    # System could be an object if needed
+    system: str | None = None
 
     class Tool(BaseModel):
         name: str

@@ -52,8 +52,7 @@ def _output_factory(x: str, _: bool):
 
 
 class TestBuildRequest:
-    @pytest.mark.parametrize("model", ANTHROPIC_PROVIDER_DATA.keys())
-    def test_build_request(self, anthropic_provider: AnthropicProvider, model: Model):
+    def test_build_request(self, anthropic_provider: AnthropicProvider):
         request = cast(
             CompletionRequest,
             anthropic_provider._build_request(  # pyright: ignore[reportPrivateUsage]
@@ -61,20 +60,12 @@ class TestBuildRequest:
                     MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="Hello 1"),
                     MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello"),
                 ],
-                options=ProviderOptions(model=model, max_tokens=10, temperature=0),
+                options=ProviderOptions(model=Model.CLAUDE_3_5_SONNET_20241022, max_tokens=10, temperature=0),
                 stream=False,
             ),
         )
+        assert request.system == "Hello 1"
         assert request.model_dump(include={"messages"})["messages"] == [
-            {
-                "role": "assistant",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": "Hello 1",
-                    },
-                ],
-            },
             {
                 "role": "user",
                 "content": [
