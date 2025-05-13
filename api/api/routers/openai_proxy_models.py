@@ -118,6 +118,7 @@ class OpenAIProxyFunctionDefinition(BaseModel):
     description: str | None = None
     name: str
     parameters: dict[str, Any]
+    strict: bool | None = None
 
     def to_domain(self) -> Tool:
         return Tool(
@@ -125,6 +126,7 @@ class OpenAIProxyFunctionDefinition(BaseModel):
             description=self.description,
             input_schema=self.parameters,
             output_schema={},
+            strict=self.strict,
         )
 
     model_config = ConfigDict(extra="allow")
@@ -134,6 +136,7 @@ class OpenAIProxyToolFunction(BaseModel):
     description: str | None = None
     name: str
     parameters: dict[str, Any]
+    strict: bool | None = None
 
     model_config = ConfigDict(extra="allow")
 
@@ -148,6 +151,7 @@ class OpenAIProxyTool(BaseModel):
             description=self.function.description,
             input_schema=self.function.parameters,
             output_schema={},
+            strict=self.function.strict,
         )
 
     model_config = ConfigDict(extra="allow")

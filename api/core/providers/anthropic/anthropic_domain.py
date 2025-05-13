@@ -8,6 +8,7 @@ from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.task_group_properties import ToolChoice, ToolChoiceFunction
+from core.domain.tool import Tool as DomainTool
 from core.providers.base.models import (
     DocumentContentDict,
     DocumentURLDict,
@@ -242,6 +243,16 @@ class CompletionRequest(BaseModel):
         description: str | None = None
         input_schema: dict[str, Any]
 
+        @classmethod
+        def from_domain(cls, tool: DomainTool):
+            # Anthropic does not support strict yet
+            return cls(
+                name=internal_tool_name_to_native_tool_call(tool.name),
+                description=tool.description,
+                input_schema=tool.input_schema,
+            )
+
+    # https://docs.anthropic.com/en/api/messages#body-tools
     tools: list[Tool] | None = None
 
 
