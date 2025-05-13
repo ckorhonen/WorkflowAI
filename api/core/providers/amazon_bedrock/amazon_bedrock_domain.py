@@ -9,6 +9,8 @@ from core.domain.fields.file import File as DomainImage
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.models import Model
+from core.domain.task_group_properties import ToolChoice as DomainToolChoice
+from core.domain.tool import Tool as DomainTool
 from core.providers.base.models import (
     AudioContentDict,
     DocumentContentDict,
@@ -243,6 +245,8 @@ class BedrockToolInputSchema(BaseModel):
     )
 
 
+# https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_ToolSpecification.html
+# Bedrock does not support strict yet
 class BedrockToolSpec(BaseModel):
     name: str
     description: str | None
@@ -252,9 +256,54 @@ class BedrockToolSpec(BaseModel):
 class BedrockTool(BaseModel):
     toolSpec: BedrockToolSpec
 
+    @classmethod
+    def from_domain(cls, tool: DomainTool) -> Self:
+        return cls(
+            toolSpec=BedrockToolSpec(
+                name=internal_tool_name_to_native_tool_call(tool.name),
+                # Bedrock requires a description to be at least 1 character
+                description=tool.description if tool.description and len(tool.description) > 1 else None,
+                inputSchema=BedrockToolInputSchema(json=tool.input_schema),
+            ),
+        )
+
 
 class BedrockToolConfig(BaseModel):
     tools: list[BedrockTool]
+
+    class ToolChoice(BaseModel):
+        # only one field should be set
+        # any and auto should be set to {} if used
+        any: dict[str, Any] | None = None
+        auto: dict[str, Any] | None = None
+        # tool should be set to the name of the tool
+        tool: dict[str, Any] | None = None
+
+        @classmethod
+        def from_domain(cls, tool_choice: DomainToolChoice | None) -> Self | None:
+            if not tool_choice:
+                return None
+            if isinstance(tool_choice, str):
+                match tool_choice:
+                    case "auto":
+                        return cls(auto={})
+                    case "required":
+                        return cls(any={})
+                    case "none":
+                        # Not sure what to return here
+                        return None
+            return cls(tool={"name": tool_choice.name})
+
+    toolChoice: ToolChoice | None = None
+
+    @classmethod
+    def from_domain(cls, tools: list[DomainTool] | None, tool_choice: DomainToolChoice | None):
+        if not tools:
+            return None
+        return cls(
+            tools=[BedrockTool.from_domain(tool) for tool in tools],
+            toolChoice=cls.ToolChoice.from_domain(tool_choice),
+        )
 
 
 # https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_Converse.html#API_runtime_Converse_RequestBody

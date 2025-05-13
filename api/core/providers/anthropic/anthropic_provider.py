@@ -37,7 +37,6 @@ from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ParsedResponse, ToolCallRequestBuffer
 from core.providers.base.utils import get_provider_config_env
 from core.providers.google.google_provider_domain import (
-    internal_tool_name_to_native_tool_call,
     native_tool_name_to_internal,
 )
 
@@ -84,14 +83,7 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
         )
 
         if options.enabled_tools is not None and options.enabled_tools != []:
-            request.tools = [
-                CompletionRequest.Tool(
-                    name=internal_tool_name_to_native_tool_call(tool.name),
-                    description=tool.description,
-                    input_schema=tool.input_schema,
-                )
-                for tool in options.enabled_tools
-            ]
+            request.tools = [CompletionRequest.Tool.from_domain(tool) for tool in options.enabled_tools]
 
         return request
 

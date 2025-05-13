@@ -7,6 +7,7 @@ from core.domain.errors import UnpriceableRunError
 from core.domain.fields.file import File
 from core.domain.message import MessageDeprecated
 from core.domain.models import Model
+from core.domain.tool import Tool as DomainTool
 from core.providers.base.models import StandardMessage, ToolCallResultDict
 from core.providers.base.provider_error import FailedGenerationError, ProviderError
 from core.providers.openai.openai_domain import (
@@ -18,6 +19,7 @@ from core.providers.openai.openai_domain import (
     OpenAIToolMessage,
     StreamedResponse,
     TextContent,
+    Tool,
     ToolCall,
     ToolCallFunction,
     parse_tool_call_or_raise,
@@ -445,3 +447,20 @@ def test_parse_tool_call_or_raise_non_dict_json() -> None:
     # When/Then
     with pytest.raises(FailedGenerationError):
         parse_tool_call_or_raise(arguments)
+
+
+class TestTool:
+    def test_from_domain(self):
+        tool = DomainTool(
+            name="test",
+            description="test",
+            input_schema={"type": "object", "properties": {"test": {"type": "string"}}},
+            output_schema={"type": "object", "properties": {"test": {"type": "string"}}},
+            strict=True,
+        )
+        openai_tool = Tool.from_domain(tool)
+        assert openai_tool.type == "function"
+        assert openai_tool.function.name == "test"
+        assert openai_tool.function.description == "test"
+        assert openai_tool.function.parameters == {"type": "object", "properties": {"test": {"type": "string"}}}
+        assert openai_tool.function.strict is True
