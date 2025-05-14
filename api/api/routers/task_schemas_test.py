@@ -245,7 +245,7 @@ class TestGetTaskSchema:
 @pytest.fixture(scope="function")
 def mock_runs_service(test_app: FastAPI) -> Mock:
     from api.dependencies.services import runs_service as runs_service_dep
-    from api.services.runs import RunsService
+    from api.services.runs_service import RunsService
 
     runs_service = Mock(spec=RunsService)
 

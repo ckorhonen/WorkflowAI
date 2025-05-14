@@ -19,7 +19,7 @@ from api.services.internal_tasks.meta_agent_service import (
     PlaygroundState,
     RunCurrentAgentOnModelsToolCall,
 )
-from api.services.runs import RunsService
+from api.services.runs_service import RunsService
 from core.agents.extract_company_info_from_domain_task import Product
 from core.agents.meta_agent import (
     EditSchemaDescriptionAndExamplesToolCallRequest,

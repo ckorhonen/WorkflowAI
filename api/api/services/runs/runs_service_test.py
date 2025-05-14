@@ -5,10 +5,9 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from pytest_httpx import HTTPXMock
 
-from api.services.runs import (
+from api.services.runs.runs_service import (
     LLMCompletionTypedMessages,
     RunsService,
-    _FileHandler,  # pyright: ignore [reportPrivateUsage]
 )
 from core.domain.agent_run import AgentRun
 from core.domain.analytics_events.analytics_events import RanTaskEventProperties
@@ -25,7 +24,6 @@ from core.domain.task_variant import SerializableTaskVariant
 from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.abstract_provider import AbstractProvider
 from core.providers.base.models import ImageContentDict, ImageURLDict, StandardMessage
-from core.runners.workflowai.utils import FileWithKeyPath
 from core.utils.schema_sanitation import streamline_schema
 from tests.models import review, task_run_ser
 from tests.utils import mock_aiter
@@ -78,31 +76,6 @@ def _llm_completion(
         provider=provider,
         duration_seconds=duration_seconds,
     )
-
-
-class TestFileHandlerApplyFiles:
-    async def test_apply_files_with_include(self):
-        payload = {"image": {"data": "1234"}}
-        files = [
-            FileWithKeyPath(
-                key_path=["image"],
-                storage_url="https://test-url.com/bla",
-                data="1234",
-                content_type="image",
-            ),
-        ]
-        _FileHandler._apply_files(  # pyright: ignore [reportPrivateUsage]
-            payload,
-            files,
-            include={"content_type", "url", "storage_url"},
-        )
-        assert payload == {
-            "image": {
-                "url": "https://test-url.com/bla",
-                "content_type": "image",
-                "storage_url": "https://test-url.com/bla",
-            },
-        }
 
 
 class TestStoreTaskRun:

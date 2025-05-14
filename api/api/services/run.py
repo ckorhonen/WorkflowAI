@@ -262,7 +262,7 @@ class RunService:
 
             # Soon we will no longer store runs inline + this class will be removed
             # For now, let's just use the runs service static method to store the run
-            from api.services.runs import RunsService
+            from api.services.runs_service import RunsService
 
             if not file_storage:
                 raise InternalError("File storage is required to store runs inline")
