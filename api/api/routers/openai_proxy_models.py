@@ -11,7 +11,7 @@ from workflowai import CacheUsage
 from core.domain.agent_run import AgentRun
 from core.domain.consts import METADATA_KEY_INTEGRATION
 from core.domain.errors import BadRequestError
-from core.domain.fields.file import File
+from core.domain.fields.file import File, FileKind
 from core.domain.llm_completion import LLMCompletion
 from core.domain.message import (
     Message,
@@ -46,7 +46,10 @@ class OpenAIAudioInput(BaseModel):
         content_type = self.format
         if "/" not in content_type:
             content_type = f"audio/{content_type}"
-        return File(data=self.data, content_type=content_type)
+        if not self.format or self.data.startswith("https://"):
+            # Special case for when the format is not provided or when the data is in fact a URL
+            return File(url=self.data, format=FileKind.AUDIO)
+        return File(data=self.data, content_type=content_type, format=FileKind.AUDIO)
 
 
 class OpenAIProxyImageURL(BaseModel):
@@ -71,7 +74,7 @@ class OpenAIProxyContent(BaseModel):
             case "image_url":
                 if not self.image_url:
                     raise BadRequestError("Image URL content is required")
-                return MessageContent(file=File(url=self.image_url.url))
+                return MessageContent(file=File(url=self.image_url.url, format=FileKind.IMAGE))
             case "input_audio":
                 if not self.input_audio:
                     raise BadRequestError("Input audio content is required")
