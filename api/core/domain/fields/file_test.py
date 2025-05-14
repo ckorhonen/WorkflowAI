@@ -27,3 +27,8 @@ class TestFile:
     def test_validate_data_content_type_none(self):
         img = File(url="https://bla.com/file")
         assert img.content_type is None
+
+
+class TestFileJsonSchema:
+    def test_json_schema(self):
+        assert "additionalProperties" not in File.model_json_schema()

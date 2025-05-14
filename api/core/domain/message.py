@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from core.domain.fields.file import File
+from core.domain.fields.file import File, FileWithKeyPath
 from core.domain.fields.image_options import ImageOptions
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.domain.types import TemplateRenderer
@@ -141,3 +141,13 @@ class Messages(BaseModel):
 
     def to_input_dict(self):
         return self.model_dump(exclude_none=True)
+
+    def file_iterator(self) -> Iterator[FileWithKeyPath]:
+        for i, m in enumerate(self.messages):
+            for j, c in enumerate(m.content):
+                if c.file:
+                    # Returning an empty key path
+                    yield FileWithKeyPath(
+                        key_path=["messages", i, "content", j, "file"],
+                        **c.file.model_dump(exclude_none=True),
+                    )

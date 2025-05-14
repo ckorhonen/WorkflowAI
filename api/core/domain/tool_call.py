@@ -38,6 +38,11 @@ class ToolCallRequest(BaseModel):
     def input_preview(self):
         return compute_preview(self.tool_input_dict)
 
+    @property
+    def preview(self):
+        input_dict_preview = [f"{k}: {compute_preview(v, max_len=30)}" for k, v in self.tool_input_dict.items()]
+        return f"{self.tool_name}({', '.join(input_dict_preview)})"
+
 
 class ToolCallRequestWithID(ToolCallRequest):
     id: str = Field(default="", description="The id of the tool call")

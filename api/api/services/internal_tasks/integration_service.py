@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 from api.services.api_keys import APIKeyService, find_api_key_in_text
 from api.services.documentation_service import DocumentationService
-from api.services.runs import RunsService
+from api.services.runs.runs_service import RunsService
 from core.agents.agent_name_suggestion_agent import (
     AGENT_ID as AGENT_NAME_SUGGESTION_AGENT_ID,
 )

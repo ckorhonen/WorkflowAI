@@ -256,6 +256,7 @@ class TestExtractFiles:
                 key_path=["messages", 0, "images", 0],
                 storage_url=None,
                 format="image",
+                name="image.png",  # pyright: ignore[reportCallIssue]
             ),
         ]
         assert updated == {

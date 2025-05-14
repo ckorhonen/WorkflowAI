@@ -12,6 +12,7 @@ class _Agg:
     def __init__(self, remaining: int):
         self.agg: list[str] = []
         self.remaining = remaining
+        self._max_len_reached = False
 
     def _stringify(self, value: Any) -> str:
         if isinstance(value, float):
@@ -35,7 +36,10 @@ class _Agg:
             raise _MaxLenReached()
 
     def __str__(self) -> str:
-        return "".join(self.agg)
+        raw = "".join(self.agg)
+        if self._max_len_reached:
+            return raw + "..."
+        return raw
 
     def _append_any(self, value: Any):
         if isinstance(value, dict):
@@ -110,7 +114,7 @@ class _Agg:
             else:
                 self.append(value)
         except _MaxLenReached:
-            pass
+            self._max_len_reached = True
 
         return str(self)
 

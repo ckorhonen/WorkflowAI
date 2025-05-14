@@ -1095,7 +1095,7 @@ async def test_run_with_private_fields(
         int_api_client,
         task_id=task["task_id"],
         task_schema_id=task["task_schema_id"],
-        private_fields=["task_input.image.data"],
+        private_fields=["task_input.image"],
         task_input={
             "image": {
                 "url": file_url,
@@ -1106,10 +1106,7 @@ async def test_run_with_private_fields(
     await wait_for_completed_tasks(patched_broker)
 
     fetched_run = await fetch_run(int_api_client, task, run=run)
-    assert fetched_run["task_input"]["image"] == {
-        "url": file_url,
-        "content_type": "image/png",
-    }
+    assert fetched_run["task_input"] == {}
 
 
 async def test_surface_default_errors(test_client: IntegrationTestClient):
