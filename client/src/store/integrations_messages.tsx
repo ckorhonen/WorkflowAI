@@ -7,9 +7,8 @@ import { API_URL } from '@/lib/constants';
 import { IntegrationChatMessage } from '../types/workflowAI/models';
 
 export type RedirectToAgentPlayground = {
-  agent_name?: string;
-  task_id?: string;
-  task_schema_id?: string;
+  agent_id?: string;
+  agent_schema_id?: number;
 };
 
 export type IntegrationChatResponse = {
