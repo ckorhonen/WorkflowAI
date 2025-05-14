@@ -10,8 +10,8 @@ from api.services.internal_tasks.integration_service import (
     IntegrationChatMessage,
     IntegrationChatResponse,
 )
-from core.domain.integration_domain import OFFICIAL_INTEGRATIONS, IntegrationKind
-from core.domain.integration_domain import Integration as DomainIntegration
+from core.domain.integration_domain.integration_domain import OFFICIAL_INTEGRATIONS, IntegrationKind
+from core.domain.integration_domain.integration_domain import Integration as DomainIntegration
 from core.utils.stream_response_utils import safe_streaming_response
 
 router = APIRouter(prefix="/v1/integrations")
