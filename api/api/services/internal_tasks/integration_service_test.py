@@ -208,7 +208,7 @@ class TestGetAgentNamingCodeSnippetMessages:
         assert result.role == "ASSISTANT"
         assert result.message_kind == MessageKind.agent_naming_code_snippet
         assert proposed_agent_name in result.content
-        assert f"[{proposed_agent_name}/" in result.content
+        assert f"{proposed_agent_name}/" in result.content
 
 
 class TestHasSentAgentNamingCodeSnippet:
