@@ -22,6 +22,19 @@ class FileKind(StrEnum):
     PDF = "pdf"
     ANY = "any"
 
+    def to_ref_name(self) -> str:
+        match self:
+            case FileKind.IMAGE:
+                return "Image"
+            case FileKind.AUDIO:
+                return "Audio"
+            case FileKind.DOCUMENT:
+                return "File"
+            case FileKind.PDF:
+                return "PDF"
+            case FileKind.ANY:
+                return "File"
+
 
 def _remove_additional_properties_from_json_schema(model: dict[str, Any]):
     model.pop("additionalProperties", None)
