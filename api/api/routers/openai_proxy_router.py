@@ -31,7 +31,7 @@ from core.providers.base.provider_error import MissingModelError
 from core.storage import ObjectNotFoundException
 from core.utils.schemas import schema_from_data
 from core.utils.strings import to_pascal_case
-from core.utils.templates import extract_variable_schema
+from core.utils.templates import InvalidTemplateError, extract_variable_schema
 
 _logger = logging.getLogger(__name__)
 
@@ -47,6 +47,9 @@ def _output_json_mapper(output: AgentOutput) -> str:
 
 
 def _json_schema_from_input(messages: Messages, input: dict[str, Any] | None) -> SerializableTaskIO:
+    if input is None:
+        # No body was sent with the request, so we treat the messages as a raw string
+        return RawMessagesSchema
     templatable = " ".join(messages.content_iterator())
     schema_from_input: dict[str, Any] | None = schema_from_data(input) if input else None
     schema_from_template = extract_variable_schema(templatable, existing_schema=schema_from_input)
@@ -65,7 +68,10 @@ def _build_variant(
     input: dict[str, Any] | None,
     response_format: OpenAIProxyResponseFormat | None,
 ):
-    input_schema = _json_schema_from_input(messages, input)
+    try:
+        input_schema = _json_schema_from_input(messages, input)
+    except InvalidTemplateError as e:
+        raise BadRequestError(f"Invalid template: {e.message}")
 
     if response_format:
         match response_format.type:

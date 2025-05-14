@@ -73,7 +73,8 @@ class IntegrationChatMessage(BaseModel):
 
 
 class PlaygroundRedirection(BaseModel):
-    agent_name: str
+    agent_id: str
+    agent_schema_id: int
 
 
 class IntegrationChatResponse(BaseModel):
@@ -323,7 +324,10 @@ well organized (by agent) on WorkflowAI (trust me, makes everything easier).
                 # Where the onboarded user is from workflowai.
                 yield IntegrationChatResponse(
                     messages=[],
-                    redirect_to_agent_playground=PlaygroundRedirection(agent_name=relevant_run_and_agent.agent.name),
+                    redirect_to_agent_playground=PlaygroundRedirection(
+                        agent_id=relevant_run_and_agent.agent.task_id,
+                        agent_schema_id=relevant_run_and_agent.agent.task_schema_id,
+                    ),
                 )
                 return
 

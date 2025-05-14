@@ -47,6 +47,7 @@ class MessageContent(BaseModel):
             text=text_task.result() if text_task else None,
             file=file_task.result() if file_task else None,
             tool_call_request=self.tool_call_request,
+            tool_call_result=self.tool_call_result,
         )
 
     def content_iterator(self) -> Iterator[str]:

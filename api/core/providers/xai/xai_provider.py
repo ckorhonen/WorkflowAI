@@ -101,6 +101,7 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
                         name=internal_tool_name_to_native_tool_call(tool.name),
                         description=tool.description,
                         parameters=tool.input_schema,
+                        strict=tool.strict is True,
                     ),
                 )
                 for tool in options.enabled_tools

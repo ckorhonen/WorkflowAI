@@ -37,7 +37,6 @@ from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ParsedResponse, ToolCallRequestBuffer
 from core.providers.base.utils import get_provider_config_env
 from core.providers.google.google_provider_domain import (
-    internal_tool_name_to_native_tool_call,
     native_tool_name_to_internal,
 )
 
@@ -72,6 +71,12 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
                 extra={"model": options.model},
             )
 
+        if messages[0].role == MessageDeprecated.Role.SYSTEM:
+            system_message = messages[0].content
+            messages = messages[1:]
+        else:
+            system_message = None
+
         request = CompletionRequest(
             messages=[AnthropicMessage.from_domain(m) for m in messages],
             model=options.model,
@@ -80,18 +85,12 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
             stream=stream,
             tool_choice=AntToolChoice.from_domain(options.tool_choice),
             top_p=options.top_p,
+            system=system_message,
             # Presence and frequency penalties are not yet supported by Anthropic
         )
 
         if options.enabled_tools is not None and options.enabled_tools != []:
-            request.tools = [
-                CompletionRequest.Tool(
-                    name=internal_tool_name_to_native_tool_call(tool.name),
-                    description=tool.description,
-                    input_schema=tool.input_schema,
-                )
-                for tool in options.enabled_tools
-            ]
+            request.tools = [CompletionRequest.Tool.from_domain(tool) for tool in options.enabled_tools]
 
         return request
 

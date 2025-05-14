@@ -22,7 +22,6 @@ from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ParsedResponse, ToolCallRequestBuffer
 from core.providers.base.utils import get_provider_config_env
 from core.providers.google.google_provider_domain import (
-    internal_tool_name_to_native_tool_call,
     native_tool_name_to_internal,
 )
 from core.utils.json_utils import safe_extract_dict_from_json
@@ -32,12 +31,11 @@ from .mistral_domain import (
     CompletionRequest,
     CompletionResponse,
     DeltaMessage,
-    FunctionParameters,
     MistralAIMessage,
     MistralError,
+    MistralTool,
     MistralToolMessage,
     ResponseFormat,
-    Tool,
 )
 
 
@@ -84,17 +82,7 @@ class MistralAIProvider(HTTPXProvider[MistralAIConfig, CompletionResponse]):
             # Can't use json_object with tools
             # 400 from Mistral AI when doing so: "Cannot use json response type with tools","type":"invalid_request_error"
             request.response_format = ResponseFormat(type="text")
-            request.tools = [
-                Tool(
-                    type="function",
-                    function=FunctionParameters(
-                        name=internal_tool_name_to_native_tool_call(tool.name),
-                        description=tool.description or "",
-                        parameters=tool.input_schema,
-                    ),
-                )
-                for tool in options.enabled_tools
-            ]
+            request.tools = [MistralTool.from_domain(tool) for tool in options.enabled_tools]
 
         return request
 

@@ -12,6 +12,7 @@ from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.models import Model
 from core.domain.task_group_properties import ToolChoice, ToolChoiceFunction
+from core.domain.tool import Tool as DomainTool
 from core.providers.base.models import (
     AudioContentDict,
     DocumentContentDict,
@@ -170,6 +171,18 @@ class ToolFunction(BaseModel):
 class Tool(BaseModel):
     type: Literal["function"]
     function: ToolFunction
+
+    @classmethod
+    def from_domain(cls, tool: DomainTool) -> Self:
+        return cls(
+            type="function",
+            function=ToolFunction(
+                name=internal_tool_name_to_native_tool_call(tool.name),
+                description=tool.description,
+                parameters=tool.input_schema,
+                strict=tool.strict is True,
+            ),
+        )
 
 
 class OpenAIToolMessage(BaseModel):

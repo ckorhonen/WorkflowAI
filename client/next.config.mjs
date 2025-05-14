@@ -21,6 +21,11 @@ let nextConfig = {
         destination: '/:tenant/agents/:taskId/:taskSchemaId',
         permanent: true,
       },
+      {
+        source: '/keys',
+        destination: '/organization/settings/api-keys',
+        permanent: true,
+      },
     ];
   },
 };

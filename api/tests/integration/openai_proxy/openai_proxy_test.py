@@ -6,12 +6,6 @@ from openai import AsyncOpenAI
 from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall, Function
 
 from tests.integration.common import IntegrationTestClient
-from tests.integration.conftest import _TEST_JWT  # pyright: ignore [reportPrivateUsage]
-
-
-@pytest.fixture()
-def openai_client(test_client: IntegrationTestClient):
-    yield AsyncOpenAI(http_client=test_client.int_api_client, api_key=_TEST_JWT)
 
 
 async def test_raw_string_output(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):

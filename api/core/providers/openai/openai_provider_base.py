@@ -28,7 +28,6 @@ from core.providers.base.provider_error import (
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ParsedResponse, ToolCallRequestBuffer
 from core.providers.google.google_provider_domain import (
-    internal_tool_name_to_native_tool_call,
     native_tool_name_to_internal,
 )
 from core.providers.openai._openai_utils import get_openai_json_schema_name, prepare_openai_json_schema
@@ -48,7 +47,6 @@ from .openai_domain import (
     StreamOptions,
     TextResponseFormat,
     Tool,
-    ToolFunction,
     parse_tool_call_or_raise,
 )
 
@@ -134,17 +132,7 @@ class OpenAIProviderBase(HTTPXProvider[_OpenAIConfigVar, CompletionResponse], Ge
         )
 
         if options.enabled_tools is not None and options.enabled_tools != []:
-            completion_request.tools = [
-                Tool(
-                    type="function",
-                    function=ToolFunction(
-                        name=internal_tool_name_to_native_tool_call(tool.name),
-                        description=tool.description,
-                        parameters=tool.input_schema,
-                    ),
-                )
-                for tool in options.enabled_tools
-            ]
+            completion_request.tools = [Tool.from_domain(tool) for tool in options.enabled_tools]
 
         return completion_request
 
