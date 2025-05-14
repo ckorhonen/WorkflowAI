@@ -1,25 +1,5 @@
 import { nanoid } from 'nanoid';
-import { FileValueType } from '@/components/ObjectViewer/FileViewers/utils';
-import { ToolCallRequestWithID } from '@/types/workflowAI/models';
-
-export type ToolCallResult = {
-  id?: string;
-  result?: unknown;
-  tool_name?: string;
-  tool_input_dict?: Record<string, unknown>;
-};
-
-export type ProxyMessageContent = {
-  text?: string;
-  file?: FileValueType;
-  tool_call_request?: ToolCallRequestWithID;
-  tool_call_result?: ToolCallResult;
-};
-
-export type ProxyMessage = {
-  role: 'user' | 'system' | 'assistant';
-  content: ProxyMessageContent[];
-};
+import { ProxyMessage, ProxyMessageContent, ToolCallRequestWithID, ToolCallResult } from '@/types/workflowAI';
 
 export function createEmptyMessageContent(
   type?: 'text' | 'document' | 'image' | 'audio' | 'toolCallResult' | 'toolCallRequest'

@@ -1,3 +1,5 @@
+import { ProxyMessage } from '.';
+
 export type AIReviewer = {
   reviewer_type?: 'ai';
 };
@@ -1219,6 +1221,9 @@ export type PaymentMethodResponse = {
 };
 
 export type PlaygroundState = {
+  is_proxy: boolean;
+  version_id: string | null | undefined;
+  version_messages: ProxyMessage[] | null | undefined;
   /**
    * The input for the agent
    */
