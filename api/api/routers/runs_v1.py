@@ -10,7 +10,7 @@ from api.dependencies.task_info import TaskInfoDep, TaskTupleDep
 from api.schemas.api_tool_call_request import APIToolCallRequest
 from api.schemas.reasoning_step import ReasoningStep
 from api.schemas.version_properties import ShortVersionProperties
-from api.services.runs_service import LLMCompletionsResponse
+from api.services.runs.runs_service import LLMCompletionsResponse
 from api.tags import RouteTags
 from core.domain.agent_run import AgentRun, AgentRunBase
 from core.domain.error_response import ErrorCode, ErrorResponse

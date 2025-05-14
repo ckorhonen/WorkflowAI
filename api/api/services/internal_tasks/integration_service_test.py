@@ -15,7 +15,7 @@ from api.services.internal_tasks.integration_service import (
     MessageKind,
     RelevantRunAndAgent,
 )
-from api.services.runs_service import RunsService
+from api.services.runs.runs_service import RunsService
 from core.agents.agent_name_suggestion_agent import (
     AgentNameSuggestionAgentOutput,
 )

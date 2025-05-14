@@ -3,6 +3,7 @@ import logging
 import mimetypes
 from base64 import b64decode
 from enum import StrEnum
+from typing import override
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -128,3 +129,35 @@ def _parse_data_url(data_url: str) -> tuple[str, str]:
     if len(splits) != 2:
         raise ValueError("Invalid base64 data URL")
     return splits[0], splits[1]
+
+
+class FileWithKeyPath(File):
+    """An extension of a File that contains a key path and a storage URL"""
+
+    key_path: list[str | int]
+    storage_url: str | None = Field(default=None, description="The URL of the file in Azure Blob Storage")
+    format: str | None = Field(default=None, description="The format of the file")
+
+    @property
+    def key_path_str(self) -> str:
+        return ".".join(str(key) for key in self.key_path)
+
+    @property
+    @override
+    def is_audio(self) -> bool | None:
+        audio = super().is_audio
+        if audio is not None:
+            return audio
+        if self.format is None:
+            return None
+        return self.format == "audio"
+
+    @property
+    @override
+    def is_image(self) -> bool | None:
+        image = super().is_image
+        if image is not None:
+            return image
+        if self.format is None:
+            return None
+        return self.format == "image"

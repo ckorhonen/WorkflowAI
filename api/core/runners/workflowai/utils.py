@@ -3,10 +3,10 @@ import base64
 import copy
 import logging
 from io import BytesIO
-from typing import Any, cast, override
+from typing import Any, cast
 
 import httpx
-from pydantic import Field, ValidationError
+from pydantic import ValidationError
 
 from core.domain.consts import AUDIO_REF_NAME, FILE_DEFS, FILE_REF_NAME, IMAGE_REF_NAME, PDF_REF_NAME
 from core.domain.errors import (
@@ -15,7 +15,7 @@ from core.domain.errors import (
     InvalidRunOptionsError,
     message_from_validation_error,
 )
-from core.domain.fields.file import File
+from core.domain.fields.file import File, FileWithKeyPath
 from core.domain.models import Model, Provider
 from core.domain.models.model_data import DeprecatedModel
 from core.domain.models.model_datas_mapping import MODEL_DATAS
@@ -30,36 +30,6 @@ from core.utils.schemas import JsonSchema
 from core.utils.strings import clean_unicode_chars
 
 _logger = logging.getLogger(__file__)
-
-
-class FileWithKeyPath(File):
-    key_path: list[str | int]
-    storage_url: str | None = Field(default=None, description="The URL of the file in Azure Blob Storage")
-    format: str | None = Field(default=None, description="The format of the file")
-
-    @property
-    def key_path_str(self) -> str:
-        return ".".join(str(key) for key in self.key_path)
-
-    @property
-    @override
-    def is_audio(self) -> bool | None:
-        audio = super().is_audio
-        if audio is not None:
-            return audio
-        if self.format is None:
-            return None
-        return self.format == "audio"
-
-    @property
-    @override
-    def is_image(self) -> bool | None:
-        image = super().is_image
-        if image is not None:
-            return image
-        if self.format is None:
-            return None
-        return self.format == "image"
 
 
 def _replace_file_in_payload(

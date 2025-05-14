@@ -1,8 +1,11 @@
 import asyncio
 import logging
+from collections.abc import Iterable
 from typing import Any
 
 from core.domain.agent_run import AgentRun
+from core.domain.message import Messages
+from core.domain.task_io import RawMessagesSchema, SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
 from core.runners.workflowai.utils import (
     FileWithKeyPath,
@@ -22,9 +25,22 @@ class FileHandler:
         self._file_storage = file_storage
         self._folder_path = folder_path
 
+    @classmethod
+    def _extract_files(
+        cls,
+        agent_io: SerializableTaskIO,
+        payload: Any,
+    ) -> list[FileWithKeyPath]:
+        if agent_io.version == RawMessagesSchema.version:
+            messages = Messages.model_validate(payload)
+            return list(messages.file_iterator())
+
+        _, _, input_files = extract_files(agent_io.json_schema, payload)
+        return input_files
+
     async def handle_run(self, run: AgentRun, task_variant: SerializableTaskVariant):
-        _, _, input_files = extract_files(task_variant.input_schema.json_schema, run.task_input)
-        _, _, output_files = extract_files(task_variant.output_schema.json_schema, run.task_output)
+        input_files = self._extract_files(task_variant.input_schema, run.task_input)
+        output_files = self._extract_files(task_variant.output_schema, run.task_output)
 
         async with asyncio.TaskGroup() as tg:
             for file in input_files:
@@ -32,8 +48,8 @@ class FileHandler:
             for file in output_files:
                 tg.create_task(sentry_wrap(self._handle_file(file)))
 
-        self._apply_files(run.task_input, input_files, {"content_type", "url", "storage_url"})
-        self._apply_files(run.task_output, output_files, {"content_type", "url", "storage_url"})
+        self._apply_files(run.task_input, input_files, include={"content_type", "url", "storage_url"})
+        self._apply_files(run.task_output, output_files, include={"content_type", "url", "storage_url"})
 
     async def _handle_file(self, file: FileWithKeyPath):
         if not file.url and not file.data:
@@ -54,11 +70,14 @@ class FileHandler:
             folder_path=self._folder_path,
         )
 
+        if file.url and file.url.startswith("data:"):
+            file.url = None
+
     @classmethod
     def _apply_files(
         cls,
         payload: dict[str, Any],
-        files: list[FileWithKeyPath],
+        files: Iterable[FileWithKeyPath],
         include: set[str] | None,
     ):
         for file in files:

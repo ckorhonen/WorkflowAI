@@ -263,8 +263,11 @@ class TestStoreTaskRun:
                     "role": "user",
                     "content": [
                         {
-                            "type": "image_url",
-                            "image_url": {"url": "https://test-url.com/file-2", "content_type": "image/png"},
+                            "file": {
+                                "content_type": "image/png",
+                                "url": "https://test-url.com/file-2",
+                                "storage_url": "https://test-url.com/file-2",
+                            },
                         },
                     ],
                 },

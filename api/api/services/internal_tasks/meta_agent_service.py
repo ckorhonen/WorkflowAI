@@ -12,7 +12,7 @@ from api.services.feedback_svc import FeedbackService
 from api.services.internal_tasks._internal_tasks_utils import internal_tools_description
 from api.services.models import ModelsService
 from api.services.reviews import ReviewsService
-from api.services.runs_service import RunsService
+from api.services.runs.runs_service import RunsService
 from api.services.tasks import list_agent_summaries
 from api.services.versions import VersionsService
 from core.agents.extract_company_info_from_domain_task import (
