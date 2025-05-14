@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { TaskID } from '@/types/aliases';
+import { TenantID } from '@/types/aliases';
 import { GeneralizedTaskInput } from '@/types/task_run';
 import { ToolKind, Tool_Output } from '@/types/workflowAI';
 import { ProxyMessagesView } from './ProxyMessagesView';
@@ -6,6 +8,8 @@ import { ProxyParameters } from './parameters/ProxyParameters';
 import { ProxyMessage, createEmptySystemMessage, createEmptyUserMessage } from './utils';
 
 interface Props {
+  tenant: TenantID | undefined;
+  taskId: TaskID;
   input: GeneralizedTaskInput | undefined;
   setInput: (input: GeneralizedTaskInput) => void;
   temperature: number;
@@ -20,7 +24,18 @@ const areMessagesEqual = (prev: ProxyMessage[], next: ProxyMessage[]) => {
 };
 
 export function ProxyHeaderWithoutInput(props: Props) {
-  const { input, setInput, temperature, setTemperature, handleRunTasks, toolCalls, setToolCalls, maxHeight } = props;
+  const {
+    tenant,
+    taskId,
+    input,
+    setInput,
+    temperature,
+    setTemperature,
+    handleRunTasks,
+    toolCalls,
+    setToolCalls,
+    maxHeight,
+  } = props;
 
   const [systemMessages, setSystemMessages] = useState<ProxyMessage[]>([createEmptySystemMessage()]);
   const [otherMessages, setOtherMessages] = useState<ProxyMessage[]>([createEmptyUserMessage()]);
@@ -84,6 +99,8 @@ export function ProxyHeaderWithoutInput(props: Props) {
     >
       <div className='w-1/2 border-r border-gray-200 border-dashed overflow-hidden'>
         <ProxyMessagesView
+          tenant={tenant}
+          taskId={taskId}
           title='Messages'
           messages={otherMessages}
           setMessages={(messages) => onUpdateInput(systemMessages, messages)}

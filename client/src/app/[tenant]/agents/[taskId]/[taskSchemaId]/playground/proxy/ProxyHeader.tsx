@@ -64,6 +64,8 @@ export function ProxyHeader(props: Props) {
 
   return (
     <ProxyHeaderWithoutInput
+      tenant={tenant}
+      taskId={taskId}
       input={input}
       setInput={setInput}
       temperature={temperature}

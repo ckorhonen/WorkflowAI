@@ -16,9 +16,9 @@ type Props = {
   title: string;
   messages: ProxyMessage[];
   setMessages: (messages: ProxyMessage[]) => void;
-  inputSchema: JsonSchema | undefined;
-  input: Record<string, unknown> | undefined;
-  setInput: (input: Record<string, unknown>) => void;
+  inputSchema?: JsonSchema;
+  input?: Record<string, unknown>;
+  setInput?: (input: Record<string, unknown>) => void;
 };
 
 export function ProxyMessagesView(props: Props) {
@@ -90,7 +90,7 @@ export function ProxyMessagesView(props: Props) {
         )}
       </div>
       <div className='flex flex-col py-4 gap-2 overflow-y-auto' id='proxy-messages-view'>
-        {!!input && (
+        {!!input && !!setInput && (
           <div className='flex px-4 h-max w-full'>
             <ProxyInputVariables
               inputSchema={inputSchema}
