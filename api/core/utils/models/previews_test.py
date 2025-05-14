@@ -34,7 +34,7 @@ def test_compute_preview(model: BaseModel, expected: str):
 @pytest.mark.parametrize(
     "model, expected",
     [
-        (_Hello(), 'hello: "wo'),
+        pytest.param(_Hello(), 'hello: "wo...', id="hello_world"),
     ],
 )
 def test_compute_preview_limit(model: BaseModel, expected: str):
@@ -46,7 +46,7 @@ def test_compute_preview_default_limit():
         "a": "a" * 256,
     }
     assert len(json.dumps(d)) > 255, "sanity check"
-    assert len(compute_preview(d)) == 255
+    assert len(compute_preview(d)) == 255 + 3  # "..."
 
 
 @pytest.mark.parametrize(
@@ -54,17 +54,17 @@ def test_compute_preview_default_limit():
     [
         pytest.param(
             {"url": "https://example.com/image.png", "content_type": "image/png"},
-            "[[img:https://example.com/image.png]]",
+            "[[img:https://example.com/image.png]]...",
             id="image_url",
         ),
         pytest.param(
             {"url": "data:base64,...", "content_type": "image/png", "storage_url": "https://example.com/image.png"},
-            "[[img:https://example.com/image.png]]",
+            "[[img:https://example.com/image.png]]...",
             id="url_with_data",
         ),
         pytest.param(
             {"url": 10, "content_type": "image/png"},
-            "{url",  # truncated
+            "{url...",  # truncated
             id="not_a_file",
         ),
     ],
