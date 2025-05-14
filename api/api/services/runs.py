@@ -15,7 +15,7 @@ from core.domain.analytics_events.analytics_events import (
     RunTrigger,
     SourceType,
 )
-from core.domain.errors import InternalError, InvalidFileError
+from core.domain.errors import InternalError
 from core.domain.events import Event, EventRouter, RunCreatedEvent
 from core.domain.llm_usage import LLMUsage
 from core.domain.models import Model, Provider
@@ -30,11 +30,10 @@ from core.runners.workflowai.utils import (
     FileWithKeyPath,
     download_file,
     extract_files,
-    is_schema_containing_legacy_file,
 )
 from core.storage import ObjectNotFoundException, TaskTuple
 from core.storage.abstract_storage import AbstractStorage
-from core.storage.azure.azure_blob_file_storage import CouldNotStoreFileError, FileStorage
+from core.storage.azure.azure_blob_file_storage import FileStorage
 from core.storage.backend_storage import BackendStorage
 from core.storage.file_storage import FileData
 from core.utils.coroutines import sentry_wrap
@@ -202,74 +201,6 @@ class RunsService:
         return LLMCompletionsResponse(completions=llm_completions_typed)
 
     @classmethod
-    def _apply_files(
-        cls,
-        payload: dict[str, Any],
-        files: list[FileWithKeyPath],
-        include: set[str] | None,
-        exclude: set[str] | None,
-    ):
-        for file in files:
-            if not file.url:
-                file.url = file.storage_url
-            try:
-                set_at_keypath(
-                    payload,
-                    file.key_path,
-                    file.model_dump(include=include, exclude_none=True, exclude=exclude),
-                )
-            except InvalidKeyPathError as e:
-                _logger.exception(
-                    "Error setting file in task run input",
-                    extra={"file": file.model_dump(exclude={"data"})},
-                    exc_info=e,
-                )
-                continue
-
-    # TODO: merge with instance method when workflowai.py is removed
-    # Staticmethod is only used as a bridge to avoid adding a new dependency on workflowai.py
-    @classmethod
-    async def _store_files(
-        cls,
-        file_storage: FileStorage,
-        folder_path: str,
-        files: list[FileWithKeyPath],
-    ) -> list[FileWithKeyPath]:
-        for file in files:
-            bts = file.content_bytes()
-            if not bts:
-                # Skipping, only reason a file might not have data is if it's private
-                continue
-
-            try:
-                file.storage_url = await file_storage.store_file(
-                    FileData(contents=bts, content_type=file.content_type),
-                    folder_path=folder_path,
-                )
-            except CouldNotStoreFileError as e:
-                _logger.exception(
-                    "Error storing file",
-                    extra={"file": file.model_dump(exclude={"data"})},
-                    exc_info=e,
-                )
-                continue
-
-        return files
-
-    @classmethod
-    async def _download_files_if_needed(cls, files: list[FileWithKeyPath]):
-        try:
-            async with asyncio.TaskGroup() as tg:
-                for file in files:
-                    if file.url and not file.data:
-                        tg.create_task(download_file(file))
-        except* InvalidFileError as e:
-            # We fail silently here, that can happen if the file is not found
-            # Usually we should return an error before, for example when the file fails to be downloaded
-            # from either us or the provider
-            _logger.exception("error downloading file", exc_info=e)
-
-    @classmethod
     def _provider_for_pricing_task_run(cls, task_run: AgentRun, model: Model):
         if task_run.group.properties.provider:
             try:
@@ -284,6 +215,9 @@ class RunsService:
 
     @classmethod
     async def _compute_cost(cls, task_run: AgentRun, provider_factory: AbstractProviderFactory):
+        """Make sure the cost is computed for a task run for each completion. This function relies solely
+        on the completions and not on the input / output"""
+        # TODO: refactor to make that clear when we remove the provider for pricing
         if not task_run.llm_completions:
             _logger.warning("no completions found for task run", extra={"task_run": task_run})
             return
@@ -293,10 +227,11 @@ class RunsService:
         except ValueError:
             _logger.warning(
                 "invalid model in task run",
-                extra={"task_run_id": task_run.id, "task_run": safe_dump_pydantic_model(task_run)},
+                extra={"task_run_id": task_run.id},
             )
             return
 
+        # TODO: remove concept of provider for pricing
         provider = provider_factory.get_provider(cls._provider_for_pricing_task_run(task_run, model))
 
         await provider.finalize_completions(model, task_run.llm_completions)
@@ -345,56 +280,6 @@ class RunsService:
             completion.response = None
         return task_run
 
-    # TODO: the below functions are not optimized, we are extracting and applying files twice and iterating over the
-    # files multiple times
-    # It's ok for now since this will run in the background
-    @classmethod
-    async def _extract_download_and_apply_files(cls, schema: dict[str, Any], payload: dict[str, Any]):
-        # In legacy tasks, the files are stored directly in the payload
-        if is_schema_containing_legacy_file(schema):
-            return False
-
-        # Otherwise we extract all the files
-        _, _, files = extract_files(schema, payload)
-        if not files:
-            return False
-
-        # Download them
-        await cls._download_files_if_needed(files)
-        # And set them in the payload
-        # Files will be applied with all their fields
-        cls._apply_files(payload, files, include=None, exclude={"key_path"})
-
-        return True
-
-    @classmethod
-    async def _extract_and_store_files(
-        cls,
-        schema: dict[str, Any],
-        payload: dict[str, Any],
-        file_storage: FileStorage,
-        folder_path: str,
-    ):
-        _, _, files = extract_files(schema, payload)
-        await cls._store_files(file_storage, folder_path, files)
-        # Data is stripped from the files
-        cls._apply_files(payload, files, {"content_type", "url", "storage_url"}, exclude={"key_path"})
-
-    @classmethod
-    async def _should_store_files(
-        cls,
-        input_schema: dict[str, Any],
-        input: dict[str, Any],
-        output_schema: dict[str, Any],
-        output: dict[str, Any],
-    ) -> bool:
-        results = await asyncio.gather(
-            cls._extract_download_and_apply_files(input_schema, input),
-            cls._extract_download_and_apply_files(output_schema, output),
-            return_exceptions=True,
-        )
-        return any(res is True for res in results)
-
     # TODO: merge with instance method when workflowai.py is removed
     # Staticmethod is only used as a bridge to avoid adding a new dependency on workflowai.py
     @classmethod
@@ -411,47 +296,20 @@ class RunsService:
         trigger: RunTrigger | None = None,
         source: SourceType | None = None,
     ) -> AgentRun:
-        # Extract data of files in the task run input only, download files if needed
-        should_store_files = await cls._should_store_files(
-            input_schema=task_variant.input_schema.json_schema,
-            input=task_run.task_input,
-            output_schema=task_variant.output_schema.json_schema,
-            output=task_run.task_output,
-        )
+        # Strip private fields before storing files in case one of the files contains private data
+        task_run = cls._strip_private_fields(task_run)
 
-        # Compute cost
+        # Compute cost, no need to download files before hand. Cost is computed based on the completions
         try:
             await cls._compute_cost(task_run, provider_factory)
         except Exception as e:
             _logger.exception("error computing cost for task run", exc_info=e, extra={"task_run": task_run})
 
-        # Strip private fields before storing files in case one of the files contains private data
-        task_run = cls._strip_private_fields(task_run)
-        # Upload files to Azure Blob Storage
-        folder_path = f"{storage.tenant}/{task_run.task_id}"
-        # Re-extracting files as some data might have been stripped
-        if should_store_files:
-            # TODO: better handling of errors
-            await asyncio.gather(
-                sentry_wrap(
-                    cls._extract_and_store_files(
-                        schema=task_variant.input_schema.json_schema,
-                        payload=task_run.task_input,
-                        file_storage=file_storage,
-                        folder_path=folder_path,
-                    ),
-                ),
-                sentry_wrap(
-                    cls._extract_and_store_files(
-                        schema=task_variant.output_schema.json_schema,
-                        payload=task_run.task_output,
-                        file_storage=file_storage,
-                        folder_path=folder_path,
-                    ),
-                ),
-            )
+        # Replace base64 and outside urls with storage urls in payloads
+        file_handler = _FileHandler(file_storage, f"{storage.tenant}/{task_run.task_id}")
+        await file_handler.handle_run(task_run, task_variant)
+
         # Removing LLM completions if there are private fields
-        # TODO: be more granular
         if task_run.private_fields and task_run.llm_completions:
             task_run = cls._strip_llm_completions(task_run)
 
@@ -492,3 +350,65 @@ class RunsService:
             trigger,
             user_source,
         )
+
+
+class _FileHandler:
+    def __init__(self, file_storage: FileStorage, folder_path: str):
+        self._file_storage = file_storage
+        self._folder_path = folder_path
+
+    async def handle_run(self, run: AgentRun, task_variant: SerializableTaskVariant):
+        _, _, input_files = extract_files(task_variant.input_schema.json_schema, run.task_input)
+        _, _, output_files = extract_files(task_variant.output_schema.json_schema, run.task_output)
+
+        async with asyncio.TaskGroup() as tg:
+            for file in input_files:
+                tg.create_task(sentry_wrap(self._handle_file(file)))
+            for file in output_files:
+                tg.create_task(sentry_wrap(self._handle_file(file)))
+
+        self._apply_files(run.task_input, input_files, {"content_type", "url", "storage_url"})
+        self._apply_files(run.task_output, output_files, {"content_type", "url", "storage_url"})
+
+    async def _handle_file(self, file: FileWithKeyPath):
+        if not file.url and not file.data:
+            # Skipping, only reason a file might not have data is if it's private
+            return
+
+        if file.url and not file.data:
+            await download_file(file)
+
+        bts = file.content_bytes()
+        if not bts:
+            _logger.warning("file has no content bytes", extra={"file": file.model_dump(exclude={"data"})})
+            # Skipping, only reason a file might not have data is if it's private
+            return
+
+        file.storage_url = await self._file_storage.store_file(
+            FileData(contents=bts, content_type=file.content_type),
+            folder_path=self._folder_path,
+        )
+
+    @classmethod
+    def _apply_files(
+        cls,
+        payload: dict[str, Any],
+        files: list[FileWithKeyPath],
+        include: set[str] | None,
+    ):
+        for file in files:
+            if not file.url:
+                file.url = file.storage_url
+            try:
+                set_at_keypath(
+                    payload,
+                    file.key_path,
+                    file.model_dump(include=include, exclude_none=True),
+                )
+            except InvalidKeyPathError as e:
+                _logger.exception(
+                    "Error setting file in task run input",
+                    extra={"file": file.model_dump(exclude={"data"})},
+                    exc_info=e,
+                )
+                continue
