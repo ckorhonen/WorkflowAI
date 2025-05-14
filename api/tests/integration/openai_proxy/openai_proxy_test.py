@@ -169,6 +169,47 @@ async def test_with_image(test_client: IntegrationTestClient, openai_client: Asy
     assert runs[0]["task_input_preview"].startswith("[[img:http://127.0.0.1")
 
 
+async def test_with_image_as_data(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+    """Test the input and output preview when the image is passed as data"""
+    test_client.mock_openai_call(raw_content="This is a test image")
+
+    res = await openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {
+                "role": "system",
+                "content": "Describe the image in a sassy manner",
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": "data:image/png;base64,aGVsbG8K"}},
+                ],
+            },
+        ],
+    )
+    assert res.choices[0].message.content == "This is a test image"
+
+    await test_client.wait_for_completed_tasks()
+
+    task_id, run_id = res.id.split("/")
+    run = await test_client.fetch_run({"id": task_id}, run_id=run_id, v1=True)
+    assert run["id"] == run_id
+    assert run["task_input"]["messages"][1]["content"][0] == {
+        "file": {
+            "url": mock.ANY,
+            "content_type": "image/png",
+            "storage_url": mock.ANY,
+        },
+    }
+
+    assert run["task_output"] == "This is a test image"
+
+    runs = (await test_client.post("/v1/_/agents/default/runs/search", json={}))["items"]
+    assert len(runs) == 1
+    assert runs[0]["task_input_preview"].startswith("[[img:http://127.0.0.1")
+
+
 async def test_with_tools(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
     test_client.mock_openai_call(
         raw_content="",
@@ -429,39 +470,3 @@ async def test_missing_model_error(test_client: IntegrationTestClient, openai_cl
             messages=[],
         )
     assert "Did you mean gpt-4o-mini-latest" in e.value.message
-
-
-async def test_with_image_data(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
-    test_client.mock_openai_call(raw_content="This is a test image")
-
-    res = await openai_client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "Describe the image in a sassy manner"},
-                    {"type": "image_url", "image_url": {"url": "data:image/png;base64,aGVsbG8K"}},
-                ],
-            },
-        ],
-    )
-    assert res.choices[0].message.content == "This is a test image"
-
-    await test_client.wait_for_completed_tasks()
-
-    run = await test_client.get("/v1/_/agents/default/runs/latest")
-    assert run["task_output"] == "This is a test image"
-    assert run["task_input"] == {
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {"text": "Describe the image in a sassy manner"},
-                    # We should not have a data field here
-                    # + the url should be the one returned when the file is stored
-                    {"file": {"url": mock.ANY, "content_type": "image/png"}},
-                ],
-            },
-        ],
-    }
