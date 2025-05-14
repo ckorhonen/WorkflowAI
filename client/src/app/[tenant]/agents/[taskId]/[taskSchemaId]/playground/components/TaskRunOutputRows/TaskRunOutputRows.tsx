@@ -73,6 +73,7 @@ type TaskRunOutputRowsProps = {
   showTaskIterationDetails?: boolean;
   version: VersionV1 | undefined;
   isProxy?: boolean;
+  hasProxyInput?: boolean;
 };
 
 export function TaskRunOutputRows({
@@ -88,6 +89,7 @@ export function TaskRunOutputRows({
   side,
   showTaskIterationDetails = false,
   isProxy = false,
+  hasProxyInput = false,
 }: TaskRunOutputRowsProps) {
   const filteredMetadata = useMemo(() => {
     if (!taskRun?.metadata) {
@@ -112,6 +114,7 @@ export function TaskRunOutputRows({
               side={side}
               showTaskIterationDetails={showTaskIterationDetails}
               isProxy={isProxy}
+              hasProxyInput={hasProxyInput}
             />
           </div>
         )}

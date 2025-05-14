@@ -3,16 +3,26 @@ import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Popover, PopoverContent } from '@/components/ui/Popover';
 import { PopoverTrigger } from '@/components/ui/Popover';
+import { TaskID } from '@/types/aliases';
+import { TenantID } from '@/types/aliases';
+import { JsonSchema } from '@/types/json_schema';
+import { ProxyInputVariables } from './ProxyInputVariables';
 import { ProxyMessageView } from './ProxyMessageView';
 import { ProxyMessage, createEmptyAgentMessage, createEmptyUserMessage } from './utils';
 
 type Props = {
+  tenant: TenantID | undefined;
+  taskId: TaskID;
+  title: string;
   messages: ProxyMessage[];
   setMessages: (messages: ProxyMessage[]) => void;
+  inputSchema: JsonSchema | undefined;
+  input: Record<string, unknown> | undefined;
+  setInput: (input: Record<string, unknown>) => void;
 };
 
 export function ProxyMessagesView(props: Props) {
-  const { messages, setMessages } = props;
+  const { title, messages, setMessages, inputSchema, input, setInput, tenant, taskId } = props;
 
   const onMessageChange = useCallback(
     (message: ProxyMessage | undefined, index: number) => {
@@ -47,7 +57,7 @@ export function ProxyMessagesView(props: Props) {
       onMouseLeave={() => setIsHovering(false)}
     >
       <div className='flex w-full items-center px-4 h-[48px] border-b border-gray-200 border-dashed font-semibold text-[16px] text-gray-700 flex-shrink-0 justify-between'>
-        <div>Messages</div>
+        <div>{title}</div>
         {(isHovering || showAddMessagePopover) && (
           <Popover open={showAddMessagePopover} onOpenChange={setShowAddMessagePopover}>
             <PopoverTrigger asChild>
@@ -79,8 +89,19 @@ export function ProxyMessagesView(props: Props) {
           </Popover>
         )}
       </div>
-      <div className='flex overflow-y-auto' id='proxy-messages-view'>
-        <div className='flex flex-col gap-2 px-4 py-4 h-max w-full'>
+      <div className='flex flex-col py-4 gap-2 overflow-y-auto' id='proxy-messages-view'>
+        {!!input && (
+          <div className='flex px-4 h-max w-full'>
+            <ProxyInputVariables
+              inputSchema={inputSchema}
+              input={input}
+              setInput={setInput}
+              tenant={tenant}
+              taskId={taskId}
+            />
+          </div>
+        )}
+        <div className='flex flex-col gap-2 px-4 h-max w-full'>
           {messages.map((message, index) => (
             <ProxyMessageView key={index} message={message} setMessage={(message) => onMessageChange(message, index)} />
           ))}

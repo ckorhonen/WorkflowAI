@@ -30,7 +30,6 @@ import {
   useAIModels,
   useOrFetchOrganizationSettings,
   useOrFetchRunV1,
-  useOrFetchTask,
   useOrFetchVersion,
   useOrFetchVersions,
   useScheduledMetaAgentMessages,
@@ -56,6 +55,7 @@ import {
   RunResponseStreamChunk,
   RunV1,
   SelectedModels,
+  SerializableTask,
   TaskGroupProperties_Input,
   TaskInputDict,
   ToolKind,
@@ -82,7 +82,8 @@ import { pickFinalRunProperties } from './hooks/utils';
 import { PlaygroundInputContainer } from './playgroundInputContainer';
 import { PlaygroundInputSettingsModal } from './playgroundInputSettingsModal';
 import { PlaygroundOutput } from './playgroundOutput';
-import { ProxyInput } from './proxy/ProxyInput';
+import { ProxyHeader } from './proxy/ProxyHeader';
+import { ProxyMessage } from './proxy/utils';
 
 export type PlaygroundContentProps = {
   taskId: TaskID;
@@ -98,6 +99,8 @@ type PlaygroundContentBodyProps = PlaygroundContentProps & {
   latestRun: RunV1 | undefined;
   versions: VersionV1[];
   taskSchema: TaskSchemaResponseWithSchema;
+  task: SerializableTask;
+  isTaskInitialized: boolean;
 };
 
 function getLatestTaskRunFromStoreNotReactive(
@@ -161,19 +164,9 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
     taskSchemaId,
     tenant,
     userRunTasks,
+    task,
+    isTaskInitialized,
   } = props;
-
-  const isProxy = useIsProxy(currentTaskSchema);
-
-  const isInputGenerationSupported = useMemo(() => {
-    if (isProxy) {
-      return false;
-    }
-    return !requiresFileSupport(
-      currentTaskSchema.input_schema.json_schema,
-      currentTaskSchema.input_schema.json_schema.$defs
-    );
-  }, [currentTaskSchema, isProxy]);
 
   const [scheduledPlaygroundStateMessage, setScheduledPlaygroundStateMessage] = useState<string | undefined>(undefined);
 
@@ -235,6 +228,32 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
 
   const { version: currentVersion } = useOrFetchVersion(tenant, taskId, versionId ?? persistedVersionId);
 
+  const {
+    isProxy,
+    hasInput: hasProxyInput,
+    messages: proxyMessagesFromVersion,
+  } = useIsProxy(currentTaskSchema, currentVersion);
+
+  const [proxyMessages, setProxyMessages] = useState<ProxyMessage[] | undefined>(proxyMessagesFromVersion);
+  const proxyMessagesRef = useRef<ProxyMessage[] | undefined>(proxyMessages);
+  proxyMessagesRef.current = proxyMessages;
+
+  useEffect(() => {
+    if (proxyMessagesFromVersion) {
+      setProxyMessages(proxyMessagesFromVersion);
+    }
+  }, [proxyMessagesFromVersion]);
+
+  const isInputGenerationSupported = useMemo(() => {
+    if (isProxy) {
+      return false;
+    }
+    return !requiresFileSupport(
+      currentTaskSchema.input_schema.json_schema,
+      currentTaskSchema.input_schema.json_schema.$defs
+    );
+  }, [currentTaskSchema, isProxy]);
+
   const [proxyToolCalls, setProxyToolCalls] = useState<(ToolKind | Tool_Output)[] | undefined>(undefined);
   useEffect(() => {
     setProxyToolCalls(currentVersion?.properties.enabled_tools ?? undefined);
@@ -288,7 +307,6 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
   } = useOrFetchRunV1(tenant, taskId, inputTaskRunId);
 
   const [taskIndexesLoading, setTaskIndexLoading] = useState<boolean[]>([false, false, false]);
-  const { task, isInitialized: isTaskInitialized } = useOrFetchTask(tenant, taskId);
 
   const { majorVersions } = useOrFetchVersions(tenant, taskId, taskSchemaId);
 
@@ -442,6 +460,9 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
 
           if (isProxy) {
             properties.enabled_tools = proxyToolCalls;
+            if (!!proxyMessagesRef.current) {
+              properties.messages = proxyMessagesRef.current;
+            }
           }
 
           // We need to find or create the version that corresponds to these properties
@@ -1209,7 +1230,8 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
           >
             <div className='flex flex-col w-full sm:pb-0 pb-20'>
               {isProxy ? (
-                <ProxyInput
+                <ProxyHeader
+                  inputSchema={inputSchema}
                   input={generatedInput}
                   setInput={setGeneratedInput}
                   temperature={temperature}
@@ -1218,6 +1240,11 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
                   toolCalls={proxyToolCalls}
                   setToolCalls={setProxyToolCalls}
                   maxHeight={isMobile ? undefined : containerHeight - 50}
+                  proxyMessages={proxyMessages}
+                  setProxyMessages={setProxyMessages}
+                  hasProxyInput={hasProxyInput}
+                  tenant={tenant}
+                  taskId={taskId}
                 />
               ) : (
                 <PlaygroundInputContainer
@@ -1291,6 +1318,7 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
                   hideModelColumn={hideModelColumn}
                   hiddenModelColumns={hiddenModelColumns}
                   isProxy={isProxy}
+                  hasProxyInput={hasProxyInput}
                   updateInputAndRun={updateInputAndRun}
                 />
               </div>
