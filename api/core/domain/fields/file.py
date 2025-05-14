@@ -3,7 +3,7 @@ import logging
 import mimetypes
 from base64 import b64decode
 from enum import StrEnum
-from typing import override
+from typing import Any, override
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -21,6 +21,10 @@ class FileKind(StrEnum):
     PDF = "pdf"
 
 
+def _remove_additional_properties_from_json_schema(model: dict[str, Any]):
+    model.pop("additionalProperties", None)
+
+
 class File(BaseModel):
     content_type: str | None = Field(
         default=None,
@@ -30,7 +34,9 @@ class File(BaseModel):
     data: str | None = Field(default=None, description="The base64 encoded data of the file")
     url: str | None = Field(default=None, description="The URL of the image")
 
-    model_config = ConfigDict(extra="allow")
+    # We allow extra properties so that we don't lose values when validating jsons
+    # from FileWithKeyPath for example
+    model_config = ConfigDict(extra="allow", json_schema_extra=_remove_additional_properties_from_json_schema)
 
     def to_url(self, default_content_type: str | None = None) -> str:
         if self.data and (self.content_type or default_content_type):
