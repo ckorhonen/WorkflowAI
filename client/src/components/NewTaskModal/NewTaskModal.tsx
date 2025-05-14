@@ -66,6 +66,8 @@ export type NewTaskModalQueryParams = {
   redirectToPlaygrounds: string;
   variantId?: string;
   prefilledMessage?: string;
+  flow?: string;
+  integrationId?: string;
 };
 
 const searchParams: (keyof NewTaskModalQueryParams)[] = [
@@ -73,6 +75,8 @@ const searchParams: (keyof NewTaskModalQueryParams)[] = [
   'redirectToPlaygrounds',
   'variantId',
   'prefilledMessage',
+  'flow',
+  'integrationId',
 ];
 
 export function useNewTaskModal() {
@@ -96,7 +100,9 @@ export function NewTaskModal() {
     redirectToPlaygrounds: redirectToPlaygroundsValue,
     variantId,
     prefilledMessage,
-  } = useParsedSearchParams('mode', 'redirectToPlaygrounds', 'variantId', 'prefilledMessage');
+    flow,
+    integrationId,
+  } = useParsedSearchParams('mode', 'redirectToPlaygrounds', 'variantId', 'prefilledMessage', 'flow', 'integrationId');
 
   const { versions } = useOrFetchVersions(tenant, taskId);
 
@@ -279,6 +285,8 @@ export function NewTaskModal() {
                 newTaskModalOpen: undefined,
                 mode: undefined,
                 redirectToPlaygrounds: undefined,
+                flow: undefined,
+                integrationId: undefined,
                 runAgents: 'true',
               },
               scroll: false,
@@ -309,6 +317,8 @@ export function NewTaskModal() {
           newTaskModalOpen: undefined,
           mode: undefined,
           redirectToPlaygrounds: undefined,
+          flow: undefined,
+          integrationId: undefined,
         },
         scroll: false,
       });
@@ -635,14 +645,16 @@ export function NewTaskModal() {
     <Dialog open={open} onOpenChange={onCloseRequest}>
       <DialogContent className='min-w-[90vw] h-[90vh] p-0 z-20'>
         <div className='flex flex-col h-full w-full overflow-hidden bg-custom-gradient-1 rounded-[3px]'>
-          <NewTaskModalHeader
-            onClose={onCloseRequest}
-            onSave={noChangesDetected ? undefined : onSave}
-            onSendIteration={isFullMessageView ? onSendIteration : undefined}
-            isSaveButtonHidden={isSaveButtonHidden}
-            mode={mode}
-            isRedirecting={redirectToPlaygrounds}
-          />
+          {(flow === 'create' || mode === 'editDescription') && (
+            <NewTaskModalHeader
+              onClose={onCloseRequest}
+              onSave={noChangesDetected ? undefined : onSave}
+              onSendIteration={isFullMessageView ? onSendIteration : undefined}
+              isSaveButtonHidden={isSaveButtonHidden}
+              mode={mode}
+              isRedirecting={redirectToPlaygrounds}
+            />
+          )}
           {mode === 'editDescription' ? (
             <DescriptionExampleEditor
               inputSplattedSchema={inputSplattedSchema}
@@ -673,6 +685,9 @@ export function NewTaskModal() {
               showRetry={showRetry}
               retry={onRetry}
               featureWasSelected={featureWasSelected}
+              flow={flow}
+              integrationId={integrationId}
+              onClose={onCloseRequest}
             />
           )}
           <AlertDialog

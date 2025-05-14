@@ -3,10 +3,13 @@ import { useRef } from 'react';
 import { useResizeHeight } from '@/components/NewTaskModal/useResizeHeight';
 import { Loader } from '@/components/ui/Loader';
 import { SchemaEditorField } from '@/lib/schemaEditorUtils';
+import { useOrFetchIntegrations } from '@/store/integrations';
 import { TenantID } from '@/types/aliases';
 import { TaskSchemaID } from '@/types/aliases';
 import { JsonSchema } from '@/types/json_schema';
 import { SchemaSplattedEditor } from '../SchemaSplattedEditor/SchemaSplattedEditor';
+import { NewTaskFlowChoice } from './Import/NewTaskFlowChoice';
+import { NewTaskImportFlow } from './Import/NewTaskImportFlow';
 import { NewTaskSuggestedFeatures } from './NewTaskSuggestedFeatures';
 import { TaskModalDoublePreview } from './Preview/TaskModalDoublePreview';
 import { TaskConversation } from './TaskConversation';
@@ -33,12 +36,15 @@ type NewTaskModalContentProps = {
   noChangesDetected: boolean;
   showRetry: boolean;
   retry: () => void;
+  flow: string | undefined;
+  integrationId: string | undefined;
   featureWasSelected: (
     title: string,
     inputSchema: Record<string, unknown>,
     outputSchema: Record<string, unknown>,
     message: string | undefined
   ) => void;
+  onClose: () => void;
 };
 
 export function NewTaskModalContent(props: NewTaskModalContentProps) {
@@ -63,11 +69,16 @@ export function NewTaskModalContent(props: NewTaskModalContentProps) {
     showRetry,
     retry,
     featureWasSelected,
+    flow,
+    integrationId,
+    onClose,
   } = props;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const inputSchemaRef = useRef<HTMLDivElement>(null);
   const inputPreviewRef = useRef<HTMLDivElement>(null);
+
+  const { integrations } = useOrFetchIntegrations();
 
   const inputHeight = useResizeHeight({
     containerRef,
@@ -80,15 +91,36 @@ export function NewTaskModalContent(props: NewTaskModalContentProps) {
   }
 
   if (!isEditMode && (!messages || messages.length === 0) && !inputSplattedSchema && !outputSplattedSchema) {
+    if (flow === 'create') {
+      return (
+        <div className={cx('flex flex-col h-full w-full overflow-hidden', !open && 'invisible')}>
+          <NewTaskSuggestedFeatures
+            userMessage={userMessage}
+            setUserMessage={setUserMessage}
+            onSendIteration={onSendIteration}
+            loading={loading}
+            featureWasSelected={featureWasSelected}
+          />
+        </div>
+      );
+    }
+
+    if (flow === 'import') {
+      return (
+        <div className={cx('flex flex-col h-full w-full overflow-hidden', !open && 'invisible')}>
+          <NewTaskImportFlow
+            tenant={tenant}
+            integrationId={integrationId}
+            integrations={integrations}
+            onClose={onClose}
+          />
+        </div>
+      );
+    }
+
     return (
       <div className={cx('flex flex-col h-full w-full overflow-hidden', !open && 'invisible')}>
-        <NewTaskSuggestedFeatures
-          userMessage={userMessage}
-          setUserMessage={setUserMessage}
-          onSendIteration={onSendIteration}
-          loading={loading}
-          featureWasSelected={featureWasSelected}
-        />
+        <NewTaskFlowChoice onClose={onClose} integrationId={integrationId} integrations={integrations} />
       </div>
     );
   }
