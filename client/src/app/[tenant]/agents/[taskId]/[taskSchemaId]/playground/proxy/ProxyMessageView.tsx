@@ -11,10 +11,11 @@ import { ProxyMessage, ProxyMessageContent, createEmptyMessageContent } from './
 type Props = {
   message: ProxyMessage;
   setMessage: (message: ProxyMessage | undefined) => void;
+  supportToolCalls?: boolean;
 };
 
 export function ProxyMessageView(props: Props) {
-  const { message, setMessage } = props;
+  const { message, setMessage, supportToolCalls = true } = props;
 
   const title = useMemo(() => {
     switch (message.role) {
@@ -142,19 +143,21 @@ export function ProxyMessageView(props: Props) {
                 >
                   Audio
                 </Button>
-                <div className='flex flex-row px-2 ml-1 border-l border-gray-200'>
-                  <Button
-                    variant='newDesign'
-                    size='sm'
-                    icon={<Add16Regular />}
-                    onClick={() => onAddContentEntry('toolCallResult')}
-                  >
-                    Tool Call Result
-                  </Button>
-                </div>
+                {supportToolCalls && (
+                  <div className='flex flex-row px-2 ml-1 border-l border-gray-200'>
+                    <Button
+                      variant='newDesign'
+                      size='sm'
+                      icon={<Add16Regular />}
+                      onClick={() => onAddContentEntry('toolCallResult')}
+                    >
+                      Tool Call Result
+                    </Button>
+                  </div>
+                )}
               </>
             )}
-            {message.role === 'assistant' && (
+            {message.role === 'assistant' && supportToolCalls && (
               <div className='flex flex-row px-2 ml-1 border-l border-gray-200'>
                 <Button
                   variant='newDesign'
