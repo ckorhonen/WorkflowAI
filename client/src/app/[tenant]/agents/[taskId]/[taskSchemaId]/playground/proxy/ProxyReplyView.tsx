@@ -7,6 +7,7 @@ import { TaskInputDict, TaskOutputDict, ToolCallRequestWithID } from '@/types/wo
 import { ProxyMessage, ProxyMessageContent } from './utils';
 
 type Props = {
+  hasProxyInput: boolean;
   input: TaskInputDict;
   output: TaskOutputDict;
   toolCalls: ToolCallPreview[] | undefined;
@@ -14,7 +15,7 @@ type Props = {
 };
 
 export function ProxyReplyView(props: Props) {
-  const { input, output, toolCalls, updateInputAndRun } = props;
+  const { hasProxyInput, input, output, toolCalls, updateInputAndRun } = props;
   const [text, setText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -37,8 +38,10 @@ export function ProxyReplyView(props: Props) {
   }, [toolCalls]);
 
   const onSendMessage = useCallback(async () => {
+    const keyForMessage = hasProxyInput ? 'workflowai.replies' : 'messages';
+
     const taskInput = input as Record<string, unknown>;
-    const oldMessages = taskInput.messages as ProxyMessage[];
+    const oldMessages: ProxyMessage[] = (taskInput[keyForMessage] as ProxyMessage[]) ?? [];
 
     const messages = [...oldMessages];
 
@@ -91,13 +94,13 @@ export function ProxyReplyView(props: Props) {
 
     messages.push(newMessage);
 
-    const updatedInput: TaskInputDict = { ...input, messages };
+    const updatedInput: TaskInputDict = { ...input, [keyForMessage]: messages };
 
     setText('');
     setIsLoading(true);
     await updateInputAndRun(updatedInput);
     setIsLoading(false);
-  }, [input, text, output, updateInputAndRun, toolCallRequest]);
+  }, [input, text, output, updateInputAndRun, toolCallRequest, hasProxyInput]);
 
   return (
     <div className='flex flex-col w-full px-4 py-2 gap-2.5'>
