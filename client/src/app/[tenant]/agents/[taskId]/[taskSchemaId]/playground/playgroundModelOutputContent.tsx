@@ -54,6 +54,7 @@ type ModelOutputContentProps = {
   isHideModelColumnAvaible: boolean;
   hideModelColumn: () => void;
   isProxy: boolean;
+  hasProxyInput: boolean;
   updateInputAndRun: (input: TaskInputDict) => Promise<void>;
 };
 
@@ -82,6 +83,7 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
     isHideModelColumnAvaible,
     hideModelColumn,
     isProxy,
+    hasProxyInput,
     updateInputAndRun,
   } = props;
 
@@ -180,6 +182,9 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
             toolCalls={toolCallsPreview}
             reasoningSteps={reasoningSteps}
             streamLoading={streamLoading}
+            outputSchema={outputSchema}
+            referenceValue={referenceValue}
+            emptyMode={emptyMode}
           />
         ) : (
           <TaskOutputViewer
@@ -224,9 +229,11 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
           contextWindowInformation={contextWindowInformation}
           showTaskIterationDetails={true}
           isProxy={isProxy}
+          hasProxyInput={hasProxyInput}
         />
         {showReplyView && !!taskRun && (
           <ProxyReplyView
+            hasProxyInput={hasProxyInput}
             toolCalls={toolCallsPreview}
             input={taskRun.task_input}
             output={taskRun.task_output}

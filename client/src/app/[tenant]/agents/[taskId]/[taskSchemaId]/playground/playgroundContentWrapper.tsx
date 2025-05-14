@@ -18,7 +18,7 @@ export function PlaygroundContentWrapper(props: PlaygroundContentProps) {
     isInitialized: areModelsInitialized,
   } = useCompatibleAIModels({ tenant, taskId, taskSchemaId });
 
-  const { task } = useOrFetchTask(tenant, taskId);
+  const { task, isInitialized: isTaskInitialized } = useOrFetchTask(tenant, taskId);
 
   const { versions, isInitialized: areVersionsInitialized } = useOrFetchVersions(tenant, taskId, taskSchemaId);
   const { latestRun, isInitialized: isLatestRunInitialized } = useOrFetchLatestRun(tenant, taskId, taskSchemaId);
@@ -38,6 +38,8 @@ export function PlaygroundContentWrapper(props: PlaygroundContentProps) {
       versions={versions}
       latestRun={latestRun}
       playgroundOutputRef={playgroundOutputRef}
+      task={task}
+      isTaskInitialized={isTaskInitialized}
     />
   );
 }
