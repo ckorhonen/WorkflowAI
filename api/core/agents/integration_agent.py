@@ -5,7 +5,7 @@ import workflowai
 from pydantic import BaseModel, Field
 
 from core.domain.documentation_section import DocumentationSection
-from core.domain.integration_domain.integration_domain import Integration
+from core.domain.integration.integration_domain import Integration
 
 
 class IntegrationAgentChatMessage(BaseModel):

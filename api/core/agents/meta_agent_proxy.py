@@ -1,13 +1,12 @@
 import datetime
 from typing import Any, AsyncIterator, Literal, Self
 
-import workflowai
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 
 from core.domain.documentation_section import DocumentationSection
 from core.domain.feedback import Feedback
-from core.domain.integration_domain.integration_domain import Integration
+from core.domain.integration.integration_domain import Integration
 from core.domain.url_content import URLContent
 from core.domain.version_environment import VersionEnvironment
 
@@ -512,46 +511,19 @@ Inside returning code blocks do not forget to escape double quotes: \" , same fo
 Always refer to the 'integration_documentation' that matchers 'playground_state.current_agent.used_integration' for code block language and syntax.
 """
 
-GENERIC_PROPOSED_INSTRUCTIONS_INSTRUCTIONS = f"""
-{_PROXY_META_AGENT_COMMON_INSTRUCTIONS}
-
-# 1. Trying non-OpenAI models
-- Check if the user is using OpenAI models, for example GPT-4, GPT-4 Mini, O1, O3, O4, etc. And if so, you can suggest they try other models from providers Claude, Llama, Grok. You can check all models in the 'available_models' section of the playground state.
+_PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS = """
+Your promise goal here is to make the user migrate to non-OpenAI models. You can check the documentation to see why it's a good idea to use non-OpenAI models.
 
 The reason to use different models than OpenAI is having better performing models, cheaper models, faster models.
 
-If you detect that the user is still using OpenAI models, you can suggest them to switch try different models by first trying the models in the Playground and then modifying the model string in their code (as explained in the instruction documentation).
-
-# 2. Suggest to use input variables
-
-As mentioned in the WorkflowAI documentation, using input variables has a lot of advantages when possible. It allows for observability and other features, and also opens the door for deployments.
-
-## How to spot if the user is using input variables or not ?
-
-You can know that the user is using input variables if you see variables names surrounded by double curly braces.
-If using input variables, the actual variable values will need to be passed in the 'input' payload of the 'raw_run_request'. So, you will need to double-check that as well because if the user omits passing variable values in the 'raw_run_request.input', the agent will not work as expected.
-
-So if the user is not using yet input variables or badly, you need to suggest him to make the update. Inform your argumentation based on what you will find in the documentation. Note that the exact way of injecting input variables depends on the integration used, but is often by passing 'extra_body'...'.
-
-Please be aware that your suggestions are optional for the user and if the user declines to use a non-OpenAI model, don't bother them with that again. You can suggest them the next step which is using the input variables. And so on with the structured generation.
-
-You must check that the user is leveraging WorkflowAI's feature for his agent in the order below (1., 2., 3.). After checking each criteria, you can go to the next one if the user is already using this feature. Do not mention the steps that are solved already.
-"""
+You must pick a relevant model for the use case of the client and show him some code blocks that show how to update the model."""
 
 PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS = f"""
 {_PROXY_META_AGENT_COMMON_INSTRUCTIONS}
-
-Your precise goal here is to make the user migrate to non-OpenAI models. You can check the documentation to see why it's a good idea to use non-OpenAI models.
-
-The reason to use different models than OpenAI is having better performing models, cheaper models, faster models.
-
-You must pick a relevant model for the use case of the client and show him some code blocks that show how to update the model.
+{_PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS}
 """
 
-PROPOSE_INPUT_VARIABLES_INSTRUCTIONS = f"""
-{_PROXY_META_AGENT_COMMON_INSTRUCTIONS}
-
-Your precise goal here is to make the user migrate to input variables. You can check the documentation to see why it's a good idea to use input variables.
+_PROPOSE_INPUT_VARIABLES_INSTRUCTIONS = """Your promise goal here is to make the user migrate to input variables. You can check the documentation to see why it's a good idea to use input variables.
 Use the 'suggested_instructions_with_input_variables' and 'suggested_input_variables_example' in order to provide code snippet that are valid in the context of the WorkflowAI integrations documented in the 'workflowai_documentation_sections' section of the input.`
 
 Start by 1. Explaining to the user why it's a good idea to use input variables. Start with a simple phrase like "I have something to propose to make your to unlock a lot of WorkflowAI's capabilities: ..."
@@ -560,9 +532,11 @@ ALWAYS provide a block that shows how to pass the input variables in the complet
 When instructions are spread over several messages, make sure to display a code block that showed several messages with the right instructions at the right place.
 """
 
-PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS = f"""
-{_PROXY_META_AGENT_COMMON_INSTRUCTIONS}
+PROPOSE_INPUT_VARIABLES_INSTRUCTIONS = f"""
+{_PROPOSE_INPUT_VARIABLES_INSTRUCTIONS}
+"""
 
+_PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS = """
 Your precise goal here is to make the user migrate to structured output. You can check the documentation to see why it's a good idea to use structured output.
 Use the 'suggested_output_class_code' and 'suggested_instructions_parts_to_remove' in order to provide code snippet that are valid in the context of the WorkflowAI integrations documented in the 'workflowai_documentation_sections' section of the input.`
 If 'suggested_instructions_parts_to_remove' are fed, you can mention to the user that they can remove those parts in their existing instructions that talk about generating a valid JSON, because this is not needed anymore when you use structure generation.
@@ -573,17 +547,28 @@ Also add the imports in the code block.
 
 If you mention a SDK or package, etc., make sure you are mentioning the right one, for example "Instructor". You do not need to rebuild the full code snippets, just higlight the main changes to do and a few lines of code around it.
 
-Be aware that the user can just update his code and has nothing to do in the interface. Just updating the code is enough, and a new schema and the agent will be automatically updated in WorkflowAI.com.
+Be aware that the user can just update his code and has nothing to do in the interface. Just updating the code is enough, and a new schema and the agent will be automatically updated in WorkflowAI.com."""
+
+PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS = f"""
+{_PROXY_META_AGENT_COMMON_INSTRUCTIONS}
+{_PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS}
+"""
+
+GENERIC_INSTRUCTIONS = f"""
+{_PROXY_META_AGENT_COMMON_INSTRUCTIONS}
+
+# In case the user enquires a about testing new models:
+{_PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS}
+
+# In case the user enquires a about input variables:
+{_PROPOSE_INPUT_VARIABLES_INSTRUCTIONS}
+
+# In case the user enquires a about structured output:
+{_PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS}
 """
 
 
-@workflowai.agent(
-    id="proxy-meta-agent",
-)
-async def proxy_meta_agent(_: ProxyMetaAgentInput) -> ProxyMetaAgentOutput: ...
-
-
-async def proxy_meta_agent_proxy(input: ProxyMetaAgentInput, instructions: str) -> AsyncIterator[ProxyMetaAgentOutput]:
+async def proxy_meta_agent(input: ProxyMetaAgentInput, instructions: str) -> AsyncIterator[ProxyMetaAgentOutput]:
     client = AsyncOpenAI(
         api_key="wai-4hcqxDO3eZLytkIsLdSHGLbviAP0P16bRoX6AVGLTFM",
         base_url="https://run.workflowai.dev/v1",

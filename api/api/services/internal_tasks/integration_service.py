@@ -27,12 +27,14 @@ from core.domain.agent_run import AgentRun
 from core.domain.errors import ObjectNotFoundError
 from core.domain.events import EventRouter
 from core.domain.fields.chat_message import ChatMessage
-from core.domain.integration_domain.integration_domain import (
+from core.domain.integration.integration_domain import (
+    Integration,
+    IntegrationKind,
+)
+from core.domain.integration.integration_mapping import (
     OFFICIAL_INTEGRATIONS,
     PROPOSED_AGENT_NAME_AND_MODEL_PLACEHOLDER,
     WORKFLOWAI_API_KEY_PLACEHOLDER,
-    Integration,
-    IntegrationKind,
 )
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.users import User
