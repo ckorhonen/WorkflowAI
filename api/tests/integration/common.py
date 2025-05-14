@@ -1129,14 +1129,17 @@ class IntegrationTestClient:
     async def put(self, url: str, json: Any, **kwargs: Any) -> dict[str, Any]:
         return result_or_raise(await self.int_api_client.put(url, json=json, **kwargs))
 
+    ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
+
     def mock_anthropic_call(
         self,
         status_code: int = 200,
         content_json: dict[str, Any] | None = None,
+        raw_content: str | None = None,
         model: Model = Model.CLAUDE_3_5_SONNET_20241022,
     ):
         self.httpx_mock.add_response(
-            url="https://api.anthropic.com/v1/messages",
+            url=self.ANTHROPIC_URL,
             status_code=status_code,
             json={
                 "id": "msg_011FfbzF4F72Gc1rzSvvDCnR",
@@ -1146,7 +1149,8 @@ class IntegrationTestClient:
                 "content": [
                     {
                         "type": "text",
-                        "text": json.dumps(
+                        "text": raw_content
+                        or json.dumps(
                             content_json,
                             indent=2,
                         ),

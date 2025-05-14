@@ -71,6 +71,12 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
                 extra={"model": options.model},
             )
 
+        if messages[0].role == MessageDeprecated.Role.SYSTEM:
+            system_message = messages[0].content
+            messages = messages[1:]
+        else:
+            system_message = None
+
         request = CompletionRequest(
             messages=[AnthropicMessage.from_domain(m) for m in messages],
             model=options.model,
@@ -79,6 +85,7 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
             stream=stream,
             tool_choice=AntToolChoice.from_domain(options.tool_choice),
             top_p=options.top_p,
+            system=system_message,
             # Presence and frequency penalties are not yet supported by Anthropic
         )
 

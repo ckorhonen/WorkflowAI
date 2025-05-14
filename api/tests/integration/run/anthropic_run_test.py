@@ -124,8 +124,10 @@ async def test_anthropic_tool_calls_streaming(test_client: IntegrationTestClient
     assert len(anthropic_requests) == 2
     # Test that the tool call is correctly injected in the second request provider call
     assert "131-119" in anthropic_requests[1].content.decode()
-    # 2 initial messages + 1 tool call request + 1  tool call result
-    assert len(json.loads(anthropic_requests[1].content.decode())["messages"]) == 4
+    # 1 initial messages (system not included) + 1 tool call request + 1  tool call result
+    request_payload = json.loads(anthropic_requests[1].content.decode())
+    assert len(request_payload["messages"]) == 3
+    assert "Use perplexity-sonar-pro" in request_payload["system"]
 
     # Test the run's output
     assert chunks[0]["tool_calls"] == [
@@ -243,8 +245,10 @@ async def test_anthropic_tool_calls(test_client: IntegrationTestClient):
     assert len(anthropic_requests) == 2
     # Test that the tool call is correctly injected in the second request provider call
     assert "131-119" in anthropic_requests[1].content.decode()
-    # 2 initial messages + 1 tool call request + 1  tool call result
-    assert len(json.loads(anthropic_requests[1].content.decode())["messages"]) == 4
+    # 1 initial messages (system not included) + 1 tool call request + 1  tool call result
+    request_payload = json.loads(anthropic_requests[1].content.decode())
+    assert len(request_payload["messages"]) == 3
+    assert "Use perplexity-sonar-pro" in request_payload["system"]
 
     # Test the run's output
     assert res["tool_calls"] == [
