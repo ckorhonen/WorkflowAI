@@ -74,6 +74,7 @@ export function ProxyInputVariables(props: Props) {
         fetchAudioTranscription={fetchAudioTranscription}
         handleUploadFile={handleUploadFile}
         className='h-max'
+        showDescriptionPopover={false}
       />
     </div>
   );
