@@ -1,8 +1,9 @@
-from core.domain.integration_domain import (
+from core.domain.integration_domain.integration_domain import (
     OFFICIAL_INTEGRATIONS,
     PROPOSED_AGENT_NAME_AND_MODEL_PLACEHOLDER,
     WORKFLOWAI_API_KEY_PLACEHOLDER,
     IntegrationKind,
+    ProgrammingLanguage,
 )
 
 
@@ -37,3 +38,19 @@ def test_integration_snippets_contain_required_placeholders():
             f"Integration '{integration.display_name}' is missing {PROPOSED_AGENT_NAME_AND_MODEL_PLACEHOLDER} "
             f"in integration_chat_agent_naming_snippet"
         )
+
+
+def test_each_language_has_default_integration():
+    default_languages = {
+        integration.programming_language
+        for integration in OFFICIAL_INTEGRATIONS
+        if integration.default_for_language is True
+    }
+    all_languages = {language for language in ProgrammingLanguage}
+    assert all_languages == default_languages, (
+        "Each programming language must have exactly one default integration. "
+        "Missing default for: {missing}. Extra defaults for: {extra}"
+    ).format(
+        missing=all_languages - default_languages,
+        extra=default_languages - all_languages,
+    )

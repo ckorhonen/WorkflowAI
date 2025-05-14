@@ -27,7 +27,7 @@ from core.domain.agent_run import AgentRun
 from core.domain.errors import ObjectNotFoundError
 from core.domain.events import EventRouter
 from core.domain.fields.chat_message import ChatMessage
-from core.domain.integration_domain import (
+from core.domain.integration_domain.integration_domain import (
     OFFICIAL_INTEGRATIONS,
     PROPOSED_AGENT_NAME_AND_MODEL_PLACEHOLDER,
     WORKFLOWAI_API_KEY_PLACEHOLDER,
@@ -255,7 +255,7 @@ well organized (by agent) on WorkflowAI (trust me, makes everything easier).
         The goals of this functions is to spot a run / agent that was (very likely) created by the user currently doing the onboarding flow.
         """
 
-        async for run in self.storage.task_runs.list_runs_since(
+        async for run in self.storage.task_runs.list_latest_runs(
             since_date=discussion_started_at,
             is_active=True,  # TODO: filter on proxy runs
             limit=2,  # TODO: pick a better limit
