@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from collections.abc import Callable
-from typing import Any, Literal, TypeVar, cast
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel
 from pymongo.errors import DocumentTooLarge
@@ -33,12 +33,10 @@ from core.storage.azure.azure_blob_file_storage import FileStorage
 from core.storage.backend_storage import BackendStorage
 from core.utils.dicts import delete_at_keypath
 from core.utils.models.dumps import safe_dump_pydantic_model
-from core.utils.models.previews import compute_preview
 
-# TODO: move to __init__ when we have removed classmethods
+from ._run_previews import assign_run_previews
+
 _logger = logging.getLogger("RunsService")
-
-_R = TypeVar("_R", bound=BaseModel)
 
 
 class LLMCompletionTypedMessages(BaseModel):
@@ -307,10 +305,7 @@ class RunsService:
         if task_run.private_fields and task_run.llm_completions:
             task_run = cls._strip_llm_completions(task_run)
 
-        if not task_run.task_input_preview:
-            task_run.task_input_preview = compute_preview(task_run.task_input)
-        if not task_run.task_output_preview and task_run.task_output:
-            task_run.task_output_preview = compute_preview(task_run.task_output)
+        assign_run_previews(task_run, task_variant)
 
         try:
             # Store task run
