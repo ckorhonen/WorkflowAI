@@ -68,6 +68,6 @@ response = openai.ChatCompletion.create(
 )"""
 
 OPENAI_SDK_PYTHON_INTEGRATION_CHAT_AGENT_NAMING_SNIPPET = """response = openai.ChatCompletion.create(
-    model="[<PROPOSED_AGENT_NAME_PLACEHOLDER>",  # e.g. my-agent/gpt-4o-2024-11-20
+    model="<PROPOSED_AGENT_NAME_PLACEHOLDER>",
     messages=[{"role": "user", "content": "Hello!"}]
 )"""
