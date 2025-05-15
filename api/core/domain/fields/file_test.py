@@ -1,3 +1,8 @@
+from urllib.parse import urlencode
+
+import pytest
+from pydantic import ValidationError
+
 from core.domain.fields.file import File, FileKind
 from core.utils.schema_sanitation import clean_pydantic_schema
 
@@ -18,6 +23,7 @@ class TestFile:
         assert img.to_url() == "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA"
         assert img.content_type == "image/png"
         assert img.data == "iVBORw0KGgoAAAANSUhEUgAAAAUA"
+        assert img.url is None
 
     def test_validate_data_content_type(self):
         img = File(
@@ -29,9 +35,25 @@ class TestFile:
         img = File(url="https://bla.com/file")
         assert img.content_type is None
 
+    def test_image_with_content_type(self):
+        img = File(url="https://bla.com/file?content_type=image/png")
+        assert img.content_type == "image/png"
+        assert img.data is None
+        assert img.url == "https://bla.com/file?content_type=image/png"
+
+        # Check with encoded content type
+        img = File(url=f"https://bla.com/file?{urlencode({'content_type': 'image/png'})}")
+        assert img.content_type == "image/png"
+        assert img.data is None
+        assert img.url == "https://bla.com/file?content_type=image%2Fpng"
+
     def test_init_with_format(self):
         img = File(url="https://bla.com/file", format="image")
         assert img.format == FileKind.IMAGE
+
+    def test_invalid_url(self):
+        with pytest.raises(ValidationError):
+            File(url="invalid")
 
 
 class TestFileJsonSchema:
