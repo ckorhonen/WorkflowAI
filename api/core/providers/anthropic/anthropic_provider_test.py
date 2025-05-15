@@ -19,10 +19,12 @@ from core.domain.task_group_properties import ToolChoice, ToolChoiceFunction
 from core.domain.tool import Tool
 from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.anthropic.anthropic_domain import (
+    AnthropicMessage,
     AntToolChoice,
     CompletionRequest,
     CompletionResponse,
     ContentBlock,
+    TextContent,
     Usage,
 )
 from core.providers.anthropic.anthropic_provider import AnthropicConfig, AnthropicProvider
@@ -994,3 +996,21 @@ class TestUnknownError:
         assert isinstance(err, ProviderBadRequestError)
         assert str(err) == "Image exceeds the maximum size"
         assert not err.capture
+
+
+class TestStandardizeMessages:
+    def test_with_system(self, anthropic_provider: AnthropicProvider):
+        request = CompletionRequest(
+            system="You are a helpful assistant.",
+            messages=[AnthropicMessage(role="user", content=[TextContent(text="Hello")])],
+            model="claude-3-opus-20240229",
+            stream=False,
+            max_tokens=100,
+            temperature=0.5,
+        )
+        raw_prompt = anthropic_provider._raw_prompt(request.model_dump())  # pyright: ignore[reportPrivateUsage]
+        standardized_prompt = AnthropicProvider.standardize_messages(raw_prompt)  # pyright: ignore[reportPrivateUsage]
+        assert standardized_prompt == [  # pyright: ignore[reportPrivateUsage]
+            {"role": "assistant", "content": "You are a helpful assistant."},
+            {"role": "user", "content": [{"type": "text", "text": "Hello"}]},
+        ]

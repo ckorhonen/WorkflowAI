@@ -155,6 +155,13 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
             url=get_provider_config_env("ANTHROPIC_API_URL", index, "https://api.anthropic.com/v1/messages"),
         )
 
+    @override
+    def _raw_prompt(self, request_json: dict[str, Any]) -> list[dict[str, Any]]:
+        messages = request_json.get("messages", [])
+        if "system" in request_json:
+            messages.insert(0, {"role": "system", "content": request_json["system"]})
+        return messages
+
     async def wrap_sse(self, raw: AsyncIterator[bytes], termination_chars: bytes = b""):
         """Custom SSE wrapper for Anthropic's event stream format"""
         acc = b""
@@ -309,7 +316,12 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
     @override
     @classmethod
     def standardize_messages(cls, messages: list[dict[str, Any]]) -> list[StandardMessage]:
-        return [AnthropicMessage.model_validate(m).to_standard() for m in messages]
+        def _to_msg(m: dict[str, Any]) -> StandardMessage:
+            if m.get("role") == "system":
+                return {"role": "assistant", "content": m["content"]}
+            return AnthropicMessage.model_validate(m).to_standard()
+
+        return [_to_msg(m) for m in messages]
 
     @override
     @classmethod
