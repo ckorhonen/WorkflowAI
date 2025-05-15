@@ -166,7 +166,7 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
     def _raw_prompt(self, request_json: dict[str, Any]) -> list[dict[str, Any]]:
         messages = request_json.get("messages", [])
         if "system" in request_json:
-            messages.insert(0, {"role": "system", "content": request_json["system"]})
+            return [{"role": "system", "content": request_json["system"]}, *messages]
         return messages
 
     async def wrap_sse(self, raw: AsyncIterator[bytes], termination_chars: bytes = b""):
