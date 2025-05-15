@@ -4,6 +4,7 @@ from typing import Any, Type
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from freezegun import freeze_time
 from pydantic import BaseModel
 
 from api.services.documentation_service import DocumentationService
@@ -237,12 +238,20 @@ class TestMetaAgentService:
                     assert product.name == expected_input.company_context.company_products[i].name
                     assert product.description == expected_input.company_context.company_products[i].description
 
+    # Freeze the "now"
+    @freeze_time("2025-04-17T12:56:41.413541")
     @pytest.mark.parametrize(
         "user_email, messages, meta_agent_chunks, expected_outputs",
         [
             (
                 "user@example.com",
-                [MetaAgentChatMessage(role="USER", content="Hello")],
+                [
+                    MetaAgentChatMessage(
+                        sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541),
+                        role="USER",
+                        content="Hello",
+                    ),
+                ],
                 [
                     MetaAgentOutput(
                         content="Hi there!",
@@ -252,19 +261,43 @@ class TestMetaAgentService:
                     ),
                 ],
                 [
-                    [MetaAgentChatMessage(role="ASSISTANT", content="Hi there!")],
-                    [MetaAgentChatMessage(role="ASSISTANT", content="How can I help you today?")],
+                    [
+                        MetaAgentChatMessage(
+                            sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541),
+                            role="ASSISTANT",
+                            content="Hi there!",
+                        ),
+                    ],
+                    [
+                        MetaAgentChatMessage(
+                            sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541),
+                            role="ASSISTANT",
+                            content="How can I help you today?",
+                        ),
+                    ],
                 ],
             ),
             (
                 None,
-                [MetaAgentChatMessage(role="USER", content="Help")],
+                [
+                    MetaAgentChatMessage(
+                        sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541),
+                        role="USER",
+                        content="Help",
+                    ),
+                ],
                 [
                     MetaAgentOutput(content=None),  # Empty chunk
                     MetaAgentOutput(content="I can help with WorkflowAI!"),
                 ],
                 [
-                    [MetaAgentChatMessage(role="ASSISTANT", content="I can help with WorkflowAI!")],
+                    [
+                        MetaAgentChatMessage(
+                            sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541),
+                            role="ASSISTANT",
+                            content="I can help with WorkflowAI!",
+                        ),
+                    ],
                 ],
             ),
             (
@@ -274,6 +307,7 @@ class TestMetaAgentService:
                 [
                     [
                         MetaAgentChatMessage(
+                            sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541),
                             role="ASSISTANT",
                             content="Hi, I'm WorkflowAI's agent. How can I help you?",
                         ),

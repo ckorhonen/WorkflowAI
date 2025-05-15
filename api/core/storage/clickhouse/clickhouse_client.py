@@ -522,19 +522,23 @@ class ClickhouseClient(TaskRunStorage):
             )
 
     @override
-    async def list_runs_since(
+    async def list_latest_runs(
         self,
-        since_date: datetime,
+        task_uid: int | None = None,
+        since_date: datetime | None = None,
         is_active: bool = True,
         limit: int = 100,
     ) -> AsyncIterator[AgentRun]:
-        # TODO: use SerializableTaskRunQuery instead
-        w = W("created_at_date", type="Date", value=since_date.strftime("%Y-%m-%d"), operator=">=") & W(
-            "run_uuid",
-            type="UInt128",
-            value=id_lower_bound(since_date),
-            operator=">=",
-        )
+        w = W("tenant_uid", type="UInt32", value=self.tenant_uid)
+        if task_uid:
+            w &= W("task_uid", type="UInt32", value=task_uid)
+        if since_date:
+            w &= W("created_at_date", type="Date", value=since_date.strftime("%Y-%m-%d"), operator=">=") & W(
+                "run_uuid",
+                type="UInt128",
+                value=id_lower_bound(since_date),
+                operator=">=",
+            )
         if is_active:
             w &= W("is_active", type="Boolean", value=is_active)
         runs = await self._runs(
