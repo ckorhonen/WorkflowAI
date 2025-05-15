@@ -897,6 +897,20 @@ class IntegrationTestClient:
         status_code: int = 200,
         latency: float | None = None,
     ):
+        if url:
+            mock_vertex_call(
+                self.httpx_mock,
+                json,
+                model,
+                parts,
+                usage=usage,
+                publisher=publisher,
+                url=url,
+                status_code=status_code,
+                latency=latency,
+            )
+            return
+
         if not regions:
             regions = os.environ.get("GOOGLE_VERTEX_AI_LOCATION", "us-central1").split(",")
 

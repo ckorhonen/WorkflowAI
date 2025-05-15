@@ -631,11 +631,13 @@ class UsageMetadata(BaseModel):
     promptTokenCount: int | None = None
     candidatesTokenCount: int | None = None
     totalTokenCount: int | None = None
+    cachedContentTokenCount: int | None = None
 
     def to_domain(self) -> LLMUsage:
         return LLMUsage(
             prompt_token_count=self.promptTokenCount,
             completion_token_count=self.candidatesTokenCount,
+            prompt_token_count_cached=self.cachedContentTokenCount,
         )
 
 

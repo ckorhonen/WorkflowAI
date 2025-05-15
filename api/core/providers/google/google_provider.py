@@ -20,10 +20,12 @@ _MIXED_REGION_MODELS = {
     Model.GEMINI_1_5_PRO_002,
     Model.GEMINI_2_0_FLASH_001,
     Model.GEMINI_2_0_FLASH_LITE_001,
+}
+
+_GLOBAL_MODELS = {
     Model.GEMINI_2_5_FLASH_PREVIEW_0417,
+    Model.GEMINI_2_5_PRO_PREVIEW_0506,
     Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417,
-    Model.GEMINI_2_5_PRO_PREVIEW_0325,
-    Model.GEMINI_2_5_PRO_EXP_0325,
 }
 
 _VERTEX_API_REGION_METADATA_KEY = "workflowai.vertex_api_region"
@@ -38,6 +40,9 @@ class GoogleProvider(GoogleProviderBase[GoogleProviderConfig]):
     def get_vertex_location(self, model: Model) -> str:
         if model not in _MIXED_REGION_MODELS:
             return self._config.vertex_location[0]
+
+        if model in _GLOBAL_MODELS:
+            return "global"
 
         return self._config.get_random_location(self._get_metadata, self._add_metadata)
 
