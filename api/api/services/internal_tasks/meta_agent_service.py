@@ -1280,6 +1280,7 @@ class MetaAgentService:
             and messages[0].sent_at
             and latest_agent.created_at > messages[0].sent_at
         ):
+            # The user has created a new schema_id of the agent (happens when adding input variables and structured output)
             current_agent = latest_agent
 
         self.dispatch_new_user_messages_event(messages)
