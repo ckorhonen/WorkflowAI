@@ -4,6 +4,7 @@ import pytest
 from pytest_httpx import IteratorStream
 
 from core.domain.models import Model
+from core.domain.models.providers import Provider
 from tests.integration.common import (
     IntegrationTestClient,
     mock_gemini_call,
@@ -77,7 +78,7 @@ async def test_prompt_cached_tokens(test_client: IntegrationTestClient):
         },
     )
 
-    run = await test_client.run_task_v1(task, model=Model.GEMINI_2_5_PRO_PREVIEW_0506)
+    run = await test_client.run_task_v1(task, model=Model.GEMINI_2_5_PRO_PREVIEW_0506, provider=Provider.GOOGLE_GEMINI)
 
     assert run["cost_usd"] == approx(
         (250 * 1.25 / 1_000_000) + (750 * 0.25 * 1.25 / 1_000_000) + (2_000 * 10 / 1_000_000),
