@@ -38,7 +38,7 @@ _role_to_map: dict[MessageDeprecated.Role, Literal["user", "assistant"]] = {
 
 
 class TextContent(BaseModel):
-    type: Literal["text"]
+    type: Literal["text"] = "text"
     text: str
 
     def to_standard(self) -> TextContentDict:

@@ -137,7 +137,13 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
         else:
             system_message = None
 
-        return [GoogleMessage.from_domain(message) for message in messages], system_message
+        user_messages = (
+            [GoogleMessage.from_domain(message) for message in messages]
+            if messages
+            else [GoogleMessage(role="user", parts=[Part(text="-")])]
+        )
+
+        return user_messages, system_message
 
     @override
     def _build_request(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool) -> BaseModel:
