@@ -185,7 +185,7 @@ async def list_all_available_models(
     def _model_data_iterator() -> Iterator[StarndardModelResponse.ModelItem]:
         for model in Model:
             data = MODEL_DATAS[model]
-            if isinstance(data, LatestModel) and omit_latest:
+            if isinstance(data, LatestModel) and not omit_latest:
                 yield StarndardModelResponse.ModelItem.from_model_data(model.value, MODEL_DATAS[data.model])  # pyright: ignore [reportArgumentType]
             elif isinstance(data, FinalModelData):
                 yield StarndardModelResponse.ModelItem.from_model_data(model.value, data)
