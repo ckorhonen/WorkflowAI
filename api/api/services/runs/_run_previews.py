@@ -43,7 +43,7 @@ def _compute_preview(payload: Any, agent_io: SerializableTaskIO):
         if preview := _messages_preview(payload):
             return preview
 
-    if "messages" == agent_io.json_schema.get("format") and isinstance(payload, dict) and INPUT_KEY_MESSAGES in payload:
+    if agent_io.uses_messages and isinstance(payload, dict) and INPUT_KEY_MESSAGES in payload:
         # That means we are in the case of an input schema in the case of a proxy task
         # In which case we preview the input, and then the messages in the reply
         without_messages = {k: v for k, v in cast(dict[str, Any], payload).items() if k != INPUT_KEY_MESSAGES}
