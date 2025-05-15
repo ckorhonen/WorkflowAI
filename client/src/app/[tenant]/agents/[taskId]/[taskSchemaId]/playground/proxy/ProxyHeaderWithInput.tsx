@@ -3,10 +3,9 @@ import { TenantID } from '@/types/aliases';
 import { TaskID } from '@/types/aliases';
 import { JsonSchema } from '@/types/json_schema';
 import { GeneralizedTaskInput } from '@/types/task_run';
-import { ToolKind, Tool_Output } from '@/types/workflowAI';
+import { ProxyMessage, ToolKind, Tool_Output } from '@/types/workflowAI';
 import { ProxyMessagesView } from './ProxyMessagesView';
 import { ProxyParameters } from './parameters/ProxyParameters';
-import { ProxyMessage } from './utils';
 
 interface Props {
   inputSchema: JsonSchema | undefined;

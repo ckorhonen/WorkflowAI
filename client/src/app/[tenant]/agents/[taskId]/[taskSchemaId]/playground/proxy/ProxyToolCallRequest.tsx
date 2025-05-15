@@ -3,9 +3,9 @@ import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { DialogContent } from '@/components/ui/Dialog';
 import { Dialog } from '@/components/ui/Dialog';
+import { ProxyMessageContent } from '@/types/workflowAI';
 import { ToolCallRequestWithID } from '@/types/workflowAI/models';
 import { ProxyEditToolCallRequest } from './ProxyEditToolCallRequest';
-import { ProxyMessageContent } from './utils';
 
 type Props = {
   content: ProxyMessageContent;

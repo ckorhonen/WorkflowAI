@@ -6,9 +6,10 @@ import { PopoverTrigger } from '@/components/ui/Popover';
 import { TaskID } from '@/types/aliases';
 import { TenantID } from '@/types/aliases';
 import { JsonSchema } from '@/types/json_schema';
+import { ProxyMessage } from '@/types/workflowAI';
 import { ProxyInputVariables } from './ProxyInputVariables';
 import { ProxyMessageView } from './ProxyMessageView';
-import { ProxyMessage, createEmptyAgentMessage, createEmptyUserMessage } from './utils';
+import { createEmptyAgentMessage, createEmptyUserMessage } from './utils';
 
 type Props = {
   tenant: TenantID | undefined;

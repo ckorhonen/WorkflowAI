@@ -2,16 +2,17 @@ import { StreamOutputRegular } from '@fluentui/react-icons';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Dialog, DialogContent } from '@/components/ui/Dialog';
+import { ProxyMessageContent } from '@/types/workflowAI';
+import { ProxyToolCallResult } from '@/types/workflowAI';
 import { ProxyEditToolCallResult } from './ProxyEditToolCallResult';
-import { ProxyMessageContent, ToolCallResult } from './utils';
 
 type Props = {
-  result: ToolCallResult;
+  result: ProxyToolCallResult;
   setContent: (content: ProxyMessageContent) => void;
   onRemove: () => void;
 };
 
-export function ProxyToolCallResult(props: Props) {
+export function ProxyToolCallResultView(props: Props) {
   const { result, setContent, onRemove } = props;
 
   const dictText = useMemo(() => JSON.stringify(result.result), [result.result]);
@@ -19,7 +20,7 @@ export function ProxyToolCallResult(props: Props) {
   const [isHovering, setIsHovering] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  const setResult = (result: ToolCallResult | undefined) => {
+  const setResult = (result: ProxyToolCallResult | undefined) => {
     setContent({
       ...result,
       tool_call_result: result,

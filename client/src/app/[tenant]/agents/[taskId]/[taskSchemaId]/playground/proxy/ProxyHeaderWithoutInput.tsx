@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TaskID } from '@/types/aliases';
 import { TenantID } from '@/types/aliases';
 import { GeneralizedTaskInput } from '@/types/task_run';
-import { ToolKind, Tool_Output } from '@/types/workflowAI';
+import { ProxyMessage, ToolKind, Tool_Output } from '@/types/workflowAI';
 import { ProxyMessagesView } from './ProxyMessagesView';
 import { ProxyParameters } from './parameters/ProxyParameters';
-import { ProxyMessage, createEmptySystemMessage, createEmptyUserMessage } from './utils';
+import { createEmptySystemMessage, createEmptyUserMessage } from './utils';
 
 interface Props {
   tenant: TenantID | undefined;
