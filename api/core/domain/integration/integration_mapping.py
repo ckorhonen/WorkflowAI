@@ -78,16 +78,27 @@ OFFICIAL_INTEGRATIONS = [
     ),
 ]
 
+# Build lookup maps for constant-time access. Safe because OFFICIAL_INTEGRATIONS is static.
+DEFAULT_INTEGRATIONS_BY_LANGUAGE: dict[ProgrammingLanguage, Integration] = {
+    integration.programming_language: integration
+    for integration in OFFICIAL_INTEGRATIONS
+    if integration.default_for_language
+}
+
+INTEGRATIONS_BY_KIND: dict[IntegrationKind, Integration] = {
+    integration.slug: integration for integration in OFFICIAL_INTEGRATIONS
+}
+
 
 def default_integration_for_language(language: ProgrammingLanguage) -> Integration:
-    for integration in OFFICIAL_INTEGRATIONS:
-        if integration.programming_language == language and integration.default_for_language:
-            return integration
-    raise ValueError(f"No default integration found for language: {language}")
+    try:
+        return DEFAULT_INTEGRATIONS_BY_LANGUAGE[language]
+    except KeyError as exc:
+        raise ValueError(f"No default integration found for language: {language}") from exc
 
 
 def get_integration_by_kind(kind: IntegrationKind) -> Integration:
-    for integration in OFFICIAL_INTEGRATIONS:
-        if integration.slug == kind:
-            return integration
-    raise ValueError(f"No integration found for kind: {kind}")
+    try:
+        return INTEGRATIONS_BY_KIND[kind]
+    except KeyError as exc:
+        raise ValueError(f"No integration found for kind: {kind}") from exc
