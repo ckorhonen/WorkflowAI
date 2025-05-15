@@ -94,17 +94,7 @@ def _handle_object_field(
 
 def _handle_file_field(file_kind: FileKind) -> dict[str, Any]:
     """Handle File field conversion."""
-    match file_kind:
-        case FileKind.IMAGE:
-            ref_name = "Image"
-        case FileKind.AUDIO:
-            ref_name = "Audio"
-        case FileKind.DOCUMENT:
-            ref_name = "File"
-        case FileKind.PDF:
-            ref_name = "PDF"
-
-    return {"$ref": f"#/$defs/{ref_name}"}
+    return {"$ref": f"#/$defs/{file_kind.to_ref_name()}"}
 
 
 def _handle_datetime_local_field(defs: dict[str, Any]) -> dict[str, Any]:

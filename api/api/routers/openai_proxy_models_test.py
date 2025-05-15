@@ -39,7 +39,7 @@ class TestOpenAIProxyContent:
                 url="https://hello.com/image.png",
             ),
         )
-        assert payload.to_domain() == MessageContent(file=File(url="https://hello.com/image.png"))
+        assert payload.to_domain() == MessageContent(file=File(url="https://hello.com/image.png", format="image"))
 
 
 class TestOpenAIProxyMessageToDomain:

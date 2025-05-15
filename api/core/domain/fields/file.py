@@ -6,6 +6,7 @@ from enum import StrEnum
 from typing import Any, override
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 from core.domain.errors import InternalError
 from core.domain.types import TemplateRenderer
@@ -19,6 +20,20 @@ class FileKind(StrEnum):
     IMAGE = "image"
     AUDIO = "audio"
     PDF = "pdf"
+    ANY = "any"
+
+    def to_ref_name(self) -> str:
+        match self:
+            case FileKind.IMAGE:
+                return "Image"
+            case FileKind.AUDIO:
+                return "Audio"
+            case FileKind.DOCUMENT:
+                return "File"
+            case FileKind.PDF:
+                return "PDF"
+            case FileKind.ANY:
+                return "File"
 
 
 def _remove_additional_properties_from_json_schema(model: dict[str, Any]):
@@ -33,6 +48,10 @@ class File(BaseModel):
     )
     data: str | None = Field(default=None, description="The base64 encoded data of the file")
     url: str | None = Field(default=None, description="The URL of the image")
+
+    format: SkipJsonSchema[FileKind | str | None] = Field(
+        default=None,
+    )
 
     # We allow extra properties so that we don't lose values when validating jsons
     # from FileWithKeyPath for example
@@ -144,7 +163,6 @@ class FileWithKeyPath(File):
 
     key_path: list[str | int]
     storage_url: str | None = Field(default=None, description="The URL of the file in Azure Blob Storage")
-    format: str | None = Field(default=None, description="The format of the file")
 
     @property
     def key_path_str(self) -> str:
