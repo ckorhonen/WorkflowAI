@@ -21,6 +21,7 @@ from api.schemas.version_properties import FullVersionProperties, ShortVersionPr
 from api.tags import RouteTags
 from core.domain.changelogs import VersionChangelog
 from core.domain.major_minor import MajorMinor
+from core.domain.message import Message
 from core.domain.models import Model
 from core.domain.page import Page
 from core.domain.task_group import TaskGroup, TaskGroupIdentifier
@@ -181,14 +182,16 @@ async def improve_prompt(
 
 class MajorVersionProperties(BaseModel):
     temperature: float
-    instructions: str
+    instructions: str | None
+    messages: list[Message] | None
     task_variant_id: str | None = Field(description="The id of the full schema, including versions and examples")
 
     @classmethod
     def from_domain(cls, properties: VersionMajor.Properties):
         return cls(
             temperature=properties.temperature or 0.0,
-            instructions=properties.instructions or "",
+            instructions=properties.instructions,
+            messages=properties.messages,
             task_variant_id=properties.task_variant_id,
         )
 
