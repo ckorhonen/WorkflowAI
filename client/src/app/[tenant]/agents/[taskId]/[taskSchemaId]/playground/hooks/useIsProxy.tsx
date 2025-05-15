@@ -1,8 +1,7 @@
 import { useMemo } from 'react';
 import { TaskSchemaResponseWithSchema } from '@/types';
 import { JsonSchema } from '@/types/json_schema';
-import { VersionV1 } from '@/types/workflowAI';
-import { ProxyMessage } from '../proxy/utils';
+import { ProxyMessage, VersionV1 } from '@/types/workflowAI';
 
 function checkSchemaForProxy(schema: TaskSchemaResponseWithSchema) {
   const inputSchema = schema.input_schema.json_schema;

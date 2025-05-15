@@ -1,9 +1,9 @@
 import { useCallback } from 'react';
 import { FileValueType } from '@/components/ObjectViewer/FileViewers/utils';
+import { ProxyMessageContent } from '@/types/workflowAI';
 import { ProxyAudio } from './ProxyAudio';
 import { ProxyDocument } from './ProxyDocument';
 import { ProxyImage } from './ProxyImage';
-import { ProxyMessageContent } from './utils';
 
 type Props = {
   content: ProxyMessageContent;

@@ -1,12 +1,13 @@
 import { Add16Regular } from '@fluentui/react-icons';
 import { useCallback, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { ProxyMessage, ProxyMessageContent } from '@/types/workflowAI';
 import { ProxyFile } from './ProxyFile';
 import { ProxyRemovableContent } from './ProxyRemovableContent';
 import { ProxyTextarea } from './ProxyTextarea';
 import { ProxyToolCallRequest } from './ProxyToolCallRequest';
-import { ProxyToolCallResult } from './ProxyToolCallResult';
-import { ProxyMessage, ProxyMessageContent, createEmptyMessageContent } from './utils';
+import { ProxyToolCallResultView } from './ProxyToolCallResult';
+import { createEmptyMessageContent } from './utils';
 
 type Props = {
   message: ProxyMessage;
@@ -110,7 +111,7 @@ export function ProxyMessageView(props: Props) {
               )}
               {content.tool_call_result && (
                 <div className='flex w-full px-4 py-3'>
-                  <ProxyToolCallResult
+                  <ProxyToolCallResultView
                     result={content.tool_call_result}
                     setContent={(content) => onMessageChange(index, content)}
                     onRemove={() => onRemoveContentEntry(index)}

@@ -3,11 +3,12 @@ import { nanoid } from 'nanoid';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
-import { ToolCallResult, formatResponseToText, formatTextToResponse } from './utils';
+import { ProxyToolCallResult } from '@/types/workflowAI';
+import { formatResponseToText, formatTextToResponse } from './utils';
 
 type Props = {
-  result: ToolCallResult | undefined;
-  setResult: (result: ToolCallResult | undefined) => void;
+  result: ProxyToolCallResult | undefined;
+  setResult: (result: ProxyToolCallResult | undefined) => void;
   onClose: () => void;
 };
 

@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
 import { TemperatureSelector } from '@/components/TemperatureSelector/TemperatureSelector';
-import { ToolKind, Tool_Output } from '@/types/workflowAI';
+import { ProxyMessage, ToolKind, Tool_Output } from '@/types/workflowAI';
 import { ProxyTools } from '../ProxyTools';
-import { ProxyMessage, createEmptySystemMessage, createEmptyUserMessage } from '../utils';
+import { createEmptySystemMessage, createEmptyUserMessage } from '../utils';
 import { ProxyAddMessageButton } from './ProxyAddMessageButton';
 import { ProxyParametersMessagesView } from './ProxyParametersMessagesView';
 

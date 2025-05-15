@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
+import { ProxyMessage } from '@/types/workflowAI';
 import { ProxyMessageView } from '../ProxyMessageView';
 import { ProxySystemMessageView } from '../ProxySystemMessageView';
-import { ProxyMessage } from '../utils';
 
 type Props = {
   messages: ProxyMessage[];

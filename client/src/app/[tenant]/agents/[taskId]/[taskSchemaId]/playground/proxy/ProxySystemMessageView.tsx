@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { ProxyMessage, ProxyMessageContent } from '@/types/workflowAI';
 import { ProxyTextarea } from './ProxyTextarea';
-import { ProxyMessage, ProxyMessageContent } from './utils';
 
 type ProxySystemMessageViewProps = {
   systemMessage: ProxyMessage;

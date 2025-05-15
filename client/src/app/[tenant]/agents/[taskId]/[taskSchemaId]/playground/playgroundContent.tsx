@@ -62,6 +62,7 @@ import {
   Tool_Output,
   VersionV1,
 } from '@/types/workflowAI';
+import { ProxyMessage } from '@/types/workflowAI';
 import { PlaygroundChat } from './components/Chat/PlaygroundChat';
 import { RunAgentsButton } from './components/RunAgentsButton';
 import { useFetchTaskRunUntilCreated } from './hooks/useFetchTaskRunUntilCreated';
@@ -83,7 +84,6 @@ import { PlaygroundInputContainer } from './playgroundInputContainer';
 import { PlaygroundInputSettingsModal } from './playgroundInputSettingsModal';
 import { PlaygroundOutput } from './playgroundOutput';
 import { ProxyHeader } from './proxy/ProxyHeader';
-import { ProxyMessage } from './proxy/utils';
 
 export type PlaygroundContentProps = {
   taskId: TaskID;
@@ -1055,6 +1055,9 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
     };
 
     const result = {
+      is_proxy: isProxy,
+      version_id: currentVersion?.id,
+      version_messages: proxyMessages,
       agent_input: generatedInput as Record<string, unknown>,
       agent_instructions: instructions,
       agent_temperature: temperature,
@@ -1062,7 +1065,16 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
       selected_models: models,
     };
     return result;
-  }, [generatedInput, instructions, temperature, filteredTaskRunIds, schemaModels]);
+  }, [
+    generatedInput,
+    instructions,
+    temperature,
+    filteredTaskRunIds,
+    schemaModels,
+    isProxy,
+    currentVersion,
+    proxyMessages,
+  ]);
 
   const markToolCallAsDone = usePlaygroundChatStore((state) => state.markToolCallAsDone);
 

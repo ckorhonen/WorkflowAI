@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 import { Textarea } from '@/components/ui/Textarea';
-import { ProxyMessageContent, createEmptyMessageContent, formatResponseToText } from './utils';
+import { ProxyMessageContent } from '@/types/workflowAI';
+import { createEmptyMessageContent, formatResponseToText } from './utils';
 
 type ProxyTextareaProps = {
   content: ProxyMessageContent | undefined;

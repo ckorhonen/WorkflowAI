@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Textarea';
 import { ToolCallPreview } from '@/types/task_run';
 import { TaskInputDict, TaskOutputDict, ToolCallRequestWithID } from '@/types/workflowAI';
-import { ProxyMessage, ProxyMessageContent } from './utils';
+import { ProxyMessage, ProxyMessageContent } from '@/types/workflowAI';
 
 type Props = {
   hasProxyInput: boolean;
