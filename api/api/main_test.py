@@ -151,10 +151,12 @@ class TestAuthentication:
         )
         mock_storage.tasks.is_task_public.assert_called_with("123")
 
+
+class TestModelsEndpoint:
     async def test_models_endpoint_no_auth(self, test_api_client: AsyncClient, mock_tenant_dep: Mock):
         # Making sure we raise if the tenant dep is called
         mock_tenant_dep.side_effect = ValueError("test")
-        res = await test_api_client.get("/v1/models")
+        res = await test_api_client.get("/v1/models?raw=true")
         assert res.status_code == 200, "Expected /models endpoint to be accessible without authentication"
 
         # Add some basic checks to ensure the response contains expected data
@@ -162,10 +164,22 @@ class TestAuthentication:
         assert isinstance(data, list)
         assert data
 
-    async def test_models_endpoint_order_check(self, test_api_client: AsyncClient, mock_tenant_dep: Mock):
+    async def test_openai_compatibility(self, test_api_client: AsyncClient, mock_tenant_dep: Mock):
         # Making sure we raise if the tenant dep is called
         mock_tenant_dep.side_effect = ValueError("test")
         res = await test_api_client.get("/v1/models")
+        assert res.status_code == 200, "Expected /models endpoint to be accessible without authentication"
+
+        # Add some basic checks to ensure the response contains expected data
+        data = res.json()
+        assert isinstance(data, dict)
+        assert data["object"] == "list"
+        assert isinstance(data["data"], list)
+
+    async def test_models_endpoint_order_check(self, test_api_client: AsyncClient, mock_tenant_dep: Mock):
+        # Making sure we raise if the tenant dep is called
+        mock_tenant_dep.side_effect = ValueError("test")
+        res = await test_api_client.get("/v1/models?raw=true")
         assert res.status_code == 200, "Expected /models endpoint to be accessible without authentication"
 
         # Add some basic checks to ensure the response contains expected data
