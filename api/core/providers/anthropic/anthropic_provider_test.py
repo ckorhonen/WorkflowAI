@@ -166,6 +166,22 @@ class TestBuildRequest:
         )
         assert request.tool_choice == expected_ant_tool_choice
 
+    def test_build_request_no_messages(self, anthropic_provider: AnthropicProvider):
+        request = cast(
+            CompletionRequest,
+            anthropic_provider._build_request(  # pyright: ignore[reportPrivateUsage]
+                messages=[
+                    MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="You are a helpful assistant."),
+                ],
+                options=ProviderOptions(model=Model.CLAUDE_3_5_SONNET_20241022),
+                stream=False,
+            ),
+        )
+        assert request.system == "You are a helpful assistant."
+        assert request.messages == [
+            AnthropicMessage(role="user", content=[TextContent(text="-")]),
+        ]
+
 
 class TestSingleStream:
     async def test_stream_data(self, httpx_mock: HTTPXMock, anthropic_provider: AnthropicProvider):

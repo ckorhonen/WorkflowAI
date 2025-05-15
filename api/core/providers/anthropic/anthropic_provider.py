@@ -21,6 +21,7 @@ from core.providers.anthropic.anthropic_domain import (
     CompletionResponse,
     ContentBlock,
     StopReasonDelta,
+    TextContent,
     ToolUseContent,
     Usage,
 )
@@ -78,7 +79,13 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
             system_message = None
 
         request = CompletionRequest(
-            messages=[AnthropicMessage.from_domain(m) for m in messages],
+            # Anthropic requires at least one message
+            # So if we have no messages, we add a user message with a dash
+            messages=[AnthropicMessage.from_domain(m) for m in messages]
+            if messages
+            else [
+                AnthropicMessage(role="user", content=[TextContent(text="-")]),
+            ],
             model=options.model,
             temperature=options.temperature,
             max_tokens=max_tokens or DEFAULT_MAX_TOKENS,
