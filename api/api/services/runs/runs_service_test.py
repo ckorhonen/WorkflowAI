@@ -5,22 +5,25 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from pytest_httpx import HTTPXMock
 
-from api.services.runs import LLMCompletionTypedMessages, RunsService
+from api.services.runs.runs_service import (
+    LLMCompletionTypedMessages,
+    RunsService,
+)
 from core.domain.agent_run import AgentRun
 from core.domain.analytics_events.analytics_events import RanTaskEventProperties
 from core.domain.events import RunCreatedEvent
+from core.domain.fields.file import File
 from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
 from core.domain.models import Model, Provider
 from core.domain.task_group import TaskGroup
 from core.domain.task_group_properties import TaskGroupProperties
-from core.domain.task_io import SerializableTaskIO
+from core.domain.task_io import RawMessagesSchema, RawStringMessageSchema, SerializableTaskIO
 from core.domain.task_run_query import SerializableTaskRunQuery
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.abstract_provider import AbstractProvider
 from core.providers.base.models import ImageContentDict, ImageURLDict, StandardMessage
-from core.runners.workflowai.utils import FileWithKeyPath
 from core.utils.schema_sanitation import streamline_schema
 from tests.models import review, task_run_ser
 from tests.utils import mock_aiter
@@ -73,43 +76,6 @@ def _llm_completion(
         provider=provider,
         duration_seconds=duration_seconds,
     )
-
-
-class TestApplyFiles:
-    async def test_apply_files(self):
-        payload = {"image": {"url": "https://test-url.com/file"}}
-        files = [FileWithKeyPath(key_path=["image"], url="https://test-url.com/file", data="1234")]
-        RunsService._apply_files(payload, files, include=None, exclude={"key_path"})  # pyright: ignore [reportPrivateUsage]
-        assert payload == {
-            "image": {
-                "url": "https://test-url.com/file",
-                "data": "1234",
-            },
-        }
-
-    async def test_apply_files_with_include(self):
-        payload = {"image": {"data": "1234"}}
-        files = [
-            FileWithKeyPath(
-                key_path=["image"],
-                storage_url="https://test-url.com/bla",
-                data="1234",
-                content_type="image",
-            ),
-        ]
-        RunsService._apply_files(  # pyright: ignore [reportPrivateUsage]
-            payload,
-            files,
-            include={"content_type", "url", "storage_url"},
-            exclude={"key_path"},
-        )
-        assert payload == {
-            "image": {
-                "url": "https://test-url.com/bla",
-                "content_type": "image",
-                "storage_url": "https://test-url.com/bla",
-            },
-        }
 
 
 class TestStoreTaskRun:
@@ -250,6 +216,63 @@ class TestStoreTaskRun:
         event_properties = mock_analytics_service.send_event.call_args[0][0]()
 
         assert event_properties == RanTaskEventProperties.from_task_run(stored_task_run, "user")
+
+    async def test_with_files_for_raw_messages(
+        self,
+        non_legacy_task_run: AgentRun,
+        runs_service: RunsService,
+        mock_storage: Mock,
+        mock_file_storage: Mock,
+    ):
+        """Check that files are correctly stored when using messages"""
+        variant = SerializableTaskVariant(
+            input_schema=RawMessagesSchema,
+            output_schema=RawStringMessageSchema,
+            id="test_task",
+            task_schema_id=1,
+            name="test_task",
+        )
+        non_legacy_task_run.task_input = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            # File will automatically fill the data and content_type fields
+                            "file": File(url="data:image/png;base64,aGVsbG8K").model_dump(mode="json"),
+                        },
+                    ],
+                },
+            ],
+        }
+
+        mock_file_storage.store_file = AsyncMock(return_value="https://test-url.com/file-2")
+
+        # Execute
+        result = await runs_service.store_task_run(
+            task_variant=variant,
+            task_run=non_legacy_task_run.model_copy(),
+            trigger="user",
+        )
+
+        # Verify
+        assert mock_file_storage.store_file.call_count == 1
+        assert result.task_input == {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "file": {
+                                "content_type": "image/png",
+                                "url": "https://test-url.com/file-2",
+                                "storage_url": "https://test-url.com/file-2",
+                            },
+                        },
+                    ],
+                },
+            ],
+        }
 
     async def test_store_task_run_with_files_in_output_as_base64(
         self,
@@ -396,33 +419,6 @@ class TestStoreTaskRun:
 
         excluded = {"task_input_preview", "task_output_preview"}
         assert result.model_dump(exclude=excluded) == non_legacy_task_run.model_dump(exclude=excluded)
-
-    async def test_store_task_run_with_legacy_task(
-        self,
-        legacy_task: SerializableTaskVariant,
-        legacy_task_run: AgentRun,
-        runs_service: RunsService,
-        mock_storage: Mock,
-        mock_file_storage: Mock,
-    ):
-        # Check that we do not store files for legacy tasks
-        # Execute
-        result = await runs_service.store_task_run(
-            task_variant=legacy_task,
-            task_run=legacy_task_run.model_copy(),
-            trigger="user",
-        )
-
-        mock_file_storage.store_file.assert_not_called()
-        mock_storage.store_task_run_resource.assert_awaited_with(
-            legacy_task,
-            result,  # store_task_runs_resource is the same as what is returned. The comparison is below
-            None,  # user_identifier
-            None,  # source
-        )
-
-        excluded = {"task_input_preview", "task_output_preview"}
-        assert result.model_dump(exclude=excluded) == legacy_task_run.model_dump(exclude=excluded)
 
 
 class TestStripPrivateFields:

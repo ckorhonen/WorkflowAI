@@ -32,10 +32,8 @@ export function NewTaskImportFlow(props: NewTaskFlowChoiceProps) {
   const { messages, isLoading, sendMessage, redirectToAgentPlayground } = useOrFetchIntegrationChat(integration?.id);
 
   useEffect(() => {
-    const taskId = (redirectToAgentPlayground?.task_id ??
-      redirectToAgentPlayground?.agent_name?.toLowerCase()) as TaskID;
-
-    const taskSchemaId = (redirectToAgentPlayground?.task_schema_id ?? '1') as TaskSchemaID;
+    const taskId = redirectToAgentPlayground?.agent_id as TaskID;
+    const taskSchemaId = (redirectToAgentPlayground?.agent_schema_id ?? '1') as TaskSchemaID;
 
     if (!!taskId && !!taskSchemaId) {
       router.push(taskSchemaRoute(tenant, taskId, taskSchemaId));

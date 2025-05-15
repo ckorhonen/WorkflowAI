@@ -15,7 +15,7 @@ from api.services.payments_service import PaymentService, PaymentSystemService
 from api.services.providers_service import shared_provider_factory
 from api.services.reviews import ReviewsService
 from api.services.run import RunService
-from api.services.runs import RunsService
+from api.services.runs.runs_service import RunsService
 from api.services.versions import VersionsService
 from core.deprecated.workflowai import WorkflowAI
 from core.domain.analytics_events.analytics_events import UserProperties

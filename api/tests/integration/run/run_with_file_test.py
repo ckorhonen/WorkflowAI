@@ -87,7 +87,7 @@ async def test_run_previews_list_images(test_client: IntegrationTestClient):
         task,
         "23439dd28abda73e46eb007534630bebe9cd930710f22171af0d62fa75187bb8.png",
     )
-    assert fetched_task_run["task_input_preview"] == f"images: [[[img:{storage_url}]], [[img:{storage_url}]]"
+    assert fetched_task_run["task_input_preview"] == f"images: [[[img:{storage_url}]], [[img:{storage_url}]]..."
 
 
 async def test_run_previews_with_data_url(test_client: IntegrationTestClient):

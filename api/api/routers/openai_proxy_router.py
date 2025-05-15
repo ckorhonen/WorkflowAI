@@ -31,7 +31,7 @@ from core.providers.base.provider_error import MissingModelError
 from core.storage import ObjectNotFoundException
 from core.utils.schemas import schema_from_data
 from core.utils.strings import to_pascal_case
-from core.utils.templates import InvalidTemplateError, extract_variable_schema
+from core.utils.templates import InvalidTemplateError
 
 _logger = logging.getLogger(__name__)
 
@@ -50,9 +50,9 @@ def _json_schema_from_input(messages: Messages, input: dict[str, Any] | None) ->
     if input is None:
         # No body was sent with the request, so we treat the messages as a raw string
         return RawMessagesSchema
-    templatable = " ".join(messages.content_iterator())
+
     schema_from_input: dict[str, Any] | None = schema_from_data(input) if input else None
-    schema_from_template = extract_variable_schema(templatable, existing_schema=schema_from_input)
+    schema_from_template = messages.json_schema_for_template(base_schema=schema_from_input)
     if not schema_from_template:
         if schema_from_input:
             raise BadRequestError("Input variables are provided but the messages do not contain a valid template")

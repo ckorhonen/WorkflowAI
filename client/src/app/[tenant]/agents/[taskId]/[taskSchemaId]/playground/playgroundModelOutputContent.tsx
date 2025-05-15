@@ -182,6 +182,9 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
             toolCalls={toolCallsPreview}
             reasoningSteps={reasoningSteps}
             streamLoading={streamLoading}
+            outputSchema={outputSchema}
+            referenceValue={referenceValue}
+            emptyMode={emptyMode}
           />
         ) : (
           <TaskOutputViewer
