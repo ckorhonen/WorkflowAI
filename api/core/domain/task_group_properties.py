@@ -143,6 +143,7 @@ class TaskGroupProperties(BaseModel):
                 "instructions",
                 "temperature",
                 "task_variant_id",
+                "messages",
             },
         )
         return compute_obj_hash(properties_dict)
