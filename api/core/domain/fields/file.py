@@ -3,7 +3,7 @@ import logging
 import mimetypes
 from base64 import b64decode
 from enum import StrEnum
-from typing import Any, override
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.json_schema import SkipJsonSchema
@@ -95,15 +95,19 @@ class File(BaseModel):
 
     @property
     def is_image(self) -> bool | None:
-        if not self.content_type:
+        if self.content_type:
+            return self.content_type.startswith("image/")
+        if self.format is None:
             return None
-        return self.content_type.startswith("image/")
+        return self.format == "image"
 
     @property
     def is_audio(self) -> bool | None:
-        if not self.content_type:
+        if self.content_type:
+            return self.content_type.startswith("audio/")
+        if self.format is None:
             return None
-        return self.content_type.startswith("audio/")
+        return self.format == "audio"
 
     @property
     def is_video(self) -> bool | None:
@@ -113,9 +117,11 @@ class File(BaseModel):
 
     @property
     def is_pdf(self) -> bool | None:
-        if not self.content_type:
+        if self.content_type:
+            return self.content_type == "application/pdf"
+        if self.format is None:
             return None
-        return self.content_type == "application/pdf"
+        return self.format == "pdf"
 
     @property
     def is_text(self) -> bool | None:
@@ -167,23 +173,3 @@ class FileWithKeyPath(File):
     @property
     def key_path_str(self) -> str:
         return ".".join(str(key) for key in self.key_path)
-
-    @property
-    @override
-    def is_audio(self) -> bool | None:
-        audio = super().is_audio
-        if audio is not None:
-            return audio
-        if self.format is None:
-            return None
-        return self.format == "audio"
-
-    @property
-    @override
-    def is_image(self) -> bool | None:
-        image = super().is_image
-        if image is not None:
-            return image
-        if self.format is None:
-            return None
-        return self.format == "image"

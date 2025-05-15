@@ -1,6 +1,11 @@
+from core.domain.task_io import SerializableTaskIO
 from core.domain.tool_call import ToolCallRequest
 
-from ._run_previews import _messages_preview, _tool_call_request_preview  # pyright: ignore [reportPrivateUsage]
+from ._run_previews import (
+    _compute_preview,  # pyright: ignore [reportPrivateUsage]
+    _messages_preview,  # pyright: ignore [reportPrivateUsage]
+    _tool_call_request_preview,  # pyright: ignore [reportPrivateUsage]
+)
 
 
 class TestMessagesPreview:
@@ -35,4 +40,20 @@ class TestToolCallRequestPreview:
                 ],
             )
             == "tools: [test_name(arg: value), test_name2(arg: value2)]"
+        )
+
+
+class TestPrivateComputePreview:
+    def test_with_message_replies(self):
+        assert (
+            _compute_preview(
+                {
+                    "value": "Hello, world!",
+                    "workflowai.replies": [{"role": "user", "content": [{"text": "Hello, world!"}]}],
+                },
+                agent_io=SerializableTaskIO.from_json_schema(
+                    {"format": "messages", "type": "object", "properties": {"value": {"type": "string"}}},
+                ),
+            )
+            == 'value: "Hello, world!" | messages: Hello, world!'
         )

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Any, Self
+from typing import Any, Protocol, Self
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -111,3 +111,11 @@ class SerializableTaskVariant(BaseModel):
     @property
     def id_tuple(self) -> TaskTuple:
         return (self.task_id, self.task_uid)
+
+
+class VariantIO(Protocol):
+    @property
+    def input_schema(self) -> SerializableTaskIO: ...
+
+    @property
+    def output_schema(self) -> SerializableTaskIO: ...

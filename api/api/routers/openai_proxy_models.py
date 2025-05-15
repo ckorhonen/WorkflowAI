@@ -586,6 +586,8 @@ class OpenAIProxyChatCompletionResponse(BaseModel):
     usage: OpenAIProxyCompletionUsage | None = None
 
     cost_usd: float | None = Field(description="The cost of the completion in USD, WorkflowAI specific")
+    duration_seconds: float | None = Field(description="The duration of the completion in seconds, WorkflowAI specific")
+    metadata: dict[str, Any] | None = Field(description="Metadata about the completion, WorkflowAI specific")
 
     @classmethod
     def from_domain(
@@ -602,6 +604,8 @@ class OpenAIProxyChatCompletionResponse(BaseModel):
             model=model,
             cost_usd=run.cost_usd,
             usage=OpenAIProxyCompletionUsage.from_domain(run.llm_completions[-1]) if run.llm_completions else None,
+            duration_seconds=run.duration_seconds,
+            metadata=run.metadata,
         )
 
     @classmethod

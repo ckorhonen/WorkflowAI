@@ -249,15 +249,21 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             should_remove_input_schema=not input_schema or not input_schema.get("properties", {}),
         )
 
+    def _should_download_file(self, provider: AbstractProvider[Any, Any], file: File) -> bool:
+        if file.data:
+            return False
+
+        if not provider.requires_downloading_file(file, self._options.model):
+            return False
+
+        return True
+
     async def _download_file_if_needed(
         self,
         provider: AbstractProvider[Any, Any],
         file: File,
     ):
-        if file.data:
-            return False
-
-        if not provider.requires_downloading_file(file, self._options.model):
+        if not self._should_download_file(provider, file):
             return False
 
         await download_file(file)
@@ -478,21 +484,27 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         messages: Messages,
         provider: AbstractProvider[Any, Any],
     ):
+        # Not using file iterator here as it creates a copy of files
         files: list[File] = []
         for m in messages.messages:
             files.extend((c.file for c in m.content if c.file))
 
-        if files:
-            download_start_time = time.time()
-            # TODO:
-            # files = await self._convert_pdf_to_images(files, model_data)
-            # self._check_support_for_files(model_data, files)
+        if not files:
+            return
+
+        download_start_time = time.time()
+        # TODO:
+        # files = await self._convert_pdf_to_images(files, model_data)
+        # self._check_support_for_files(model_data, files)
+
+        files_to_download = [f for f in files if self._should_download_file(provider, f)]
+        if files_to_download:
             try:
                 async with asyncio.TaskGroup() as tg:
-                    for file in files:
+                    for file in files_to_download:
                         # We want to update the provided input because file data
                         # should be propagated upstream to avoid having to download files twice
-                        tg.create_task(self._download_file_if_needed(provider, file))
+                        tg.create_task(download_file(file))
             except* InvalidFileError as eg:
                 raise eg.exceptions[0]
             # Here we update the input copy instead of the provided input
@@ -500,11 +512,9 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             # files, has_inlined_files = self._inline_text_files(files, input_copy)
 
             download_duration = time.time() - download_start_time
-        else:
-            download_duration = 0
 
-        if builder := self._get_builder_context():
-            builder.record_file_download_seconds(download_duration)
+            if builder := self._get_builder_context():
+                builder.record_file_download_seconds(download_duration)
 
     async def _inline_messages(
         self,
@@ -559,9 +569,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         # Then the current version is a full message template
         # So we just need to return the messages
         base = await Messages(messages=self._options.messages).templated(self.template_manager.renderer(input))
-        if self.task.input_schema.json_schema.get("format") == "messages" and (
-            input_messages := input.get(INPUT_KEY_MESSAGES)
-        ):
+        if self.task.input_schema.uses_messages and (input_messages := input.get(INPUT_KEY_MESSAGES)):
             # We have extra messages to append
             try:
                 input_messages = Messages.model_validate({"messages": input_messages})
