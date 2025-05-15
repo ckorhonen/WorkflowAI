@@ -125,6 +125,8 @@ async def chat_completions(
     request: Request,
     user_org: RequiredUserOrganizationDep,
 ) -> Response:
+    body.check_supported_fields()
+
     # TODO: content of this function should be split into smaller functions and migrated to a service
     messages = Messages(messages=[m.to_domain() for m in body.messages])
     request_start_time = get_start_time(request)

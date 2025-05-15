@@ -417,11 +417,17 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
             base["user-agent"] = browser_agent
         return base
 
-    def _check_fields(self):
+    def check_supported_fields(self):
         set_fields = self.model_fields_set
-        for field in _UNSUPPORTED_FIELDS:
-            if field in set_fields:
-                raise BadRequestError(f"Field {field} is not supported", capture=True)
+        used_unsupported_fields = set_fields.intersection(_UNSUPPORTED_FIELDS)
+        if used_unsupported_fields:
+            plural = len(used_unsupported_fields) > 1
+            fields = list(used_unsupported_fields)
+            fields.sort()
+            raise BadRequestError(
+                f"Field{'s' if plural else ''} `{'`, `'.join(fields)}` {'are' if plural else 'is'} not supported",
+                capture=True,
+            )
         for field in _IGNORED_FIELDS:
             _logger.warning(f"Field {field} is ignored by openai proxy")  # noqa: G004
 
