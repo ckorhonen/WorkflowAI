@@ -561,6 +561,7 @@ class TestStreamIntegrationChatResponse:
         mock_agent.name = "named-agent"
         mock_agent.task_id = "named-agent"
         mock_agent.task_schema_id = 123
+        integration_service.storage.task_variants.update_task = AsyncMock()
 
         # Patch methods
         with (

@@ -324,6 +324,13 @@ well organized (by agent) on WorkflowAI (trust me, makes everything easier).
                 # The relevant agent is already named, we can redirect to the playground
                 # We filter out the agent name suggestion agent, this is mostly useful for debugging
                 # Where the onboarded user is from workflowai.
+
+                # Register the integration used for the agent, so we can provide pertinent answers in the playground chat
+                await self.storage.task_variants.update_task(
+                    relevant_run_and_agent.agent.task_id,
+                    used_integration_kind=integration_slug,
+                )
+
                 yield IntegrationChatResponse(
                     messages=[],
                     redirect_to_agent_playground=PlaygroundRedirection(
