@@ -69,8 +69,9 @@ class TestComputeSimilarityHash:
     @pytest.mark.parametrize(
         "overrides",
         [
-            {"instructions": "You are not a helpful assistant."},
-            {"task_variant_id": "bla1"},
+            pytest.param({"instructions": "You are not a helpful assistant."}, id="instructions"),
+            pytest.param({"task_variant_id": "bla1"}, id="task_variant_id"),
+            pytest.param({"messages": [{"role": "user", "content": [{"text": "Hello, world!"}]}]}, id="messages"),
         ],
     )
     def test_different_properties(self, overrides: dict[str, Any]):
