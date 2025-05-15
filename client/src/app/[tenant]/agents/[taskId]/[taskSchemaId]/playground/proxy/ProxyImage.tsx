@@ -5,10 +5,11 @@ import { FileValueType } from '@/components/ObjectViewer/FileViewers/utils';
 type Props = {
   file: FileValueType;
   setFile: (file: FileValueType | undefined) => void;
+  readonly?: boolean;
 };
 
 export function ProxyImage(props: Props) {
-  const { file, setFile } = props;
+  const { file, setFile, readonly } = props;
 
   const onEdit = useCallback(
     (keyPath: string, newVal: FileValueType | undefined) => {
@@ -27,5 +28,14 @@ export function ProxyImage(props: Props) {
     [setFile, file.content_type]
   );
 
-  return <UniversalImageValueViewer value={file} className={undefined} editable={true} onEdit={onEdit} keyPath={'.'} />;
+  return (
+    <UniversalImageValueViewer
+      value={file}
+      className={undefined}
+      editable={!readonly}
+      onEdit={onEdit}
+      keyPath={'.'}
+      readonly={readonly}
+    />
+  );
 }

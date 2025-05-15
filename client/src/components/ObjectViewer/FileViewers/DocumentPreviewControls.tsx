@@ -11,10 +11,11 @@ type DocumentPreviewControlsProps = {
   children: React.ReactNode;
   dialogContent?: React.ReactNode;
   onEdit?: (value: FileValueType | undefined) => void;
+  readonly?: boolean;
 };
 
 export function DocumentPreviewControls(props: DocumentPreviewControlsProps) {
-  const { className, children, dialogContent, onEdit } = props;
+  const { className, children, dialogContent, onEdit, readonly } = props;
 
   const [dialogOpen, toggleDialog] = useToggle(false);
 
@@ -31,7 +32,14 @@ export function DocumentPreviewControls(props: DocumentPreviewControlsProps) {
         </DialogContent>
       </Dialog>
       <div className='absolute left-2 top-2 flex gap-1 items-center z-10'>
-        <Button variant='newDesign' icon={<Dismiss16Regular />} onClick={onResetField} className='w-7 h-7 px-0 py-0' />
+        {!readonly && (
+          <Button
+            variant='newDesign'
+            icon={<Dismiss16Regular />}
+            onClick={onResetField}
+            className='w-7 h-7 px-0 py-0'
+          />
+        )}
         <Button
           variant='newDesign'
           icon={<ArrowExpand16Regular />}

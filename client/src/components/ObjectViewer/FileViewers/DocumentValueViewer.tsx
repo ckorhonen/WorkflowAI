@@ -99,10 +99,11 @@ type UniversalDocumentValueViewerProps = {
   editable: boolean | undefined;
   onEdit: ((keyPath: string, newVal: FileValueType | undefined, triggerSave?: boolean | undefined) => void) | undefined;
   keyPath: string;
+  readonly?: boolean;
 };
 
 export function UniversalDocumentValueViewer(props: UniversalDocumentValueViewerProps) {
-  const { value, className, editable, onEdit, keyPath } = props;
+  const { value, className, editable, onEdit, keyPath, readonly } = props;
   const castedValue = value as FileValueType | undefined;
 
   const onChange = useCallback(
@@ -151,7 +152,7 @@ export function UniversalDocumentValueViewer(props: UniversalDocumentValueViewer
 
   if (isPdf) {
     return (
-      <DocumentPreviewControls onEdit={onValueEdit} className={className}>
+      <DocumentPreviewControls onEdit={onValueEdit} className={className} readonly={readonly}>
         <iframe className='w-full h-full rounded-md border' src={src} />
       </DocumentPreviewControls>
     );
@@ -164,6 +165,7 @@ export function UniversalDocumentValueViewer(props: UniversalDocumentValueViewer
     <DocumentPreviewControls
       onEdit={onValueEdit}
       className={className}
+      readonly={readonly}
       dialogContent={<TextDocumentViewerWrapper value={castedValue} className='overflow-auto' />}
     >
       <TextDocumentViewerWrapper value={castedValue} className='max-h-[250px] max-w-[500px] overflow-hidden' />

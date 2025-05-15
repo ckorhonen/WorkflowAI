@@ -1,12 +1,13 @@
 import { cx } from 'class-variance-authority';
 import { useCallback, useMemo } from 'react';
 import { DebouncedState } from 'usehooks-ts';
+import { ProxyReadonlyMessages } from '@/app/[tenant]/agents/[taskId]/[taskSchemaId]/playground/proxy/ProxyReadonlyMessages';
 import { TaskVersionBadgeContainer } from '@/components/TaskIterationBadge/TaskVersionBadgeContainer';
 import { TaskVersionNotes } from '@/components/TaskVersionNotes';
 import { Badge } from '@/components/ui/Badge';
 import { TaskRunCountBadge } from '@/components/v2/TaskRunCountBadge/TaskRunCountBadge';
 import { environmentsForVersion } from '@/lib/versionUtils';
-import { VersionV1 } from '@/types/workflowAI';
+import { ProxyMessage, VersionV1 } from '@/types/workflowAI';
 import { TaskCostBadge } from './TaskCostBadge';
 import { TaskEnvironmentBadge } from './TaskEnvironmentBadge';
 import { TaskModelBadge } from './TaskModelBadge';
@@ -49,6 +50,8 @@ const keysToFilter = [
   'template_name',
   'model_name',
   'model_icon',
+  'messages',
+  'is_chain_of_thought_enabled',
 ];
 
 function extractNamesAndValues(version: VersionV1 | undefined): { name: string; value: string }[] {
@@ -97,7 +100,7 @@ export function TaskVersionDetails(props: TaskMetadataProps) {
 
   const environments = useMemo(() => environmentsForVersion(version) || [], [version]);
 
-  const { temperature, instructions, provider, few_shot } = properties;
+  const { temperature, instructions, provider, few_shot, messages } = properties;
   const model = version?.model;
 
   const namesAndValues: { name: string; value: string }[] = useMemo(() => extractNamesAndValues(version), [version]);
@@ -188,6 +191,13 @@ export function TaskVersionDetails(props: TaskMetadataProps) {
               <p className='flex justify-end text-slate-500 text-xs font-medium pt-3 pr-1'>{bottomText}</p>
             )}
           </div>
+        </div>
+      )}
+
+      {!!messages && (
+        <div className='flex flex-col w-full items-top pl-4 pr-4 py-1.5 gap-1'>
+          <div className='text-[13px] font-medium text-gray-800'>Messages</div>
+          <ProxyReadonlyMessages messages={messages as ProxyMessage[]} />
         </div>
       )}
 

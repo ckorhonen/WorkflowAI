@@ -10,10 +10,11 @@ type Props = {
   result: ProxyToolCallResult;
   setContent: (content: ProxyMessageContent) => void;
   onRemove: () => void;
+  readonly?: boolean;
 };
 
 export function ProxyToolCallResultView(props: Props) {
-  const { result, setContent, onRemove } = props;
+  const { result, setContent, onRemove, readonly } = props;
 
   const dictText = useMemo(() => JSON.stringify(result.result), [result.result]);
 
@@ -48,7 +49,7 @@ export function ProxyToolCallResultView(props: Props) {
           <div className='flex flex-col text-gray-700 text-xsm border-l px-3 gap-2'>{dictText}</div>
         </div>
       </div>
-      {isHovering && (
+      {isHovering && !readonly && (
         <div className='flex items-center justify-center gap-2'>
           <Button variant='newDesign' size='sm' onClick={() => setIsEditModalOpen(true)}>
             Edit

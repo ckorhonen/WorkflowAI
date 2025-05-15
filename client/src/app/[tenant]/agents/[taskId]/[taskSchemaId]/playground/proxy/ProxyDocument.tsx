@@ -5,10 +5,11 @@ import { FileValueType } from '@/components/ObjectViewer/FileViewers/utils';
 type Props = {
   file: FileValueType;
   setFile: (file: FileValueType | undefined) => void;
+  readonly?: boolean;
 };
 
 export function ProxyDocument(props: Props) {
-  const { file, setFile } = props;
+  const { file, setFile, readonly } = props;
 
   const onEdit = useCallback(
     (keyPath: string, newVal: FileValueType | undefined) => {
@@ -28,6 +29,13 @@ export function ProxyDocument(props: Props) {
   );
 
   return (
-    <UniversalDocumentValueViewer value={file} className={undefined} editable={true} onEdit={onEdit} keyPath={'.'} />
+    <UniversalDocumentValueViewer
+      value={file}
+      className={undefined}
+      editable={!readonly}
+      onEdit={onEdit}
+      keyPath={'.'}
+      readonly={readonly}
+    />
   );
 }

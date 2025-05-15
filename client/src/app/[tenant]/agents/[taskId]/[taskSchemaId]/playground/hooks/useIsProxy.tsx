@@ -11,7 +11,7 @@ function checkSchemaForProxy(schema: TaskSchemaResponseWithSchema) {
   return inputSchema.type === 'array' || inputSchema.type === 'object';
 }
 
-function checkVersionForProxy(version: VersionV1 | undefined) {
+export function checkVersionForProxy(version: VersionV1 | undefined) {
   if (!version) {
     return false;
   }
