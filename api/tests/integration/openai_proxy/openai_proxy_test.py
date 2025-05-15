@@ -1,4 +1,5 @@
 import json
+from unittest import mock
 
 import openai
 import pytest
@@ -25,6 +26,12 @@ async def test_raw_string_output(test_client: IntegrationTestClient, openai_clie
     run = await test_client.fetch_run({"id": task_id}, run_id=run_id, v1=True)
     assert run["id"] == run_id
     assert run["task_output"] == "Hello James!"
+
+    runs = (await test_client.post(f"/v1/_/agents/{task_id}/runs/search", json={}))["items"]
+    assert len(runs) == 1
+    assert runs[0]["id"] == run_id
+    assert runs[0]["task_input_preview"] == "Hello, world!"
+    assert runs[0]["task_output_preview"] == "Hello James!"
 
     agent = await test_client.get(f"/_/agents/{task_id}/schemas/1")
     assert agent["output_schema"]["json_schema"] == {"type": "string", "format": "message"}
@@ -120,13 +127,21 @@ async def test_with_json_schema(test_client: IntegrationTestClient, openai_clien
 async def test_with_image(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
     test_client.mock_openai_call(raw_content="This is a test image")
 
+    test_client.httpx_mock.add_response(
+        url="https://hello.com/image.png",
+        content=b"This is a test image",
+    )
+
     res = await openai_client.chat.completions.create(
         model="gpt-4o",
         messages=[
             {
+                "role": "system",
+                "content": "Describe the image in a sassy manner",
+            },
+            {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": "Describe the image in a sassy manner"},
                     {"type": "image_url", "image_url": {"url": "https://hello.com/image.png"}},
                 ],
             },
@@ -135,6 +150,64 @@ async def test_with_image(test_client: IntegrationTestClient, openai_client: Asy
     assert res.choices[0].message.content == "This is a test image"
 
     await test_client.wait_for_completed_tasks()
+
+    task_id, run_id = res.id.split("/")
+    run = await test_client.fetch_run({"id": task_id}, run_id=run_id, v1=True)
+    assert run["id"] == run_id
+    assert run["task_input"]["messages"][1]["content"][0] == {
+        "file": {
+            "url": "https://hello.com/image.png",
+            "content_type": "image/png",
+            "storage_url": mock.ANY,
+        },
+    }
+
+    assert run["task_output"] == "This is a test image"
+
+    runs = (await test_client.post("/v1/_/agents/default/runs/search", json={}))["items"]
+    assert len(runs) == 1
+    assert runs[0]["task_input_preview"].startswith("[[img:http://127.0.0.1")
+
+
+async def test_with_image_as_data(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+    """Test the input and output preview when the image is passed as data"""
+    test_client.mock_openai_call(raw_content="This is a test image")
+
+    res = await openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {
+                "role": "system",
+                "content": "Describe the image in a sassy manner",
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": "data:image/png;base64,aGVsbG8K"}},
+                ],
+            },
+        ],
+    )
+    assert res.choices[0].message.content == "This is a test image"
+
+    await test_client.wait_for_completed_tasks()
+
+    task_id, run_id = res.id.split("/")
+    run = await test_client.fetch_run({"id": task_id}, run_id=run_id, v1=True)
+    assert run["id"] == run_id
+    assert run["task_input"]["messages"][1]["content"][0] == {
+        "file": {
+            "url": mock.ANY,
+            "content_type": "image/png",
+            "storage_url": mock.ANY,
+        },
+    }
+
+    assert run["task_output"] == "This is a test image"
+
+    runs = (await test_client.post("/v1/_/agents/default/runs/search", json={}))["items"]
+    assert len(runs) == 1
+    assert runs[0]["task_input_preview"].startswith("[[img:http://127.0.0.1")
 
 
 async def test_with_tools(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):

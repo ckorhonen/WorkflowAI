@@ -1,9 +1,11 @@
-from core.domain.integration_domain.integration_domain import (
+from core.domain.integration.integration_domain import (
+    IntegrationKind,
+    ProgrammingLanguage,
+)
+from core.domain.integration.integration_mapping import (
     OFFICIAL_INTEGRATIONS,
     PROPOSED_AGENT_NAME_AND_MODEL_PLACEHOLDER,
     WORKFLOWAI_API_KEY_PLACEHOLDER,
-    IntegrationKind,
-    ProgrammingLanguage,
 )
 
 

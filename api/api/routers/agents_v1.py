@@ -14,6 +14,7 @@ from core.domain.analytics_events.analytics_events import CreatedTaskProperties,
 from core.domain.errors import BadRequestError
 from core.domain.events import TaskSchemaCreatedEvent
 from core.domain.fields.chat_message import ChatMessage
+from core.domain.message import Message, Messages
 from core.domain.page import Page
 from core.domain.task_io import SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
@@ -160,7 +161,8 @@ async def get_agent_stats(
 
 
 class ExtractTemplateRequest(BaseModel):
-    template: str
+    template: str | None = None
+    messages: list[Message] | None = None
 
 
 class ExtractTemplateResponse(BaseModel):
@@ -170,7 +172,12 @@ class ExtractTemplateResponse(BaseModel):
 @router.post("/{agent_id}/templates/extract")
 async def extract_template(request: ExtractTemplateRequest) -> ExtractTemplateResponse:
     try:
-        json_schema = extract_variable_schema(request.template)
+        if request.template:
+            json_schema = extract_variable_schema(request.template)
+        elif request.messages:
+            json_schema = Messages(messages=request.messages).json_schema_for_template(base_schema=None)
+        else:
+            raise BadRequestError("Either template or messages must be provided")
     except InvalidTemplateError as e:
         raise BadRequestError(e.message)
     return ExtractTemplateResponse(json_schema=json_schema)

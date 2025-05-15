@@ -3,8 +3,10 @@ import logging
 import mimetypes
 from base64 import b64decode
 from enum import StrEnum
+from typing import Any, override
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 from core.domain.errors import InternalError
 from core.domain.types import TemplateRenderer
@@ -18,6 +20,24 @@ class FileKind(StrEnum):
     IMAGE = "image"
     AUDIO = "audio"
     PDF = "pdf"
+    ANY = "any"
+
+    def to_ref_name(self) -> str:
+        match self:
+            case FileKind.IMAGE:
+                return "Image"
+            case FileKind.AUDIO:
+                return "Audio"
+            case FileKind.DOCUMENT:
+                return "File"
+            case FileKind.PDF:
+                return "PDF"
+            case FileKind.ANY:
+                return "File"
+
+
+def _remove_additional_properties_from_json_schema(model: dict[str, Any]):
+    model.pop("additionalProperties", None)
 
 
 class File(BaseModel):
@@ -28,6 +48,14 @@ class File(BaseModel):
     )
     data: str | None = Field(default=None, description="The base64 encoded data of the file")
     url: str | None = Field(default=None, description="The URL of the image")
+
+    format: SkipJsonSchema[FileKind | str | None] = Field(
+        default=None,
+    )
+
+    # We allow extra properties so that we don't lose values when validating jsons
+    # from FileWithKeyPath for example
+    model_config = ConfigDict(extra="allow", json_schema_extra=_remove_additional_properties_from_json_schema)
 
     def to_url(self, default_content_type: str | None = None) -> str:
         if self.data and (self.content_type or default_content_type):
@@ -128,3 +156,34 @@ def _parse_data_url(data_url: str) -> tuple[str, str]:
     if len(splits) != 2:
         raise ValueError("Invalid base64 data URL")
     return splits[0], splits[1]
+
+
+class FileWithKeyPath(File):
+    """An extension of a File that contains a key path and a storage URL"""
+
+    key_path: list[str | int]
+    storage_url: str | None = Field(default=None, description="The URL of the file in Azure Blob Storage")
+
+    @property
+    def key_path_str(self) -> str:
+        return ".".join(str(key) for key in self.key_path)
+
+    @property
+    @override
+    def is_audio(self) -> bool | None:
+        audio = super().is_audio
+        if audio is not None:
+            return audio
+        if self.format is None:
+            return None
+        return self.format == "audio"
+
+    @property
+    @override
+    def is_image(self) -> bool | None:
+        image = super().is_image
+        if image is not None:
+            return image
+        if self.format is None:
+            return None
+        return self.format == "image"

@@ -86,7 +86,7 @@ const response = await client.chat.completions.create({
 
 # Integration Chat – Suggesting Agent-Prefixed Model Name ----------------------
 OPENAI_SDK_TS_INTEGRATION_CHAT_AGENT_NAMING_SNIPPET = """const response = await client.chat.completions.create({
-  model: '[<PROPOSED_AGENT_NAME_PLACEHOLDER>', // e.g. my-agent/gpt-4o
+  model: '<PROPOSED_AGENT_NAME_PLACEHOLDER>',
   messages: [{ role: 'user', content: 'Hello!' }],
 });
 """

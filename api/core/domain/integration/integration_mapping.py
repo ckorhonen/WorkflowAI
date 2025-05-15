@@ -1,20 +1,22 @@
-from enum import Enum
-
-from pydantic import BaseModel
-
-from core.domain.integration_domain.instruction_python_snippets import (
+from core.domain.integration.instruction_python_snippets import (
     INSTRUCTOR_PYTHON_INTEGRATION_CHAT_AGENT_NAMING_SNIPPET,
     INSTRUCTOR_PYTHON_INTEGRATION_CHAT_INITIAL_SNIPPET,
     INSTRUCTOR_PYTHON_LANDING_PAGE_SNIPPET,
     INSTRUCTOR_PYTHON_LANDING_PAGE_STRUCTURED_GENERATION_SNIPPET,
 )
-from core.domain.integration_domain.openai_sdk_python_snippets import (
+from core.domain.integration.integration_domain import (
+    Integration,
+    IntegrationKind,
+    IntegrationPartner,
+    ProgrammingLanguage,
+)
+from core.domain.integration.openai_sdk_python_snippets import (
     OPENAI_SDK_PYTHON_INTEGRATION_CHAT_AGENT_NAMING_SNIPPET,
     OPENAI_SDK_PYTHON_INTEGRATION_CHAT_INITIAL_SNIPPET,
     OPENAI_SDK_PYTHON_LANDING_PAGE_SNIPPET,
     OPENAI_SDK_PYTHON_LANDING_PAGE_STRUCTURED_GENERATION_SNIPPET,
 )
-from core.domain.integration_domain.openai_sdk_ts_snippets import (
+from core.domain.integration.openai_sdk_ts_snippets import (
     OPENAI_SDK_TS_INTEGRATION_CHAT_AGENT_NAMING_SNIPPET,
     OPENAI_SDK_TS_INTEGRATION_CHAT_INITIAL_SNIPPET,
     OPENAI_SDK_TS_LANDING_PAGE_SNIPPET,
@@ -23,43 +25,6 @@ from core.domain.integration_domain.openai_sdk_ts_snippets import (
 
 WORKFLOWAI_API_KEY_PLACEHOLDER = "<WORKFLOWAI_API_KEY_PLACEHOLDER>"
 PROPOSED_AGENT_NAME_AND_MODEL_PLACEHOLDER = "<PROPOSED_AGENT_NAME_PLACEHOLDER>"
-
-
-class IntegrationPartner(str, Enum):
-    INSTRUCTOR = "instructor"
-    OPENAI_SDK = "openai-sdk"
-    OPENAI_SDK_TS = "openai-sdk-ts"
-
-
-class ProgrammingLanguage(str, Enum):
-    PYTHON = "python"
-    TYPESCRIPT = "typescript"
-
-
-class IntegrationKind(str, Enum):
-    INSTRUCTOR_PYTHON = "instructor-python"
-    OPENAI_SDK_PYTHON = "openai-sdk-python"
-    OPENAI_SDK_TS = "openai-sdk-ts"
-
-
-class Integration(BaseModel):
-    integration_partner: IntegrationPartner
-    programming_language: ProgrammingLanguage
-    default_for_language: bool
-    output_class: str
-    display_name: str
-    slug: IntegrationKind
-
-    logo_url: str
-    landing_page_snippet: str
-
-    # Not all integration may support structured generation.
-    landing_page_structured_generation_snippet: str | None = None
-
-    integration_chat_initial_snippet: str
-    integration_chat_agent_naming_snippet: str
-
-    documentation_filepaths: list[str]
 
 
 OFFICIAL_INTEGRATIONS = [

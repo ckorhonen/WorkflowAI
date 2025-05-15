@@ -1,4 +1,5 @@
-from core.domain.fields.file import File
+from core.domain.fields.file import File, FileKind
+from core.utils.schema_sanitation import clean_pydantic_schema
 
 
 class TestFile:
@@ -27,3 +28,30 @@ class TestFile:
     def test_validate_data_content_type_none(self):
         img = File(url="https://bla.com/file")
         assert img.content_type is None
+
+    def test_init_with_format(self):
+        img = File(url="https://bla.com/file", format="image")
+        assert img.format == FileKind.IMAGE
+
+
+class TestFileJsonSchema:
+    def test_json_schema(self):
+        """Check that the json schema is expected. Changing the schema could have an impact on
+        agents using the file field."""
+        assert clean_pydantic_schema(File) == {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "The URL of the image"},
+                "content_type": {
+                    "type": "string",
+                    "description": "The content type of the file",
+                    "examples": [
+                        "image/png",
+                        "image/jpeg",
+                        "audio/wav",
+                        "application/pdf",
+                    ],
+                },
+                "data": {"type": "string", "description": "The base64 encoded data of the file"},
+            },
+        }

@@ -174,7 +174,7 @@ jobs:
           poetry config virtualenvs.in-project true
           poetry install
       - name: Install ubuntu dependencies
-        run: sudo apt-get install -y poppler-utils ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils ffmpeg
       # Run all tests in the app and tests directories
       - name: Run Unit Tests
         run: PYTHONPATH=. poetry run pytest api/tests/integration -W ignore::pydantic.warnings.PydanticDeprecatedSince20 -vv --junitxml=junit/test-results.xml -m "poppler or ffmpeg"
