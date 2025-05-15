@@ -1,17 +1,18 @@
 import logging
-from typing import Any, Sequence
+from typing import Any, Sequence, cast
 
 from pydantic import ValidationError
 
 from core.domain.agent_run import AgentRun
+from core.domain.consts import INPUT_KEY_MESSAGES
 from core.domain.message import Messages
 from core.domain.task_io import RawMessagesSchema, SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.tool_call import ToolCallRequest
-from core.utils.models.previews import compute_preview
+from core.utils.models.previews import DEFAULT_PREVIEW_MAX_LEN, compute_preview
 
 
-def _messages_preview(payload: Any):
+def _messages_preview(payload: Any, include_roles: set[str] = {"user"}, max_len: int = DEFAULT_PREVIEW_MAX_LEN):
     try:
         validated = Messages.model_validate(payload)
     except ValidationError:
@@ -19,7 +20,7 @@ def _messages_preview(payload: Any):
         return None
 
     try:
-        first_user_message = next((m for m in validated.messages if m.role == "user"))
+        first_user_message = next((m for m in validated.messages if m.role in include_roles))
     except StopIteration:
         return None
 
@@ -28,7 +29,7 @@ def _messages_preview(payload: Any):
 
     content = first_user_message.content[0]
     if content.file:
-        return compute_preview(content.file)
+        return compute_preview(content.file, max_len=max_len)
 
     if content.text:
         return compute_preview(content.text)
@@ -41,6 +42,20 @@ def _compute_preview(payload: Any, agent_io: SerializableTaskIO):
         # Then we try and preview the first user message
         if preview := _messages_preview(payload):
             return preview
+
+    if "messages" == agent_io.json_schema.get("format") and isinstance(payload, dict) and INPUT_KEY_MESSAGES in payload:
+        # That means we are in the case of an input schema in the case of a proxy task
+        # In which case we preview the input, and then the messages in the reply
+        without_messages = {k: v for k, v in cast(dict[str, Any], payload).items() if k != INPUT_KEY_MESSAGES}
+        first_preview = compute_preview(without_messages)
+        if len(first_preview) < DEFAULT_PREVIEW_MAX_LEN:
+            if second_preview := _messages_preview(
+                {"messages": payload[INPUT_KEY_MESSAGES]},
+                include_roles={"user", "assistant"},
+                max_len=DEFAULT_PREVIEW_MAX_LEN - len(first_preview),
+            ):
+                first_preview += f" | messages: {second_preview}"
+        return first_preview
 
     return compute_preview(payload)
 

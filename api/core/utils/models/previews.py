@@ -119,7 +119,10 @@ class _Agg:
         return str(self)
 
 
-def compute_preview(model: Any, max_len: int = 255) -> str:
+DEFAULT_PREVIEW_MAX_LEN = 255
+
+
+def compute_preview(model: Any, max_len: int = DEFAULT_PREVIEW_MAX_LEN) -> str:
     """Compute a preview for a given object. All exceptions are handled and a fallback is returned."""
     if not model:
         return "-"
