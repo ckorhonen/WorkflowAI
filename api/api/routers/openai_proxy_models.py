@@ -304,7 +304,6 @@ _UNSUPPORTED_FIELDS = {
 }
 _IGNORED_FIELDS = {
     "service_tier",
-    "function_call",
     "store",
     "parallel_tool_calls",
 }
@@ -332,7 +331,7 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
     messages: list[OpenAIProxyMessage]
     model: str
     frequency_penalty: float | None = Field(None, ge=-2.0, le=2.0)
-    function_call: str | OpenAIProxyFunctionCall | None = None
+    function_call: str | OpenAIProxyToolChoiceFunction | None = None
     functions: list[OpenAIProxyFunctionDefinition] | None = None
 
     logit_bias: dict[str, float] | None = None
@@ -444,11 +443,15 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
 
     @property
     def worflowai_tool_choice(self) -> ToolChoice | None:
-        if not self.tool_choice:
+        tool_choice = self.tool_choice or self.function_call
+        if not tool_choice:
             return None
-        if isinstance(self.tool_choice, OpenAIProxyToolChoice):
-            return ToolChoiceFunction(name=self.tool_choice.function.name)
-        match self.tool_choice:
+
+        if isinstance(tool_choice, OpenAIProxyToolChoice):
+            return ToolChoiceFunction(name=tool_choice.function.name)
+        if isinstance(tool_choice, OpenAIProxyToolChoiceFunction):
+            return ToolChoiceFunction(name=tool_choice.name)
+        match tool_choice:
             case "auto":
                 return "auto"
             case "none":
@@ -457,7 +460,7 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
                 return "required"
             case _:
                 _logger.warning("Received an unsupported tool choice", extra={"tool_choice": self.tool_choice})
-                return None
+        return None
 
     def _env_from_model_str(self) -> EnvironmentRef | None:
         if match := _agent_schema_env_regex.match(self.model):
