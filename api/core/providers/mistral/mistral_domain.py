@@ -298,6 +298,7 @@ class CompletionRequest(BaseModel):
     presence_penalty: float | None = None
     frequency_penalty: float | None = None
     top_p: float | None = None
+    parallel_tool_calls: bool | None = None
 
     @classmethod
     def tool_choice_from_domain(

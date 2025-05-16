@@ -231,6 +231,12 @@ class CompletionRequest(BaseModel):
     context_length_exceeded_behavior: Literal["truncate", "error"] = "truncate"
     user: str | None = None
     tools: list[FireworksTool] | None = None
+    # tool_choice is not supported
+    frequency_penalty: float | None = None
+    presence_penalty: float | None = None
+    top_p: float | None = None
+    # Not supported by Fireworks
+    # parallel_tool_calls: bool | None = None
 
 
 ResponseFormat = Annotated[

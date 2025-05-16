@@ -14,6 +14,10 @@ class MongoTaskDeploymentsStorage(PartialStorage[TaskDeploymentDocument]):
     def __init__(self, tenant: TenantTuple, collection: AsyncCollection):
         super().__init__(tenant, collection, TaskDeploymentDocument)
 
+    @property
+    def _object_type(self) -> str:
+        return "deployment"
+
     async def list_task_deployments(
         self,
         task_id: str,

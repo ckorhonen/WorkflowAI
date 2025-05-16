@@ -2,7 +2,16 @@ from typing import Any
 
 import pytest
 
-from api.routers.openai_proxy_models import (
+from core.domain.errors import BadRequestError
+from core.domain.fields.file import File
+from core.domain.message import Message, MessageContent
+from core.domain.models.models import Model
+from core.domain.task_group_properties import TaskGroupProperties, ToolChoiceFunction
+from core.domain.tool import Tool
+from core.domain.tool_call import ToolCall
+from core.providers.base.provider_error import MissingModelError
+
+from ._openai_proxy_models import (
     EnvironmentRef,
     ModelRef,
     OpenAIProxyChatCompletionRequest,
@@ -10,13 +19,6 @@ from api.routers.openai_proxy_models import (
     OpenAIProxyImageURL,
     OpenAIProxyMessage,
 )
-from core.domain.errors import BadRequestError
-from core.domain.fields.file import File
-from core.domain.message import Message, MessageContent
-from core.domain.models.models import Model
-from core.domain.task_group_properties import ToolChoiceFunction
-from core.domain.tool_call import ToolCall
-from core.providers.base.provider_error import MissingModelError
 
 
 class TestOpenAIProxyChatCompletionRequest:
@@ -226,3 +228,144 @@ class TestOpenAIProxyChatCompletionRequestExtractReferences:
         assert isinstance(refs, ModelRef)
         assert refs.model == Model.GPT_4O_LATEST
         assert refs.agent_id == "my-agent"
+
+
+class TestOpenAIProxyChatCompletionRequestApplyTo:
+    @pytest.fixture()
+    def completion_request(self):
+        return OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "messages": [{"role": "user", "content": "Hello, world!"}],
+                "model": "gpt-4o",
+                "temperature": 0.7,
+                "top_p": 0.9,
+                "frequency_penalty": 0.5,
+                "presence_penalty": 0.3,
+                "parallel_tool_calls": True,
+                "provider": "openai",
+                "tool_choice": "auto",
+                "max_tokens": 100,
+                "tools": [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "test_tool",
+                            "description": "A test tool",
+                            "parameters": {"type": "object", "properties": {}},
+                        },
+                    },
+                ],
+            },
+        )
+
+    def test_apply_to_sets_all_fields(self, completion_request: OpenAIProxyChatCompletionRequest):
+        """Test that apply_to sets all fields when none are set in properties"""
+
+        properties = TaskGroupProperties()
+        completion_request.apply_to(properties)
+
+        assert properties.temperature == 0.7
+        assert properties.top_p == 0.9
+        assert properties.frequency_penalty == 0.5
+        assert properties.presence_penalty == 0.3
+        assert properties.parallel_tool_calls is True
+        assert properties.provider == "openai"
+        assert properties.tool_choice == "auto"
+        assert properties.max_tokens == 100
+        assert properties.enabled_tools is not None
+        assert len(properties.enabled_tools) == 1
+        tool = properties.enabled_tools[0]
+        assert isinstance(tool, Tool)
+        assert tool.name == "test_tool"
+
+    def test_apply_to_does_not_modify_set_fields(self):
+        """Test that apply_to does not modify fields that are already set"""
+        completion_request = OpenAIProxyChatCompletionRequest(
+            messages=[OpenAIProxyMessage(role="user", content="Hello, world!")],
+            model="gpt-4o",
+        )
+
+        properties = TaskGroupProperties(
+            temperature=0.5,
+            top_p=0.8,
+            frequency_penalty=0.2,
+            presence_penalty=0.1,
+            parallel_tool_calls=False,
+            provider="anthropic",
+            tool_choice="none",
+            max_tokens=200,
+        )
+        copied = properties.model_copy()
+        completion_request.apply_to(copied)
+
+        assert copied == properties
+
+    def test_apply_to_sets_default_temperature(self):
+        """Test that apply_to sets default temperature when not set in request or properties"""
+        completion_request = OpenAIProxyChatCompletionRequest(
+            messages=[OpenAIProxyMessage(role="user", content="Hello, world!")],
+            model="gpt-4o",
+        )
+        properties = TaskGroupProperties()
+        completion_request.apply_to(properties)
+        assert properties.temperature == 1.0
+
+    def test_apply_to_handles_max_completion_tokens(self):
+        """Test that apply_to handles max_completion_tokens correctly"""
+        request = OpenAIProxyChatCompletionRequest(
+            messages=[OpenAIProxyMessage(role="user", content="Hello, world!")],
+            model="gpt-4o",
+            max_completion_tokens=100,
+        )
+        properties = TaskGroupProperties()
+        request.apply_to(properties)
+        assert properties.max_tokens == 100
+
+    def test_apply_to_handles_tools(self):
+        """Test that apply_to handles tools correctly"""
+        request = OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "messages": [{"role": "user", "content": "Hello, world!"}],
+                "model": "gpt-4o",
+                "tools": [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "test_tool",
+                            "description": "A test tool",
+                            "parameters": {"type": "object", "properties": {}},
+                        },
+                    },
+                ],
+            },
+        )
+        properties = TaskGroupProperties()
+        request.apply_to(properties)
+        assert properties.enabled_tools is not None
+        assert len(properties.enabled_tools) == 1
+        tool = properties.enabled_tools[0]
+        assert isinstance(tool, Tool)
+        assert tool.name == "test_tool"
+
+    def test_apply_to_handles_functions(self):
+        """Test that apply_to handles deprecated functions correctly"""
+        request = OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "messages": [{"role": "user", "content": "Hello, world!"}],
+                "model": "gpt-4o",
+                "functions": [
+                    {
+                        "name": "test_function",
+                        "description": "A test function",
+                        "parameters": {"type": "object", "properties": {}},
+                    },
+                ],
+            },
+        )
+        properties = TaskGroupProperties()
+        request.apply_to(properties)
+        assert properties.enabled_tools is not None
+        assert len(properties.enabled_tools) == 1
+        tool = properties.enabled_tools[0]
+        assert isinstance(tool, Tool)
+        assert tool.name == "test_function"

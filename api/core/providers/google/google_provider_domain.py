@@ -612,6 +612,8 @@ class CompletionRequest(BaseModel):
 
     safetySettings: list[SafetySettings] | None = None
 
+    # Parallel tool calls are not supported
+
 
 class SafetyRating(BaseModel):
     category: str

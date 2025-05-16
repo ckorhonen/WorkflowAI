@@ -20,7 +20,7 @@ from core.domain.message import (
 from core.domain.models.models import Model
 from core.domain.models.providers import Provider
 from core.domain.run_output import RunOutput
-from core.domain.task_group_properties import ToolChoice, ToolChoiceFunction
+from core.domain.task_group_properties import TaskGroupProperties, ToolChoice, ToolChoiceFunction
 from core.domain.tool import Tool
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.domain.types import AgentOutput
@@ -305,7 +305,6 @@ _UNSUPPORTED_FIELDS = {
 _IGNORED_FIELDS = {
     "service_tier",
     "store",
-    "parallel_tool_calls",
 }
 
 
@@ -330,7 +329,7 @@ _agent_schema_env_regex = re.compile(rf"^([^/]+)/#(\d+)/({'|'.join(VersionEnviro
 class OpenAIProxyChatCompletionRequest(BaseModel):
     messages: list[OpenAIProxyMessage]
     model: str
-    frequency_penalty: float | None = Field(None, ge=-2.0, le=2.0)
+    frequency_penalty: float | None = None
     function_call: str | OpenAIProxyToolChoiceFunction | None = None
     functions: list[OpenAIProxyFunctionDefinition] | None = None
 
@@ -354,7 +353,7 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
     store: bool | None = None
     stream: bool | None = None
     stream_options: OpenAIProxyStreamOptions | None = None
-    temperature: float = 1  # default OAI temperature differs from own default
+    temperature: float | None = None  # default OAI temperature differs from own default
     tool_choice: str | OpenAIProxyToolChoice | None = None
     tools: list[OpenAIProxyTool] | None = None
     top_logprobs: int | None = None
@@ -539,6 +538,31 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
             model=model,
             agent_id=agent_id,
         )
+
+    def apply_to(self, properties: TaskGroupProperties):  # noqa: C901
+        if self.temperature is not None:
+            properties.temperature = self.temperature
+        elif properties.temperature is None:
+            # If the model does not support temperature, we set it to 1
+            # Since 1 is the default temperature for OAI
+            properties.temperature = 1
+
+        if self.top_p is not None:
+            properties.top_p = self.top_p
+        if self.frequency_penalty is not None:
+            properties.frequency_penalty = self.frequency_penalty
+        if self.presence_penalty is not None:
+            properties.presence_penalty = self.presence_penalty
+        if self.parallel_tool_calls is not None:
+            properties.parallel_tool_calls = self.parallel_tool_calls
+        if self.workflowai_provider is not None:
+            properties.provider = self.workflowai_provider
+        if self.worflowai_tool_choice is not None:
+            properties.tool_choice = self.worflowai_tool_choice
+        if max_tokens := self.max_completion_tokens or self.max_tokens:
+            properties.max_tokens = max_tokens
+        if tools := self.domain_tools():
+            properties.enabled_tools = tools
 
 
 # --- Response Models ---

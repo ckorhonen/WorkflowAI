@@ -127,6 +127,7 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
             top_p=options.top_p,
             presence_penalty=options.presence_penalty,
             frequency_penalty=options.frequency_penalty,
+            parallel_tool_calls=options.parallel_tool_calls,
         )
 
     @override

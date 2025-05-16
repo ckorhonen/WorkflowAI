@@ -118,7 +118,6 @@ class OpenAIProviderBase(HTTPXProvider[_OpenAIConfigVar, CompletionResponse], Ge
             messages=message,
             model=model_name,
             temperature=temperature,
-            # TODO[max-tokens]: re-add max_tokens
             max_tokens=options.max_tokens,
             stream=stream,
             stream_options=StreamOptions(include_usage=True) if stream else None,
@@ -129,6 +128,7 @@ class OpenAIProviderBase(HTTPXProvider[_OpenAIConfigVar, CompletionResponse], Ge
             top_p=options.top_p,
             presence_penalty=options.presence_penalty,
             frequency_penalty=options.frequency_penalty,
+            parallel_tool_calls=options.parallel_tool_calls,
         )
 
         if options.enabled_tools is not None and options.enabled_tools != []:

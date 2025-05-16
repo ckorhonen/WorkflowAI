@@ -104,6 +104,11 @@ class TaskGroupProperties(BaseModel):
 
     frequency_penalty: float | None = None
 
+    parallel_tool_calls: bool | None = Field(
+        default=None,
+        description="Whether to allow the model to output mutliple tool calls",
+    )
+
     messages: list[Message] | None = None
 
     def model_hash(self) -> str:

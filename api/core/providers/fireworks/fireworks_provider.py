@@ -134,6 +134,9 @@ class FireworksAIProvider(HTTPXProvider[FireworksConfig, CompletionResponse]):
             context_length_exceeded_behavior="truncate",
             stream=stream,
             response_format=self._response_format(options, data),
+            frequency_penalty=options.frequency_penalty,
+            presence_penalty=options.presence_penalty,
+            top_p=options.top_p,
         )
 
         # Add native tool calls if enabled
