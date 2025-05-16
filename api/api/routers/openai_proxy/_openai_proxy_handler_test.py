@@ -19,6 +19,7 @@ from core.domain.errors import BadRequestError
 from core.domain.message import Message, MessageRole, Messages
 from core.domain.models.models import Model
 from core.domain.task_group_properties import TaskGroupProperties
+from core.domain.task_io import RawMessagesSchema
 from core.domain.tenant_data import PublicOrganizationData
 from core.domain.tool import Tool
 from core.domain.version_environment import VersionEnvironment
@@ -58,6 +59,7 @@ class TestPrepareRun:
     ):
         """Check that the tools are overriden when provided in the completion request"""
 
+        completion_request.input = None
         completion_request.model = "my-agent/#1/production"
         completion_request.tools = [
             OpenAIProxyTool(
@@ -77,8 +79,7 @@ class TestPrepareRun:
             ),
         )
         mock_storage.task_version_resource_by_id.return_value = test_models.task_variant(
-            input_schema={},
-            output_schema={},
+            input_io=RawMessagesSchema,
         )
         result = await proxy_handler._prepare_run(completion_request, PublicOrganizationData())
         assert result.properties.enabled_tools == [
