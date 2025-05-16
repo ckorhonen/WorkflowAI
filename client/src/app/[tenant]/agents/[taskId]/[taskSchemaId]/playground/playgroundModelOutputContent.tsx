@@ -27,7 +27,6 @@ import { TaskInputDict } from '@/types/workflowAI';
 import { ImprovePrompt } from './ImprovePrompt';
 import { AIEvaluationReview } from './components/AIEvaluation/AIEvaluationReview';
 import { TaskRunOutputRows } from './components/TaskRunOutputRows/TaskRunOutputRows';
-import { ProxyOutputViewer } from './proxy/ProxyOutputViewer';
 import { ProxyReplyView } from './proxy/ProxyReplyView';
 
 type ModelOutputContentProps = {
@@ -176,36 +175,26 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
       className='flex flex-col w-full sm:h-full'
     >
       <div className='flex flex-col sm:flex-1 rounded-[2px] overflow-hidden my-3 border border-gray-200'>
-        {isProxy ? (
-          <ProxyOutputViewer
-            taskOutput={taskOutput}
-            toolCalls={toolCallsPreview}
-            reasoningSteps={reasoningSteps}
-            streamLoading={streamLoading}
-            outputSchema={outputSchema}
-            referenceValue={referenceValue}
-            emptyMode={emptyMode}
-          />
-        ) : (
-          <TaskOutputViewer
-            schema={outputSchema}
-            value={taskOutput}
-            referenceValue={referenceValue}
-            defs={outputSchema?.$defs}
-            textColor='text-gray-900'
-            className={cn(
-              'flex sm:flex-1 w-full border-b border-gray-200 border-dashed bg-white sm:overflow-y-scroll',
-              !!taskOutput && 'min-h-[150px]'
-            )}
-            showTypes={emptyMode}
-            showExamplesHints
-            onShowEditDescriptionModal={isInDemoMode ? undefined : onShowEditDescriptionModal}
-            streamLoading={streamLoading}
-            toolCalls={toolCallsPreview}
-            reasoningSteps={reasoningSteps}
-            showDescriptionExamples={emptyMode ? 'all' : undefined}
-          />
-        )}
+        <TaskOutputViewer
+          schema={outputSchema}
+          value={taskOutput}
+          referenceValue={referenceValue}
+          defs={outputSchema?.$defs}
+          textColor='text-gray-900'
+          className={cn(
+            'flex sm:flex-1 w-full border-b border-gray-200 border-dashed bg-white sm:overflow-y-scroll',
+            !!taskOutput && 'min-h-[150px]'
+          )}
+          showTypes={emptyMode}
+          showExamplesHints
+          onShowEditDescriptionModal={isInDemoMode || isProxy ? undefined : onShowEditDescriptionModal}
+          streamLoading={streamLoading}
+          toolCalls={toolCallsPreview}
+          reasoningSteps={reasoningSteps}
+          showDescriptionExamples={emptyMode && !isProxy ? 'all' : undefined}
+          showDescriptionPopover={!isProxy}
+          defaultOpenForSteps={isProxy}
+        />
         {!!taskId && !!taskRun && !hasInputChanged && !isProxy && (
           <div className='flex flex-col w-full overflow-hidden max-h-[400px]'>
             {!isProxy && <ImprovePrompt onImprovePrompt={onImprovePrompt} />}

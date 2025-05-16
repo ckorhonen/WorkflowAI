@@ -897,6 +897,7 @@ export type MajorVersionProperties = {
    * The id of the full schema, including versions and examples
    */
   task_variant_id: string | null;
+  messages?: ProxyMessage[] | undefined | null;
 };
 
 export type MetaAgentChatMessage = {

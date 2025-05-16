@@ -8,10 +8,11 @@ import { ProxyImage } from './ProxyImage';
 type Props = {
   content: ProxyMessageContent;
   setContent: (content: ProxyMessageContent) => void;
+  readonly?: boolean;
 };
 
 export function ProxyFile(props: Props) {
-  const { content, setContent } = props;
+  const { content, setContent, readonly } = props;
 
   const updateFile = useCallback(
     (file: FileValueType | undefined) => {
@@ -29,12 +30,12 @@ export function ProxyFile(props: Props) {
   }
 
   if (content.file.content_type.startsWith('image/')) {
-    return <ProxyImage file={content.file} setFile={updateFile} />;
+    return <ProxyImage file={content.file} setFile={updateFile} readonly={readonly} />;
   }
 
   if (content.file.content_type.startsWith('audio/')) {
-    return <ProxyAudio file={content.file} setFile={updateFile} />;
+    return <ProxyAudio file={content.file} setFile={updateFile} readonly={readonly} />;
   }
 
-  return <ProxyDocument file={content.file} setFile={updateFile} />;
+  return <ProxyDocument file={content.file} setFile={updateFile} readonly={readonly} />;
 }

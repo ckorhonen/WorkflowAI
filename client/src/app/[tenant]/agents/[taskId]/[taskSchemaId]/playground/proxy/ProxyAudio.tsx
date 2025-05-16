@@ -8,10 +8,11 @@ import { useUpload } from '@/store/upload';
 type Props = {
   file: FileValueType;
   setFile: (file: FileValueType | undefined) => void;
+  readonly?: boolean;
 };
 
 export function ProxyAudio(props: Props) {
-  const { file, setFile } = props;
+  const { file, setFile, readonly } = props;
 
   const { tenant, taskId } = useTaskParams();
 
@@ -53,7 +54,7 @@ export function ProxyAudio(props: Props) {
     <UniversalAudioValueViewer
       value={file}
       className={undefined}
-      editable={true}
+      editable={!readonly}
       onEdit={onEdit}
       keyPath={'.'}
       transcriptions={undefined}

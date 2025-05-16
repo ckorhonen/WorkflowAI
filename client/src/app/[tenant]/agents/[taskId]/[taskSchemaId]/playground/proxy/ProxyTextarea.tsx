@@ -8,10 +8,11 @@ type ProxyTextareaProps = {
   setContent: (content: ProxyMessageContent) => void;
   placeholder: string;
   minHeight?: number;
+  readOnly?: boolean;
 };
 
 export function ProxyTextarea(props: ProxyTextareaProps) {
-  const { content, placeholder, minHeight, setContent } = props;
+  const { content, placeholder, minHeight, setContent, readOnly } = props;
 
   const onChange = useCallback(
     (value: string) => {
@@ -33,6 +34,7 @@ export function ProxyTextarea(props: ProxyTextareaProps) {
       placeholder={placeholder}
       value={text}
       onChange={(e) => onChange(e.target.value)}
+      readOnly={readOnly}
     />
   );
 }

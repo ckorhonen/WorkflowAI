@@ -20,10 +20,11 @@ type UniversalImageValueViewerProps = {
   editable: boolean | undefined;
   onEdit: ((keyPath: string, newVal: FileValueType | undefined, triggerSave?: boolean | undefined) => void) | undefined;
   keyPath: string;
+  readonly?: boolean;
 };
 
 export function UniversalImageValueViewer(props: UniversalImageValueViewerProps) {
-  const { value, className, editable, onEdit, keyPath } = props;
+  const { value, className, editable, onEdit, keyPath, readonly } = props;
 
   const [zoomPosition, setZoomPosition] = useState<{
     x: number;
@@ -109,6 +110,7 @@ export function UniversalImageValueViewer(props: UniversalImageValueViewerProps)
       <DocumentPreviewControls
         onEdit={onValueEdit}
         className={cx(className, '!p-0')}
+        readonly={readonly}
         dialogContent={
           <div className='flex items-center justify-center overflow-hidden p-1'>
             {/* eslint-disable-next-line @next/next/no-img-element */}
