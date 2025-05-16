@@ -2,14 +2,6 @@ from typing import Any
 
 import pytest
 
-from api.routers.openai_proxy_models import (
-    EnvironmentRef,
-    ModelRef,
-    OpenAIProxyChatCompletionRequest,
-    OpenAIProxyContent,
-    OpenAIProxyImageURL,
-    OpenAIProxyMessage,
-)
 from core.domain.errors import BadRequestError
 from core.domain.fields.file import File
 from core.domain.message import Message, MessageContent
@@ -18,6 +10,15 @@ from core.domain.task_group_properties import TaskGroupProperties, ToolChoiceFun
 from core.domain.tool import Tool
 from core.domain.tool_call import ToolCall
 from core.providers.base.provider_error import MissingModelError
+
+from ._openai_proxy_models import (
+    EnvironmentRef,
+    ModelRef,
+    OpenAIProxyChatCompletionRequest,
+    OpenAIProxyContent,
+    OpenAIProxyImageURL,
+    OpenAIProxyMessage,
+)
 
 
 class TestOpenAIProxyChatCompletionRequest:

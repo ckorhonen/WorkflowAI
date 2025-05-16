@@ -30,6 +30,10 @@ class PartialStorage(ABC, Generic[_D]):
         self._logger = logging.getLogger(self.__class__.__name__)
 
     @property
+    def _object_type(self) -> str:
+        return self._document_type.__name__
+
+    @property
     def timeout_ms(self) -> int:
         return 10_000
 
@@ -81,7 +85,7 @@ class PartialStorage(ABC, Generic[_D]):
     ):
         doc = await self._collection.find_one(self._tenant_filter(filter), projection=projection, sort=sort, hint=hint)
         if doc is None:
-            raise ObjectNotFoundException()
+            raise ObjectNotFoundException(object_type=self._object_type)
         return doc
 
     async def _find_one(

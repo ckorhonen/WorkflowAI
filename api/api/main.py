@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from sentry_sdk.integrations.logging import ignore_logger
 
 from api.errors import configure_scope_for_error
-from api.routers import openai_proxy_router
+from api.routers.openai_proxy import openai_proxy_router
 from api.services.storage import storage_for_tenant
 from api.tags import RouteTags
 from api.utils import (
