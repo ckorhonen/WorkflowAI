@@ -1,7 +1,7 @@
 import asyncio
 from collections.abc import Iterator, Sequence
 from enum import StrEnum, auto
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -122,11 +122,6 @@ class Message(BaseModel):
 class Messages(BaseModel):
     messages: list[Message]
 
-    def content_iterator(self) -> Iterator[tuple[str, FileKind | str | None]]:
-        """Iterates over all content"""
-        for m in self.messages:
-            yield from m.content_iterator()
-
     async def templated(self, renderer: TemplateRenderer):
         try:
             messages = await asyncio.gather(*[m.templated(renderer) for m in self.messages])
@@ -151,37 +146,3 @@ class Messages(BaseModel):
                         key_path=[prefix, i, "content", j, "file"],
                         **c.file.model_dump(exclude_none=True),
                     )
-
-    def json_schema_for_template(self, base_schema: dict[str, Any] | None):
-        """Returns a json schema for template variables present in the messages"""
-
-        # We need to import here to avoid circular imports
-        # TODO: we should probably have this in a separate file
-        from core.utils.schema_sanitation import streamline_schema
-        from core.utils.templates import extract_variable_schema
-
-        templatable: str = ""
-        # TODO: handle files as strings in templates
-        # var_regexp = re.compile(r"\{\{([^}]+)\}\}")
-        templatable_parts: list[str] = []
-        files: dict[str, FileKind | str] = {}
-        for m, _ in self.content_iterator():
-            # If format is not provided, then we treat as a plain string
-            # if not format:
-            #     templatable_parts.append(m)
-            #     continue
-            # # If format is provided and the whole content is a variable
-            # if match := var_regexp.match(m):
-            #     files[match.group(1)] = format
-            #     continue
-            # We are in a case where the content is a mix of variables and plain text so we can't
-            # really extract the file
-            templatable_parts.append(m)
-
-        templatable = " ".join(templatable_parts)
-        schema = extract_variable_schema(templatable, existing_schema=base_schema)
-        for var, kind in files.items():
-            # We just add the format here
-            # It will be streamlined and replace with the proper
-            schema.setdefault("properties", {})[var] = {"$ref": "#/$defs/File", "format": kind}
-        return streamline_schema(schema)

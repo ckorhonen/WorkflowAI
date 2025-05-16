@@ -7,6 +7,7 @@ from fastapi import Request
 from api.dependencies.event_router import EventRouterDep
 from api.dependencies.services import GroupServiceDep, RunServiceDep
 from api.dependencies.storage import StorageDep
+from api.services.messages.messages_utils import json_schema_for_template
 from api.services.models import ModelsService
 from api.utils import get_start_time
 from core.domain.analytics_events.analytics_events import SourceType
@@ -60,20 +61,30 @@ class OpenAIProxyHandler:
         return json.dumps(output)
 
     @classmethod
-    def _json_schema_from_input(cls, messages: Messages, input: dict[str, Any] | None) -> SerializableTaskIO:
+    def _json_schema_from_input(
+        cls,
+        messages: Messages,
+        input: dict[str, Any] | None,
+    ) -> tuple[SerializableTaskIO, int]:
         if input is None:
             # No body was sent with the request, so we treat the messages as a raw string
-            return RawMessagesSchema
+            return RawMessagesSchema, -1
 
         schema_from_input: dict[str, Any] | None = schema_from_data(input) if input else None
-        schema_from_template = messages.json_schema_for_template(base_schema=schema_from_input)
+        schema_from_template, last_templated_index = json_schema_for_template(
+            messages.messages,
+            base_schema=schema_from_input,
+        )
         if not schema_from_template:
             if schema_from_input:
                 raise BadRequestError("Input variables are provided but the messages do not contain a valid template")
-            return RawMessagesSchema
+            return RawMessagesSchema, -1
         if not schema_from_input:
             raise BadRequestError("Messages are templated but no input variables are provided")
-        return SerializableTaskIO.from_json_schema({**schema_from_template, "format": "messages"}, streamline=True)
+        return SerializableTaskIO.from_json_schema(
+            {**schema_from_template, "format": "messages"},
+            streamline=True,
+        ), last_templated_index
 
     @classmethod
     def _build_variant(
@@ -82,9 +93,10 @@ class OpenAIProxyHandler:
         agent_slug: str | None,
         input: dict[str, Any] | None,
         response_format: OpenAIProxyResponseFormat | None,
-    ):
+    ) -> tuple[SerializableTaskVariant, int]:
+        """Returns a variant and the index of the last templated message"""
         try:
-            input_schema = cls._json_schema_from_input(messages, input)
+            input_schema, last_templated_index = cls._json_schema_from_input(messages, input)
         except InvalidTemplateError as e:
             raise BadRequestError(f"Invalid template: {e.message}")
 
@@ -113,7 +125,7 @@ class OpenAIProxyHandler:
             input_schema=input_schema,
             output_schema=output_schema,
             name=to_pascal_case(agent_slug),
-        )
+        ), last_templated_index
 
     class PreparedRun(NamedTuple):
         properties: TaskGroupProperties
@@ -169,7 +181,7 @@ class OpenAIProxyHandler:
                 "No variant id found for deployment, building a new variant",
                 extra={"agent_ref": agent_ref},
             )
-            variant = self._build_variant(messages, agent_ref.agent_id, input, response_format)
+            variant, _ = self._build_variant(messages, agent_ref.agent_id, input, response_format)
 
         if not properties.messages:
             # The version does not contain any messages so the input is the messages
@@ -202,7 +214,12 @@ class OpenAIProxyHandler:
         input: dict[str, Any] | None,
         response_format: OpenAIProxyResponseFormat | None,
     ) -> PreparedRun:
-        raw_variant = self._build_variant(messages, agent_ref.agent_id, input=input, response_format=response_format)
+        raw_variant, last_templated_index = self._build_variant(
+            messages,
+            agent_ref.agent_id,
+            input=input,
+            response_format=response_format,
+        )
         variant, new_variant_created = await self._storage.store_task_resource(raw_variant)
 
         if new_variant_created:
@@ -217,13 +234,26 @@ class OpenAIProxyHandler:
         properties = TaskGroupProperties(model=agent_ref.model)
         properties.task_variant_id = variant.id
 
-        if input:
-            # If we have an input, the input schema in the variant must not be the RawMessagesSchema
-            # otherwise _build_variant would have raised an error
-            # So we can check that the input schema matches and then template the messages as needed
+        if input is not None:
+            # We split the messages into two parts:
+            # - The part that is templated (or the first system message)
+            # - The part that is not templated
             # We don't remove any extras from the input, we just validate it
-            properties.messages = messages.messages
+            if last_templated_index == -1:
+                if messages.messages[0].role == "system":
+                    cutoff_index = 1
+                else:
+                    cutoff_index = 0
+            else:
+                cutoff_index = last_templated_index + 1
+
+            properties.messages = messages.messages[:cutoff_index]
             final_input: dict[str, Any] | Messages = input
+            if len(messages.messages) > cutoff_index:
+                final_input = {
+                    **final_input,
+                    INPUT_KEY_MESSAGES: messages.messages[cutoff_index:],
+                }
         else:
             final_input = messages
 

@@ -1,5 +1,6 @@
 # pyright: reportPrivateUsage=false
 
+from typing import Any
 from unittest.mock import Mock
 
 import pytest
@@ -7,13 +8,16 @@ import pytest
 from api.routers.openai_proxy._openai_proxy_handler import OpenAIProxyHandler
 from api.routers.openai_proxy._openai_proxy_models import (
     EnvironmentRef,
+    ModelRef,
     OpenAIProxyChatCompletionRequest,
     OpenAIProxyMessage,
     OpenAIProxyTool,
     OpenAIProxyToolFunction,
 )
+from core.domain.consts import INPUT_KEY_MESSAGES
 from core.domain.errors import BadRequestError
-from core.domain.message import Message, Messages
+from core.domain.message import Message, MessageRole, Messages
+from core.domain.models.models import Model
 from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.tenant_data import PublicOrganizationData
 from core.domain.tool import Tool
@@ -116,3 +120,100 @@ class TestPrepareRunForDeployment:
             response_format=None,
         )
         assert result.final_input == Messages(messages=[Message.with_text("Hello, world!")])
+
+
+class TestPrepareRunForModel:
+    @pytest.fixture(autouse=True)
+    def mock_storage_with_variant(self, mock_storage: Mock):
+        def side_effect(value: Any):
+            return value, True
+
+        mock_storage.store_task_resource.side_effect = side_effect
+
+    @pytest.mark.parametrize("role", ["user", "assistant", "system"])
+    async def test_no_templated_message_no_input(self, proxy_handler: OpenAIProxyHandler, role: MessageRole):
+        """Check that we don't set the message in the version properties if input is None"""
+        result = await proxy_handler._prepare_for_model(
+            agent_ref=ModelRef(model=Model.GPT_4O_LATEST, agent_id=None),
+            messages=Messages(messages=[Message.with_text("Hello, world!", role=role)]),
+            input=None,
+            response_format=None,
+        )
+        # All messages are passed through to the input, none are in the version
+        assert result.final_input == Messages(messages=[Message.with_text("Hello, world!", role=role)])
+        assert result.properties.messages is None
+
+    async def test_no_templated_message_with_empty_input_sytem(
+        self,
+        proxy_handler: OpenAIProxyHandler,
+    ):
+        """When the input is an empty dict, we still use messages in the version properties"""
+        result = await proxy_handler._prepare_for_model(
+            agent_ref=ModelRef(model=Model.GPT_4O_LATEST, agent_id=None),
+            messages=Messages(
+                messages=[
+                    Message.with_text("You are a helpful assistant", role="system"),
+                    Message.with_text("Hello, world!", role="user"),
+                ],
+            ),
+            input={},
+            response_format=None,
+        )
+        assert result.final_input == {
+            INPUT_KEY_MESSAGES: [Message.with_text("Hello, world!", role="user")],
+        }
+        assert result.properties.messages == [
+            Message.with_text("You are a helpful assistant", role="system"),
+        ]
+
+    async def test_no_templated_message_with_input_user(self, proxy_handler: OpenAIProxyHandler):
+        """Check that we set the message in the version properties if input is not None"""
+        result = await proxy_handler._prepare_for_model(
+            agent_ref=ModelRef(model=Model.GPT_4O_LATEST, agent_id=None),
+            messages=Messages(messages=[Message.with_text("Hello, world!", role="user")]),
+            input={},
+            response_format=None,
+        )
+        assert result.final_input == {
+            INPUT_KEY_MESSAGES: [Message.with_text("Hello, world!", role="user")],
+        }
+
+        assert result.properties.messages == []
+
+    async def test_templated_messages(self, proxy_handler: OpenAIProxyHandler):
+        result = await proxy_handler._prepare_for_model(
+            agent_ref=ModelRef(model=Model.GPT_4O_LATEST, agent_id=None),
+            messages=Messages(
+                messages=[
+                    Message.with_text("Hello, world!", role="system"),
+                    Message.with_text("Hello, {{name}}!", role="user"),
+                    Message.with_text("Hello, {{dude}}!", role="user"),
+                    Message.with_text("Not a template", role="user"),
+                ],
+            ),
+            input={
+                "name": "John",
+                "dude": "Jane",
+            },
+            response_format=None,
+        )
+        assert result.final_input == {
+            "name": "John",
+            "dude": "Jane",
+            INPUT_KEY_MESSAGES: [
+                Message.with_text("Not a template", role="user"),
+            ],
+        }
+        assert result.properties.messages == [
+            Message.with_text("Hello, world!", role="system"),
+            Message.with_text("Hello, {{name}}!", role="user"),
+            Message.with_text("Hello, {{dude}}!", role="user"),
+        ]
+        assert result.variant.input_schema.json_schema == {
+            "format": "messages",
+            "properties": {
+                "name": {"type": "string"},
+                "dude": {"type": "string"},
+            },
+            "type": "object",
+        }
