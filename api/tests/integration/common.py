@@ -834,13 +834,14 @@ class IntegrationTestClient:
         private_fields: list[str] | None = None,
         autowait: bool = True,
         tenant: str = "_",
+        provider: str | None = None,
     ) -> dict[str, Any]:
         try:
             return await run_task_v1(
                 self.int_api_client,
                 _task_id(task),
                 _schema_id(task),
-                version,
+                version if version else ({"model": model, "provider": provider} if provider and model else None),
                 model.value if isinstance(model, Model) else model,
                 task_input,
                 tenant,
@@ -897,6 +898,20 @@ class IntegrationTestClient:
         status_code: int = 200,
         latency: float | None = None,
     ):
+        if url:
+            mock_vertex_call(
+                self.httpx_mock,
+                json,
+                model,
+                parts,
+                usage=usage,
+                publisher=publisher,
+                url=url,
+                status_code=status_code,
+                latency=latency,
+            )
+            return
+
         if not regions:
             regions = os.environ.get("GOOGLE_VERTEX_AI_LOCATION", "us-central1").split(",")
 
