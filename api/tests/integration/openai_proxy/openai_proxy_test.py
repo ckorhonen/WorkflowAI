@@ -481,3 +481,26 @@ async def test_list_models(openai_client: AsyncOpenAI):
     assert model_ids < set(Model)
     assert Model.GPT_41_LATEST in model_ids
     assert Model.GPT_3_5_TURBO_1106 not in model_ids
+
+
+async def test_unsupported_parameter(openai_client: AsyncOpenAI):
+    # Only one unsupported field
+    with pytest.raises(openai.BadRequestError) as e:
+        await openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": "Hello, world!"}],
+            logit_bias={"hello": 1},
+        )
+
+    assert "Field `logit_bias` is not supported" in str(e)
+
+    # Multiple unsupported fields
+    with pytest.raises(openai.BadRequestError) as e:
+        await openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": "Hello, world!"}],
+            logit_bias={"hello": 1},
+            stop="hello",
+        )
+
+    assert "Fields `logit_bias`, `stop` are not supported" in str(e)

@@ -89,6 +89,30 @@ class TestOpenAIProxyChatCompletionRequestToolChoice:
         )
         assert payload.worflowai_tool_choice == expected_tool_choice_output
 
+    @pytest.mark.parametrize(
+        "tool_choice_input, expected_tool_choice_output",
+        [
+            pytest.param(None, None, id="none"),
+            pytest.param("auto", "auto", id="auto"),
+            pytest.param("none", "none", id="none"),
+            pytest.param(
+                {"name": "my_function"},
+                ToolChoiceFunction(name="my_function"),
+                id="function",
+            ),
+            pytest.param("invalid_choice", None, id="invalid"),
+        ],
+    )
+    def test_workflowai_tool_choice_function_call(self, tool_choice_input: Any, expected_tool_choice_output: Any):
+        payload = OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "messages": [{"role": "user", "content": "Hello, world!"}],
+                "model": "gpt-4o",
+                "function_call": tool_choice_input,
+            },
+        )
+        assert payload.worflowai_tool_choice == expected_tool_choice_output
+
 
 class TestOpenAIProxyChatCompletionRequestExtractReferences:
     def test_model_only(self):
