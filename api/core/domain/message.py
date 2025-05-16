@@ -3,8 +3,9 @@ from collections.abc import Iterator, Sequence
 from enum import StrEnum, auto
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import AliasChoices, BaseModel, Field
 
+from core.domain.consts import INPUT_KEY_MESSAGES
 from core.domain.fields.file import File, FileKind, FileWithKeyPath
 from core.domain.fields.image_options import ImageOptions
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
@@ -120,7 +121,7 @@ class Message(BaseModel):
 
 
 class Messages(BaseModel):
-    messages: list[Message]
+    messages: list[Message] = Field(validation_alias=AliasChoices("messages", INPUT_KEY_MESSAGES))
 
     async def templated(self, renderer: TemplateRenderer):
         try:
