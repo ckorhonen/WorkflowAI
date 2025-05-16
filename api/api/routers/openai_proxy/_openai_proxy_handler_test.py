@@ -6,14 +6,18 @@ import pytest
 
 from api.routers.openai_proxy._openai_proxy_handler import OpenAIProxyHandler
 from api.routers.openai_proxy._openai_proxy_models import (
+    EnvironmentRef,
     OpenAIProxyChatCompletionRequest,
     OpenAIProxyMessage,
     OpenAIProxyTool,
     OpenAIProxyToolFunction,
 )
+from core.domain.errors import BadRequestError
+from core.domain.message import Message, Messages
 from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.tenant_data import PublicOrganizationData
 from core.domain.tool import Tool
+from core.domain.version_environment import VersionEnvironment
 from tests import models as test_models
 
 
@@ -76,3 +80,39 @@ class TestPrepareRun:
         assert result.properties.enabled_tools == [
             Tool(name="my_function", input_schema={}, output_schema={}, strict=True),
         ]
+
+
+class TestCheckForDuplicateMessages:
+    def test_no_messages(self, proxy_handler: OpenAIProxyHandler):
+        """Check that we just don't raise if we have no messages in the deployment"""
+        messages = Messages(messages=[Message.with_text("Hello, world!")])
+        proxy_handler._check_for_duplicate_messages(None, messages)
+
+    def test_duplicate_messages(self, proxy_handler: OpenAIProxyHandler):
+        """Check that we raise if we have duplicate messages"""
+        messages = Messages(messages=[Message.with_text("Hello, world!")])
+        with pytest.raises(BadRequestError):
+            proxy_handler._check_for_duplicate_messages([Message.with_text("Hello, world!")], messages)
+
+
+class TestPrepareRunForDeployment:
+    async def test_no_messages(self, proxy_handler: OpenAIProxyHandler, mock_storage: Mock):
+        """Check that we just don't raise if we have no messages in the deployment"""
+
+        mock_storage.task_deployments.get_task_deployment.return_value = test_models.task_deployment(
+            properties=TaskGroupProperties(
+                model="gpt-4o",
+                task_variant_id="my-variant",  # type: ignore
+                # No messages
+            ),
+        )
+        mock_storage.task_version_resource_by_id.return_value = test_models.task_variant()
+
+        result = await proxy_handler._prepare_for_deployment(
+            agent_ref=EnvironmentRef(agent_id="", schema_id=1, environment=VersionEnvironment.PRODUCTION),
+            tenant_data=PublicOrganizationData(),
+            messages=Messages(messages=[Message.with_text("Hello, world!")]),
+            input=None,
+            response_format=None,
+        )
+        assert result.final_input == Messages(messages=[Message.with_text("Hello, world!")])

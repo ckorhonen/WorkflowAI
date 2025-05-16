@@ -13,7 +13,7 @@ from core.domain.analytics_events.analytics_events import SourceType
 from core.domain.consts import INPUT_KEY_MESSAGES, WORKFLOWAI_APP_URL
 from core.domain.errors import BadRequestError
 from core.domain.events import ProxyAgentCreatedEvent
-from core.domain.message import Messages
+from core.domain.message import Message, Messages
 from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_io import RawJSONMessageSchema, RawMessagesSchema, RawStringMessageSchema, SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
@@ -120,6 +120,24 @@ class OpenAIProxyHandler:
         variant: SerializableTaskVariant
         final_input: dict[str, Any] | Messages
 
+    def _check_for_duplicate_messages(self, property_messages: list[Message] | None, input_messages: Messages):
+        """We try to check if the entirety of property messages are passed in the input messages.
+        This is to avoid a user remove the messages from the openai sdk after switching to a deployment
+        """
+        if (
+            not property_messages
+            or not input_messages.messages
+            or len(input_messages.messages) < len(property_messages)
+        ):
+            return
+
+        if input_messages.messages[: len(property_messages)] == property_messages:
+            raise BadRequestError(
+                f"It looks like you send messages that are already included in your deployment. "
+                f"The deployment already includes your first {len(property_messages)} messages so they "
+                "should be omitted from the messages array (it's ok to send an empty message array if needed !)",
+            )
+
     async def _prepare_for_deployment(
         self,
         agent_ref: EnvironmentRef,
@@ -153,11 +171,23 @@ class OpenAIProxyHandler:
             )
             variant = self._build_variant(messages, agent_ref.agent_id, input, response_format)
 
-        if input is None:
-            final_input = messages
+        if not properties.messages:
+            # The version does not contain any messages so the input is the messages
+            final_input: Messages | dict[str, Any] = messages
+            if input:
+                raise BadRequestError(
+                    "The deployment you are trying to use does not contain any messages but you "
+                    "sent input variables. Check the deployment at "
+                    f"{tenant_data.app_deployments_url(agent_ref.agent_id, agent_ref.schema_id)}",
+                )
         else:
-            final_input = input
+            # It is possible that we used deployments that contained no input variables for example
+            # If a user saved a non templated system message. In which case the input is None
+            final_input = input or {}
             if messages.messages:
+                # Here we try and avoid duplicate messages so we check the message replies
+                self._check_for_duplicate_messages(properties.messages, input_messages=messages)
+
                 final_input = {
                     **final_input,
                     INPUT_KEY_MESSAGES: messages.model_dump(mode="json", exclude_none=True)["messages"],
@@ -199,6 +229,32 @@ class OpenAIProxyHandler:
 
         return self.PreparedRun(properties=properties, variant=variant, final_input=final_input)
 
+    def _check_final_input(
+        self,
+        input_io: SerializableTaskIO,
+        final_input: dict[str, Any] | Messages,
+        agent_ref: EnvironmentRef | ModelRef,
+        tenant_data: PublicOrganizationData,
+    ):
+        if isinstance(final_input, Messages):
+            if input_io.version == RawMessagesSchema.version:
+                # Everything is ok here
+                return
+            raise (
+                BadRequestError(
+                    f"You passed input variables to a deployment on schema #{agent_ref.schema_id} but schema "
+                    f"#{agent_ref.schema_id} does not expect any."
+                    "You likely have a typo in your schema number."
+                    f"Please check your schema at {tenant_data.app_schema_url(agent_ref.agent_id, agent_ref.schema_id)}",
+                )
+                if isinstance(agent_ref, EnvironmentRef)
+                else BadRequestError(
+                    "It looks like you are using input variables but there are no input variables in your messages.",
+                )
+            )
+
+        input_io.enforce(final_input)
+
     async def _prepare_run(self, body: OpenAIProxyChatCompletionRequest, tenant_data: PublicOrganizationData):
         messages = Messages(messages=[m.to_domain() for m in body.messages])
 
@@ -224,9 +280,13 @@ class OpenAIProxyHandler:
                 response_format=body.response_format,
             )
 
+        self._check_final_input(
+            prepared_run.variant.input_schema,
+            prepared_run.final_input,
+            agent_ref,
+            tenant_data,
+        )
         body.apply_to(prepared_run.properties)
-        if isinstance(prepared_run.final_input, dict):
-            prepared_run.variant.input_schema.enforce(prepared_run.final_input)
 
         return prepared_run
 
