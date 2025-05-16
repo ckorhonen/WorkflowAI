@@ -4,6 +4,7 @@ import mimetypes
 from base64 import b64decode
 from enum import StrEnum
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.json_schema import SkipJsonSchema
@@ -65,6 +66,34 @@ class File(BaseModel):
 
         raise InternalError("No data or URL provided for image")
 
+    def _validate_url_and_set_content_type(self, url: str):
+        if url.startswith("data:"):
+            content_type, data = _parse_data_url(url[5:])
+            self.content_type = content_type
+            self.data = data
+            self.url = None
+            return
+
+        try:
+            parsed = urlparse(url)
+        except Exception as e:
+            raise ValueError(f"Invalid URL provided for file: {e}")
+        # TODO: add this check, right now it fails a lot of tests
+        # if not parsed.scheme:
+        #     raise ValueError("URL must have a scheme")
+
+        if self.content_type:
+            return
+
+        if parsed.query:
+            query_params = parse_qs(parsed.query)
+            if "content_type" in query_params:
+                self.content_type = query_params["content_type"][0]
+                return
+
+        if mime_type := mimetypes.guess_type(url, strict=False)[0]:
+            self.content_type = mime_type
+
     @model_validator(mode="after")
     def validate_image(self):
         if self.data:
@@ -79,16 +108,7 @@ class File(BaseModel):
                 self.content_type = guess_content_type(decoded_data)
             return self
         if self.url:
-            if self.url.startswith("data:"):
-                content_type, data = _parse_data_url(self.url[5:])
-                self.content_type = content_type
-                self.data = data
-                return self
-
-            if self.content_type:
-                return self
-            mime_type = mimetypes.guess_type(self.url, strict=False)[0]
-            self.content_type = mime_type
+            self._validate_url_and_set_content_type(self.url)
             return self
 
         raise ValueError("No data or URL provided for image")
