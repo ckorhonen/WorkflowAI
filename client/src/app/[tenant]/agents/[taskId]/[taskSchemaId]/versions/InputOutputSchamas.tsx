@@ -7,7 +7,6 @@ import { TaskID } from '@/types/aliases';
 import { TenantID } from '@/types/aliases';
 import { JsonSchema } from '@/types/json_schema';
 import { checkVersionForProxy } from '../playground/hooks/useIsProxy';
-import { ProxyOutputViewer } from '../playground/proxy/ProxyOutputViewer';
 
 type InputOutputSchemasProps = {
   tenant: TenantID;
@@ -27,6 +26,27 @@ export function InputOutputSchemas(props: InputOutputSchemasProps) {
 
   const inputSchema = version.input_schema as JsonSchema;
   const outputSchema = version.output_schema as JsonSchema;
+
+  if (isProxy) {
+    return (
+      <div className='flex flex-row w-full h-max border-gray-200 border rounded-[2px] bg-gradient-to-b from-white to-white/0'>
+        <div className='flex flex-col w-full min-h-full'>
+          <div className='text-gray-700 text-[13px] font-semibold px-4 py-2 flex w-full border-b border-gray-200 border-dashed'>
+            Output
+          </div>
+          <TaskOutputViewer
+            textColor='text-gray-500'
+            value={undefined}
+            schema={outputSchema}
+            defs={outputSchema?.$defs}
+            showDescriptionExamples={'all'}
+            showTypes={false}
+            showDescriptionPopover={false}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className='flex flex-row w-full h-max border-gray-200 border rounded-[2px] bg-gradient-to-b from-white to-white/0'>
@@ -48,27 +68,15 @@ export function InputOutputSchemas(props: InputOutputSchemasProps) {
         <div className='text-gray-700 text-[13px] font-semibold px-4 py-2 flex w-full border-b border-gray-200 border-dashed'>
           Output
         </div>
-        {isProxy ? (
-          <ProxyOutputViewer
-            taskOutput={undefined}
-            toolCalls={undefined}
-            reasoningSteps={undefined}
-            streamLoading={false}
-            outputSchema={outputSchema}
-            referenceValue={undefined}
-            emptyMode={false}
-          />
-        ) : (
-          <TaskOutputViewer
-            textColor='text-gray-500'
-            value={undefined}
-            schema={outputSchema}
-            defs={outputSchema?.$defs}
-            showDescriptionExamples={'all'}
-            showTypes={false}
-            showDescriptionPopover={false}
-          />
-        )}
+        <TaskOutputViewer
+          textColor='text-gray-500'
+          value={undefined}
+          schema={outputSchema}
+          defs={outputSchema?.$defs}
+          showDescriptionExamples={'all'}
+          showTypes={false}
+          showDescriptionPopover={false}
+        />
       </div>
     </div>
   );
