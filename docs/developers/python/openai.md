@@ -161,7 +161,7 @@ Alex
 completion = client.beta.chat.completions.parse(
   # Reference agent, schema ID, and deployment ID
   model="event-extractor/#1/production",
-  # messages parameter is no longer needed!
+  messsages=[],
   response_format=EventDetails,
   extra_body={
       # Only input variable is needed

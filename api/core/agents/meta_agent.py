@@ -204,6 +204,26 @@ class MetaAgentChatMessage(BaseModel):
     )
 
 
+class SelectedModels(BaseModel):
+    column_1: str | None = Field(
+        default=None,
+        description="The id of the model selected in the first column of the playground, if empty, no model is selected in the first column",
+    )
+    column_2: str | None = Field(
+        default=None,
+        description="The id of the model selected in the second column of the playground, if empty, no model is selected in the second column",
+    )
+    column_3: str | None = Field(
+        default=None,
+        description="The id of the model selected in the third column of the playground, if empty, no model is selected in the third column",
+    )
+
+
+class InputFile(BaseModel):
+    key_path: str
+    file: File
+
+
 class PlaygroundState(BaseModel):
     class Agent(BaseModel):
         name: str
@@ -219,10 +239,6 @@ class PlaygroundState(BaseModel):
         default=None,
         description="The input for the agent",
     )
-
-    class InputFile(BaseModel):
-        key_path: str
-        file: File
 
     agent_input_files: list[InputFile] | None = Field(
         default=None,
@@ -307,20 +323,6 @@ class PlaygroundState(BaseModel):
     available_models: list[PlaygroundModel] = Field(
         description="The models currently available in the playground",
     )
-
-    class SelectedModels(BaseModel):
-        column_1: str | None = Field(
-            default=None,
-            description="The id of the model selected in the first column of the playground, if empty, no model is selected in the first column",
-        )
-        column_2: str | None = Field(
-            default=None,
-            description="The id of the model selected in the second column of the playground, if empty, no model is selected in the second column",
-        )
-        column_3: str | None = Field(
-            default=None,
-            description="The id of the model selected in the third column of the playground, if empty, no model is selected in the third column",
-        )
 
     selected_models: SelectedModels = Field(
         description="The models currently selected in the playground",

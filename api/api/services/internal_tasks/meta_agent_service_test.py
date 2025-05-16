@@ -30,6 +30,7 @@ from core.agents.meta_agent import (
     MetaAgentInput,
     MetaAgentOutput,
     RunCurrentAgentOnModelsToolCallRequest,
+    SelectedModels,
 )
 from core.agents.meta_agent import PlaygroundState as PlaygroundStateDomain
 from core.domain.agent_run import AgentRun
@@ -81,7 +82,7 @@ class TestMetaAgentService:
                             output_schema={},
                         ),
                         available_models=[],
-                        selected_models=PlaygroundStateDomain.SelectedModels(
+                        selected_models=SelectedModels(
                             column_1=None,
                             column_2=None,
                             column_3=None,
@@ -119,7 +120,7 @@ class TestMetaAgentService:
                             output_schema={},
                         ),
                         available_models=[],
-                        selected_models=PlaygroundStateDomain.SelectedModels(
+                        selected_models=SelectedModels(
                             column_1=None,
                             column_2=None,
                             column_3=None,
@@ -247,9 +248,10 @@ class TestMetaAgentService:
                 "user@example.com",
                 [
                     MetaAgentChatMessage(
-                        sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541),
+                        sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541, tzinfo=datetime.timezone.utc),
                         role="USER",
                         content="Hello",
+                        kind="non_specific",
                     ),
                 ],
                 [
@@ -263,16 +265,18 @@ class TestMetaAgentService:
                 [
                     [
                         MetaAgentChatMessage(
-                            sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541),
+                            sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541, tzinfo=datetime.timezone.utc),
                             role="ASSISTANT",
                             content="Hi there!",
+                            kind="non_specific",
                         ),
                     ],
                     [
                         MetaAgentChatMessage(
-                            sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541),
+                            sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541, tzinfo=datetime.timezone.utc),
                             role="ASSISTANT",
                             content="How can I help you today?",
+                            kind="non_specific",
                         ),
                     ],
                 ],
@@ -281,9 +285,10 @@ class TestMetaAgentService:
                 None,
                 [
                     MetaAgentChatMessage(
-                        sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541),
+                        sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541, tzinfo=datetime.timezone.utc),
                         role="USER",
                         content="Help",
+                        kind="non_specific",
                     ),
                 ],
                 [
@@ -293,9 +298,10 @@ class TestMetaAgentService:
                 [
                     [
                         MetaAgentChatMessage(
-                            sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541),
+                            sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541, tzinfo=datetime.timezone.utc),
                             role="ASSISTANT",
                             content="I can help with WorkflowAI!",
+                            kind="non_specific",
                         ),
                     ],
                 ],
@@ -307,9 +313,10 @@ class TestMetaAgentService:
                 [
                     [
                         MetaAgentChatMessage(
-                            sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541),
+                            sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541, tzinfo=datetime.timezone.utc),
                             role="ASSISTANT",
                             content="Hi, I'm WorkflowAI's agent. How can I help you?",
+                            kind="non_specific",
                         ),
                     ],
                 ],
@@ -375,7 +382,7 @@ class TestMetaAgentService:
                     output_schema={},
                 ),
                 available_models=[],
-                selected_models=PlaygroundStateDomain.SelectedModels(
+                selected_models=SelectedModels(
                     column_1=None,
                     column_2=None,
                     column_3=None,

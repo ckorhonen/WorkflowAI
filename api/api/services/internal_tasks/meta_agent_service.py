@@ -25,10 +25,12 @@ from core.agents.meta_agent import (
     EditSchemaToolCallResult,
     GenerateAgentInputToolCallResult,
     ImprovePromptToolCallResult,
+    InputFile,
     MetaAgentInput,
     MetaAgentOutput,
     RunCurrentAgentOnModelsToolCallRequest,
     RunCurrentAgentOnModelsToolCallResult,
+    SelectedModels,
     meta_agent,
 )
 from core.agents.meta_agent import (
@@ -59,9 +61,10 @@ from core.domain.events import EventRouter, MetaAgentChatMessagesSent
 from core.domain.fields.chat_message import ChatMessage
 from core.domain.fields.file import File
 from core.domain.integration.integration_domain import (
+    Integration,
     ProgrammingLanguage,
 )
-from core.domain.integration.integration_mapping import default_integration_for_language
+from core.domain.integration.integration_mapping import default_integration_for_language, get_integration_by_kind
 from core.domain.models.model_data import LatestModel
 from core.domain.models.model_datas_mapping import MODEL_DATAS
 from core.domain.models.model_provider_datas_mapping import AZURE_PROVIDER_DATA, OPENAI_PROVIDER_DATA
@@ -132,11 +135,26 @@ class MetaAgentToolCall(BaseModel):
     @model_validator(mode="after")
     def post_validate(self):
         if not self.tool_call_id:
-            self.tool_call_id = f"{self.tool_name}_{compute_obj_hash(obj={**self.model_dump(), 'ts': datetime.datetime.now().isoformat()})}"
+            self.tool_call_id = f"{self.tool_name}_{compute_obj_hash(obj={**self.model_dump(), 'ts': datetime.datetime.now(tz=datetime.timezone.utc).isoformat()})}"
         return self
 
 
 class PlaygroundState(BaseModel):
+    is_proxy: bool = Field(
+        default=False,
+        description="Whether the playground is a proxy playground",
+    )
+
+    version_id: str | None = Field(
+        default=None,
+        description="The id of the version of the agent",
+    )
+
+    version_messages: list[dict[str, Any]] | None = Field(
+        default=None,
+        description="The messages of the version",
+    )
+
     agent_input: dict[str, Any] | None = Field(
         default=None,
         description="The input for the agent",
@@ -162,8 +180,8 @@ class PlaygroundState(BaseModel):
             description="The id of the model selected in the third column of the playground, if empty, no model is selected in the third column",
         )
 
-        def to_domain(self) -> PlaygroundStateDomain.SelectedModels:
-            return PlaygroundStateDomain.SelectedModels(
+        def to_domain(self) -> SelectedModels:
+            return SelectedModels(
                 column_1=self.column_1,
                 column_2=self.column_2,
                 column_3=self.column_3,
@@ -400,7 +418,7 @@ class MetaAgentService:
         self,
         agent_input: dict[str, Any] | None,
         input_schema: dict[str, Any],
-    ) -> tuple[dict[str, Any], list[PlaygroundStateDomain.InputFile] | None]:
+    ) -> tuple[dict[str, Any], list[InputFile] | None]:
         """
         Extract files from agent input and return modified input and files list.
 
@@ -422,7 +440,7 @@ class MetaAgentService:
             if files:
                 # Convert FileWithKeyPath objects to PlaygroundState.InputFile objects
                 agent_input_files = [
-                    PlaygroundStateDomain.InputFile(
+                    InputFile(
                         key_path=".".join(str(key) for key in file.key_path),
                         file=File(
                             content_type=file.content_type,
@@ -618,7 +636,7 @@ class MetaAgentService:
         )
 
         return MetaAgentInput(
-            current_datetime=datetime.datetime.now(),
+            current_datetime=datetime.datetime.now(tz=datetime.timezone.utc),
             messages=[message.to_domain() for message in messages],
             latest_messages_url_content=await self._extract_url_content_from_messages(messages),
             company_context=MetaAgentInput.CompanyContext(
@@ -886,7 +904,7 @@ class MetaAgentService:
         messages: list[MetaAgentChatMessage],
         playground_state: PlaygroundState,
     ) -> AsyncIterator[list[MetaAgentChatMessage]]:
-        now = datetime.datetime.now()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         if len(messages) == 0:
             yield [MetaAgentChatMessage(role="ASSISTANT", content=FIRST_MESSAGE_CONTENT, sent_at=now)]
             return
@@ -1071,6 +1089,7 @@ class MetaAgentService:
         user_email: str | None,
         messages: list[MetaAgentChatMessage],
         current_agent: SerializableTaskVariant,
+        playground_state: PlaygroundState,
     ) -> tuple[ProxyMetaAgentInput, list[AgentRun]]:
         # Fetch context data with exception handling
         context = await self._fetch_proxy_meta_agent_context(
@@ -1079,17 +1098,24 @@ class MetaAgentService:
             user_email,
         )
 
-        """
         # Extract files from agent_input
         agent_input_schema = current_agent.input_schema.json_schema.copy()
         agent_input_copy, agent_input_files = self._extract_files_from_agent_input(
             playground_state.agent_input,
             agent_input_schema,
         )
-        """
+
         return ProxyMetaAgentInput(
-            current_datetime=datetime.datetime.now(),
+            current_datetime=datetime.datetime.now(tz=datetime.timezone.utc),
             messages=[message.to_proxy_domain() for message in messages],
+            current_agent=ProxyMetaAgentInput.Agent(
+                name=current_agent.name,
+                slug=current_agent.task_id,
+                schema_id=current_agent.task_schema_id,
+                description=current_agent.description,
+                input_schema=current_agent.input_schema.json_schema,
+                output_schema=current_agent.output_schema.json_schema,
+            ),
             latest_messages_url_content=await self._extract_url_content_from_messages(messages),
             company_context=ProxyMetaAgentInput.CompanyContext(
                 company_name=context.company_description.company_name if context.company_description else None,
@@ -1108,19 +1134,17 @@ class MetaAgentService:
                 include={ToolKind.WEB_BROWSER_TEXT, ToolKind.WEB_SEARCH_PERPLEXITY_SONAR_PRO},
             ),
             playground_state=ProxyPlaygroundStateDomain(
-                current_agent=ProxyPlaygroundStateDomain.Agent(
-                    name=current_agent.name,
-                    slug=current_agent.task_id,
-                    schema_id=current_agent.task_schema_id,
-                    description=current_agent.description,
-                    input_schema=current_agent.input_schema.json_schema,
-                    output_schema=current_agent.output_schema.json_schema,
-                ),
+                agent_input=agent_input_copy,
+                agent_input_files=agent_input_files,
+                agent_instructions=playground_state.agent_instructions,
+                agent_temperature=playground_state.agent_temperature,
                 available_models=await self._proxy_build_model_list("", current_agent),  # TODO: add instructions
+                selected_models=playground_state.selected_models.to_domain(),
                 agent_runs=[
                     ProxyPlaygroundStateDomain.AgentRun(
                         id=agent_run.id,
                         model=agent_run.group.properties.model or "",
+                        input=str(agent_run.task_input),
                         output=str(agent_run.task_output),  # Handle both dict output and str
                         error=agent_run.error.model_dump() if agent_run.error else None,
                         cost_usd=agent_run.cost_usd,
@@ -1216,19 +1240,48 @@ class MetaAgentService:
                 return True
         return False
 
+    async def _resolve_integration_for_agent(
+        self,
+        agent: SerializableTaskVariant,
+        agent_runs: list[AgentRun],
+    ) -> Integration:
+        if agent.used_integration_kind:
+            # If integration is registered for the agent, use it
+            return get_integration_by_kind(agent.used_integration_kind)
+
+        # Else, pick the default integration for the programming language based on the user agent of the latest run
+        user_agent = ""
+        if len(agent_runs) and agent_runs[0].metadata:
+            user_agent = agent_runs[0].metadata.get("user-agent", "")
+
+        programming_language = get_programming_language_for_user_agent(user_agent)
+        return default_integration_for_language(programming_language)
+
     async def stream_proxy_meta_agent_response(
         self,
         task_tuple: TaskTuple,
         agent_schema_id: int,
         user_email: str | None,
         messages: list[MetaAgentChatMessage],
+        playground_state: PlaygroundState,
     ) -> AsyncIterator[list[MetaAgentChatMessage]]:
-        now = datetime.datetime.now()
+        now = datetime.datetime.now(tz=datetime.timezone.utc)
         if len(messages) == 0:
             yield [MetaAgentChatMessage(role="ASSISTANT", content=FIRST_MESSAGE_CONTENT, sent_at=now)]
             return
 
         current_agent = await self.storage.task_variant_latest_by_schema_id(task_tuple[0], agent_schema_id)
+
+        latest_agent = await self.storage.task_variants.get_latest_task_variant(task_tuple[0])
+
+        if (
+            latest_agent
+            and latest_agent.task_schema_id > current_agent.task_schema_id
+            and messages[0].sent_at
+            and latest_agent.created_at > messages[0].sent_at
+        ):
+            # The user has created a new schema_id of the agent (happens when adding input variables and structured output)
+            current_agent = latest_agent
 
         self.dispatch_new_user_messages_event(messages)
 
@@ -1238,27 +1291,25 @@ class MetaAgentService:
             user_email,
             messages,
             current_agent,
+            playground_state,
         )
 
-        # TODO: reuse the integration used in the onboarding (ex: Instructor Python)
-        user_agent = ""
-        if len(agent_runs) and agent_runs[0].metadata:
-            user_agent = agent_runs[0].metadata.get("user-agent", "")
-
-        programming_language = get_programming_language_for_user_agent(user_agent)
-        integration = default_integration_for_language(programming_language)
+        integration = await self._resolve_integration_for_agent(current_agent, agent_runs)
 
         # Fill the agent input with the right documentations
         proxy_meta_agent_input.integration_documentation = DocumentationService().get_documentation_by_path(
             integration.documentation_filepaths,
         )
-        proxy_meta_agent_input.playground_state.current_agent.used_integration = integration
+        proxy_meta_agent_input.current_agent.used_integration = integration
 
         # TODO: remove  messages[-1].content not in ["POLL", "poll"]
         is_user_triggered = self._is_user_triggered(messages) and messages[-1].content not in ["POLL", "poll"]
         is_using_instruction_variables = current_agent.input_schema.json_schema.get("properties", None) is not None
         is_using_structured_generation = not current_agent.output_schema.json_schema.get("format") == "message"
         has_tried_other_models = not self._is_only_using_openai_models(agent_runs)
+
+        proxy_meta_agent_input.current_agent.is_input_variables_enabled = is_using_instruction_variables
+        proxy_meta_agent_input.current_agent.is_structured_output_enabled = is_using_structured_generation
 
         message_kind = "non_specific"
         if not is_user_triggered:
@@ -1282,9 +1333,10 @@ class MetaAgentService:
                         agent_inputs=[agent_run.task_input for agent_run in agent_runs],
                     ),
                 )
-                proxy_meta_agent_input.suggested_instructions_with_input_variables = (
-                    input_variables_extractor_agent_run.instructions_with_input_variables
-                )
+                proxy_meta_agent_input.suggested_messages_with_input_variables = [
+                    message.model_dump()
+                    for message in input_variables_extractor_agent_run.messages_with_input_variables
+                ]
                 proxy_meta_agent_input.suggested_input_variables_example = (
                     input_variables_extractor_agent_run.input_variables_example
                 )

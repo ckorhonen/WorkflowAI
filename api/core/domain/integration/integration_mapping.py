@@ -67,7 +67,7 @@ OFFICIAL_INTEGRATIONS = [
         output_class="zod.z.object",
         display_name="OpenAI SDK (TypeScript)",
         slug=IntegrationKind.OPENAI_SDK_TS,
-        logo_url="https://workflowai.blob.core.windows.net/workflowai-public/typescript.png",
+        logo_url="https://workflowai.blob.core.windows.net/workflowai-public/ts.png",
         landing_page_snippet=OPENAI_SDK_TS_LANDING_PAGE_SNIPPET,
         landing_page_structured_generation_snippet=OPENAI_SDK_TS_LANDING_PAGE_STRUCTURED_GENERATION_SNIPPET,
         integration_chat_initial_snippet=OPENAI_SDK_TS_INTEGRATION_CHAT_INITIAL_SNIPPET,
@@ -78,9 +78,27 @@ OFFICIAL_INTEGRATIONS = [
     ),
 ]
 
+# Build lookup maps for constant-time access. Safe because OFFICIAL_INTEGRATIONS is static.
+DEFAULT_INTEGRATIONS_BY_LANGUAGE: dict[ProgrammingLanguage, Integration] = {
+    integration.programming_language: integration
+    for integration in OFFICIAL_INTEGRATIONS
+    if integration.default_for_language
+}
+
+INTEGRATIONS_BY_KIND: dict[IntegrationKind, Integration] = {
+    integration.slug: integration for integration in OFFICIAL_INTEGRATIONS
+}
+
 
 def default_integration_for_language(language: ProgrammingLanguage) -> Integration:
-    for integration in OFFICIAL_INTEGRATIONS:
-        if integration.programming_language == language and integration.default_for_language:
-            return integration
-    raise ValueError(f"No default integration found for language: {language}")
+    try:
+        return DEFAULT_INTEGRATIONS_BY_LANGUAGE[language]
+    except KeyError as exc:
+        raise ValueError(f"No default integration found for language: {language}") from exc
+
+
+def get_integration_by_kind(kind: IntegrationKind) -> Integration:
+    try:
+        return INTEGRATIONS_BY_KIND[kind]
+    except KeyError as exc:
+        raise ValueError(f"No integration found for kind: {kind}") from exc
