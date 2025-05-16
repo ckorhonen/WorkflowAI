@@ -1,9 +1,11 @@
 import datetime
+import os
 from typing import Any, AsyncIterator, Literal, Self
 
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 
+from core.agents.meta_agent import InputFile, SelectedModels
 from core.domain.documentation_section import DocumentationSection
 from core.domain.feedback import Feedback
 from core.domain.integration.integration_domain import Integration
@@ -187,28 +189,10 @@ class ProxyMetaAgentChatMessage(BaseModel):
 
 
 class PlaygroundState(BaseModel):
-    class Agent(BaseModel):
-        name: str
-        slug: str
-        schema_id: int
-        description: str | None = None
-        input_schema: dict[str, Any]
-        output_schema: dict[str, Any]
-        used_integration: Integration | None = None
-
-    current_agent: Agent = Field(
-        description="The current agent to use for the conversation",
-    )
-
-    """
     agent_input: dict[str, Any] | None = Field(
         default=None,
         description="The input for the agent",
     )
-
-    class InputFile(BaseModel):
-        key_path: str
-        file: File
 
     agent_input_files: list[InputFile] | None = Field(
         default=None,
@@ -223,7 +207,6 @@ class PlaygroundState(BaseModel):
         default=None,
         description="The temperature for the agent",
     )
-    """
 
     class AgentRun(BaseModel):
         id: str = Field(
@@ -232,6 +215,10 @@ class PlaygroundState(BaseModel):
         model: str | None = Field(
             default=None,
             description="The model that was used to generate the agent output",
+        )
+        input: str | None = Field(
+            default=None,
+            description="The input of the agent, if no error occurred.",
         )
         output: str | None = Field(
             default=None,
@@ -299,25 +286,10 @@ class PlaygroundState(BaseModel):
         description="The models currently available in the playground",
     )
 
-    """
-    class SelectedModels(BaseModel):
-        column_1: str | None = Field(
-            default=None,
-            description="The id of the model selected in the first column of the playground, if empty, no model is selected in the first column",
-        )
-        column_2: str | None = Field(
-            default=None,
-            description="The id of the model selected in the second column of the playground, if empty, no model is selected in the second column",
-        )
-        column_3: str | None = Field(
-            default=None,
-            description="The id of the model selected in the third column of the playground, if empty, no model is selected in the third column",
-        )
-
     selected_models: SelectedModels = Field(
         description="The models currently selected in the playground",
     )
-    """
+
     agent_runs: list[AgentRun] | None = Field(
         default=None,
         description="The agent runs",
@@ -331,6 +303,27 @@ class ProxyMetaAgentInput(BaseModel):
 
     messages: list[ProxyMetaAgentChatMessage] = Field(
         description="The list of messages in the conversation, the last message being the most recent one",
+    )
+
+    class Agent(BaseModel):
+        name: str
+        slug: str
+        schema_id: int
+        description: str | None = None
+        input_schema: dict[str, Any]
+        output_schema: dict[str, Any]
+        used_integration: Integration | None = None
+        is_input_variables_enabled: bool = Field(
+            default=False,
+            description="Whether the agent is using input variables",
+        )
+        is_structured_output_enabled: bool = Field(
+            default=False,
+            description="Whether the agent is using structured output",
+        )
+
+    current_agent: Agent = Field(
+        description="The current agent to use for the conversation",
     )
 
     latest_messages_url_content: list[URLContent] = Field(
@@ -468,9 +461,9 @@ class ProxyMetaAgentInput(BaseModel):
         description="The lifecycle info of the agent",
     )
 
-    suggested_instructions_with_input_variables: str | None = Field(
+    suggested_messages_with_input_variables: list[dict[str, Any]] | None = Field(
         default=None,
-        description="The suggested instructions with input variables, if any",
+        description="The suggested messages with input variables, if any",
     )
     suggested_input_variables_example: dict[str, Any] | None = Field(
         default=None,
@@ -504,11 +497,18 @@ Pay attention to the temporality of those runs, with newer runs being at the beg
 
 If the first run in the array use Claude models, and the second one is GPT, that means the user has switched to Claude. If there are back and forth between models, consider that the user has tried cloud but went back to GPT.
 
+# Code blocks guidelines
 When returning code blocks, always make sure the code block is customized to the user's specific context—for example, the model it uses or the name of its agent ('current_agent.slug').
 When returning code blocks, always make sure to just return the part that is to be updated and do not return a full working code block that is too lengthy.
 When returning code blocks, do not use diff formate (+, -, etc.) because the user will not be able to copy paste the code block effectively.
 Inside returning code blocks do not forget to escape double quotes: \" , same for triple quotes: \"\"\"
-Always refer to the 'integration_documentation' that matchers 'playground_state.current_agent.used_integration' for code block language and syntax.
+Always refer to the 'integration_documentation' that matchers 'current_agent.used_integration' for code block language and syntax.
+When inserting 'messages' in the code blocks, make the the 'messages' content match what is found in 'playground_state.agent_runs.input' array.
+When inserting 'model' name in the code blocks, make sure it matches what is found in 'playground_state.agent_runs.model' array.
+When the current_agent.is_structured_output_enabled is false, you can't include a reponse format in the code block, since this is not what is currently used by the agent.
+In code block, make sure to respect the capitalization of (ex: openai.chat.completions.create(), NOT response = openai.ChatCompletion.create())
+When truncating a code, make sure to use the characters that work for the integration language. Ex: "# rest of the code ..." NOT  "/* ... rest of the code ... */" if "current_agent.used_integration.programming_language" is Python.
+
 """
 
 _PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS = """
@@ -516,33 +516,44 @@ Your promise goal here is to make the user migrate to non-OpenAI models. You can
 
 The reason to use different models than OpenAI is having better performing models, cheaper models, faster models.
 
-You must pick a relevant model for the use case of the client and show him some code blocks that show how to update the model."""
+You must:
+- pick a relevant model or several models for the use case of the client.
+- explain the user why you are suggesting this model, and what are the benefits. (Ex: this model is cheaper, this other one has higher quality index, etc.)
+- then you MUST only pass to the user the suggested model string in the code block, ex: model="<agent_name>/<suggested_model_name>". No other code block is needed. Ex: "To try out Claude 3.7 Sonnet, you can simply replace your existing model with: model="agent-name/claude-3-7-sonnet-20250219", (add a comma at the end of the line, to allow the user to copy paste it easily in his code).
+"""
 
 PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS = f"""
 {_PROXY_META_AGENT_COMMON_INSTRUCTIONS}
+
+# Goal
 {_PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS}
 """
 
-_PROPOSE_INPUT_VARIABLES_INSTRUCTIONS = """Your promise goal here is to make the user migrate to input variables. You can check the documentation to see why it's a good idea to use input variables.
-Use the 'suggested_instructions_with_input_variables' and 'suggested_input_variables_example' in order to provide code snippet that are valid in the context of the WorkflowAI integrations documented in the 'workflowai_documentation_sections' section of the input.`
+_PROPOSE_INPUT_VARIABLES_INSTRUCTIONS = """Your goal here is to make the user migrate to input variables. You can check the documentation to see why it's a good idea to use input variables.
+Use the 'suggested_messages_with_input_variables' and 'suggested_input_variables_example'.
 
-Start by 1. Explaining to the user why it's a good idea to use input variables. Start with a simple phrase like "I have something to propose to make your to unlock a lot of WorkflowAI's capabilities: ..."
-Then 2. ALWAYS return the WHOLE 'suggested_instructions_with_input_variables' in a code code block in order for the user to easily copy paste it.
-ALWAYS provide a block that shows how to pass the input variables in the completion request (with extra_body=...)
-When instructions are spread over several messages, make sure to display a code block that showed several messages with the right instructions at the right place.
+Your answer must include:
+- the rational why using input variables is a good idea, based on the documentation in 'workflowai_documentation_sections' and 'integration_documentation'
+- the messages migrated with input variables, from 'suggested_messages_with_input_variables'. Optionally define the messages in separate variable if the messages are lengthy.
+- the part of the code where the updated messages are injected in the completion request
+- the part of the code that shows how to pass the input variables in the completion request (with extra_body for examples)
+
 """
 
 PROPOSE_INPUT_VARIABLES_INSTRUCTIONS = f"""
+{_PROXY_META_AGENT_COMMON_INSTRUCTIONS}
+
+# Goal
 {_PROPOSE_INPUT_VARIABLES_INSTRUCTIONS}
 """
 
 _PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS = """
-Your precise goal here is to make the user migrate to structured output. You can check the documentation to see why it's a good idea to use structured output.
+Your goal here is to make the user migrate to structured output. You can check the documentation to see why it's a good idea to use structured output.
 Use the 'suggested_output_class_code' and 'suggested_instructions_parts_to_remove' in order to provide code snippet that are valid in the context of the WorkflowAI integrations documented in the 'workflowai_documentation_sections' section of the input.`
-If 'suggested_instructions_parts_to_remove' are fed, you can mention to the user that they can remove those parts in their existing instructions that talk about generating a valid JSON, because this is not needed anymore when you use structure generation.
+If 'suggested_instructions_parts_to_remove' are fed, can remove those parts in their existing messages that talk about generating a valid JSON, because this is not needed anymore when you use structure generation. But inform the user that you removed them in your answer.
 
 Start by 1. Explaining to the user why it's a good idea to use structured output. Start with a simple phrase like "Next step is to migrate to structured output...."
-Then 2. Provide the code snippets to the user that will allow them to use structured output. Based on 'suggested_output_class_code' and how to plug the right respons format in the code.
+Then 2. Provide the code snippets to the user that will allow them to use structured output. Based on 'suggested_output_class_code' and how to plug the right respons format in the code. Most of the time, you will use 'reponse_format=<the suggested output class>' in the code block.
 Also add the imports in the code block.
 
 If you mention a SDK or package, etc., make sure you are mentioning the right one, for example "Instructor". You do not need to rebuild the full code snippets, just higlight the main changes to do and a few lines of code around it.
@@ -551,6 +562,8 @@ Be aware that the user can just update his code and has nothing to do in the int
 
 PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS = f"""
 {_PROXY_META_AGENT_COMMON_INSTRUCTIONS}
+
+# Goal
 {_PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS}
 """
 
@@ -570,16 +583,17 @@ GENERIC_INSTRUCTIONS = f"""
 
 async def proxy_meta_agent(input: ProxyMetaAgentInput, instructions: str) -> AsyncIterator[ProxyMetaAgentOutput]:
     client = AsyncOpenAI(
-        api_key="wai-4hcqxDO3eZLytkIsLdSHGLbviAP0P16bRoX6AVGLTFM",
-        base_url="https://run.workflowai.dev/v1",
+        api_key=os.environ["WORKFLOWAI_API_KEY"],
+        base_url=f"{os.environ['WORKFLOWAI_API_URL']}/v1",
     )
     response = await client.chat.completions.create(
-        model="proxy_meta_agent/claude-3-7-sonnet-20250219",
+        model="proxy-meta-agent/claude-3-7-sonnet-20250219",
         messages=[
             {"role": "system", "content": instructions},
             {"role": "user", "content": "{% raw %}" + input.model_dump_json() + "{% endraw %}"},
         ],
         stream=True,
+        temperature=0.0,
     )
     async for chunk in response:
         yield ProxyMetaAgentOutput(assistant_answer=chunk.choices[0].delta.content)

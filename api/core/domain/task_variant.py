@@ -1,10 +1,11 @@
 from datetime import datetime, timezone
-from typing import Any, Self
+from typing import Any, Protocol, Self
 
 from pydantic import BaseModel, Field, model_validator
 
 from core.domain.errors import JSONSchemaValidationError
 from core.domain.fields.chat_message import ChatMessage
+from core.domain.integration.integration_domain import IntegrationKind
 from core.domain.task_typology import TaskTypology
 from core.domain.types import AgentInput, AgentOutput
 from core.storage import TaskTuple
@@ -40,6 +41,7 @@ class SerializableTaskVariant(BaseModel):
     is_public: bool | None = None
 
     creation_chat_messages: list[ChatMessage] | None = None
+    used_integration_kind: IntegrationKind | None = None
 
     def enforce(self, task_input: dict[str, Any], task_output: dict[str, Any], strip_extras: bool = False) -> None:
         try:
@@ -111,3 +113,11 @@ class SerializableTaskVariant(BaseModel):
     @property
     def id_tuple(self) -> TaskTuple:
         return (self.task_id, self.task_uid)
+
+
+class VariantIO(Protocol):
+    @property
+    def input_schema(self) -> SerializableTaskIO: ...
+
+    @property
+    def output_schema(self) -> SerializableTaskIO: ...

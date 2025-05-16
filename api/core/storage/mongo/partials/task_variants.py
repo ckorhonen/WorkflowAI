@@ -1,5 +1,6 @@
 from typing import Any
 
+from core.domain.integration.integration_domain import IntegrationKind
 from core.domain.task_variant import SerializableTaskVariant
 from core.storage import ObjectNotFoundException, TenantTuple
 from core.storage.mongo.models.task_variant import TaskVariantDocument
@@ -11,12 +12,20 @@ class MongoTaskVariantsStorage(PartialStorage[TaskVariantDocument]):
     def __init__(self, tenant: TenantTuple, collection: AsyncCollection):
         super().__init__(tenant, collection, TaskVariantDocument)
 
-    async def update_task(self, task_id: str, is_public: bool | None = None, name: str | None = None):
+    async def update_task(
+        self,
+        task_id: str,
+        is_public: bool | None = None,
+        name: str | None = None,
+        used_integration_kind: IntegrationKind | None = None,
+    ):
         update: dict[str, Any] = {}
         if is_public is not None:
             update["is_public"] = is_public
         if name is not None:
             update["name"] = name
+        if used_integration_kind is not None:
+            update["used_integration_kind"] = used_integration_kind
 
         await self._update_many(
             filter={"slug": task_id},

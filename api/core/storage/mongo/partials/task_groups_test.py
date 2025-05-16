@@ -8,6 +8,7 @@ from bson import ObjectId
 from pymongo.errors import DuplicateKeyError
 
 from core.domain.major_minor import MajorMinor
+from core.domain.message import Message
 from core.domain.task_group import TaskGroupQuery
 from core.domain.task_group_update import TaskGroupUpdate
 from core.storage import ObjectNotFoundException
@@ -575,6 +576,34 @@ class TestListVersionMajors:
         assert majors[0].minors[0].created_by is not None
         assert majors[1].major == 2
         assert majors[1].minors[0].minor == 1
+
+    async def test_list_version_majors_with_messages(
+        self,
+        task_groups_storage: MongoTaskGroupStorage,
+        task_run_group_col: AsyncCollection,
+    ):
+        # Create 2 groups and save them
+        groups = [
+            _task_group(
+                iteration=1,
+                task_id=TASK_ID,
+                hash="hash1",
+                similarity_hash="similarity_hash",
+                properties={"messages": [Message.with_text(role="user", text="Hello, world!")]},
+                created_by={"user_email": "user1@example.com"},
+                _id=ObjectId("659b81500000000000000000"),
+            ),
+        ]
+        await task_run_group_col.insert_many([dump_model(g) for g in groups])
+
+        await task_groups_storage.save_task_group(TASK_ID, "hash1")
+
+        majors = [v async for v in task_groups_storage.list_version_majors(TASK_ID, None)]
+        assert len(majors) == 1
+
+        # Check that the majors are sorted by major and minor
+        assert majors[0].major == 1
+        assert majors[0].properties.messages == [Message.with_text(role="user", text="Hello, world!")]
 
 
 class TestPreviousMajor:

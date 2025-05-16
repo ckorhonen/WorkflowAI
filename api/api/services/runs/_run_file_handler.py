@@ -3,10 +3,13 @@ import logging
 from collections.abc import Iterable
 from typing import Any
 
-from core.domain.agent_run import AgentRun
+from pydantic import ValidationError
+
+from core.domain.agent_run import TaskRunIO
+from core.domain.consts import INPUT_KEY_MESSAGES
 from core.domain.message import Messages
 from core.domain.task_io import RawMessagesSchema, SerializableTaskIO
-from core.domain.task_variant import SerializableTaskVariant
+from core.domain.task_variant import VariantIO
 from core.runners.workflowai.utils import (
     FileWithKeyPath,
     download_file,
@@ -36,9 +39,19 @@ class FileHandler:
             return list(messages.file_iterator())
 
         _, _, input_files = extract_files(agent_io.json_schema, payload)
+
+        if agent_io.uses_messages and isinstance(payload, dict) and INPUT_KEY_MESSAGES in payload:
+            try:
+                messages = Messages.model_validate({"messages": payload[INPUT_KEY_MESSAGES]})
+            except ValidationError:
+                _logger.exception("Error validating extra messages")
+                return input_files
+
+            input_files.extend(list(messages.file_iterator(prefix=INPUT_KEY_MESSAGES)))
+
         return input_files
 
-    async def handle_run(self, run: AgentRun, task_variant: SerializableTaskVariant):
+    async def handle_run(self, run: TaskRunIO, task_variant: VariantIO):
         input_files = self._extract_files(task_variant.input_schema, run.task_input)
         output_files = self._extract_files(task_variant.output_schema, run.task_output)
 

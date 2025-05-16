@@ -6,6 +6,7 @@ import pytest
 from openai import AsyncOpenAI
 from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall, Function
 
+from core.domain.models.models import Model
 from tests.integration.common import IntegrationTestClient
 
 
@@ -470,3 +471,13 @@ async def test_missing_model_error(test_client: IntegrationTestClient, openai_cl
             messages=[],
         )
     assert "Did you mean gpt-4o-mini-latest" in e.value.message
+
+
+async def test_list_models(openai_client: AsyncOpenAI):
+    res = await openai_client.models.list()
+    assert len(res.data) > 0
+
+    model_ids = {m.id for m in res.data}
+    assert model_ids < set(Model)
+    assert Model.GPT_41_LATEST in model_ids
+    assert Model.GPT_3_5_TURBO_1106 not in model_ids
