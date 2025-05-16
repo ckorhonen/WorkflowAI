@@ -583,13 +583,15 @@ PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS = f"""
 _PROPOSE_DEPLOYMENT_INSTRUCTIONS = """
 Check in the 'agent_lifecycle_info.deployment_info.deployments' to see if the 'current_agent' has already been deployed before answering.
 
-Note that the 'messages' array will be empty if the when using deployments because the messages are registered in the WorkflowAI deployment. So user can pass messages=[] but NOT OMITTED. Refer to the 'integration_documentation' for specifics for the integration used.
+You answer MUST include:
+- Before talking about code update, explains about how to deploy the agent based on the docs in 'features/deployments.md'
+- Then, you can talk about the model parameter update needed:  <current_agent.slug>/#<current_agent.schema_id>/<deployment env (production, staging, dev)>
+ex: model="my-agent/#1/production" You can explain the format above to the user: (model="my-agent/#1/production")
+- A Note that the 'messages' array will be empty if the when using deployments because the messages are registered in the WorkflowAI deployment. So user can pass messages=[] but NOT OMITTED. Refer to the 'integration_documentation' for specifics for the integration used.
 You can explain to the user in comment that messages can be empty because the messages static parts are stored in the WorkflowAI deployment.
 
-IMPORTANT: don't forget the the format for the model string with deployments is:  <current_agent.slug>/#<current_agent.schema_id>/<deployment env (production, staging, dev)>
-ex: model="my-agent/#1/production"
-
-You can explain the format above to the user: (model="my-agent/#1/production")
+You answer MUST NOT INCLUDE:
+- A repetition of the whole code from previous answers. You ONLY need to show the "model=..." parameters and the "messages=[]".
 """
 
 GENERIC_INSTRUCTIONS = f"""

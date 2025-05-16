@@ -303,6 +303,7 @@ MetaAgentChatMessageKind: TypeAlias = Literal[
     "try_other_models_proposal",
     "setup_input_variables_proposal",
     "setup_structured_output_proposal",
+    "setup_deployment_proposal",
 ]
 
 
@@ -1387,6 +1388,25 @@ class MetaAgentService:
                 )
                 instructions = PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS
                 message_kind = "setup_structured_output_proposal"
+            elif (
+                agent_runs
+                and has_tried_other_models
+                and is_using_instruction_variables
+                and is_using_structured_generation
+                and not self._is_message_kind_already_sent(messages, "setup_deployment_proposal")
+                and proxy_meta_agent_input.agent_lifecycle_info
+                and proxy_meta_agent_input.agent_lifecycle_info.deployment_info
+                and not proxy_meta_agent_input.agent_lifecycle_info.deployment_info.deployments
+            ):
+                yield [
+                    MetaAgentChatMessage(
+                        role="ASSISTANT",
+                        content="Congratulations on get all that set! Do you want to deploy your agent now? This will allow you to manage your agent instructions from the WorkflowAI dashboard, and you won't need to deploy every time you update your agent's instructions.",
+                        sent_at=now,
+                        kind="setup_deployment_proposal",
+                    ),
+                ]
+                return
             else:
                 # This is a polling without required action, return.
                 yield []
