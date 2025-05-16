@@ -22,3 +22,4 @@ class ProviderOptions(BaseModel):
     top_p: float | None = None
     presence_penalty: float | None = None
     frequency_penalty: float | None = None
+    parallel_tool_calls: bool | None = None

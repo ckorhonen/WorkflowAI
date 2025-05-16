@@ -138,6 +138,8 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         metadata: dict[str, Any] | None = None,
         disable_fallback: bool = False,
         stream_deltas: bool = False,
+        # TODO: this is not set anywhere for now
+        timeout: float | None = None,
     ):
         super().__init__(
             task=task,
@@ -172,6 +174,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             self.is_tool_use_enabled,
             self._typology,
         )
+        self._timeout = timeout
 
     @override
     def version(self) -> str:
@@ -852,8 +855,6 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         iteration_count = 0
         current_messages = messages
 
-        options.enabled_tools = list(self._all_tools())
-
         while iteration_count < MAX_TOOL_CALL_ITERATIONS:
             iteration_count += 1
 
@@ -1052,6 +1053,10 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             top_p=self._options.top_p,
             presence_penalty=self._options.presence_penalty,
             frequency_penalty=self._options.frequency_penalty,
+            parallel_tool_calls=self._options.parallel_tool_calls,
+            enabled_tools=list(self._all_tools()),
+            tool_choice=self._options.tool_choice,
+            timeout=self._timeout,
         )
 
         model_data_copy = model_data.model_copy()
@@ -1072,10 +1077,6 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         options: ProviderOptions,
         messages: list[MessageDeprecated],
     ):
-        # TODO: this should really not be here but instead built when computing options
-        # in _build_provider_data
-        options.enabled_tools = list(self._all_tools())
-
         # For now we don't stream images
         streamable = not self._typology.output.is_text_only and provider.is_streamable(
             options.model,

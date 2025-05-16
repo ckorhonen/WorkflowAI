@@ -185,15 +185,7 @@ async def chat_completions(
                 ),
             )
 
-        properties = TaskGroupProperties(
-            model=agent_ref.model,
-            max_tokens=body.max_completion_tokens or body.max_tokens,
-            temperature=body.temperature,
-            provider=body.workflowai_provider,
-            tool_choice=body.worflowai_tool_choice,
-            top_p=body.top_p,
-            presence_penalty=body.presence_penalty,
-        )
+        properties = TaskGroupProperties(model=agent_ref.model)
         properties.task_variant_id = variant.id
 
         if body.input:
@@ -207,8 +199,7 @@ async def chat_completions(
         else:
             final_input = messages
 
-    if tools := body.domain_tools():
-        properties.enabled_tools = tools
+    body.apply_to(properties)
 
     runner, _ = await group_service.sanitize_groups_for_internal_runner(
         task_id=variant.task_id,
