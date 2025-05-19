@@ -2,7 +2,7 @@ import json
 import logging
 import re
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from typing import Any, Literal, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -16,6 +16,7 @@ from core.domain.llm_completion import LLMCompletion
 from core.domain.message import (
     Message,
     MessageContent,
+    MessageRole,
 )
 from core.domain.models.models import Model
 from core.domain.models.providers import Provider
@@ -27,7 +28,6 @@ from core.domain.types import AgentOutput
 from core.domain.version_environment import VersionEnvironment
 from core.providers.base.provider_error import MissingModelError
 from core.tools import ToolKind
-from core.utils.models.dumps import safe_dump_pydantic_model
 
 # Goal of these models is to be as flexible as possible
 # We definitely do not want to reject calls without being sure
@@ -36,6 +36,30 @@ from core.utils.models.dumps import safe_dump_pydantic_model
 # Also all models have extra allowed so we can track extra values that we may have missed
 
 _logger = logging.getLogger(__name__)
+
+
+_UNSUPPORTED_FIELDS = {
+    "logit_bias",
+    "logprobs",
+    "modalities",
+    "n",
+    "prediction",
+    "seed",
+    "stop",
+    "top_logprobs",
+    "web_search_options",
+}
+_IGNORED_FIELDS = {
+    "service_tier",
+    "store",
+}
+_role_mapping: dict[str, MessageRole] = {
+    "user": "user",
+    "assistant": "assistant",
+    "system": "system",
+    "developer": "system",
+    "tool": "user",
+}
 
 
 class OpenAIAudioInput(BaseModel):
@@ -200,55 +224,60 @@ class OpenAIProxyMessage(BaseModel):
             else None,
         )
 
-    def to_domain(self) -> Message:
-        if not self.content:
-            if self.function_call:
-                return Message(
-                    content=[MessageContent(tool_call_request=self.function_call.to_domain(""))],
-                    role="assistant",
-                )
-            if self.tool_calls:
-                return Message(
-                    content=[MessageContent(tool_call_request=t.to_domain()) for t in self.tool_calls],
-                    role="assistant",
-                )
-            raise BadRequestError(
-                "Content is required",
-                capture=True,
-                extras={"messages": safe_dump_pydantic_model(self)},
-            )
+    def _content_iterator(self) -> Iterator[MessageContent]:
+        # When the role is tool we know that the message only contains the tool call result
 
         if isinstance(self.content, str):
-            content = [MessageContent(text=self.content)]
-        else:
-            content = [c.to_domain() for c in self.content]
+            yield MessageContent(text=self.content)
+        elif self.content:
+            for c in self.content:
+                yield c.to_domain()
 
-        match self.role:
-            case "user":
-                return Message(content=content, role="user")
-            case "tool":
-                return Message(
-                    content=[
-                        MessageContent(
-                            tool_call_result=ToolCall(
-                                id=self.tool_call_id or "",
-                                # TODO: this information is not available
-                                # In the message but we could grab it from the previous messages
-                                tool_name="",
-                                tool_input_dict={},
-                                result=self.content,
-                            ),
-                        ),
-                    ],
-                    role="user",
-                )
-            case "assistant":
-                return Message(content=content, role="assistant")
-            case "system" | "developer":
-                # TODO: raising a validation error would mean that the system message is not supported
-                return Message(content=content, role="system")
-            case _:
-                raise BadRequestError(f"Unknown role: {self.role}", capture=True)
+        if self.function_call:
+            yield MessageContent(tool_call_request=self.function_call.to_domain(""))
+        if self.tool_calls:
+            for t in self.tool_calls:
+                yield MessageContent(tool_call_request=t.to_domain())
+
+    def _to_tool_call_result_message(self) -> Message:
+        if not self.content:
+            raise BadRequestError("Content is required when providing a tool call result", capture=True)
+        if not self.tool_call_id:
+            raise BadRequestError("tool_call_id is required when providing a tool call result", capture=True)
+        return Message(
+            content=[
+                MessageContent(
+                    tool_call_result=ToolCall(
+                        id=self.tool_call_id,
+                        tool_name="",
+                        tool_input_dict={},
+                        result=self.content,
+                    ),
+                ),
+            ],
+            role="user",
+        )
+
+    def to_domain(self) -> Message:
+        # When the role is tool we know that the message only contains the tool call result
+        if self.role == "tool":
+            return self._to_tool_call_result_message()
+
+        if self.tool_call_id:
+            raise BadRequestError("tool_call_id is only allowed when the role is tool", capture=True)
+
+        content = list(self._content_iterator())
+        if not content:
+            raise BadRequestError(
+                "Either content, tool_calls or a tool role is required",
+                capture=True,
+            )
+        try:
+            role = _role_mapping[self.role]
+        except KeyError:
+            raise BadRequestError(f"Unknown role: {self.role}", capture=True)
+
+        return Message(content=content, role=role)
 
     model_config = ConfigDict(extra="allow")
 
@@ -289,23 +318,6 @@ class OpenAIProxyWebSearchOptions(BaseModel):
 
     # TODO:
     user_location: dict[str, Any] | None = None
-
-
-_UNSUPPORTED_FIELDS = {
-    "logit_bias",
-    "logprobs",
-    "modalities",
-    "n",
-    "prediction",
-    "seed",
-    "stop",
-    "top_logprobs",
-    "web_search_options",
-}
-_IGNORED_FIELDS = {
-    "service_tier",
-    "store",
-}
 
 
 class EnvironmentRef(NamedTuple):
