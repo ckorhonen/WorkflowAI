@@ -94,6 +94,8 @@ class ModelDataSupportsOverride(BaseModel):
     support_input_schema: bool | None = None
     supports_output_image: bool | None = None
     supports_output_text: bool | None = None
+    supports_tool_calling: bool | None = None
+    supports_parallel_tool_calls: bool | None = None
 
     def override(self, data: _T) -> _T:
         return data.model_copy(update=self.model_dump(exclude_none=True))

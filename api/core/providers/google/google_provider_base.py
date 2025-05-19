@@ -365,6 +365,7 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
         "url_unreachable-unreachable_5xx",
         "url_rejected",
         "url_roboted",
+        "please ensure the URL is valid and accessible",
     ]
 
     @classmethod
