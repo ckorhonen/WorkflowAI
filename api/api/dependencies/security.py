@@ -13,7 +13,7 @@ from api.dependencies.encryption import EncryptionDep
 from api.services import storage
 from api.services.api_keys import APIKeyService
 from api.services.event_handler import system_event_router
-from api.services.security_svc import SecurityService
+from api.services.security_service import SecurityService
 from api.utils import set_tenant_slug
 from core.domain.errors import InvalidToken
 from core.domain.tenant_data import (
@@ -171,11 +171,11 @@ SecurityServiceDep = Annotated[SecurityService, Depends(security_service_depende
 
 
 async def user_organization(
-    security_svc: SecurityServiceDep,
+    security_service: SecurityServiceDep,
     user: UserDep,
     credentials: BearerDep,
 ) -> TenantData | None:
-    return await security_svc.find_tenant(user, credentials.credentials if credentials else None)
+    return await security_service.find_tenant(user, credentials.credentials if credentials else None)
 
 
 UserOrganizationDep = Annotated[TenantData | None, Depends(user_organization)]
