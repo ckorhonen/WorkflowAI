@@ -77,3 +77,7 @@ class AzureOpenAIProvider(OpenAIProviderBase[AzureOpenAIConfig]):
     @override
     def is_streamable(self, model: Model, enabled_tools: list[Tool] | None = None) -> bool:
         return model not in _ADDITONAL_NON_STREAMING_MODELS and super().is_streamable(model)
+
+    def default_model(self) -> Model:
+        first_deployment = next(iter(self._config.deployments.values()))
+        return Model(next(iter(first_deployment.models)))
