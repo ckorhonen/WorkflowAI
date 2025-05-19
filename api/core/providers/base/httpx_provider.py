@@ -20,7 +20,6 @@ from core.domain.models import Model
 from core.domain.structured_output import StructuredOutput
 from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.abstract_provider import ProviderConfigVar, RawCompletion
-from core.providers.base.client_pool import ClientPool
 from core.providers.base.httpx_provider_base import HTTPXProviderBase
 from core.providers.base.provider_error import ProviderError
 from core.providers.base.provider_options import ProviderOptions
@@ -31,8 +30,6 @@ from core.utils.generics import T
 from core.utils.streams import standard_wrap_sse
 
 ResponseModel = TypeVar("ResponseModel", bound=BaseModel)
-
-shared_client_pool = ClientPool()
 
 
 class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generic[ProviderConfigVar, ResponseModel]):
@@ -193,7 +190,7 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
                 url,
                 json=request,
                 headers=headers,
-                timeout=options.timeout,
+                timeout=self.timeout_or_default(options.timeout),
             )
             response.raise_for_status()
             return response
@@ -340,7 +337,7 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
                     url,
                     json=request,
                     headers=headers,
-                    timeout=options.timeout,
+                    timeout=self.timeout_or_default(options.timeout),
                 ) as response:
                     add_background_task(self._extract_and_log_rate_limits(response, options))
                     if not response.is_success:

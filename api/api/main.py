@@ -30,6 +30,7 @@ from core.domain.errors import DefaultError
 from core.domain.models import Model
 from core.domain.models.model_data import FinalModelData, LatestModel
 from core.domain.models.model_datas_mapping import MODEL_DATAS
+from core.providers.base.httpx_provider_base import HTTPXProviderBase
 from core.providers.base.provider_error import ProviderError
 from core.storage import ObjectNotFoundException
 from core.storage.mongo.migrations.migrate import check_migrations, migrate
@@ -95,6 +96,7 @@ async def lifespan(app: FastAPI):
     # Closing the metrics service to send whatever is left in the buffer
     await close_metrics(metrics_service)
     await wait_for_background_tasks()
+    await HTTPXProviderBase.close()
 
 
 _ONLY_RUN_ROUTES = os.getenv("ONLY_RUN_ROUTES") == "true"

@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager, contextmanager
 from typing import TypeVar
 
 import httpx
-from httpx import Response
+from httpx import USE_CLIENT_DEFAULT, Response
 from pydantic import BaseModel
 from typing_extensions import override
 
@@ -14,7 +14,6 @@ from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.structured_output import StructuredOutput
 from core.providers.base.abstract_provider import AbstractProvider, ProviderConfigVar, ProviderRequestVar, RawCompletion
-from core.providers.base.client_pool import ClientPool
 from core.providers.base.provider_error import (
     ContentModerationError,
     FailedGenerationError,
@@ -37,12 +36,25 @@ from core.utils.streams import JSONStreamError
 
 ResponseModel = TypeVar("ResponseModel", bound=BaseModel)
 
-shared_client_pool = ClientPool()
+
+def _timeout_object(value: float):
+    return httpx.Timeout(read=value, connect=10.0, pool=10.0, write=10.0)
 
 
 # TODO: The fact that the HTTPXProvider class uses a plain dict as a request is blocking for OpenAIImageProvider
 # Ultimately HTTPXProvider should also use a templated request type
 class HTTPXProviderBase(AbstractProvider[ProviderConfigVar, ProviderRequestVar]):
+    _shared_client = httpx.AsyncClient(
+        # 5 minutes timeout by default
+        timeout=_timeout_object(300.0),
+        # max_connections are per origin
+        limits=httpx.Limits(max_connections=500, max_keepalive_connections=100),
+    )
+
+    @classmethod
+    async def close(cls):
+        await cls._shared_client.aclose()
+
     @classmethod
     def _invalid_json_error(
         cls,
@@ -120,10 +132,6 @@ class HTTPXProviderBase(AbstractProvider[ProviderConfigVar, ProviderRequestVar])
                 # which will be handled by the caller
                 pass
 
-    @classmethod
-    def _client_pool(cls) -> ClientPool:
-        return shared_client_pool
-
     def _assign_raw_completion_response_on_error(self, raw_completion: RawCompletion, error: httpx.HTTPStatusError):
         """Set raw completion to None on status error. Usually non 200 status codes from providers means that the
         call did not succeed and we should not have a cost"""
@@ -136,6 +144,8 @@ class HTTPXProviderBase(AbstractProvider[ProviderConfigVar, ProviderRequestVar])
         raw_completion: RawCompletion,
         finally_block: Callable[..., None] | None = None,
     ):
+        """Remap errors for proper handling."""
+        # TODO: this method is called in this file for completion but in httpx_provider for streaming
         try:
             yield
         except (httpx.ConnectError, httpx.ReadError) as e:
@@ -160,7 +170,8 @@ class HTTPXProviderBase(AbstractProvider[ProviderConfigVar, ProviderRequestVar])
                 msg=f"Model failed to generate a valid json: {e}",
                 provider_status_code=200,
             ) from e
-        except httpx.ReadTimeout:
+        except httpx.TimeoutException as e:
+            self._get_logger().warning("Provider request timed out", extra={"request_url": e.request.url}, exc_info=e)
             raise ReadTimeOutError(retry=True, retry_after=10)
         except httpx.RemoteProtocolError:
             raise ProviderInternalError(msg="Provider has disconnected without sending a response.", retry_after=10)
@@ -172,7 +183,13 @@ class HTTPXProviderBase(AbstractProvider[ProviderConfigVar, ProviderRequestVar])
     async def _open_client(self, url: str):
         # We don't open or close the client here
         # Since we re-use them from a shared pool
-        yield shared_client_pool.get(url)
+        yield self._shared_client
+
+    @classmethod
+    def timeout_or_default(cls, value: float | None):
+        if not value:
+            return USE_CLIENT_DEFAULT
+        return _timeout_object(value)
 
     @classmethod
     def _initial_usage(cls, messages: list[MessageDeprecated]) -> LLMUsage:
