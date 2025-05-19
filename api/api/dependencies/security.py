@@ -15,6 +15,7 @@ from api.services.api_keys import APIKeyService
 from api.services.event_handler import system_event_router
 from api.services.security_service import SecurityService
 from api.utils import set_tenant_slug
+from core.domain.consts import WORKFLOWAI_APP_URL
 from core.domain.errors import InvalidToken
 from core.domain.tenant_data import (
     ProviderSettings,
@@ -27,6 +28,7 @@ from core.storage.backend_storage import SystemBackendStorage
 from core.storage.organization_storage import OrganizationSystemStorage
 from core.utils import no_op
 from core.utils.encryption import Encryption
+from core.utils.strings import obfuscate
 
 from ..services.keys import JWK, Claims, KeyRing
 
@@ -87,6 +89,8 @@ async def user_auth_dependency(
     credentials: BearerDep,
     request: Request,
 ) -> User | None:
+    """This dependency is only responsible for parsing the JWT token and returning
+    the user data. It is not responsible for finding the correct tenant."""
     if credentials is not None:
         if APIKeyService.is_api_key(credentials.credentials):
             return None
@@ -94,8 +98,12 @@ async def user_auth_dependency(
         claims = await keys.verify(credentials.credentials, returns=UserClaims)
         return claims.to_domain()
 
-    if request.headers.get("Authorization"):
-        raise InvalidToken("Authorization header must be prefixed with 'Bearer'")
+    if header := request.headers.get("Authorization"):
+        raise InvalidToken(
+            f"Invalid authorization header: {obfuscate(header, 5)}. "
+            "A valid header with an API key looks like 'Bearer wai-****'. If you need a new API key, "
+            f"Grab a fresh one (plus $5 in free LLM credits for new users) at {WORKFLOWAI_APP_URL}/keys 🚀",
+        )
 
     return None
 
@@ -183,7 +191,12 @@ UserOrganizationDep = Annotated[TenantData | None, Depends(user_organization)]
 
 async def required_user_organization(user_org: UserOrganizationDep) -> TenantData:
     if not user_org:
-        raise HTTPException(401, "Authentication is required")
+        raise HTTPException(
+            401,
+            "Authorization header is missing. "
+            "A valid authorization header with an API key looks like 'Bearer wai-****'. If you need a new API key, "
+            f"Grab a fresh one (plus $5 in free LLM credits for new users) at {WORKFLOWAI_APP_URL}/keys 🚀",
+        )
     return user_org
 
 

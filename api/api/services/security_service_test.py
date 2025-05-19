@@ -91,7 +91,7 @@ class TestUserOrganization:
         )
         assert (
             str(e.value)
-            == "Oops! Invalid API key.\nGrab a fresh one (plus $5 in free LLM credits for new users) at https://workflowai.com/keys 🚀"
+            == "Invalid API key provided: sk-12***.\nGrab a fresh one (plus $5 in free LLM credits for new users) at https://workflowai.com/keys 🚀"
         )
 
     async def test_with_user(
