@@ -1465,3 +1465,5 @@ def _build_model_datas() -> ModelDataMapping:
 
 
 MODEL_DATAS = _build_model_datas()
+
+MODEL_COUNT = len([model for model in MODEL_DATAS.values() if isinstance(model, FinalModelData)])
