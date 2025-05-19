@@ -512,20 +512,16 @@ When returning code blocks, always return the smallest chunk possible that reall
 I repeat, you need to consider the code updates the user has made in the previous "messages" and return the smallest chunk possible that really highlight what needs to be changed. Do not repeat code that has not changed from previous messages.
 Please be VERY careful NOT including comments in another language format ex: DO NOT USE '/* */' if 'current_agent.used_integration.programming_language==python' and DO NOT USE '#' if 'current_agent.used_integration.programming_language==typescript'.
 Do NOT provider example for other languages / integration other that the one defined in 'current_agent.used_integration' and 'integration_documentation'.
-
-# Answers length
-All answers must be concise and to the point.
 """
 
 _PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS = """
-Your promise goal here is to make the user migrate to non-OpenAI models. You can check the documentation to see why it's a good idea to use non-OpenAI models.
+Your goal here is to make the user tries out non-OpenAI models. You can check the documentation to see why it's a good idea to use models from other providers.
+The reason to use different models is mostly: having better performing models, cheaper models or faster models.
 
-The reason to use different models than OpenAI is having better performing models, cheaper models, faster models.
-
-You must:
-- pick a relevant model or several models for the use case of the client.
-- briefly explain (50 words max.) the user why you are suggesting this model, and what are the benefits. (Ex: this model is cheaper, this other one has higher quality index, etc.)
-- then you MUST only pass to the user the suggested model string in the code block, ex: model="<agent_name>/<suggested_model_name>". No other code block is needed. Ex: "To try out Claude 3.7 Sonnet, you can simply replace your existing model with: model="agent-name/claude-3-7-sonnet-20250219", (add a comma at the end of the line, to allow the user to copy paste it easily in his code).
+Your answer MUST include:
+- a brief explaination that one of the benefits of WorkflowAI is the ability to use different models from different providers to optimize either performance, cost or latency of agents.
+- Pick two models to suggest to the user: one that has higher quality index that the current model, and one that is cheaper that the current model.
+- then you MUST only pass to the user the suggested models string in the code block, ex: model="<agent_name>/<suggested_model_name>". No other code block is needed. Ex: "To try out Claude 3.7 Sonnet, you can simply replace your existing model with: model="agent-name/claude-3-7-sonnet-20250219", (add a comma at the end of the line, to allow the user to copy paste it easily in his code).
 """
 
 PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS = f"""
@@ -539,15 +535,16 @@ _PROPOSE_INPUT_VARIABLES_INSTRUCTIONS = """Your goal here is to make the user mi
 
 Use the 'suggested_messages_with_input_variables' and 'suggested_input_variables_example'.
 Your answer must include:
-- a brief rationale (50 words max.) why using input variables is a good idea, based on the documentation in 'workflowai_documentation_sections' and 'integration_documentation'
-- all the messages from 'suggested_messages_with_input_variables'. Optionally define the messages in separate variable if the messages are lengthy.
-- the part of the code where the updated messages are injected in the completion request. Make sure all the messages are used.
-- the part of the code that shows how to pass the input variables in the completion request (with "extra_body": {"input": "..."} for OpenAI Python examples, WARNING OpenAI JS does not support "extra_body", "input" needs to be passed in the top level of the completion request)
+- a brief rationale (100 words max.) of why using input variables is a good idea (clearer separation between the agent's instructions and the data it uses, better observability, enabled benchmarking and deployments), based on the documentation in 'workflowai_documentation_sections' and 'integration_documentation'
+- in a first code block: all the messages from 'suggested_messages_with_input_variables'. Optionally define the messages in separate variable if the messages are lengthy.
+- in a second code block: the part of the code where the updated messages are injected in the completion request. Make sure all the messages are used.
+- in the second code block: the part of the code that shows how to pass the input variables in the completion request (with "extra_body": {"input": "..."} for OpenAI Python examples, WARNING OpenAI JS does not support "extra_body", "input" needs to be passed in the top level of the completion request)
 
 Your answer must NOT include:
 - the parts where the user is setting its API keys
 - the initialization of the client (ex: client=openai.OpenAI())
 - do not talk about deployments at this stage
+- any other content
 """
 
 PROPOSE_INPUT_VARIABLES_INSTRUCTIONS = f"""
@@ -585,7 +582,8 @@ _PROPOSE_DEPLOYMENT_INSTRUCTIONS = """
 Check in the 'agent_lifecycle_info.deployment_info.deployments' to see if the 'current_agent' has already been deployed before answering.
 
 You answer MUST include:
-- Before talking about code update, briefly (50 words max.) explains about how to deploy the agent based on the docs in 'features/deployments.md'
+- Before talking about code update explains about how to deploy the agent based on the docs (200 words max.) in 'features/deployments.md'
+- Add a link to https://docs.workflowai.com/features/deployments for the user to read more about deployments.
 - Then, you can talk about the model parameter update needed:  <current_agent.slug>/#<current_agent.schema_id>/<deployment env (production, staging, dev)>
 ex: model="my-agent/#1/production" You can explain the format above to the user: (model="my-agent/#1/production")
 - A Note that the 'messages' array will be empty if the when using deployments because the messages are registered in the WorkflowAI deployment. So user can pass messages=[] but NOT OMITTED. Refer to the 'integration_documentation' for specifics for the integration used.
