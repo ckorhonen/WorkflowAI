@@ -51,4 +51,4 @@ def get_auth_headers(
 
     prepped = request.prepare()
 
-    return {key: value for key, value in dict(prepped.headers).items() if value is not None}  # type: ignore
+    return {key: value for key, value in dict(prepped.headers).items() if value is not None and key != "Content-Length"}  # type: ignore

@@ -19,3 +19,6 @@ class ModelDataSupports(BaseModel):
         default=True,
         description="Whether the model supports parallel tool calls",
     )
+    supports_tool_calling: bool = Field(
+        description="Whether the model supports tool calling",
+    )

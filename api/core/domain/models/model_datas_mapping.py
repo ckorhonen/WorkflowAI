@@ -307,6 +307,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O3_MINI_LATEST_HIGH_REASONING_EFFORT,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.O3_MINI_2025_01_31_MEDIUM_REASONING_EFFORT: ModelData(
             display_name="o3-mini (2025-01-31) - Medium reasoning effort",
@@ -327,6 +328,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O3_MINI_LATEST_MEDIUM_REASONING_EFFORT,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.O3_MINI_2025_01_31_LOW_REASONING_EFFORT: ModelData(
             display_name="o3-mini (2025-01-31) - Low reasoning effort",
@@ -347,6 +349,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O3_MINI_LATEST_LOW_REASONING_EFFORT,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.O4_MINI_LATEST_HIGH_REASONING_EFFORT: LatestModel(
             model=Model.O4_MINI_2025_04_16_HIGH_REASONING_EFFORT,
@@ -381,6 +384,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O4_MINI_LATEST_HIGH_REASONING_EFFORT,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.O4_MINI_2025_04_16_MEDIUM_REASONING_EFFORT: ModelData(
             display_name="o4-mini (2025-04-16) - Medium reasoning effort",
@@ -405,6 +409,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O4_MINI_LATEST_MEDIUM_REASONING_EFFORT,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.O4_MINI_2025_04_16_LOW_REASONING_EFFORT: ModelData(
             display_name="o4-mini (2025-04-16) - Low reasoning effort",
@@ -427,6 +432,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O4_MINI_LATEST_LOW_REASONING_EFFORT,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.O3_LATEST_HIGH_REASONING_EFFORT: LatestModel(
             model=Model.O3_2025_04_16_HIGH_REASONING_EFFORT,
@@ -461,6 +467,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O3_LATEST_HIGH_REASONING_EFFORT,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.O3_2025_04_16_MEDIUM_REASONING_EFFORT: ModelData(
             display_name="o3 (2025-04-16) - Medium reasoning effort",
@@ -485,6 +492,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O3_LATEST_MEDIUM_REASONING_EFFORT,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.O3_2025_04_16_LOW_REASONING_EFFORT: ModelData(
             display_name="o3 (2025-04-16) - Low reasoning effort",
@@ -507,6 +515,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O3_LATEST_LOW_REASONING_EFFORT,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.GEMINI_1_5_PRO_PREVIEW_0514: DeprecatedModel(replacement_model=Model.GEMINI_1_5_PRO_002),
         Model.GEMINI_2_0_FLASH_LITE_PREVIEW_2502: DeprecatedModel(replacement_model=Model.GEMINI_2_0_FLASH_LITE_001),
@@ -778,6 +787,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=90.8, gpqa=78.3),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.O1_2024_12_17_HIGH_REASONING_EFFORT: ModelData(
             display_name="o1 (2024-12-17) - High reasoning effort",
@@ -797,6 +807,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=87, gpqa=91.6),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.O1_2024_12_17_LOW_REASONING_EFFORT: ModelData(
             display_name="o1 (2024-12-17) - Low reasoning effort",
@@ -816,6 +827,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=84.1, gpqa=78),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.CLAUDE_3_5_SONNET_20240620: ModelData(
             display_name="Claude 3.5 Sonnet (2024-06-20)",
