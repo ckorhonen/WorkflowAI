@@ -268,7 +268,7 @@ well organized (by agent) on WorkflowAI (trust me, makes everything easier).
             # There is a change we are capturing a pre-existing, unnamed agent run here, but this is pretty rare, and low impact
             # Especially since the proposed agent name we'll compute will allow the user to understand where the captured run is coming
             # And this will hopefully convince them to name the pre-existing, unnamed agent.
-            if agent.name.lower() == DEFAULT_AGENT_ID.lower():
+            if agent.task_id == DEFAULT_AGENT_ID:
                 return RelevantRunAndAgent(run=run, agent=agent)
 
             # If the agent is already named we just check that it was created after the discussion started
