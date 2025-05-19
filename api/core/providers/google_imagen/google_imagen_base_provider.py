@@ -147,7 +147,7 @@ class GoogleImagenBaseProvider(HTTPXProviderBase[ProviderConfigVar, GoogleImagen
             response = await client.post(
                 url,
                 headers=await self._request_headers(),
-                timeout=options.timeout,
+                timeout=self.timeout_or_default(options.timeout),
                 json=data,
             )
             response.raise_for_status()
