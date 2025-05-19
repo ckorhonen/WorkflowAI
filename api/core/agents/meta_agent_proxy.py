@@ -512,6 +512,9 @@ When returning code blocks, always return the smallest chunk possible that reall
 I repeat, you need to consider the code updates the user has made in the previous "messages" and return the smallest chunk possible that really highlight what needs to be changed. Do not repeat code that has not changed from previous messages.
 Please be VERY careful NOT including comments in another language format ex: DO NOT USE '/* */' if 'current_agent.used_integration.programming_language==python' and DO NOT USE '#' if 'current_agent.used_integration.programming_language==typescript'.
 Do NOT provider example for other languages / integration other that the one defined in 'current_agent.used_integration' and 'integration_documentation'.
+
+# Answers length
+All answers must be concise and to the point.
 """
 
 _PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS = """
@@ -521,7 +524,7 @@ The reason to use different models than OpenAI is having better performing model
 
 You must:
 - pick a relevant model or several models for the use case of the client.
-- explain the user why you are suggesting this model, and what are the benefits. (Ex: this model is cheaper, this other one has higher quality index, etc.)
+- briefly explain (50 words max.) the user why you are suggesting this model, and what are the benefits. (Ex: this model is cheaper, this other one has higher quality index, etc.)
 - then you MUST only pass to the user the suggested model string in the code block, ex: model="<agent_name>/<suggested_model_name>". No other code block is needed. Ex: "To try out Claude 3.7 Sonnet, you can simply replace your existing model with: model="agent-name/claude-3-7-sonnet-20250219", (add a comma at the end of the line, to allow the user to copy paste it easily in his code).
 """
 
@@ -536,7 +539,7 @@ _PROPOSE_INPUT_VARIABLES_INSTRUCTIONS = """Your goal here is to make the user mi
 
 Use the 'suggested_messages_with_input_variables' and 'suggested_input_variables_example'.
 Your answer must include:
-- the rational why using input variables is a good idea, based on the documentation in 'workflowai_documentation_sections' and 'integration_documentation'
+- a brief rationale (50 words max.) why using input variables is a good idea, based on the documentation in 'workflowai_documentation_sections' and 'integration_documentation'
 - all the messages from 'suggested_messages_with_input_variables'. Optionally define the messages in separate variable if the messages are lengthy.
 - the part of the code where the updated messages are injected in the completion request. Make sure all the messages are used.
 - the part of the code that shows how to pass the input variables in the completion request (with "extra_body": {"input": "..."} for OpenAI Python examples, WARNING OpenAI JS does not support "extra_body", "input" needs to be passed in the top level of the completion request)
@@ -558,19 +561,17 @@ _PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS = """
 Your goal here is to make the user migrate to structured output. You can check the documentation to see why it's a good idea to use structured output.
 
 Your answer MUST include, different code blocks that show the following:
-- an explanation of why you are stuctured output is useful, based on the documentation in 'workflowai_documentation_sections' and 'integration_documentation' and the user context
+- a brief explanation (50 words max.) of why you are stuctured output is useful, based on the documentation in 'workflowai_documentation_sections' and 'integration_documentation' and the user context
 - 'suggested_output_class_code' that shows the output class to use
 - when needed, update the 'client.chat.completions.create' to 'client.beta.chat.completions.parse' WARNING: for OpenAI SDK, the method to use for structured output is 'client.beta.chat.completions.parse' NOT 'client.chat.completions.create' NOR 'client.chat.completions.parse'.
 - pass the right response_format in the completion request
 - the "messages" without the parts that are not needed anymore for structured generation (see: 'suggested_instructions_parts_to_remove') but DO NOT REMOVED INPUT VARIABLES if they were present before in the messages, since those are also needed for the structured output
 
-
-
 Your answer must NOT include:
 - the parts where the user is setting its API keys
 - the initialization of the client (ex: client=openai.OpenAI())
 - do not talk about deployments at this stage
-- DO NOT REMOVED INPUT VARIABLES if they were present before in the messages, since those are also needed for the structured output
+- DO NOT REMOVED INPUT VARIABLES, neither from the 'messages' (in double curly braces), nor from from the completion request (ex: extra_body: {"input": "..."}, ,'input', ex.). Input variables are still needed for, even with the structured output.
 """
 
 PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS = f"""
@@ -584,7 +585,7 @@ _PROPOSE_DEPLOYMENT_INSTRUCTIONS = """
 Check in the 'agent_lifecycle_info.deployment_info.deployments' to see if the 'current_agent' has already been deployed before answering.
 
 You answer MUST include:
-- Before talking about code update, explains about how to deploy the agent based on the docs in 'features/deployments.md'
+- Before talking about code update, briefly (50 words max.) explains about how to deploy the agent based on the docs in 'features/deployments.md'
 - Then, you can talk about the model parameter update needed:  <current_agent.slug>/#<current_agent.schema_id>/<deployment env (production, staging, dev)>
 ex: model="my-agent/#1/production" You can explain the format above to the user: (model="my-agent/#1/production")
 - A Note that the 'messages' array will be empty if the when using deployments because the messages are registered in the WorkflowAI deployment. So user can pass messages=[] but NOT OMITTED. Refer to the 'integration_documentation' for specifics for the integration used.
