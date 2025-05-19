@@ -15,12 +15,31 @@ class TestMessagesPreview:
             == "Hello, world!"
         )
 
+    def test_with_system_message(self):
+        assert (
+            _messages_preview(
+                {
+                    "messages": [
+                        {"role": "system", "content": [{"text": "You are a helpful assistant."}]},
+                        {"role": "user", "content": [{"text": "Hello, world!"}]},
+                    ],
+                },
+            )
+            == "Hello, world!"
+        )
+
     def test_messages_preview_with_file(self):
         assert (
             _messages_preview(
                 {"messages": [{"role": "user", "content": [{"file": {"url": "https://example.com/file.png"}}]}]},
             )
             == "[[img:https://example.com/file.png]]"
+        )
+
+    def test_system_only(self):
+        assert (
+            _messages_preview({"messages": [{"role": "system", "content": [{"text": "Hello, world!"}]}]})
+            == "Hello, world!"
         )
 
 
