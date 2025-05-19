@@ -538,7 +538,7 @@ Your answer must include:
 - a brief rationale (100 words max.) of why using input variables is a good idea (clearer separation between the agent's instructions and the data it uses, better observability, enabled benchmarking and deployments), based on the documentation in 'workflowai_documentation_sections' and 'integration_documentation'
 - in a first code block: all the messages from 'suggested_messages_with_input_variables'. Optionally define the messages in separate variable if the messages are lengthy.
 - in a second code block: the part of the code where the updated messages are injected in the completion request. Make sure all the messages are used.
-- in the second code block: the part of the code that shows how to pass the input variables in the completion request (with "extra_body": {"input": "..."} for OpenAI Python examples, WARNING OpenAI JS does not support "extra_body", "input" needs to be passed in the top level of the completion request)
+- in the second code block: the part of the code that shows how to pass the input variables in the completion request (with "extra_body": {"input": "..."} for OpenAI Python examples, WARNING OpenAI JS / TS does not support "extra_body", "input" needs to be passed in the top level of the completion request) AND '// @ts-expect-error input is specific to the WorkflowAI implementation' needs to be added if the code is in TS.
 
 Your answer must NOT include:
 - the parts where the user is setting its API keys
@@ -559,7 +559,7 @@ Your goal here is to make the user migrate to structured output. You can check t
 
 Your answer MUST include, different code blocks that show the following:
 - a brief explanation (50 words max.) of why you are stuctured output is useful, based on the documentation in 'workflowai_documentation_sections' and 'integration_documentation' and the user context
-- 'suggested_output_class_code' that shows the output class to use
+- 'suggested_output_class_code' that shows the output class to use, including eventual description and examples.
 - when needed, update the 'client.chat.completions.create' to 'client.beta.chat.completions.parse' WARNING: for OpenAI SDK, the method to use for structured output is 'client.beta.chat.completions.parse' NOT 'client.chat.completions.create' NOR 'client.chat.completions.parse'.
 - pass the right response_format in the completion request
 - the "messages" without the parts that are not needed anymore for structured generation (see: 'suggested_instructions_parts_to_remove') but DO NOT REMOVED INPUT VARIABLES if they were present before in the messages, since those are also needed for the structured output
