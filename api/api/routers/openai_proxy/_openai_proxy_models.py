@@ -70,7 +70,7 @@ class OpenAIProxyContent(BaseModel):
             case "text":
                 if not self.text:
                     raise BadRequestError("Text content is required")
-                return MessageContent(text=self.text)
+                return MessageContent(text=self.text.strip())
             case "image_url":
                 if not self.image_url:
                     raise BadRequestError("Image URL content is required")
@@ -323,7 +323,13 @@ class ModelRef(NamedTuple):
     agent_id: str | None
 
 
-_agent_schema_env_regex = re.compile(rf"^([^/]+)/#(\d+)/({'|'.join(VersionEnvironment)})$")
+_environment_aliases = {
+    "prod": VersionEnvironment.PRODUCTION,
+    "development": VersionEnvironment.DEV,
+}
+_agent_schema_env_regex = re.compile(
+    rf"^([^/]+)/#(\d+)/({'|'.join([*VersionEnvironment, *_environment_aliases.keys()])})$",
+)
 
 
 class OpenAIProxyChatCompletionRequest(BaseModel):
@@ -467,7 +473,7 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
                 return EnvironmentRef(
                     agent_id=match.group(1),
                     schema_id=int(match.group(2)),
-                    environment=VersionEnvironment(match.group(3)),
+                    environment=VersionEnvironment(_environment_aliases.get(match.group(3), match.group(3))),
                 )
             except Exception:
                 # That should really not happen. It would be pretty bad because it might mean that our regexp
@@ -532,6 +538,18 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
             return env
 
         if not model:
+            if len(splits) > 2:
+                # This is very likely an invalid environment error so we should raise an explicit BadRequestError
+                raise BadRequestError(
+                    f"'{self.model}' does not refer to a valid model or deployment. Use either the "
+                    "'<agent-id>/#<schema-id>/<environment>' format to target a deployed environment or "
+                    "<agent-id>/<model> to target a specific model. If the model cannot be changed, it is also "
+                    "possible to pass the agent_id, schema_id and environment at the root of the completion request. "
+                    "See https://run.workflowai.com/docs#/openai/chat_completions_v1_chat_completions_post for more "
+                    "information.",
+                    capture=True,
+                    extras={"model": self.model},
+                )
             raise MissingModelError(model=splits[-1])
 
         return ModelRef(

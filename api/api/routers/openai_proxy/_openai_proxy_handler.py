@@ -15,6 +15,7 @@ from core.domain.consts import INPUT_KEY_MESSAGES, WORKFLOWAI_APP_URL
 from core.domain.errors import BadRequestError
 from core.domain.events import ProxyAgentCreatedEvent
 from core.domain.message import Message, Messages
+from core.domain.models.model_datas_mapping import MODEL_COUNT
 from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_io import RawJSONMessageSchema, RawMessagesSchema, RawStringMessageSchema, SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
@@ -369,7 +370,7 @@ class OpenAIProxyHandler:
 
     @classmethod
     async def missing_model_error(cls, model: str | None):
-        _check_lineup = f"Check the lineup 👉 {WORKFLOWAI_APP_URL}/models (25+ models)"
+        _check_lineup = f"Check the lineup 👉 {WORKFLOWAI_APP_URL}/models ({MODEL_COUNT} models)"
         if not model:
             return BadRequestError(
                 f"""Empty model

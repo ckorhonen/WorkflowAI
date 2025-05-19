@@ -19,10 +19,7 @@ def _messages_preview(payload: Any, include_roles: set[str] = {"user"}, max_len:
         logging.getLogger("RunsService").warning("Error validating messages", exc_info=True)
         return None
 
-    try:
-        first_user_message = next((m for m in validated.messages if m.role in include_roles))
-    except StopIteration:
-        return None
+    first_user_message = next((m for m in validated.messages if m.role in include_roles), validated.messages[0])
 
     if not first_user_message.content:
         return None
