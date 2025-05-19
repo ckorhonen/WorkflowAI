@@ -43,6 +43,13 @@ class TestOpenAIProxyContent:
         )
         assert payload.to_domain() == MessageContent(file=File(url="https://hello.com/image.png", format="image"))
 
+    def test_stripped_text(self):
+        payload = OpenAIProxyContent(
+            type="text",
+            text="   Hello, world!   ",
+        )
+        assert payload.to_domain() == MessageContent(text="Hello, world!")
+
 
 class TestOpenAIProxyMessageToDomain:
     def test_with_tool_calls(self):

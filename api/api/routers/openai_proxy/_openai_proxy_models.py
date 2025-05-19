@@ -70,7 +70,7 @@ class OpenAIProxyContent(BaseModel):
             case "text":
                 if not self.text:
                     raise BadRequestError("Text content is required")
-                return MessageContent(text=self.text)
+                return MessageContent(text=self.text.strip())
             case "image_url":
                 if not self.image_url:
                     raise BadRequestError("Image URL content is required")
