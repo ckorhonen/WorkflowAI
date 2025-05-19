@@ -9,6 +9,7 @@ from core.domain.models.models import Model
 from core.domain.task_group_properties import TaskGroupProperties, ToolChoiceFunction
 from core.domain.tool import Tool
 from core.domain.tool_call import ToolCall
+from core.domain.version_environment import VersionEnvironment
 from core.providers.base.provider_error import MissingModelError
 
 from ._openai_proxy_models import (
@@ -235,6 +236,32 @@ class TestOpenAIProxyChatCompletionRequestExtractReferences:
         assert isinstance(refs, ModelRef)
         assert refs.model == Model.GPT_4O_LATEST
         assert refs.agent_id == "my-agent"
+
+    def test_invalid_deployment_string(self):
+        """Test when environment is invalid"""
+        payload = OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "messages": [{"role": "user", "content": "Hello, world!"}],
+                "model": "my-agent/#123/invalid-env",
+            },
+        )
+        with pytest.raises(BadRequestError) as e:
+            payload.extract_references()
+        assert "does not refer to a valid model or deployment" in str(e.value)
+
+    def test_invalid_environment_alias(self):
+        """Test when environment is an alias"""
+        payload = OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "messages": [{"role": "user", "content": "Hello, world!"}],
+                "model": "my-agent/#123/prod",
+            },
+        )
+        refs = payload.extract_references()
+        assert isinstance(refs, EnvironmentRef)
+        assert refs.agent_id == "my-agent"
+        assert refs.schema_id == 123
+        assert refs.environment == VersionEnvironment.PRODUCTION
 
 
 class TestOpenAIProxyChatCompletionRequestApplyTo:
