@@ -27,6 +27,9 @@ Your goal is to analyze several LLM runs to find what is the output schema of th
 
 You must propose a class that implements 'structured_object_class' that will be used as the output schema of the agent. Please always included the required imports in the code block.
 
+When relevant you must add description and examples to the fields of the class. By using Field(description="...", examples=["..."]) for Pydantic classes and .describe("...") for Zod classes.
+Do not forget to import 'Field' from pydantic and any other imports you need.
+
 You must also eventually remove some instructions from the original instructions that does not make sense to when using structured generations (ex: "You must return a JSON object").
 """
 
