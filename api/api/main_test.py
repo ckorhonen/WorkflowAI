@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from typing import Iterator
+from typing import Any, Iterator, cast
 from unittest.mock import Mock
 
 import pytest
@@ -175,6 +175,11 @@ class TestModelsEndpoint:
         assert isinstance(data, dict)
         assert data["object"] == "list"
         assert isinstance(data["data"], list)
+
+        first_model = cast(dict[str, Any], data["data"][0])
+        assert first_model["object"] == "model"
+        assert "supports" in first_model
+        assert "parallel_tool_calls" in first_model["supports"]
 
     async def test_models_endpoint_order_check(self, test_api_client: AsyncClient, mock_tenant_dep: Mock):
         # Making sure we raise if the tenant dep is called

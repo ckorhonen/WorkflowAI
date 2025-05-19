@@ -15,3 +15,7 @@ class ModelDataSupports(BaseModel):
     support_input_schema: bool = Field(default=True, description="Whether the model supports input schema")
     supports_output_image: bool = Field(default=False, description="Whether the model supports output images")
     supports_output_text: bool = Field(default=True, description="Whether the model supports output text")
+    supports_parallel_tool_calls: bool = Field(
+        default=True,
+        description="Whether the model supports parallel tool calls",
+    )
