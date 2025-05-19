@@ -25,10 +25,6 @@ _logger = logging.getLogger(__name__)
 
 class GoogleImagenBaseProvider(HTTPXProviderBase[ProviderConfigVar, GoogleImagenRequest]):
     @override
-    def default_model(self) -> Model:
-        return Model.IMAGEN_3_0_001
-
-    @override
     def is_streamable(self, model: Model, enabled_tools: list[Tool] | None = None) -> bool:
         return False
 

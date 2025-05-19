@@ -151,10 +151,6 @@ class AmazonBedrockProvider(HTTPXProvider[AmazonBedrockConfig, CompletionRespons
     def _default_config(cls, index: int) -> AmazonBedrockConfig:
         return AmazonBedrockConfig.from_env(index)
 
-    @override
-    def default_model(self) -> Model:
-        return Model.CLAUDE_3_5_SONNET_20240620
-
     def _raise_for_message_if_needed(self, raw: str, response: httpx.Response | None = None):
         try:
             bedrock_error = BedrockError.model_validate_json(raw)

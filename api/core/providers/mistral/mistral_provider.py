@@ -203,10 +203,6 @@ class MistralAIProvider(HTTPXProvider[MistralAIConfig, CompletionResponse]):
             url=get_provider_config_env("MISTRAL_API_URL", index, "https://api.mistral.ai/v1/chat/completions"),
         )
 
-    @override
-    def default_model(self) -> Model:
-        return Model.PIXTRAL_12B_2409
-
     def _extra_stream_delta_tool_calls(
         self,
         delta: DeltaMessage,

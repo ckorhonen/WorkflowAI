@@ -94,10 +94,6 @@ class GoogleProvider(GoogleProviderBase[GoogleProviderConfig]):
     def _default_config(cls, index: int) -> GoogleProviderConfig:
         return GoogleProviderConfig.default(index)
 
-    @override
-    def default_model(self) -> Model:
-        return Model.GEMINI_2_0_FLASH_001
-
     @classmethod
     def sanitize_config(cls, config: GoogleProviderConfig) -> GoogleProviderConfig:
         return config.sanitize()

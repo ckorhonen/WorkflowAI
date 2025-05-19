@@ -65,10 +65,6 @@ class GoogleGeminiAPIProvider(GoogleProviderBase[GoogleGeminiAPIProviderConfig])
             api_key=get_provider_config_env("GEMINI_API_KEY", index),
         )
 
-    @override
-    def default_model(self) -> Model:
-        return Model.GEMINI_2_0_FLASH_001
-
     def _compute_prompt_token_count_per_token(self, messages: list[dict[str, Any]], model: Model) -> float:
         token_count = 0
 

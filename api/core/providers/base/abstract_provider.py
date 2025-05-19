@@ -28,6 +28,7 @@ from core.domain.models.model_provider_data import (
     ModelProviderData,
     TextPricePerToken,
 )
+from core.domain.models.model_provider_datas_mapping import MODEL_PROVIDER_DATAS
 from core.domain.models.utils import get_model_data, get_model_provider_data, get_provider_data_by_model
 from core.domain.structured_output import StructuredOutput
 from core.domain.tool import Tool
@@ -75,10 +76,8 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
     def is_custom_config(self) -> bool:
         return self._config_id is not None
 
-    # TODO: remove, we should use the first mode available in the mapping
-    @abstractmethod
     def default_model(self) -> Model:
-        pass
+        return next(iter(MODEL_PROVIDER_DATAS[self.name()].keys()))
 
     @classmethod
     @abstractmethod

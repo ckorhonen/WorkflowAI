@@ -75,9 +75,5 @@ class AzureOpenAIProvider(OpenAIProviderBase[AzureOpenAIConfig]):
         )
 
     @override
-    def default_model(self) -> Model:
-        return Model.GPT_4O_2024_11_20
-
-    @override
     def is_streamable(self, model: Model, enabled_tools: list[Tool] | None = None) -> bool:
         return model not in _ADDITONAL_NON_STREAMING_MODELS and super().is_streamable(model)

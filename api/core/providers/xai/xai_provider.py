@@ -224,10 +224,6 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
     def _default_config(cls, index: int) -> XAIConfig:
         return XAIConfig(api_key=get_provider_config_env("XAI_API_KEY", index))
 
-    @override
-    def default_model(self) -> Model:
-        return Model.LLAMA_3_3_70B
-
     @property
     def is_structured_generation_supported(self) -> bool:
         return True
