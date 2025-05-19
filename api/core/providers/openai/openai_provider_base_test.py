@@ -46,9 +46,6 @@ class _TestOpenAIProviderBase(OpenAIProviderBase[_TestProviderConfig]):
     def _default_config(cls, index: int) -> _TestProviderConfig:
         return _TestProviderConfig()
 
-    def default_model(self) -> Model:
-        return Model.GPT_3_5_TURBO_0125
-
     def _request_url(self, model: Model, stream: bool) -> str:
         return "test"
 

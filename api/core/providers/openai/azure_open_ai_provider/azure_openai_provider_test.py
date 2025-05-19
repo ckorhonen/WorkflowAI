@@ -853,3 +853,27 @@ class TestUnsupportedParameterError:
                 options=ProviderOptions(model=Model.GPT_4O_2024_11_20, max_tokens=10, temperature=0),
                 output_factory=lambda x, _: StructuredOutput(json.loads(x)),
             )
+
+
+class TestDefaultModel:
+    def test_default_model_multiple_deployments(self, azure_openai_provider: AzureOpenAIProvider):
+        # Setup provider with test config
+        azure_openai_provider._config = AzureOpenAIConfig.model_validate(  # pyright: ignore [reportPrivateUsage]
+            {
+                "deployments": {
+                    "eastus": {
+                        "api_key": "test-key-eastus",
+                        "url": "https://test-eastus.openai.azure.com",
+                        "models": ["gpt-4o-2024-11-20"],
+                    },
+                    "westus": {
+                        "api_key": "test-key-westus",
+                        "url": "https://test-westus.openai.azure.com",
+                        "models": ["gpt-4-turbo-2024-04-09"],
+                    },
+                },
+            },
+        )
+
+        default_model = azure_openai_provider.default_model()
+        assert default_model == Model.GPT_4O_2024_11_20

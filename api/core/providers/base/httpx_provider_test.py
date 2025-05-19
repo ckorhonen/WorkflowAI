@@ -65,10 +65,6 @@ class MockedProvider(HTTPXProvider[Any, Any]):
     def name(cls) -> Provider:
         return Provider.OPEN_AI
 
-    @override
-    def default_model(cls) -> Model:
-        return Model.GPT_4O_2024_05_13
-
     @classmethod
     @override
     def required_env_vars(cls) -> list[str]:

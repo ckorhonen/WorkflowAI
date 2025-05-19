@@ -346,10 +346,6 @@ class FireworksAIProvider(HTTPXProvider[FireworksConfig, CompletionResponse]):
             ),
         )
 
-    @override
-    def default_model(self) -> Model:
-        return Model.LLAMA_3_3_70B
-
     @property
     def is_structured_generation_supported(self) -> bool:
         return True

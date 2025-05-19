@@ -29,10 +29,6 @@ _logger = logging.getLogger(__name__)
 
 
 class OpenAIImageProvider(HTTPXProviderBase[OpenAIImageConfig, OpenAIImageRequest]):
-    @override
-    def default_model(self) -> Model:
-        return Model.GPT_IMAGE_1
-
     @classmethod
     @override
     def name(cls) -> Provider:

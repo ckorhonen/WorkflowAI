@@ -340,10 +340,6 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
         )
 
     @override
-    def default_model(self) -> Model:
-        return Model.GEMINI_1_5_FLASH_002
-
-    @override
     @classmethod
     def requires_downloading_file(cls, file: File, model: Model) -> bool:
         if model in MODELS_THAT_REQUIRE_DOWNLOADING_FILES:
