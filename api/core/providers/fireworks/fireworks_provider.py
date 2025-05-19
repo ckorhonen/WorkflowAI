@@ -92,12 +92,14 @@ class FireworksAIProvider(HTTPXProvider[FireworksConfig, CompletionResponse]):
     _thinking_tag_context = ContextVar[bool | None]("_thinking_tag_context", default=None)
 
     def _response_format(self, options: ProviderOptions, model_data: ModelData):
-        if not options.output_schema:
-            return TextResponseFormat()
         if options.enabled_tools:
             # We disable structured generation if tools are enabled
-            # TODO: check why
+            # since fireworks does not support providing both tool calls and structured output
+            # Fireworks responds with "You cannot specify response format and function call at the same time"
+            # Meaning that even TextResponseFormat is not supported
             return None
+        if not options.output_schema:
+            return TextResponseFormat()
         if not model_data.supports_structured_output:
             # Structured gen is deactivated for some models like R1
             # Since it breaks the thinking part
