@@ -17,8 +17,10 @@ from ._openai_proxy_models import (
     ModelRef,
     OpenAIProxyChatCompletionRequest,
     OpenAIProxyContent,
+    OpenAIProxyFunctionCall,
     OpenAIProxyImageURL,
     OpenAIProxyMessage,
+    OpenAIProxyToolCall,
 )
 
 
@@ -72,6 +74,34 @@ class TestOpenAIProxyMessageToDomain:
                 ),
             ],
         )
+
+    def test_with_tool_call_requests(self):
+        message = OpenAIProxyMessage(
+            content="I'll help you draft an email to this GitHub user. First, let me gather their information to personalize the message.",
+            name=None,
+            role="assistant",
+            tool_calls=[
+                OpenAIProxyToolCall(
+                    id="toolu_01DWXmuSygXFvBcVTxhEoCeb",
+                    type="function",
+                    function=OpenAIProxyFunctionCall(
+                        name="enrich_github_username",
+                        arguments='{"github_username": "guillaumegoogle"}',
+                    ),
+                ),
+            ],
+            function_call=None,
+            tool_call_id=None,
+        )
+        domain_message = message.to_domain()
+        assert domain_message.role == "assistant"
+        assert len(domain_message.content) == 2
+        assert (
+            domain_message.content[0].text
+            == "I'll help you draft an email to this GitHub user. First, let me gather their information to personalize the message."
+        )
+        assert domain_message.content[1].tool_call_request is not None
+        assert domain_message.content[1].tool_call_request.id == "toolu_01DWXmuSygXFvBcVTxhEoCeb"
 
 
 class TestOpenAIProxyChatCompletionRequestToolChoice:

@@ -39,7 +39,5 @@ async def chat_completions(
     request: Request,
     user_org: RequiredUserOrganizationDep,
 ) -> Response:
-    body.check_supported_fields()
-
     handler = OpenAIProxyHandler(group_service, storage, run_service, event_router)
     return await handler.handle(body, request, user_org)
