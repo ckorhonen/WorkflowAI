@@ -1,13 +1,22 @@
+import { Code16Regular, Save16Regular } from '@fluentui/react-icons';
 import { cx } from 'class-variance-authority';
-import { useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useMemo, useState } from 'react';
 import { DebouncedState } from 'usehooks-ts';
 import { ProxyMessagesView } from '@/app/[tenant]/agents/[taskId]/[taskSchemaId]/playground/Proxy/universal/ProxyMessagesView';
-import { TaskVersionBadgeContainer } from '@/components/TaskIterationBadge/TaskVersionBadgeContainer';
 import { TaskVersionNotes } from '@/components/TaskVersionNotes';
 import { Badge } from '@/components/ui/Badge';
 import { TaskRunCountBadge } from '@/components/v2/TaskRunCountBadge/TaskRunCountBadge';
-import { environmentsForVersion } from '@/lib/versionUtils';
+import { useDemoMode } from '@/lib/hooks/useDemoMode';
+import { useIsAllowed } from '@/lib/hooks/useIsAllowed';
+import { useTaskSchemaParams } from '@/lib/hooks/useTaskParams';
+import { taskApiRoute } from '@/lib/routeFormatter';
+import { environmentsForVersion, formatSemverVersion, isVersionSaved } from '@/lib/versionUtils';
+import { useIsSavingVersion } from '@/store/fetchers';
+import { useVersions } from '@/store/versions';
+import { TaskSchemaID } from '@/types/aliases';
 import { ProxyMessage, VersionV1 } from '@/types/workflowAI';
+import { Button } from '../ui/Button';
 import { TaskCostBadge } from './TaskCostBadge';
 import { TaskEnvironmentBadge } from './TaskEnvironmentBadge';
 import { TaskModelBadge } from './TaskModelBadge';
@@ -26,7 +35,7 @@ export function TaskMetadataSection(props: TaskMetadataSectionProps) {
   return (
     <div className='flex flex-col gap-2 px-4 py-1.5 font-lato'>
       <div className='flex flex-col gap-1'>
-        <div className='text-[13px] font-medium text-gray-800 capitalize'>{title}</div>
+        <div className='text-[13px] font-medium text-gray-900 capitalize'>{title}</div>
         <div className='flex-1 flex justify-start overflow-hidden'>
           <div className='truncate'>{children}</div>
         </div>
@@ -83,7 +92,7 @@ type TaskMetadataProps = {
   version: VersionV1;
 };
 
-export function TaskVersionDetails(props: TaskMetadataProps) {
+export function ProxyVersionDetails(props: TaskMetadataProps) {
   const {
     bottomText,
     children,
@@ -93,9 +102,12 @@ export function TaskVersionDetails(props: TaskMetadataProps) {
     maximalHeightOfInstructions = 173,
     version,
   } = props;
+  const { tenant, taskId } = useTaskSchemaParams();
+
   const versionId = version?.id;
   const properties = version?.properties;
 
+  const router = useRouter();
   const onViewRuns = useViewRuns(version?.schema_id, version);
 
   const environments = useMemo(() => environmentsForVersion(version) || [], [version]);
@@ -105,6 +117,17 @@ export function TaskVersionDetails(props: TaskMetadataProps) {
 
   const namesAndValues: { name: string; value: string }[] = useMemo(() => extractNamesAndValues(version), [version]);
 
+  const isSaved = isVersionSaved(version);
+  const isSaving = useIsSavingVersion(version?.id);
+  const { isInDemoMode } = useDemoMode();
+
+  const versionNumber = useMemo(() => {
+    if (!version) {
+      return undefined;
+    }
+    return formatSemverVersion(version);
+  }, [version]);
+
   const onUpdateNotes = useCallback(
     async (notes: string) => {
       if (!versionId || !handleUpdateNotes) return;
@@ -113,37 +136,96 @@ export function TaskVersionDetails(props: TaskMetadataProps) {
     [versionId, handleUpdateNotes]
   );
 
+  const saveVersion = useVersions((state) => state.saveVersion);
+  const { checkIfSignedIn } = useIsAllowed();
+
+  const onSave = useCallback(async () => {
+    if (!checkIfSignedIn()) {
+      return;
+    }
+    await saveVersion(tenant, taskId, version.id);
+  }, [saveVersion, tenant, taskId, version.id, checkIfSignedIn]);
+
+  const [isOpeningCode, setIsOpeningCode] = useState(false);
+
+  const onOpenTaskCode = useCallback(async () => {
+    if (!version) {
+      return;
+    }
+
+    const versionId = version.id;
+    const taskSchemaId = `${version.schema_id}` as TaskSchemaID;
+
+    if (!tenant || !taskId || !taskSchemaId || !versionId) return;
+
+    if (!checkIfSignedIn()) {
+      return;
+    }
+
+    setIsOpeningCode(true);
+    if (!isVersionSaved(version)) {
+      await saveVersion(tenant, taskId, versionId);
+    }
+
+    router.push(
+      taskApiRoute(tenant, taskId, taskSchemaId, {
+        selectedVersionId: versionId,
+      })
+    );
+
+    setIsOpeningCode(false);
+  }, [router, tenant, taskId, version, saveVersion, checkIfSignedIn]);
+
   if (!version || !properties) {
     return null;
   }
 
   const fewShotCount = few_shot?.count;
-
   const runCount = version.run_count ?? undefined;
 
   return (
     <div className={cx(className, 'pb-1.5 bg-white')}>
-      {versionId !== undefined && (
-        <TaskMetadataSection
-          title='version'
-          footer={
-            <TaskVersionNotes
-              notes={version.notes}
-              onUpdateNotes={!!handleUpdateNotes ? onUpdateNotes : undefined}
-              versionId={versionId}
-            />
-          }
-        >
-          <TaskVersionBadgeContainer version={version} showDetails={false} />
+      <div className='flex flex-row gap-2 items-center justify-between border-b border-gray-200 border-dashed h-11 px-4 mb-2'>
+        {isSaved ? (
+          <>
+            <div className='text-[15px] font-semibold text-gray-700'>Version {versionNumber}</div>
+            <Button
+              variant='newDesign'
+              size='sm'
+              icon={<Code16Regular />}
+              onClick={onOpenTaskCode}
+              loading={isOpeningCode}
+              disabled={isInDemoMode}
+            >
+              View Code
+            </Button>
+          </>
+        ) : (
+          <>
+            <div className='text-[15px] font-semibold text-gray-700'>Version Preview</div>
+            <Button
+              variant='newDesign'
+              size='sm'
+              icon={<Save16Regular />}
+              onClick={onSave}
+              loading={isSaving}
+              disabled={isInDemoMode}
+            >
+              Save
+            </Button>
+          </>
+        )}
+      </div>
+
+      {version.notes !== undefined && (
+        <TaskMetadataSection title='Notes'>
+          <TaskVersionNotes
+            notes={version.notes}
+            onUpdateNotes={!!handleUpdateNotes ? onUpdateNotes : undefined}
+            versionId={versionId}
+          />
         </TaskMetadataSection>
       )}
-
-      {'cost_estimate_usd' in version && (
-        <TaskMetadataSection title='cost (per 1k runs)'>
-          <TaskCostBadge cost={version.cost_estimate_usd} />
-        </TaskMetadataSection>
-      )}
-
       {environments.length > 0 && (
         <TaskMetadataSection title='environment'>
           <div className='flex flex-wrap items-center justify-end gap-1'>
@@ -153,24 +235,9 @@ export function TaskVersionDetails(props: TaskMetadataProps) {
           </div>
         </TaskMetadataSection>
       )}
-
       {model && (
         <TaskMetadataSection title='model'>
           <TaskModelBadge model={model} providerId={provider} />
-        </TaskMetadataSection>
-      )}
-
-      {namesAndValues.map(({ name, value }) => (
-        <TaskMetadataSection key={name} title={name}>
-          <Badge variant='tertiary' className='w-fit'>
-            {value}
-          </Badge>
-        </TaskMetadataSection>
-      ))}
-
-      {fewShotCount !== undefined && fewShotCount !== null && (
-        <TaskMetadataSection title='few-shot'>
-          {`${fewShotCount} ${fewShotCount > 1 ? 'examples' : 'example'}`}
         </TaskMetadataSection>
       )}
 
@@ -193,24 +260,46 @@ export function TaskVersionDetails(props: TaskMetadataProps) {
           </div>
         </div>
       )}
-
       {!!messages && (
         <div className='flex flex-col w-full items-top pl-4 pr-4 py-1.5 gap-1'>
           <div className='text-[13px] font-medium text-gray-800'>Messages</div>
-          <ProxyMessagesView messages={messages as ProxyMessage[]} />
+          <div className='flex flex-col w-full max-h-[400px] overflow-y-auto'>
+            <ProxyMessagesView messages={messages as ProxyMessage[]} />
+          </div>
         </div>
       )}
 
-      {temperature !== undefined && temperature !== null && (
-        <TaskMetadataSection title='temperature'>
-          <TaskTemperatureBadge temperature={temperature} />
+      <div className='grid grid-cols-3 gap-2'>
+        {temperature !== undefined && temperature !== null && (
+          <TaskMetadataSection title='temperature'>
+            <TaskTemperatureBadge temperature={temperature} />
+          </TaskMetadataSection>
+        )}
+
+        {'cost_estimate_usd' in version && (
+          <TaskMetadataSection title='cost'>
+            <TaskCostBadge cost={version.cost_estimate_usd} />
+          </TaskMetadataSection>
+        )}
+
+        <TaskMetadataSection title='runs'>
+          <TaskRunCountBadge runsCount={runCount} onClick={onViewRuns} />
         </TaskMetadataSection>
-      )}
 
-      <TaskMetadataSection title='runs'>
-        <TaskRunCountBadge runsCount={runCount} onClick={onViewRuns} />
-      </TaskMetadataSection>
+        {fewShotCount !== undefined && fewShotCount !== null && (
+          <TaskMetadataSection title='few-shot'>
+            {`${fewShotCount} ${fewShotCount > 1 ? 'examples' : 'example'}`}
+          </TaskMetadataSection>
+        )}
 
+        {namesAndValues.map(({ name, value }) => (
+          <TaskMetadataSection key={name} title={name}>
+            <Badge variant='tertiary' className='w-fit'>
+              {value}
+            </Badge>
+          </TaskMetadataSection>
+        ))}
+      </div>
       {children}
     </div>
   );

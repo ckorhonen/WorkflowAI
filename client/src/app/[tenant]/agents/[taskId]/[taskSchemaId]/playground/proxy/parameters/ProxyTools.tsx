@@ -3,8 +3,8 @@ import { Button } from '@/components/ui/Button';
 import { DialogContent } from '@/components/ui/Dialog';
 import { Dialog } from '@/components/ui/Dialog';
 import { ToolKind, Tool_Output } from '@/types/workflowAI';
-import { getIcon } from '../components/Toolbox/utils';
-import { getToolName } from '../components/Toolbox/utils';
+import { getIcon } from '../../components/Toolbox/utils';
+import { getToolName } from '../../components/Toolbox/utils';
 import { ProxyToolDetails } from './ProxyToolDetails';
 
 type ProxyToolsProps = {
