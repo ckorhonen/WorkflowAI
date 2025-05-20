@@ -580,3 +580,35 @@ async def test_deployed_version_no_messages_with_empty_input(
     assert len(body["messages"]) == 2
     assert body["messages"][0]["content"] == "You are a helpful assistant"
     assert body["messages"][1]["content"] == "Hello hades!"
+
+
+async def test_internal_tools(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+    test_client.mock_openai_call(
+        tool_calls_content=[
+            {
+                "id": "some_id",
+                "type": "function",
+                "function": {"name": "search-google", "arguments": '{"query": "bla"}'},
+            },
+        ],
+    )
+    test_client.httpx_mock.add_response(
+        url="https://google.serper.dev/search",
+        text="blabla",
+    )
+    test_client.mock_openai_call(raw_content="Hello, world!")
+
+    res = await openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "Use @search-google to find information"},
+            {"role": "user", "content": "Hello, world!"},
+        ],
+    )
+    assert res.choices[0].message.content == "Hello, world!"
+
+    await test_client.wait_for_completed_tasks()
+
+    serper_request = test_client.httpx_mock.get_request(url="https://google.serper.dev/search")
+    assert serper_request
+    assert serper_request.content == b'{"q": "bla"}'
