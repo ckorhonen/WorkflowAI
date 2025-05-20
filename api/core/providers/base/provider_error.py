@@ -358,6 +358,10 @@ class ProviderBadRequestError(ProviderError):
     default_capture = False
     default_store_task_run = False
 
+    @override
+    def default_fingerprint(self):
+        return [self.code, self.provider, str(self)]
+
 
 class ProviderInvalidFileError(ProviderBadRequestError):
     code = "invalid_file"
