@@ -1,3 +1,6 @@
+# pyright: reportPrivateUsage=false
+
+
 import pytest
 
 from core.domain.fields.file import File

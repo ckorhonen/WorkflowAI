@@ -52,6 +52,7 @@ from core.providers.base.provider_error import (
 from core.providers.base.provider_options import ProviderOptions
 from core.runners.abstract_runner import AbstractRunner, CacheFetcher
 from core.runners.workflowai.internal_tool import build_all_internal_tools
+from core.runners.workflowai.message_fixer import MessageAutofixer
 from core.runners.workflowai.provider_pipeline import ProviderPipeline
 from core.runners.workflowai.templates import (
     TemplateName,
@@ -519,6 +520,13 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             if builder := self._get_builder_context():
                 builder.record_file_download_seconds(download_duration)
 
+    @classmethod
+    def _fix_messages(cls, messages: Messages):
+        try:
+            messages.messages = MessageAutofixer().fix(messages.messages)
+        except ValueError as e:
+            raise BadRequestError(msg=str(e)) from e
+
     async def _inline_messages(
         self,
         messages: Messages,
@@ -528,6 +536,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
     ) -> list[MessageDeprecated]:
         # First handle all files as needed
         await self._handle_files_in_messages(messages, provider)
+        self._fix_messages(messages)
 
         if structured_output or not self._prepared_output_schema.prepared_schema:
             return messages.to_deprecated()
@@ -898,6 +907,8 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             return res, True
 
         # TODO: use the tool cache for that
+        # That's not good also because it probably breaks the tool call message ordering
+        # since most models require the tool call result to be immediately after the tool call request
         # Detect the tools calls made in previous HTTPS requests, but present in the messages
         if any(tool_call.id in message.content for message in messages):
             return ToolCall(

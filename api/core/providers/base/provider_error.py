@@ -356,7 +356,11 @@ class ProviderBadRequestError(ProviderError):
     default_status_code = 400
     default_message = "Bad request"
     default_capture = False
-    default_store_task_run = False
+    default_store_task_run = True
+
+    @override
+    def default_fingerprint(self):
+        return [self.code, self.provider, str(self)]
 
 
 class ProviderInvalidFileError(ProviderBadRequestError):
