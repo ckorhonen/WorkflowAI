@@ -508,3 +508,19 @@ class TestDomainTools:
         assert isinstance(tools[0], Tool)
         assert tools[0].name == "test_tool"
         assert tools[1] == ToolKind.WEB_SEARCH_GOOGLE
+
+    def test_workflowai_tools_in_instructions(self):
+        """Test that workflowai_tools are detected in system message"""
+        request = OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "messages": [
+                    {"role": "system", "content": "Use @search-google to find information"},
+                    {"role": "user", "content": "Hello, world!"},
+                ],
+                "model": "gpt-4o",
+            },
+        )
+        tools = request.domain_tools()
+        assert tools is not None
+        assert len(tools) == 1
+        assert tools[0] == ToolKind.WEB_SEARCH_GOOGLE

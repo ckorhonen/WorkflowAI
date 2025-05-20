@@ -27,7 +27,7 @@ from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.domain.types import AgentOutput
 from core.domain.version_environment import VersionEnvironment
 from core.providers.base.provider_error import MissingModelError
-from core.tools import ToolKind
+from core.tools import ToolKind, get_tools_in_instructions
 
 # Goal of these models is to be as flexible as possible
 # We definitely do not want to reject calls without being sure
@@ -225,6 +225,14 @@ class OpenAIProxyMessage(BaseModel):
             else None,
         )
 
+    @property
+    def first_string_content(self) -> str | None:
+        if isinstance(self.content, str):
+            return self.content
+        if self.content and self.content[0].type == "text":
+            return self.content[0].text
+        return None
+
     def _content_iterator(self) -> Iterator[MessageContent]:
         # When the role is tool we know that the message only contains the tool call result
 
@@ -413,7 +421,8 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
 
     workflowai_tools: list[str] | None = Field(
         default=None,
-        description="A list of WorkflowAI hosted tools",
+        description=f"A list of WorkflowAI hosted tools. Possible values are `{'`, `'.join(ToolKind)}`."
+        "When not provided, we attempt to detect tools in the system message.",
     )
 
     model_config = ConfigDict(extra="allow")
@@ -440,11 +449,19 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
                 used_tool_names.add(d.name)
                 yield d
 
-            if self.workflowai_tools:
+            if self.workflowai_tools is not None:
+                # WorkflowAI tools provides a way to avoid detection of tools in the instructions
                 try:
                     yield from (ToolKind.from_str(t) for t in self.workflowai_tools)
                 except ValueError as e:
                     raise BadRequestError(f"{str(e)}. Valid WorkflowAI tools are `{'`, `'.join(ToolKind)}`")
+            else:
+                if (
+                    self.messages
+                    and self.messages[0].role == "system"
+                    and (first_content := self.messages[0].first_string_content)
+                ):
+                    yield from get_tools_in_instructions(first_content)
 
         return list(_iterator()) or None
 

@@ -54,9 +54,15 @@ class ToolKind(StrEnum):
         return instructions
 
 
+_tool_handle_regex = re.compile(r"@[a-z0-9_-]+")
+
+
 def get_tools_in_instructions(instructions: str) -> set[ToolKind | Tool]:
     enabled_tools: set[ToolKind | Tool] = set()
-    for tool_kind in ToolKind:
-        if any(is_handle_in(instructions, tool_id) for tool_id in tool_kind.aliases | {tool_kind.value}):
-            enabled_tools.add(tool_kind)
+    for match in _tool_handle_regex.finditer(instructions):
+        handle = match.group(0)
+        try:
+            enabled_tools.add(ToolKind.from_str(handle))
+        except ValueError:
+            pass
     return enabled_tools
