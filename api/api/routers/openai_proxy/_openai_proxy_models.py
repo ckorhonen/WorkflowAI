@@ -49,10 +49,11 @@ _UNSUPPORTED_FIELDS = {
     "top_logprobs",
     "web_search_options",
 }
-_IGNORED_FIELDS = {
-    "service_tier",
-    "store",
-}
+# We used to send a warning when the ignored fields were used
+# _IGNORED_FIELDS = {
+#     "service_tier",
+#     "store",
+# }
 _role_mapping: dict[str, MessageRole] = {
     "user": "user",
     "assistant": "assistant",
@@ -410,6 +411,11 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
 
     use_cache: CacheUsage | None = None
 
+    workflowai_tools: list[str] | None = Field(
+        default=None,
+        description="A list of WorkflowAI hosted tools",
+    )
+
     model_config = ConfigDict(extra="allow")
 
     @property
@@ -418,11 +424,29 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
 
     def domain_tools(self) -> list[Tool | ToolKind] | None:
         """Returns a tuple of the tools and a boolean indicating if the function call is deprecated"""
-        if self.tools:
-            return [t.to_domain() for t in self.tools]
-        if self.functions:
-            return [t.to_domain() for t in self.functions]
-        return None
+
+        def _raw_tool_iterator() -> Iterator[OpenAIProxyTool | OpenAIProxyFunctionDefinition]:
+            if self.tools:
+                yield from self.tools
+            if self.functions:
+                yield from self.functions
+
+        def _iterator() -> Iterator[Tool | ToolKind]:
+            used_tool_names = set[str]()
+            for t in _raw_tool_iterator():
+                d = t.to_domain()
+                if d.name in used_tool_names:
+                    raise BadRequestError(f"Tool {d.name} is defined multiple times", capture=True)
+                used_tool_names.add(d.name)
+                yield d
+
+            if self.workflowai_tools:
+                try:
+                    yield from (ToolKind.from_str(t) for t in self.workflowai_tools)
+                except ValueError as e:
+                    raise BadRequestError(f"{str(e)}. Valid WorkflowAI tools are `{'`, `'.join(ToolKind)}`")
+
+        return list(_iterator()) or None
 
     def full_metadata(self, headers: Mapping[str, Any]) -> dict[str, Any] | None:
         base = self.metadata or {}
@@ -444,8 +468,6 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
                 f"Field{'s' if plural else ''} `{'`, `'.join(fields)}` {'are' if plural else 'is'} not supported",
                 capture=True,
             )
-        for field in _IGNORED_FIELDS:
-            _logger.warning(f"Field {field} is ignored by openai proxy")  # noqa: G004
 
     @property
     def workflowai_provider(self) -> Provider | None:

@@ -11,6 +11,7 @@ from core.domain.tool import Tool
 from core.domain.tool_call import ToolCall
 from core.domain.version_environment import VersionEnvironment
 from core.providers.base.provider_error import MissingModelError
+from core.tools import ToolKind
 
 from ._openai_proxy_models import (
     EnvironmentRef,
@@ -445,3 +446,65 @@ class TestOpenAIProxyChatCompletionRequestApplyTo:
         tool = properties.enabled_tools[0]
         assert isinstance(tool, Tool)
         assert tool.name == "test_function"
+
+
+class TestDomainTools:
+    def test_domain_tools_multiple_definitions(self):
+        """Test that domain_tools raises an error if a tool is defined multiple times"""
+        request = OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "messages": [],
+                "model": "gpt-4o",
+                "tools": [
+                    {"type": "function", "function": {"name": "test_tool", "parameters": {}}},
+                    {"type": "function", "function": {"name": "test_tool", "parameters": {}}},
+                ],
+            },
+        )
+        with pytest.raises(BadRequestError) as e:
+            request.domain_tools()
+        assert "Tool test_tool is defined multiple times" in str(e.value)
+
+    def test_returns_none_if_no_tools(self):
+        """Test that domain_tools returns None if no tools are defined"""
+        request = OpenAIProxyChatCompletionRequest.model_validate(
+            {"messages": [], "model": "gpt-4o"},
+        )
+        assert request.domain_tools() is None
+
+    def test_domain_tools_multiple_definitions_with_functions(self):
+        """Test that domain_tools raises an error if a tool is defined multiple times"""
+        request = OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "messages": [],
+                "model": "gpt-4o",
+                "functions": [
+                    {"name": "test_tool", "parameters": {}},
+                ],
+                "tools": [
+                    {"type": "function", "function": {"name": "test_tool", "parameters": {}}},
+                ],
+            },
+        )
+        with pytest.raises(BadRequestError) as e:
+            request.domain_tools()
+        assert "Tool test_tool is defined multiple times" in str(e.value)
+
+    def test_valid_tools_and_hosted_tools(self):
+        """Test that domain_tools returns valid tools and hosted tools"""
+        request = OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "messages": [],
+                "model": "gpt-4o",
+                "tools": [
+                    {"type": "function", "function": {"name": "test_tool", "parameters": {}}},
+                ],
+                "workflowai_tools": ["@search-google"],
+            },
+        )
+        tools = request.domain_tools()
+        assert tools is not None
+        assert len(tools) == 2
+        assert isinstance(tools[0], Tool)
+        assert tools[0].name == "test_tool"
+        assert tools[1] == ToolKind.WEB_SEARCH_GOOGLE

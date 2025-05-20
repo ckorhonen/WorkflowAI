@@ -25,11 +25,11 @@ class ToolKind(StrEnum):
     def from_str(cls, handle: str) -> "ToolKind":
         try:
             return ToolKind(handle)
-        except ValueError as e:
-            if handle in cls.alias_map().keys():
+        except ValueError:
+            try:
                 return cls.alias_map()[handle]
-
-            raise e
+            except KeyError:
+                raise ValueError(f"'{handle}' is not a valid WorkflowAI tool")
 
     @classmethod
     def alias_map(cls) -> dict[str, "ToolKind"]:
