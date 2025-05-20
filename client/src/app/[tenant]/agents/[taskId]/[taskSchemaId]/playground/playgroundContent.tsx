@@ -63,8 +63,6 @@ import {
   VersionV1,
 } from '@/types/workflowAI';
 import { ProxyMessage } from '@/types/workflowAI';
-import { ProxySection } from './Proxy/ProxySection';
-import { useIsProxy } from './Proxy/hooks/useIsProxy';
 import { PlaygroundChat } from './components/Chat/PlaygroundChat';
 import { RunAgentsButton } from './components/RunAgentsButton';
 import { useFetchTaskRunUntilCreated } from './hooks/useFetchTaskRunUntilCreated';
@@ -84,6 +82,8 @@ import { pickFinalRunProperties } from './hooks/utils';
 import { PlaygroundInputContainer } from './playgroundInputContainer';
 import { PlaygroundInputSettingsModal } from './playgroundInputSettingsModal';
 import { PlaygroundOutput } from './playgroundOutput';
+import { ProxySection } from './proxy/ProxySection';
+import { useIsProxy } from './proxy/hooks/useIsProxy';
 
 export type PlaygroundContentProps = {
   taskId: TaskID;

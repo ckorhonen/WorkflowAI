@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { TaskTemperatureView } from '@/components/v2/TaskTemperatureBadge';
 import { MajorVersion, ProxyMessage } from '@/types/workflowAI';
-import { ProxyMessagesView } from '../../Proxy/universal/ProxyMessagesView';
+import { ProxyMessagesView } from '../../proxy/universal/ProxyMessagesView';
 
 type MajorVersionDetailsProps = {
   majorVersion: MajorVersion;

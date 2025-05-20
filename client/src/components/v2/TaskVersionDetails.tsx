@@ -1,7 +1,7 @@
 import { cx } from 'class-variance-authority';
 import { useCallback, useMemo } from 'react';
 import { DebouncedState } from 'usehooks-ts';
-import { ProxyMessagesView } from '@/app/[tenant]/agents/[taskId]/[taskSchemaId]/playground/Proxy/universal/ProxyMessagesView';
+import { ProxyMessagesView } from '@/app/[tenant]/agents/[taskId]/[taskSchemaId]/playground/proxy/universal/ProxyMessagesView';
 import { TaskVersionBadgeContainer } from '@/components/TaskIterationBadge/TaskVersionBadgeContainer';
 import { TaskVersionNotes } from '@/components/TaskVersionNotes';
 import { Badge } from '@/components/ui/Badge';
