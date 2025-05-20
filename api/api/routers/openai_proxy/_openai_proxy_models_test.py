@@ -103,6 +103,18 @@ class TestOpenAIProxyMessageToDomain:
         assert domain_message.content[1].tool_call_request is not None
         assert domain_message.content[1].tool_call_request.id == "toolu_01DWXmuSygXFvBcVTxhEoCeb"
 
+    def test_empty_content_in_tool_message(self):
+        message = OpenAIProxyMessage.model_validate(
+            {
+                "content": "",
+                "role": "tool",
+                "tool_call_id": "2",
+            },
+        )
+        domain_message = message.to_domain()
+        assert len(domain_message.content) == 1
+        assert domain_message.content[0].tool_call_result
+
 
 class TestOpenAIProxyChatCompletionRequestToolChoice:
     @pytest.mark.parametrize(

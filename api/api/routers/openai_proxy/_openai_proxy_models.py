@@ -240,7 +240,7 @@ class OpenAIProxyMessage(BaseModel):
                 yield MessageContent(tool_call_request=t.to_domain())
 
     def _to_tool_call_result_message(self) -> Message:
-        if not self.content:
+        if self.content is None:
             raise BadRequestError("Content is required when providing a tool call result", capture=True)
         if not self.tool_call_id:
             raise BadRequestError("tool_call_id is required when providing a tool call result", capture=True)
