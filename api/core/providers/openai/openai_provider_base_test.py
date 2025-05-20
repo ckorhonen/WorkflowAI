@@ -3,11 +3,13 @@ from typing import Any
 import pytest
 
 from core.domain.llm_usage import LLMUsage
+from core.domain.message import Message, MessageContent, Messages
 from core.domain.models import Model, Provider
-from core.domain.tool_call import ToolCallRequestWithID
+from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.providers.base.abstract_provider import RawCompletion
 from core.providers.base.httpx_provider import ParsedResponse
 from core.providers.base.provider_error import MaxTokensExceededError
+from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import StreamingContext
 from core.providers.openai.openai_domain import (
     ChoiceDelta,
@@ -17,6 +19,7 @@ from core.providers.openai.openai_domain import (
     Usage,
 )
 from core.providers.openai.openai_provider_base import OpenAIProviderBase, OpenAIProviderBaseConfig
+from core.utils.templates import TemplateManager
 from tests.utils import fixtures_json
 
 
@@ -43,14 +46,16 @@ class _TestOpenAIProviderBase(OpenAIProviderBase[_TestProviderConfig]):
     def _default_config(cls, index: int) -> _TestProviderConfig:
         return _TestProviderConfig()
 
-    def default_model(self) -> Model:
-        return Model.GPT_3_5_TURBO_0125
-
     def _request_url(self, model: Model, stream: bool) -> str:
         return "test"
 
     async def _request_headers(self, request: dict[str, Any], url: str, model: Model) -> dict[str, str]:
         return {}
+
+
+@pytest.fixture
+def base_provider() -> _TestOpenAIProviderBase:
+    return _TestOpenAIProviderBase()
 
 
 def test_extract_stream_delta_max_tokens_exceeded() -> None:
@@ -591,3 +596,82 @@ def test_compute_prompt_token_count(messages: list[dict[str, Any]], expected_tok
     result = provider._compute_prompt_token_count(messages, model)  # pyright: ignore[reportPrivateUsage]
     # This is a high-level smoke test that '_compute_prompt_token_count' does not raise and return a value
     assert result == expected_token_count
+
+
+class TestBuildRequest:
+    async def test_with_tool_calls(self, base_provider: _TestOpenAIProviderBase):
+        messages = Messages(
+            messages=[
+                Message(
+                    role="system",
+                    content=[
+                        MessageContent(
+                            text="Be concise, reply with one sentence.Use the `get_lat_lng` tool to get the latitude and longitude of the locations, then use the `get_weather` tool to get the weather.",
+                        ),
+                    ],
+                ),
+                Message(
+                    role="user",
+                    content=[
+                        MessageContent(
+                            text="What is the weather like in {{location}}?",
+                        ),
+                    ],
+                ),
+                Message(
+                    role="assistant",
+                    content=[
+                        MessageContent(
+                            tool_call_request=ToolCallRequestWithID(
+                                tool_name="get_lat_lng",
+                                tool_input_dict={"location_description": "London"},
+                                id="call_ucYQgwUMFhWu2e91vA9FgRCj",
+                            ),
+                        ),
+                    ],
+                ),
+                Message(
+                    role="user",
+                    content=[
+                        MessageContent(
+                            tool_call_result=ToolCall(
+                                tool_name="",
+                                tool_input_dict={},
+                                id="call_ucYQgwUMFhWu2e91vA9FgRCj",
+                                result='{"lat":51.5074456,"lng":-0.1277653}',
+                            ),
+                        ),
+                    ],
+                ),
+            ],
+        )
+        template_manager = TemplateManager()
+        templated = await messages.templated(template_manager.renderer({"location": "London"}))
+        deprecated = templated.to_deprecated()
+        req = base_provider._build_request(deprecated, ProviderOptions(model=Model.GPT_4O_2024_08_06), False)  # pyright: ignore[reportPrivateUsage]
+        assert req.model_dump(exclude_none=True)["messages"] == [
+            {
+                "role": "system",
+                "content": "Be concise, reply with one sentence.Use the `get_lat_lng` tool to get the latitude and longitude of the locations, then use the `get_weather` tool to get the weather.",
+            },
+            {"role": "user", "content": "What is the weather like in London?"},
+            {
+                "content": [],
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "function": {
+                            "arguments": '{"location_description": "London"}',
+                            "name": "get_lat_lng",
+                        },
+                        "id": "call_ucYQgwUMFhWu2e91vA9FgRCj",
+                        "type": "function",
+                    },
+                ],
+            },
+            {
+                "content": '{"lat":51.5074456,"lng":-0.1277653}',
+                "role": "tool",
+                "tool_call_id": "call_ucYQgwUMFhWu2e91vA9FgRCj",
+            },
+        ]

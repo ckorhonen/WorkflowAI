@@ -834,13 +834,14 @@ class IntegrationTestClient:
         private_fields: list[str] | None = None,
         autowait: bool = True,
         tenant: str = "_",
+        provider: str | None = None,
     ) -> dict[str, Any]:
         try:
             return await run_task_v1(
                 self.int_api_client,
                 _task_id(task),
                 _schema_id(task),
-                version,
+                version if version else ({"model": model, "provider": provider} if provider and model else None),
                 model.value if isinstance(model, Model) else model,
                 task_input,
                 tenant,
@@ -897,6 +898,20 @@ class IntegrationTestClient:
         status_code: int = 200,
         latency: float | None = None,
     ):
+        if url:
+            mock_vertex_call(
+                self.httpx_mock,
+                json,
+                model,
+                parts,
+                usage=usage,
+                publisher=publisher,
+                url=url,
+                status_code=status_code,
+                latency=latency,
+            )
+            return
+
         if not regions:
             regions = os.environ.get("GOOGLE_VERTEX_AI_LOCATION", "us-central1").split(",")
 
@@ -1129,14 +1144,17 @@ class IntegrationTestClient:
     async def put(self, url: str, json: Any, **kwargs: Any) -> dict[str, Any]:
         return result_or_raise(await self.int_api_client.put(url, json=json, **kwargs))
 
+    ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
+
     def mock_anthropic_call(
         self,
         status_code: int = 200,
         content_json: dict[str, Any] | None = None,
+        raw_content: str | None = None,
         model: Model = Model.CLAUDE_3_5_SONNET_20241022,
     ):
         self.httpx_mock.add_response(
-            url="https://api.anthropic.com/v1/messages",
+            url=self.ANTHROPIC_URL,
             status_code=status_code,
             json={
                 "id": "msg_011FfbzF4F72Gc1rzSvvDCnR",
@@ -1146,7 +1164,8 @@ class IntegrationTestClient:
                 "content": [
                     {
                         "type": "text",
-                        "text": json.dumps(
+                        "text": raw_content
+                        or json.dumps(
                             content_json,
                             indent=2,
                         ),

@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import re
 from collections.abc import Mapping, Sequence
 from typing import Any
@@ -9,6 +10,8 @@ from jinja2.meta import find_undeclared_variables
 from jinja2.visitor import NodeVisitor
 
 from core.domain.errors import BadRequestError
+from core.domain.types import TemplateRenderer
+from core.utils.schemas import JsonSchema
 
 # Compiled regepx to check if instructions are a template
 # Jinja templates use  {%%} for expressions {{}} for variables and {# ... #} for comments
@@ -72,60 +75,84 @@ class TemplateManager:
         rendered = await compiled.render_async(data)
         return rendered, variables
 
+    @classmethod
+    async def _noop_renderer(cls, template: str | None) -> str | None:
+        return template
+
+    def renderer(self, data: dict[str, Any] | None) -> TemplateRenderer:
+        if not data:
+            return self._noop_renderer
+
+        async def _render(template: str | None):
+            if not template:
+                return template
+            rendered, _ = await self.render_template(template, data)
+            return rendered
+
+        return _render
+
 
 class _SchemaBuilder(NodeVisitor):
     def __init__(self):
-        self._schema: dict[str, Any] = {"type": "object", "properties": {}}
+        # A graph of visited paths
+        self._visited_paths: dict[str, Any] = {}
         self._aliases: list[Mapping[str, Any]] = []
 
-    # ---- helpers ----------------------------------------------------------
+    def build_schema(
+        self,
+        start_schema: dict[str, Any] | None = None,
+        use_types_from: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        schema: dict[str, Any] = start_schema or {}
+        self._handle_components(
+            schema=schema,
+            existing=JsonSchema(use_types_from) if use_types_from else None,
+            components=self._visited_paths,
+        )
+        return schema
+
+    def is_empty(self) -> bool:
+        return not self._visited_paths
+
     def _ensure_path(self, path: Sequence[str]):
         """
         Given a tuple like ('order', 'items', '*', 'price')
-        make sure the schema contains the corresponding nested structure.
+        add the path to the visited graph
         """
-        cur = self._schema
-        for i, part in enumerate(path):
-            last = i == len(path) - 1
+        cur = self._visited_paths
+        for p in path:
+            cur = cur.setdefault(p, {})
 
-            # Array ­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­
-            if part == "*":
-                if cur.get("type") != "array":
-                    cur.update(
-                        {
-                            "type": "array",
-                            "items": {"type": "object", "properties": {}},
-                        },
-                    )
-                cur = cur["items"]
-                continue
+    def _handle_components(self, schema: dict[str, Any], existing: JsonSchema | None, components: dict[str, Any]):
+        if not components:
+            # No component so we are in a leaf
+            if existing:
+                # If existing, we use whatever we have in the existing schema
+                schema.update(copy.deepcopy(existing.schema))
+            # Otherwise, we leave the schema as is. Meaning that Any type will be accepted
+            return
 
-            # Object ­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­­
-            cur.setdefault("type", "object")
-            cur.setdefault("properties", {})
-            cur = cur["properties"].setdefault(part, {})
+        if len(components) == 1 and "*" in components:
+            # We are in an array. We can just add the array type and dive
+            existing = existing.safe_child_schema(0) if existing else None
+            schema["type"] = "array"
+            schema["items"] = {}
+            schema = schema["items"]
+            components = components["*"]
 
-            if last:
-                # crude default ‑‑ upgrade later if you have better hints
-                cur.setdefault("type", "string")
+            self._handle_components(schema, existing, components)
+            return
 
-    def _collect_chain(self, node: nodes.Node):
-        """Turn nested getattr/getitem into a tuple path.
-        This can't be combined with _ensure_path since we the order is reversed
-        """
-        path: list[str] = []
-        while isinstance(node, (nodes.Getattr, nodes.Getitem)):
-            match node:
-                case nodes.Getattr():
-                    path.insert(0, node.attr)
-                    node = node.node
-                case nodes.Getitem():
-                    path.insert(0, "*")
-                    node = node.node
+        schema.setdefault("type", "object")
+        schema.setdefault("properties", {})
+        schema = schema["properties"]
 
-        if isinstance(node, nodes.Name):
-            path.insert(0, node.name)
-            self._ensure_path(path)
+        for k, v in components.items():
+            self._handle_components(
+                schema=schema.setdefault(k, {}),
+                existing=existing.safe_child_schema(k) if existing else None,
+                components=v,
+            )
 
     def _push_scope(self, mapping: Mapping[str, Any] | None):
         self._aliases.append(mapping or {})
@@ -211,12 +238,13 @@ class _SchemaBuilder(NodeVisitor):
     def visit_Call(self, node: nodes.Call):
         raise BadRequestError("Template functions are not supported", capture=True)
 
-    @property
-    def schema(self) -> Mapping[str, Any]:
-        return self._schema
 
-
-def extract_variable_schema(template: str) -> Mapping[str, Any]:
+def extract_variable_schema(
+    template: str,
+    start_schema: dict[str, Any] | None = None,
+    use_types_from: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any] | None, bool]:
+    """Returns the new schema and a boolean indicating if the argument was indeed templated"""
     env = Environment()
     try:
         ast = env.parse(template)
@@ -225,4 +253,6 @@ def extract_variable_schema(template: str) -> Mapping[str, Any]:
 
     builder = _SchemaBuilder()
     builder.visit(ast)
-    return builder.schema
+    if builder.is_empty():
+        return start_schema, False
+    return builder.build_schema(start_schema=start_schema, use_types_from=use_types_from), True

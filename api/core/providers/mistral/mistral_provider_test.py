@@ -26,8 +26,7 @@ from core.providers.base.provider_options import ProviderOptions
 from core.providers.mistral.mistral_domain import (
     CompletionRequest,
     DeltaMessage,
-    ToolCall,
-    ToolCallFunction,
+    MistralToolCall,
 )
 from core.providers.mistral.mistral_provider import MistralAIConfig, MistralAIProvider
 from tests.utils import fixture_bytes, fixtures_json
@@ -716,9 +715,12 @@ class TestExtraStreamDeltaToolCalls:
         """
         When a valid tool call is received in the SSE delta, it should be extracted.
         """
-        tool_call = ToolCall(
+        tool_call = MistralToolCall(
             id="tcvalid12",
-            function=ToolCallFunction(name="calculator", arguments={"operation": "multiply", "numbers": [3, 4]}),
+            function=MistralToolCall.Function(
+                name="calculator",
+                arguments={"operation": "multiply", "numbers": [3, 4]},
+            ),
             index=1,
         )
         delta = DeltaMessage(content="partial", tool_calls=[tool_call])
@@ -735,9 +737,12 @@ class TestExtraStreamDeltaToolCalls:
         """
         When a tool call is missing an index, the provider should raise a FailedGenerationError.
         """
-        tool_call = ToolCall(
+        tool_call = MistralToolCall(
             id="tc_no_index",
-            function=ToolCallFunction(name="calculator", arguments={"operation": "subtract", "numbers": [10, 5]}),
+            function=MistralToolCall.Function(
+                name="calculator",
+                arguments={"operation": "subtract", "numbers": [10, 5]},
+            ),
             index=None,
         )
         delta = DeltaMessage(content="ignored", tool_calls=[tool_call])
@@ -751,9 +756,9 @@ class TestExtraStreamDeltaToolCalls:
         no tool call should be returned.
         """
         # Provide a tool call where function.arguments is a string that will not decode as valid JSON.
-        tool_call = ToolCall(
+        tool_call = MistralToolCall(
             id="tc_invalid",
-            function=ToolCallFunction(name="calculator", arguments="not a json"),
+            function=MistralToolCall.Function(name="calculator", arguments="not a json"),
             index=2,
         )
         delta = DeltaMessage(content="ignored", tool_calls=[tool_call])

@@ -1,3 +1,5 @@
+import { ProxyMessage } from '.';
+
 export type AIReviewer = {
   reviewer_type?: 'ai';
 };
@@ -895,6 +897,7 @@ export type MajorVersionProperties = {
    * The id of the full schema, including versions and examples
    */
   task_variant_id: string | null;
+  messages?: ProxyMessage[] | undefined | null;
 };
 
 export type MetaAgentChatMessage = {
@@ -1219,6 +1222,9 @@ export type PaymentMethodResponse = {
 };
 
 export type PlaygroundState = {
+  is_proxy: boolean;
+  version_id: string | null | undefined;
+  version_messages: ProxyMessage[] | null | undefined;
   /**
    * The input for the agent
    */
@@ -2607,6 +2613,7 @@ export type TaskGroupProperties = {
 };
 
 export type Tool = {
+  id?: string | null;
   /**
    * The name of the tool
    */
@@ -2798,4 +2805,20 @@ export type WeeklyRun = {
   start_of_week: string;
   run_count: number;
   overhead_ms: number;
+};
+
+export type Integration = {
+  id: string;
+  display_name: string;
+  programming_language: string;
+  logo_url: string;
+  code_snippet: string;
+  structured_output_snipped: string | null;
+};
+
+export type IntegrationChatMessage = {
+  sent_at: string;
+  role: 'USER' | 'ASSISTANT';
+  content: string;
+  message_kind: 'initial_code_snippet' | 'agent_name_definition_code_snippet' | 'non_specific';
 };

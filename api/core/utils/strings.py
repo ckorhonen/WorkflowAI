@@ -118,3 +118,9 @@ def clean_unicode_chars(input_str: str) -> str:
             splits[i] = val
 
     return b"".join(splits).decode()
+
+
+def obfuscate(input_str: str, max_chars: int):
+    if len(input_str) <= max_chars:
+        return "***"
+    return input_str[:max_chars] + "***"

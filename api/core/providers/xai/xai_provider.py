@@ -21,6 +21,7 @@ from core.providers.base.provider_error import (
     MaxTokensExceededError,
     ModelDoesNotSupportMode,
     ProviderError,
+    ProviderInternalError,
     ProviderInvalidFileError,
     UnknownProviderError,
 )
@@ -88,6 +89,9 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
             response_format=self._response_format(options, model_data),
             reasoning_effort=reasoning_effort,
             tool_choice=CompletionRequest.tool_choice_from_domain(options.tool_choice),
+            top_p=options.top_p,
+            presence_penalty=options.presence_penalty,
+            frequency_penalty=options.frequency_penalty,
         )
 
         if options.enabled_tools is not None and options.enabled_tools != []:
@@ -98,6 +102,7 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
                         name=internal_tool_name_to_native_tool_call(tool.name),
                         description=tool.description,
                         parameters=tool.input_schema,
+                        strict=tool.strict is True,
                     ),
                 )
                 for tool in options.enabled_tools
@@ -220,10 +225,6 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
     def _default_config(cls, index: int) -> XAIConfig:
         return XAIConfig(api_key=get_provider_config_env("XAI_API_KEY", index))
 
-    @override
-    def default_model(self) -> Model:
-        return Model.LLAMA_3_3_70B
-
     @property
     def is_structured_generation_supported(self) -> bool:
         return True
@@ -332,6 +333,8 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
                 error_cls = MaxTokensExceededError
             case m if "response does not contain a valid jpg or png image" in m:
                 error_cls = ProviderInvalidFileError
+            case m if "prefill bootstrap failed for request" in m:
+                error_cls = ProviderInternalError
             case _:
                 error_cls = UnknownProviderError
         return error_cls(msg=message, response=response)

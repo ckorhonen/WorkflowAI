@@ -21,6 +21,7 @@ from core.providers.anthropic.anthropic_domain import (
     CompletionResponse,
     ContentBlock,
     StopReasonDelta,
+    TextContent,
     ToolUseContent,
     Usage,
 )
@@ -37,7 +38,6 @@ from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ParsedResponse, ToolCallRequestBuffer
 from core.providers.base.utils import get_provider_config_env
 from core.providers.google.google_provider_domain import (
-    internal_tool_name_to_native_tool_call,
     native_tool_name_to_internal,
 )
 
@@ -72,24 +72,32 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
                 extra={"model": options.model},
             )
 
+        if messages[0].role == MessageDeprecated.Role.SYSTEM:
+            system_message = messages[0].content
+            messages = messages[1:]
+        else:
+            system_message = None
+
         request = CompletionRequest(
-            messages=[AnthropicMessage.from_domain(m) for m in messages],
+            # Anthropic requires at least one message
+            # So if we have no messages, we add a user message with a dash
+            messages=[AnthropicMessage.from_domain(m) for m in messages]
+            if messages
+            else [
+                AnthropicMessage(role="user", content=[TextContent(text="-")]),
+            ],
             model=options.model,
             temperature=options.temperature,
             max_tokens=max_tokens or DEFAULT_MAX_TOKENS,
             stream=stream,
             tool_choice=AntToolChoice.from_domain(options.tool_choice),
+            top_p=options.top_p,
+            system=system_message,
+            # Presence and frequency penalties are not yet supported by Anthropic
         )
 
         if options.enabled_tools is not None and options.enabled_tools != []:
-            request.tools = [
-                CompletionRequest.Tool(
-                    name=internal_tool_name_to_native_tool_call(tool.name),
-                    description=tool.description,
-                    input_schema=tool.input_schema,
-                )
-                for tool in options.enabled_tools
-            ]
+            request.tools = [CompletionRequest.Tool.from_domain(tool) for tool in options.enabled_tools]
 
         return request
 
@@ -143,16 +151,19 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
         return Provider.ANTHROPIC
 
     @override
-    def default_model(self) -> Model:
-        return Model.CLAUDE_3_5_SONNET_20241022
-
-    @override
     @classmethod
     def _default_config(cls, index: int) -> AnthropicConfig:
         return AnthropicConfig(
             api_key=get_provider_config_env("ANTHROPIC_API_KEY", index),
             url=get_provider_config_env("ANTHROPIC_API_URL", index, "https://api.anthropic.com/v1/messages"),
         )
+
+    @override
+    def _raw_prompt(self, request_json: dict[str, Any]) -> list[dict[str, Any]]:
+        messages = request_json.get("messages", [])
+        if "system" in request_json:
+            return [{"role": "system", "content": request_json["system"]}, *messages]
+        return messages
 
     async def wrap_sse(self, raw: AsyncIterator[bytes], termination_chars: bytes = b""):
         """Custom SSE wrapper for Anthropic's event stream format"""
@@ -308,7 +319,12 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
     @override
     @classmethod
     def standardize_messages(cls, messages: list[dict[str, Any]]) -> list[StandardMessage]:
-        return [AnthropicMessage.model_validate(m).to_standard() for m in messages]
+        def _to_msg(m: dict[str, Any]) -> StandardMessage:
+            if m.get("role") == "system":
+                return {"role": "assistant", "content": m["content"]}
+            return AnthropicMessage.model_validate(m).to_standard()
+
+        return [_to_msg(m) for m in messages]
 
     @override
     @classmethod

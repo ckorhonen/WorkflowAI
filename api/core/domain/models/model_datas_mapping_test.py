@@ -168,6 +168,7 @@ class TestProviderForPricing:
                 f"Model {model} should use Amazon Bedrock for pricing"
             )
 
+    @pytest.mark.skip(reason="We will remove provider for pricing")
     def test_google_supported_models_use_google_for_pricing(self):
         # Check that we use google for pricing for all models that are supported by google
         for model in GoogleProvider.all_supported_models():

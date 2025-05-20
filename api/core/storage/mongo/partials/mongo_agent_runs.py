@@ -522,5 +522,15 @@ class MongoTaskRunStorage(PartialStorage[TaskRunDocument], TaskRunStorage):
         raise NotImplementedError()
 
     @override
+    def list_latest_runs(
+        self,
+        task_uid: int | None = None,
+        since_date: datetime | None = None,
+        is_active: bool = True,
+        limit: int = 100,
+    ) -> AsyncIterator[AgentRun]:
+        raise NotImplementedError()
+
+    @override
     def weekly_run_aggregate(self, week_count: int) -> AsyncIterator[WeeklyRunAggregate]:
         raise NotImplementedError()

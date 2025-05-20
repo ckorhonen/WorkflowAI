@@ -11,6 +11,7 @@ from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.models import Model
+from core.domain.task_group_properties import ToolChoice
 from core.domain.tool import Tool
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.providers.base.models import (
@@ -95,6 +96,7 @@ class FileData(BaseModel):
 
 
 # https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.tuningJobs#Part
+# https://ai.google.dev/api/caching#Part
 class Part(BaseModel):
     text: str | None = None
 
@@ -243,21 +245,30 @@ class GoogleMessage(BaseModel):
             role=MESSAGE_ROLE_X_ROLE_MAP[message.role],
         )
 
+        add_text_part = True
+
         # Google breaks if the message does not contain a text part
-        output_message.parts.append(Part.from_str(message.content or "-"))
+        if message.content:
+            output_message.parts.append(Part.from_str(message.content))
+            add_text_part = False
 
         for file in message.files or []:
             output_message.parts.append(Part.from_file(file))
 
         if message.tool_call_requests:
+            add_text_part = False
             output_message.parts.extend(
                 [Part.from_tool_call_request(tool_call_request) for tool_call_request in message.tool_call_requests],
             )
 
         if message.tool_call_results:
+            add_text_part = False
             output_message.parts.extend(
                 [Part.from_tool_call_result(tool_call_result) for tool_call_result in message.tool_call_results],
             )
+
+        if add_text_part:
+            output_message.parts.insert(0, Part.from_str("-"))
 
         return output_message
 
@@ -532,11 +543,13 @@ class CompletionRequest(BaseModel):
     systemInstruction: GoogleSystemMessage | None
 
     class Tool(BaseModel):
+        # https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.cachedContents#FunctionDeclaration
         class FunctionDeclaration(BaseModel):
             name: str
             description: str
             parameters: Schema | None = None
             response: Schema | None = None
+            # No strict mode yet
 
             @classmethod
             def from_tool(cls, tool: Tool) -> Self:
@@ -556,6 +569,22 @@ class CompletionRequest(BaseModel):
         class FunctionCallingConfig(BaseModel):
             mode: Literal["MODE_UNSPECIFIED", "AUTO", "ANY", "NONE"] = "AUTO"
             allowedFunctionNames: list[str] | None = None
+
+            @classmethod
+            def from_domain(cls, tool_config: ToolChoice | None):
+                if not tool_config:
+                    return cls(mode="AUTO")
+
+                if isinstance(tool_config, str):
+                    match tool_config:
+                        case "auto":
+                            return cls(mode="AUTO")
+                        case "none":
+                            return cls(mode="NONE")
+                        case _:
+                            return cls(mode="ANY")
+
+                return cls(mode="ANY", allowedFunctionNames=[tool_config.name])
 
         functionCallingConfig: FunctionCallingConfig
 
@@ -577,6 +606,10 @@ class CompletionRequest(BaseModel):
         thinking_config: ThinkingConfig | None = None
         responseModalities: list[Literal["TEXT", "IMAGE"]] | None = None
 
+        presencePenalty: float | None = None
+        frequencyPenalty: float | None = None
+        topP: float | None = None
+
     generationConfig: GenerationConfig
 
     class SafetySettings(BaseModel):
@@ -588,6 +621,8 @@ class CompletionRequest(BaseModel):
         threshold: BLOCK_THRESHOLD
 
     safetySettings: list[SafetySettings] | None = None
+
+    # Parallel tool calls are not supported
 
 
 class SafetyRating(BaseModel):
@@ -608,11 +643,13 @@ class UsageMetadata(BaseModel):
     promptTokenCount: int | None = None
     candidatesTokenCount: int | None = None
     totalTokenCount: int | None = None
+    cachedContentTokenCount: int | None = None
 
     def to_domain(self) -> LLMUsage:
         return LLMUsage(
             prompt_token_count=self.promptTokenCount,
             completion_token_count=self.candidatesTokenCount,
+            prompt_token_count_cached=self.cachedContentTokenCount,
         )
 
 

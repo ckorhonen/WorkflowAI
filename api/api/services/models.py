@@ -2,10 +2,12 @@ import asyncio
 import logging
 from collections.abc import Callable
 from datetime import date, timedelta
+from difflib import get_close_matches
 from typing import Any, NamedTuple
 
 import httpx
 
+from core.agents.suggest_model import ModelSuggestionInput, suggest_model
 from core.domain.consts import WORKFLOWAI_RUN_URL
 from core.domain.errors import ProviderDoesNotSupportModelError
 from core.domain.models import Model, Provider
@@ -65,7 +67,7 @@ class ModelsService:
     async def _available_models_from_run_endpoint(cls) -> list[Model]:
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(f"{WORKFLOWAI_RUN_URL}/v1/models")
+                response = await client.get(f"{WORKFLOWAI_RUN_URL}/v1/models?raw=true")
                 response.raise_for_status()
                 model_json = response.json()
 
@@ -347,3 +349,29 @@ class ModelsService:
             )
 
         return _compute_price
+
+    @classmethod
+    async def suggest_model(cls, model: str) -> Model | None:
+        supported_models = [k for k, v in MODEL_DATAS.items() if not isinstance(v, DeprecatedModel)]
+        try:
+            suggested_model = await suggest_model(
+                ModelSuggestionInput(
+                    invalid_model=model,
+                    supported_models=supported_models,
+                ),
+            )
+            return Model(suggested_model.suggested_model)
+        except Exception:
+            _logger.exception(
+                "Error suggesting model",
+                extra={"model": model},
+            )
+
+        suggestion = get_close_matches(model, list(Model), n=1, cutoff=0.5)
+        if not suggestion:
+            _logger.warning(
+                "No similar model found for {model}",
+                extra={"model": model},
+            )
+            return None
+        return Model(suggestion[0])

@@ -128,10 +128,6 @@ class _MockedProvider(AbstractProvider[Any, Any]):
     def name(cls) -> Provider:
         return Provider.OPEN_AI
 
-    @override
-    def default_model(cls) -> Model:
-        return Model.GPT_4O_2024_05_13
-
     @classmethod
     @override
     def required_env_vars(cls) -> list[str]:
@@ -380,3 +376,10 @@ class TestCostComputation:
         # Check that we did not wait for the full second
         assert time.time() - now < 0.1
         assert len(builder_context.llm_completions) == 1
+
+
+class TestDefaultModel:
+    def test_default_model(self, mocked_provider: _MockedProvider):
+        # We just check that it exists
+        # The default model is used to test configurations
+        assert mocked_provider.default_model()

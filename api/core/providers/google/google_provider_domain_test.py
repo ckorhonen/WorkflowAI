@@ -7,6 +7,7 @@ import pytest
 from core.domain.errors import InvalidRunOptionsError
 from core.domain.message import File, MessageDeprecated
 from core.domain.models import Model
+from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.providers.google.google_provider_domain import (
     Blob,
     CompletionResponse,
@@ -151,6 +152,30 @@ class TestGoogleMessageFromDomain:
         expected_result_name = dummy_res.tool_name.replace("@", "")
         assert google_message.parts[2].functionResponse.name == expected_result_name
         assert google_message.parts[2].functionResponse.response == {"result": str(dummy_res.result)}
+
+    def test_tool_call_no_content(self):
+        message = MessageDeprecated(
+            role=MessageDeprecated.Role.USER,
+            content="",
+            tool_call_requests=[
+                ToolCallRequestWithID(tool_name="@echo", tool_input_dict={"msg": "Hello from native tool"}),
+            ],
+        )
+        google_message = GoogleMessage.from_domain(message)
+        assert len(google_message.parts) == 1
+
+        assert google_message.parts[0].functionCall
+
+    def test_tool_call_result_no_content(self):
+        message = MessageDeprecated(
+            role=MessageDeprecated.Role.ASSISTANT,
+            content="",
+            tool_call_results=[ToolCall(tool_name="@echo", tool_input_dict={"msg": "Hello from native tool"})],
+        )
+        google_message = GoogleMessage.from_domain(message)
+        assert len(google_message.parts) == 1
+
+        assert google_message.parts[0].functionResponse
 
 
 def test_GoogleSystemMessage_from_domain_file():

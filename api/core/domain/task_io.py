@@ -90,6 +90,10 @@ class SerializableTaskIO(BaseModel):
     def from_model(cls, model_cls: type[BaseModel], streamline: bool = True):
         return cls.from_json_schema(model_cls.model_json_schema(), streamline=streamline)
 
+    @property
+    def uses_messages(self) -> bool:
+        return self.json_schema.get("format") == "messages"
+
 
 # Used to represent a list of messages as an input
 # When used as an input schema, the messages are sent as is to the providers

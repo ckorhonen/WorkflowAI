@@ -108,10 +108,6 @@ class ModelData(ModelDataSupports):
         description="The name of the provider for the model",
     )
 
-    supports_tool_calling: bool = Field(
-        description="Whether the model supports tool calling",
-    )
-
     # TODO: most thinking models don't use that value yet
     # Use none for models to deactivate reasoning on thinking models
     reasoning_level: Literal["none", "low", "medium", "high"] | None = None

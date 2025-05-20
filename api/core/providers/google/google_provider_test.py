@@ -1401,6 +1401,21 @@ class TestBuildRequest:
         assert request.contents[0].parts[0].text == "Hello, world!"
         assert request.contents[1].parts[0].text == "You are a helpful assistant too."
 
+    def test_build_request_no_messages(self, google_provider: GoogleProvider):
+        request = google_provider._build_request(  # pyright: ignore[reportPrivateUsage]
+            messages=[
+                MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="You are a helpful assistant."),
+            ],
+            options=ProviderOptions(model=Model.GEMINI_1_5_PRO_001),
+            stream=False,
+        )
+        assert isinstance(request, CompletionRequest)
+        assert request.systemInstruction
+        assert len(request.systemInstruction.parts) == 1
+        assert request.systemInstruction.parts[0].text == "You are a helpful assistant."
+        assert request.contents
+        assert request.contents[0].parts[0].text == "-"
+
 
 class TestStream:
     async def test_stream_with_no_candidates(

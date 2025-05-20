@@ -1,4 +1,5 @@
-import { TaskGroupProperties_Output, VersionV1 as _VersionV1 } from './models';
+import { FileValueType } from '@/components/ObjectViewer/FileViewers/utils';
+import { TaskGroupProperties_Output, ToolCallRequestWithID, ToolCallResult, VersionV1 as _VersionV1 } from './models';
 
 export * from './models';
 
@@ -10,4 +11,23 @@ export type VersionV1 = Omit<_VersionV1, 'properties' | 'input_schema' | 'output
   properties: VersionV1Properties;
   input_schema?: Record<string, unknown>;
   output_schema?: Record<string, unknown>;
+};
+
+export type ProxyToolCallResult = {
+  id?: string;
+  result?: unknown;
+  tool_name?: string;
+  tool_input_dict?: Record<string, unknown>;
+};
+
+export type ProxyMessageContent = {
+  text?: string;
+  file?: FileValueType;
+  tool_call_request?: ToolCallRequestWithID;
+  tool_call_result?: ProxyToolCallResult;
+};
+
+export type ProxyMessage = {
+  role: 'user' | 'system' | 'assistant';
+  content: ProxyMessageContent[];
 };

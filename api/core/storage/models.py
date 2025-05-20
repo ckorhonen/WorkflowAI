@@ -7,6 +7,7 @@ from datetime import datetime
 from pydantic import BaseModel
 
 from core.domain.ban import Ban
+from core.domain.integration.integration_domain import IntegrationKind
 
 
 class TaskUpdate(BaseModel):
@@ -17,3 +18,4 @@ class TaskUpdate(BaseModel):
     unhide_schema: int | None = None
     schema_last_active_at: tuple[int, datetime] | None = None
     ban: Ban | None = None
+    used_integration_kind: IntegrationKind | None = None

@@ -4,10 +4,12 @@ import pytest
 from pytest_httpx import IteratorStream
 
 from core.domain.models import Model
+from core.domain.models.providers import Provider
 from tests.integration.common import (
     IntegrationTestClient,
+    mock_gemini_call,
 )
-from tests.utils import fixture_bytes, fixtures_json
+from tests.utils import approx, fixture_bytes, fixtures_json
 
 
 @pytest.mark.skip(reason="Google no longer returns the thinking mode")
@@ -59,4 +61,25 @@ async def test_thinking_mode_model(test_client: IntegrationTestClient):
     assert (
         run["reasoning_steps"][0]["step"]
         == 'My thinking process for generating the explanation of how AI works went something like this:\n\n1. **Deconstruct the Request:** The user asked "Explain how AI works." This is a broad question, so a comprehensive yet accessible explanation is needed. I need to cover the core principles without getting bogged down in overly technical jargon.\n\n2. **Identify Key Concepts:**  I immediately thought of the fundamental building blocks of AI. This led to the identification of:\n'
+    )
+
+
+async def test_prompt_cached_tokens(test_client: IntegrationTestClient):
+    """Check that price is calculated correctly for cached tokens"""
+    task = await test_client.create_task()
+
+    mock_gemini_call(
+        httpx_mock=test_client.httpx_mock,
+        model=Model.GEMINI_2_5_PRO_PREVIEW_0506,
+        usage={
+            "promptTokenCount": 1_000,
+            "candidatesTokenCount": 2_000,
+            "cachedContentTokenCount": 750,
+        },
+    )
+
+    run = await test_client.run_task_v1(task, model=Model.GEMINI_2_5_PRO_PREVIEW_0506, provider=Provider.GOOGLE_GEMINI)
+
+    assert run["cost_usd"] == approx(
+        (250 * 1.25 / 1_000_000) + (750 * 0.25 * 1.25 / 1_000_000) + (2_000 * 10 / 1_000_000),
     )

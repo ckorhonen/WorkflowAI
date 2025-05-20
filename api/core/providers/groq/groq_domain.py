@@ -73,6 +73,7 @@ class GroqToolDescription(BaseModel):
         name: str
         description: str | None = None
         parameters: dict[str, Any] | None = None
+        # strict is not supported by Groq
 
     function: Function
 
@@ -240,6 +241,10 @@ class CompletionRequest(BaseModel):
 
     tools_choice: Literal["auto", "none", "required"] | None = None
     tools: list[GroqToolDescription] | None = None
+    top_p: float | None = None
+    presence_penalty: float | None = None
+    frequency_penalty: float | None = None
+    parallel_tool_calls: bool | None = None
 
 
 class _BaseChoice(BaseModel):

@@ -20,13 +20,15 @@ Deploy specific versions of an agent with ease, allowing for updates to prompts 
 {% embed url="https://customer-turax1sz4f7wbpuv.cloudflarestream.com/58dfabcb7b91f2a57d99602876dc98f1/watch" %}
 
 {% hint style="warning" %}
-To avoid any breaking changes: deployments are **schema specific**, meaning that you can deploy a (development, staging, production) version for each schema of an agent.
+To avoid any breaking changes: deployments are **schema specific**, not AI feature specific. This means that if you want to deploy a new version of your AI feature that is on a different schema, you will need to update the schema number in your code.
+
+This also means that you can deploy a (development, staging, production) version for each schema of an agent without the version deployed to production being affected.
 {% endhint %}
 
-### Using your own AI Providers API
-#### When to use your own API key?
-- if you have custom **zero day** data-retention agreement. Note that WorkflowAI Cloud has signed contratuals agreements with all AI providers that prohibit the use of customer data to train their models.
- - if you have credits from [Microsoft Startups](https://startups.microsoft.com/), [Google AI credits](https://cloud.google.com/startup), or [Amazon Bedrock credits](https://aws.amazon.com/startups/credits).
-- if you want to use your own rate limits.
+### Using your own AI Provider Keys
 
-Remember that WorkflowAI Cloud offers a price-match guarantee, meaning that you're not charged more than the price per token of the model you're using. Learn more about the price-match guarantee [here](/docs/cloud/pricing.md).
+Your own API provider keys can be added by going to: [workflowai.com/organization/settings/providers](https://workflowai.com/organization/settings/providers). 
+
+**Important: If you are using WorkflowAI Cloud, credits will still deducted by default. There is a required manual operation on our side to mark the keys as a customer provided key.** If you would like to use your own keys via workflowai.com, please reach out to us via [email](mailto:team@workflowai.support) or on [GitHub](https://github.com/workflowai/workflowai/discussions) so we can help you out.
+
+If you are self-hosting, adding your own API provider keys does not require any additional steps beyond adding them at: [workflowai.com/organization/settings/providers](https://workflowai.com/organization/settings/providers). 

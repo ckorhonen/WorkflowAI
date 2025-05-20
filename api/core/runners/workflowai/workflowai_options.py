@@ -4,6 +4,7 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 from core.domain.fields.image_options import ImageOptions
+from core.domain.message import Message
 from core.domain.models import Model, Provider
 from core.domain.task_group_properties import FewShotExample, ToolChoice
 from core.domain.tool import Tool
@@ -49,3 +50,13 @@ class WorkflowAIRunnerOptions(BaseModel):
     image_options: ImageOptions | None = None
 
     tool_choice: ToolChoice | None = None
+
+    messages: list[Message] | None = None
+
+    top_p: float | None = None
+
+    presence_penalty: float | None = None
+
+    frequency_penalty: float | None = None
+
+    parallel_tool_calls: bool | None = None

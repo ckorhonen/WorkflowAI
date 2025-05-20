@@ -12,7 +12,12 @@ from typing_extensions import override
 
 from api.services.providers_service import shared_provider_factory
 from core.domain.agent_run_result import INTERNAL_AGENT_RUN_RESULT_SCHEMA_KEY, AgentRunResult
-from core.domain.consts import METADATA_KEY_PROVIDER_NAME, METADATA_KEY_USED_MODEL, METADATA_KEY_USED_PROVIDERS
+from core.domain.consts import (
+    INPUT_KEY_MESSAGES,
+    METADATA_KEY_PROVIDER_NAME,
+    METADATA_KEY_USED_MODEL,
+    METADATA_KEY_USED_PROVIDERS,
+)
 from core.domain.errors import (
     BadRequestError,
     InvalidFileError,
@@ -47,6 +52,7 @@ from core.providers.base.provider_error import (
 from core.providers.base.provider_options import ProviderOptions
 from core.runners.abstract_runner import AbstractRunner, CacheFetcher
 from core.runners.workflowai.internal_tool import build_all_internal_tools
+from core.runners.workflowai.message_fixer import MessageAutofixer
 from core.runners.workflowai.provider_pipeline import ProviderPipeline
 from core.runners.workflowai.templates import (
     TemplateName,
@@ -133,6 +139,8 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         metadata: dict[str, Any] | None = None,
         disable_fallback: bool = False,
         stream_deltas: bool = False,
+        # TODO: this is not set anywhere for now
+        timeout: float | None = None,
     ):
         super().__init__(
             task=task,
@@ -167,6 +175,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             self.is_tool_use_enabled,
             self._typology,
         )
+        self._timeout = timeout
 
     @override
     def version(self) -> str:
@@ -244,15 +253,21 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             should_remove_input_schema=not input_schema or not input_schema.get("properties", {}),
         )
 
+    def _should_download_file(self, provider: AbstractProvider[Any, Any], file: File) -> bool:
+        if file.data:
+            return False
+
+        if not provider.requires_downloading_file(file, self._options.model):
+            return False
+
+        return True
+
     async def _download_file_if_needed(
         self,
         provider: AbstractProvider[Any, Any],
         file: File,
     ):
-        if file.data:
-            return False
-
-        if not provider.requires_downloading_file(file, self._options.model):
+        if not self._should_download_file(provider, file):
             return False
 
         await download_file(file)
@@ -473,21 +488,27 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         messages: Messages,
         provider: AbstractProvider[Any, Any],
     ):
+        # Not using file iterator here as it creates a copy of files
         files: list[File] = []
         for m in messages.messages:
             files.extend((c.file for c in m.content if c.file))
 
-        if files:
-            download_start_time = time.time()
-            # TODO:
-            # files = await self._convert_pdf_to_images(files, model_data)
-            # self._check_support_for_files(model_data, files)
+        if not files:
+            return
+
+        download_start_time = time.time()
+        # TODO:
+        # files = await self._convert_pdf_to_images(files, model_data)
+        # self._check_support_for_files(model_data, files)
+
+        files_to_download = [f for f in files if self._should_download_file(provider, f)]
+        if files_to_download:
             try:
                 async with asyncio.TaskGroup() as tg:
-                    for file in files:
+                    for file in files_to_download:
                         # We want to update the provided input because file data
                         # should be propagated upstream to avoid having to download files twice
-                        tg.create_task(self._download_file_if_needed(provider, file))
+                        tg.create_task(download_file(file))
             except* InvalidFileError as eg:
                 raise eg.exceptions[0]
             # Here we update the input copy instead of the provided input
@@ -495,11 +516,16 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             # files, has_inlined_files = self._inline_text_files(files, input_copy)
 
             download_duration = time.time() - download_start_time
-        else:
-            download_duration = 0
 
-        if builder := self._get_builder_context():
-            builder.record_file_download_seconds(download_duration)
+            if builder := self._get_builder_context():
+                builder.record_file_download_seconds(download_duration)
+
+    @classmethod
+    def _fix_messages(cls, messages: Messages):
+        try:
+            messages.messages = MessageAutofixer().fix(messages.messages)
+        except ValueError as e:
+            raise BadRequestError(msg=str(e)) from e
 
     async def _inline_messages(
         self,
@@ -510,6 +536,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
     ) -> list[MessageDeprecated]:
         # First handle all files as needed
         await self._handle_files_in_messages(messages, provider)
+        self._fix_messages(messages)
 
         if structured_output or not self._prepared_output_schema.prepared_schema:
             return messages.to_deprecated()
@@ -540,16 +567,32 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         text_content.text = f"{prefix}{suffix}"
         return messages.to_deprecated()
 
-    def _extract_raw_messages(self, input: AgentInput | Messages):
+    async def _extract_raw_messages(self, input: AgentInput) -> Messages | None:
         if self.task.input_schema.version == RawMessagesSchema.version:
             if isinstance(input, list):
                 input = {"messages": input}
             try:
-                return Messages.model_validate(input)
+                messages = Messages.model_validate(input)
             except ValidationError as e:
                 # Capturing for now just in case
                 raise BadRequestError(f"Input is not a valid list of messages: {str(e)}", capture=True) from e
-        return None
+            if self._options.messages:
+                messages.messages = [*self._options.messages, *messages.messages]
+            return messages
+        if not self._options.messages:
+            return None
+        # Then the current version is a full message template
+        # So we just need to return the messages
+        base = await Messages(messages=self._options.messages).templated(self.template_manager.renderer(input))
+        if self.task.input_schema.uses_messages and (input_messages := input.get(INPUT_KEY_MESSAGES)):
+            # We have extra messages to append
+            try:
+                input_messages = Messages.model_validate({"messages": input_messages})
+                base.messages.extend(input_messages.messages)
+            except ValidationError:
+                # That should never happen, the messages should have been validated upstream
+                logger.exception("Invalid messages in input", input_messages)
+        return base
 
     async def _build_messages(  # noqa: C901
         self,
@@ -578,7 +621,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         # If the input is a raw messages schema we have to extract the messages
         # and use. It would be nice to merge with the above call but it would break
         # the typeguard on the input object
-        if raw_messages := self._extract_raw_messages(input):
+        if raw_messages := await self._extract_raw_messages(input):
             return await self._inline_messages(
                 raw_messages,
                 provider,
@@ -824,8 +867,6 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         iteration_count = 0
         current_messages = messages
 
-        options.enabled_tools = list(self._all_tools())
-
         while iteration_count < MAX_TOOL_CALL_ITERATIONS:
             iteration_count += 1
 
@@ -866,6 +907,8 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             return res, True
 
         # TODO: use the tool cache for that
+        # That's not good also because it probably breaks the tool call message ordering
+        # since most models require the tool call result to be immediately after the tool call request
         # Detect the tools calls made in previous HTTPS requests, but present in the messages
         if any(tool_call.id in message.content for message in messages):
             return ToolCall(
@@ -1021,6 +1064,13 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             structured_generation=is_structured_generation_enabled,
             tenant=self.task.tenant,
             stream_deltas=self._stream_deltas,
+            top_p=self._options.top_p,
+            presence_penalty=self._options.presence_penalty,
+            frequency_penalty=self._options.frequency_penalty,
+            parallel_tool_calls=self._options.parallel_tool_calls,
+            enabled_tools=list(self._all_tools()),
+            tool_choice=self._options.tool_choice,
+            timeout=self._timeout,
         )
 
         model_data_copy = model_data.model_copy()
@@ -1041,10 +1091,6 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         options: ProviderOptions,
         messages: list[MessageDeprecated],
     ):
-        # TODO: this should really not be here but instead built when computing options
-        # in _build_provider_data
-        options.enabled_tools = list(self._all_tools())
-
         # For now we don't stream images
         streamable = not self._typology.output.is_text_only and provider.is_streamable(
             options.model,

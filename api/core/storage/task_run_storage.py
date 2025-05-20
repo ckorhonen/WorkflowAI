@@ -147,3 +147,11 @@ class TaskRunStorage(TaskRunSystemStorage):
         to_date: datetime | None = None,
         is_active: bool | None = None,
     ) -> AsyncIterator[AgentRunCount]: ...
+
+    def list_latest_runs(
+        self,
+        task_uid: int | None = None,
+        since_date: datetime | None = None,
+        is_active: bool = True,
+        limit: int = 100,
+    ) -> AsyncIterator[AgentRun]: ...

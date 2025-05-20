@@ -37,6 +37,9 @@ type TaskVersionBadgeContainerProps = {
 
   className?: string;
   height?: number;
+
+  isProxy?: boolean;
+  hasProxyInput?: boolean;
 };
 
 export function TaskVersionBadgeContainer(props: TaskVersionBadgeContainerProps) {
@@ -54,6 +57,8 @@ export function TaskVersionBadgeContainer(props: TaskVersionBadgeContainerProps)
     height,
     interaction = true,
     hideMinorVersion = false,
+    isProxy = false,
+    hasProxyInput = false,
   } = props;
   const [noteHoverCardOpen, setNoteHoverCardOpen] = useState(false);
 
@@ -124,7 +129,7 @@ export function TaskVersionBadgeContainer(props: TaskVersionBadgeContainerProps)
           icon={<Save16Regular />}
           onClick={onSave}
           loading={isSaving}
-          disabled={isInDemoMode}
+          disabled={isInDemoMode || (isProxy && !hasProxyInput)}
         >
           Save
         </Button>

@@ -100,6 +100,8 @@ ErrorCode = (
         "card_validation_error",
         # The payment failed
         "payment_failed",
+        # The authentication failed
+        "authentication_failed",
     ]
 )
 

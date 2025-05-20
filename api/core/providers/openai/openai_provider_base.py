@@ -11,6 +11,7 @@ from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.models import Model
+from core.domain.models.utils import get_model_data
 from core.domain.structured_output import StructuredOutput
 from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.abstract_provider import ProviderConfigInterface, RawCompletion
@@ -28,7 +29,6 @@ from core.providers.base.provider_error import (
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ParsedResponse, ToolCallRequestBuffer
 from core.providers.google.google_provider_domain import (
-    internal_tool_name_to_native_tool_call,
     native_tool_name_to_internal,
 )
 from core.providers.openai._openai_utils import get_openai_json_schema_name, prepare_openai_json_schema
@@ -48,7 +48,6 @@ from .openai_domain import (
     StreamOptions,
     TextResponseFormat,
     Tool,
-    ToolFunction,
     parse_tool_call_or_raise,
 )
 
@@ -106,6 +105,7 @@ class OpenAIProviderBase(HTTPXProvider[_OpenAIConfigVar, CompletionResponse], Ge
     def _build_request(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool) -> BaseModel:
         model_name = MODEL_NAME_MAP.get(options.model, options.model)
         is_preview_model = options.model in _O1_PREVIEW_MODELS or options.model in _AUDIO_PREVIEW_MODELS
+        model_data = get_model_data(options.model)
 
         message: list[OpenAIMessage | OpenAIToolMessage] = []
         for m in messages:
@@ -120,7 +120,6 @@ class OpenAIProviderBase(HTTPXProvider[_OpenAIConfigVar, CompletionResponse], Ge
             messages=message,
             model=model_name,
             temperature=temperature,
-            # TODO[max-tokens]: re-add max_tokens
             max_tokens=options.max_tokens,
             stream=stream,
             stream_options=StreamOptions(include_usage=True) if stream else None,
@@ -128,20 +127,14 @@ class OpenAIProviderBase(HTTPXProvider[_OpenAIConfigVar, CompletionResponse], Ge
             response_format=self._response_format(options, is_preview_model),
             reasoning_effort=_REASONING_EFFORT_FOR_MODEL.get(options.model, None),
             tool_choice=CompletionRequest.tool_choice_from_domain(options.tool_choice),
+            top_p=options.top_p,
+            presence_penalty=options.presence_penalty,
+            frequency_penalty=options.frequency_penalty,
+            parallel_tool_calls=options.parallel_tool_calls if model_data.supports_parallel_tool_calls else None,
         )
 
         if options.enabled_tools is not None and options.enabled_tools != []:
-            completion_request.tools = [
-                Tool(
-                    type="function",
-                    function=ToolFunction(
-                        name=internal_tool_name_to_native_tool_call(tool.name),
-                        description=tool.description,
-                        parameters=tool.input_schema,
-                    ),
-                )
-                for tool in options.enabled_tools
-            ]
+            completion_request.tools = [Tool.from_domain(tool) for tool in options.enabled_tools]
 
         return completion_request
 
