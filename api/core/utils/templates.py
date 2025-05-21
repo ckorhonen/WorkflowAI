@@ -2,7 +2,7 @@ import asyncio
 import copy
 import re
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, cast
 
 from cachetools import LRUCache
 from jinja2 import Environment, Template, TemplateError, nodes
@@ -20,16 +20,40 @@ _template_regex = re.compile(rf"({re.escape('{%')}|{re.escape('{{')}|{re.escape(
 
 
 class InvalidTemplateError(Exception):
-    def __init__(self, message: str, lineno: int | None):
+    def __init__(
+        self,
+        message: str,
+        line_number: int | None,
+        source: str | None = None,
+        unexpected_char: str | None = None,
+    ):
         self.message = message
-        self.line_number = lineno
+        self.line_number = line_number
+        self.source = source
+        self.unexpected_char = unexpected_char
 
     def __str__(self) -> str:
         return f"{self.message} (line {self.line_number})"
 
     @classmethod
     def from_jinja(cls, e: TemplateError):
-        return cls(e.message or str(e), getattr(e, "lineno", None))
+        lineno = cast(int | None, getattr(e, "lineno", None))
+        source = cast(str | None, getattr(e, "source", None))
+
+        if source and lineno:
+            # We split to only show the offending line in the source
+            lines = source.splitlines()
+            if len(lines) > lineno:
+                source = lines[lineno - 1]
+
+        msg = e.message or str(e)
+        unexpected_char = re.findall(r"unexpected '(.*)'", msg)
+        if unexpected_char:
+            unexpected_char = unexpected_char[0]
+        else:
+            unexpected_char = None
+
+        return cls(e.message or str(e), line_number=lineno, source=source, unexpected_char=unexpected_char)
 
 
 class TemplateManager:

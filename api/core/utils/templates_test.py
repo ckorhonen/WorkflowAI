@@ -264,3 +264,10 @@ class TestExtractVariableSchema:
             "type": "object",
             "properties": {"hello": {}, "name": {}},
         }
+
+    def test_invalid_template(self):
+        with pytest.raises(InvalidTemplateError) as e:
+            extract_variable_schema("Hello {{ name }} {{ blabla }} hello\n{{name}")
+        assert e.value.message == "unexpected '}'"
+        assert e.value.line_number == 2
+        assert e.value.unexpected_char == "}"

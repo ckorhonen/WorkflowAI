@@ -9,7 +9,7 @@ from api.dependencies.event_router import EventRouterDep
 from api.dependencies.security import RequiredUserOrganizationDep
 from api.dependencies.services import AnalyticsServiceDep
 from api.dependencies.storage import StorageDep
-from api.services.messages.messages_utils import json_schema_for_template
+from api.services.messages.messages_utils import MessageTemplateError, json_schema_for_template
 from api.tags import RouteTags
 from core.domain.analytics_events.analytics_events import CreatedTaskProperties, TaskProperties
 from core.domain.errors import BadRequestError
@@ -187,5 +187,14 @@ async def extract_template(request: ExtractTemplateRequest) -> ExtractTemplateRe
         else:
             raise BadRequestError("Either template or messages must be provided")
     except InvalidTemplateError as e:
-        raise BadRequestError(e.message)
+        raise BadRequestError(
+            f"Invalid template: {e.message}",
+            details={
+                "line_number": e.line_number,
+                "unexpected_char": e.unexpected_char,
+                "source": e.source,
+                "message_index": e.message_index if isinstance(e, MessageTemplateError) else None,
+                "content_index": e.content_index if isinstance(e, MessageTemplateError) else None,
+            },
+        )
     return ExtractTemplateResponse(json_schema=json_schema, last_templated_index=last_templated_index)
