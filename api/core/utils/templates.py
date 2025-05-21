@@ -9,7 +9,6 @@ from jinja2 import Environment, Template, TemplateError, nodes
 from jinja2.meta import find_undeclared_variables
 from jinja2.visitor import NodeVisitor
 
-from core.domain.errors import BadRequestError
 from core.domain.types import TemplateRenderer
 from core.utils.schemas import JsonSchema
 
@@ -23,7 +22,7 @@ class InvalidTemplateError(Exception):
     def __init__(
         self,
         message: str,
-        line_number: int | None,
+        line_number: int | None = None,
         source: str | None = None,
         unexpected_char: str | None = None,
     ):
@@ -54,6 +53,13 @@ class InvalidTemplateError(Exception):
             unexpected_char = None
 
         return cls(e.message or str(e), line_number=lineno, source=source, unexpected_char=unexpected_char)
+
+    def serialize_details(self) -> dict[str, Any]:
+        return {
+            "line_number": self.line_number,
+            "unexpected_char": self.unexpected_char,
+            "source": self.source,
+        }
 
 
 class TemplateManager:
@@ -260,7 +266,7 @@ class _SchemaBuilder(NodeVisitor):
         self._pop_scope()
 
     def visit_Call(self, node: nodes.Call):
-        raise BadRequestError("Template functions are not supported", capture=True)
+        raise InvalidTemplateError("Template functions are not supported")
 
 
 def extract_variable_schema(

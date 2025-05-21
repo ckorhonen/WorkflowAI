@@ -15,9 +15,16 @@ class MessageTemplateError(InvalidTemplateError):
         message_index: int | None = None,
         content_index: int | None = None,
     ):
-        super().__init__(message, line_number, source, unexpected_char)
+        super().__init__(message=message, line_number=line_number, source=source, unexpected_char=unexpected_char)
         self.message_index = message_index
         self.content_index = content_index
+
+    def serialize_details(self) -> dict[str, Any]:
+        return {
+            "message_index": self.message_index,
+            "content_index": self.content_index,
+            **super().serialize_details(),
+        }
 
 
 def json_schema_for_template(
