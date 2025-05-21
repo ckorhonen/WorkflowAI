@@ -21,6 +21,7 @@ from core.providers.base.provider_error import (
     MaxTokensExceededError,
     ModelDoesNotSupportMode,
     ProviderError,
+    ProviderInternalError,
     ProviderInvalidFileError,
     UnknownProviderError,
 )
@@ -224,10 +225,6 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
     def _default_config(cls, index: int) -> XAIConfig:
         return XAIConfig(api_key=get_provider_config_env("XAI_API_KEY", index))
 
-    @override
-    def default_model(self) -> Model:
-        return Model.LLAMA_3_3_70B
-
     @property
     def is_structured_generation_supported(self) -> bool:
         return True
@@ -336,6 +333,8 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
                 error_cls = MaxTokensExceededError
             case m if "response does not contain a valid jpg or png image" in m:
                 error_cls = ProviderInvalidFileError
+            case m if "prefill bootstrap failed for request" in m:
+                error_cls = ProviderInternalError
             case _:
                 error_cls = UnknownProviderError
         return error_cls(msg=message, response=response)

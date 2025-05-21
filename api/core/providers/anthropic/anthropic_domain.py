@@ -254,7 +254,11 @@ class CompletionRequest(BaseModel):
             return cls(
                 name=internal_tool_name_to_native_tool_call(tool.name),
                 description=tool.description,
-                input_schema=tool.input_schema,
+                # When sending an empty schema, anthropic rejects the request
+                # It seems that Anthropic only accepts object tool schemas, not sure if
+                # we should spend time trying to sanitize the schema or not
+                # Anthropic does not validate the actual tool call input
+                input_schema=tool.input_schema if tool.input_schema else {"type": "object"},
             )
 
     # https://docs.anthropic.com/en/api/messages#body-tools

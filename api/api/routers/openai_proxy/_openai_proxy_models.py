@@ -2,7 +2,7 @@ import json
 import logging
 import re
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from typing import Any, Literal, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -16,18 +16,18 @@ from core.domain.llm_completion import LLMCompletion
 from core.domain.message import (
     Message,
     MessageContent,
+    MessageRole,
 )
 from core.domain.models.models import Model
 from core.domain.models.providers import Provider
 from core.domain.run_output import RunOutput
-from core.domain.task_group_properties import ToolChoice, ToolChoiceFunction
+from core.domain.task_group_properties import TaskGroupProperties, ToolChoice, ToolChoiceFunction
 from core.domain.tool import Tool
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.domain.types import AgentOutput
 from core.domain.version_environment import VersionEnvironment
 from core.providers.base.provider_error import MissingModelError
-from core.tools import ToolKind
-from core.utils.models.dumps import safe_dump_pydantic_model
+from core.tools import ToolKind, get_tools_in_instructions
 
 # Goal of these models is to be as flexible as possible
 # We definitely do not want to reject calls without being sure
@@ -36,6 +36,31 @@ from core.utils.models.dumps import safe_dump_pydantic_model
 # Also all models have extra allowed so we can track extra values that we may have missed
 
 _logger = logging.getLogger(__name__)
+
+
+_UNSUPPORTED_FIELDS = {
+    "logit_bias",
+    "logprobs",
+    "modalities",
+    "n",
+    "prediction",
+    "seed",
+    "stop",
+    "top_logprobs",
+    "web_search_options",
+}
+# We used to send a warning when the ignored fields were used
+# _IGNORED_FIELDS = {
+#     "service_tier",
+#     "store",
+# }
+_role_mapping: dict[str, MessageRole] = {
+    "user": "user",
+    "assistant": "assistant",
+    "system": "system",
+    "developer": "system",
+    "tool": "user",
+}
 
 
 class OpenAIAudioInput(BaseModel):
@@ -70,7 +95,7 @@ class OpenAIProxyContent(BaseModel):
             case "text":
                 if not self.text:
                     raise BadRequestError("Text content is required")
-                return MessageContent(text=self.text)
+                return MessageContent(text=self.text.strip())
             case "image_url":
                 if not self.image_url:
                     raise BadRequestError("Image URL content is required")
@@ -200,55 +225,68 @@ class OpenAIProxyMessage(BaseModel):
             else None,
         )
 
-    def to_domain(self) -> Message:
-        if not self.content:
-            if self.function_call:
-                return Message(
-                    content=[MessageContent(tool_call_request=self.function_call.to_domain(""))],
-                    role="assistant",
-                )
-            if self.tool_calls:
-                return Message(
-                    content=[MessageContent(tool_call_request=t.to_domain()) for t in self.tool_calls],
-                    role="assistant",
-                )
-            raise BadRequestError(
-                "Content is required",
-                capture=True,
-                extras={"messages": safe_dump_pydantic_model(self)},
-            )
+    @property
+    def first_string_content(self) -> str | None:
+        if isinstance(self.content, str):
+            return self.content
+        if self.content and self.content[0].type == "text":
+            return self.content[0].text
+        return None
+
+    def _content_iterator(self) -> Iterator[MessageContent]:
+        # When the role is tool we know that the message only contains the tool call result
 
         if isinstance(self.content, str):
-            content = [MessageContent(text=self.content)]
-        else:
-            content = [c.to_domain() for c in self.content]
+            yield MessageContent(text=self.content)
+        elif self.content:
+            for c in self.content:
+                yield c.to_domain()
 
-        match self.role:
-            case "user":
-                return Message(content=content, role="user")
-            case "tool":
-                return Message(
-                    content=[
-                        MessageContent(
-                            tool_call_result=ToolCall(
-                                id=self.tool_call_id or "",
-                                # TODO: this information is not available
-                                # In the message but we could grab it from the previous messages
-                                tool_name="",
-                                tool_input_dict={},
-                                result=self.content,
-                            ),
-                        ),
-                    ],
-                    role="user",
-                )
-            case "assistant":
-                return Message(content=content, role="assistant")
-            case "system" | "developer":
-                # TODO: raising a validation error would mean that the system message is not supported
-                return Message(content=content, role="system")
-            case _:
-                raise BadRequestError(f"Unknown role: {self.role}", capture=True)
+        if self.function_call:
+            yield MessageContent(tool_call_request=self.function_call.to_domain(""))
+        if self.tool_calls:
+            for t in self.tool_calls:
+                yield MessageContent(tool_call_request=t.to_domain())
+
+    def _to_tool_call_result_message(self) -> Message:
+        if self.content is None:
+            raise BadRequestError("Content is required when providing a tool call result", capture=True)
+        if not self.tool_call_id:
+            raise BadRequestError("tool_call_id is required when providing a tool call result", capture=True)
+        return Message(
+            content=[
+                MessageContent(
+                    tool_call_result=ToolCall(
+                        id=self.tool_call_id,
+                        tool_name="",
+                        tool_input_dict={},
+                        result=self.content,
+                    ),
+                ),
+            ],
+            role="user",
+        )
+
+    def to_domain(self) -> Message:
+        # When the role is tool we know that the message only contains the tool call result
+        if self.role == "tool":
+            return self._to_tool_call_result_message()
+
+        if self.tool_call_id:
+            raise BadRequestError("tool_call_id is only allowed when the role is tool", capture=True)
+
+        content = list(self._content_iterator())
+        if not content:
+            raise BadRequestError(
+                "Either content, tool_calls or a tool role is required",
+                capture=True,
+            )
+        try:
+            role = _role_mapping[self.role]
+        except KeyError:
+            raise BadRequestError(f"Unknown role: {self.role}", capture=True)
+
+        return Message(content=content, role=role)
 
     model_config = ConfigDict(extra="allow")
 
@@ -291,24 +329,6 @@ class OpenAIProxyWebSearchOptions(BaseModel):
     user_location: dict[str, Any] | None = None
 
 
-_UNSUPPORTED_FIELDS = {
-    "logit_bias",
-    "logprobs",
-    "modalities",
-    "n",
-    "prediction",
-    "seed",
-    "stop",
-    "top_logprobs",
-    "web_search_options",
-}
-_IGNORED_FIELDS = {
-    "service_tier",
-    "store",
-    "parallel_tool_calls",
-}
-
-
 class EnvironmentRef(NamedTuple):
     """A reference to a deployed environment"""
 
@@ -324,13 +344,19 @@ class ModelRef(NamedTuple):
     agent_id: str | None
 
 
-_agent_schema_env_regex = re.compile(rf"^([^/]+)/#(\d+)/({'|'.join(VersionEnvironment)})$")
+_environment_aliases = {
+    "prod": VersionEnvironment.PRODUCTION,
+    "development": VersionEnvironment.DEV,
+}
+_agent_schema_env_regex = re.compile(
+    rf"^([^/]+)/#(\d+)/({'|'.join([*VersionEnvironment, *_environment_aliases.keys()])})$",
+)
 
 
 class OpenAIProxyChatCompletionRequest(BaseModel):
     messages: list[OpenAIProxyMessage]
     model: str
-    frequency_penalty: float | None = Field(None, ge=-2.0, le=2.0)
+    frequency_penalty: float | None = None
     function_call: str | OpenAIProxyToolChoiceFunction | None = None
     functions: list[OpenAIProxyFunctionDefinition] | None = None
 
@@ -354,7 +380,7 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
     store: bool | None = None
     stream: bool | None = None
     stream_options: OpenAIProxyStreamOptions | None = None
-    temperature: float = 1  # default OAI temperature differs from own default
+    temperature: float | None = None  # default OAI temperature differs from own default
     tool_choice: str | OpenAIProxyToolChoice | None = None
     tools: list[OpenAIProxyTool] | None = None
     top_logprobs: int | None = None
@@ -393,6 +419,12 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
 
     use_cache: CacheUsage | None = None
 
+    workflowai_tools: list[str] | None = Field(
+        default=None,
+        description=f"A list of WorkflowAI hosted tools. Possible values are `{'`, `'.join(ToolKind)}`."
+        "When not provided, we attempt to detect tools in the system message.",
+    )
+
     model_config = ConfigDict(extra="allow")
 
     @property
@@ -401,11 +433,37 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
 
     def domain_tools(self) -> list[Tool | ToolKind] | None:
         """Returns a tuple of the tools and a boolean indicating if the function call is deprecated"""
-        if self.tools:
-            return [t.to_domain() for t in self.tools]
-        if self.functions:
-            return [t.to_domain() for t in self.functions]
-        return None
+
+        def _raw_tool_iterator() -> Iterator[OpenAIProxyTool | OpenAIProxyFunctionDefinition]:
+            if self.tools:
+                yield from self.tools
+            if self.functions:
+                yield from self.functions
+
+        def _iterator() -> Iterator[Tool | ToolKind]:
+            used_tool_names = set[str]()
+            for t in _raw_tool_iterator():
+                d = t.to_domain()
+                if d.name in used_tool_names:
+                    raise BadRequestError(f"Tool {d.name} is defined multiple times", capture=True)
+                used_tool_names.add(d.name)
+                yield d
+
+            if self.workflowai_tools is not None:
+                # WorkflowAI tools provides a way to avoid detection of tools in the instructions
+                try:
+                    yield from (ToolKind.from_str(t) for t in self.workflowai_tools)
+                except ValueError as e:
+                    raise BadRequestError(f"{str(e)}. Valid WorkflowAI tools are `{'`, `'.join(ToolKind)}`")
+            else:
+                if (
+                    self.messages
+                    and self.messages[0].role == "system"
+                    and (first_content := self.messages[0].first_string_content)
+                ):
+                    yield from get_tools_in_instructions(first_content)
+
+        return list(_iterator()) or None
 
     def full_metadata(self, headers: Mapping[str, Any]) -> dict[str, Any] | None:
         base = self.metadata or {}
@@ -427,8 +485,6 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
                 f"Field{'s' if plural else ''} `{'`, `'.join(fields)}` {'are' if plural else 'is'} not supported",
                 capture=True,
             )
-        for field in _IGNORED_FIELDS:
-            _logger.warning(f"Field {field} is ignored by openai proxy")  # noqa: G004
 
     @property
     def workflowai_provider(self) -> Provider | None:
@@ -468,7 +524,7 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
                 return EnvironmentRef(
                     agent_id=match.group(1),
                     schema_id=int(match.group(2)),
-                    environment=VersionEnvironment(match.group(3)),
+                    environment=VersionEnvironment(_environment_aliases.get(match.group(3), match.group(3))),
                 )
             except Exception:
                 # That should really not happen. It would be pretty bad because it might mean that our regexp
@@ -533,12 +589,49 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
             return env
 
         if not model:
+            if len(splits) > 2:
+                # This is very likely an invalid environment error so we should raise an explicit BadRequestError
+                raise BadRequestError(
+                    f"'{self.model}' does not refer to a valid model or deployment. Use either the "
+                    "'<agent-id>/#<schema-id>/<environment>' format to target a deployed environment or "
+                    "<agent-id>/<model> to target a specific model. If the model cannot be changed, it is also "
+                    "possible to pass the agent_id, schema_id and environment at the root of the completion request. "
+                    "See https://run.workflowai.com/docs#/openai/chat_completions_v1_chat_completions_post for more "
+                    "information.",
+                    capture=True,
+                    extras={"model": self.model},
+                )
             raise MissingModelError(model=splits[-1])
 
         return ModelRef(
             model=model,
             agent_id=agent_id,
         )
+
+    def apply_to(self, properties: TaskGroupProperties):  # noqa: C901
+        if self.temperature is not None:
+            properties.temperature = self.temperature
+        elif properties.temperature is None:
+            # If the model does not support temperature, we set it to 1
+            # Since 1 is the default temperature for OAI
+            properties.temperature = 1
+
+        if self.top_p is not None:
+            properties.top_p = self.top_p
+        if self.frequency_penalty is not None:
+            properties.frequency_penalty = self.frequency_penalty
+        if self.presence_penalty is not None:
+            properties.presence_penalty = self.presence_penalty
+        if self.parallel_tool_calls is not None:
+            properties.parallel_tool_calls = self.parallel_tool_calls
+        if self.workflowai_provider is not None:
+            properties.provider = self.workflowai_provider
+        if self.worflowai_tool_choice is not None:
+            properties.tool_choice = self.worflowai_tool_choice
+        if max_tokens := self.max_completion_tokens or self.max_tokens:
+            properties.max_tokens = max_tokens
+        if tools := self.domain_tools():
+            properties.enabled_tools = tools
 
 
 # --- Response Models ---

@@ -303,7 +303,7 @@ class TestFindRelevantRunAndAgent:
 
         # Create a mock agent with default name
         mock_agent = Mock(spec=SerializableTaskVariant)
-        mock_agent.name = DEFAULT_AGENT_ID
+        mock_agent.task_id = DEFAULT_AGENT_ID
 
         # Setup the storage mock to return our mock run and agent
         integration_service.storage.task_runs.list_latest_runs = lambda *args, **kwargs: mock_aiter(mock_run)  # type: ignore[reportUnknownLambdaType]
@@ -333,7 +333,7 @@ class TestFindRelevantRunAndAgent:
 
         # Create a mock agent with custom name but created after start_time
         mock_agent = Mock(spec=SerializableTaskVariant)
-        mock_agent.name = "custom-agent"
+        mock_agent.task_id = "custom-agent"
         mock_agent.created_at = start_time + datetime.timedelta(minutes=5)
 
         # Setup the storage mock to return our mock run and agent
@@ -364,7 +364,7 @@ class TestFindRelevantRunAndAgent:
 
         # Create a mock agent with custom name but created before start_time
         mock_agent = Mock(spec=SerializableTaskVariant)
-        mock_agent.name = "custom-agent"
+        mock_agent.task_id = "custom-agent"
         mock_agent.created_at = start_time - datetime.timedelta(minutes=5)
 
         # Setup the storage mock to return our mock run and agent

@@ -151,10 +151,6 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
         return Provider.ANTHROPIC
 
     @override
-    def default_model(self) -> Model:
-        return Model.CLAUDE_3_5_SONNET_20241022
-
-    @override
     @classmethod
     def _default_config(cls, index: int) -> AnthropicConfig:
         return AnthropicConfig(

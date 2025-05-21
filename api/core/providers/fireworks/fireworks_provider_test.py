@@ -1,3 +1,4 @@
+# pyright: reportPrivateUsage=false
 import json
 import os
 import unittest
@@ -40,6 +41,7 @@ from core.providers.fireworks.fireworks_domain import (
 )
 from core.providers.fireworks.fireworks_provider import FireworksAIProvider, FireworksConfig
 from core.runners.workflowai.utils import FileWithKeyPath
+from tests import models as test_models
 from tests.utils import fixture_bytes, fixtures_json
 
 
@@ -1129,3 +1131,26 @@ class TestExtractAndLogRateLimits:
         assert metrics[1].gauge == 0.98
         assert metrics[2].tags["limit_name"] == "requests"
         assert metrics[2].gauge == 0.9
+
+
+class TestResponseFormat:
+    @pytest.mark.parametrize(
+        "options",
+        [
+            pytest.param(ProviderOptions(model=Model.LLAMA_3_3_70B), id="plain-text"),
+            pytest.param(
+                ProviderOptions(model=Model.LLAMA_3_3_70B, output_schema={"type": "object"}),
+                id="structured-output",
+            ),
+        ],
+    )
+    def test_response_format_none_when_tools(self, fireworks_provider: FireworksAIProvider, options: ProviderOptions):
+        """Check that the response format is None whenever tools are involved no matter what the structured output set
+        up is"""
+        response_format = fireworks_provider._response_format(
+            options=options.model_copy(
+                update={"enabled_tools": [test_models.tool()]},
+            ),
+            model_data=test_models.model_data(supports_structured_output=True),
+        )
+        assert response_format is None

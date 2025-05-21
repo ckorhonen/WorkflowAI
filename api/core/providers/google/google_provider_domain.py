@@ -96,6 +96,7 @@ class FileData(BaseModel):
 
 
 # https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.tuningJobs#Part
+# https://ai.google.dev/api/caching#Part
 class Part(BaseModel):
     text: str | None = None
 
@@ -244,21 +245,30 @@ class GoogleMessage(BaseModel):
             role=MESSAGE_ROLE_X_ROLE_MAP[message.role],
         )
 
+        add_text_part = True
+
         # Google breaks if the message does not contain a text part
-        output_message.parts.append(Part.from_str(message.content or "-"))
+        if message.content:
+            output_message.parts.append(Part.from_str(message.content))
+            add_text_part = False
 
         for file in message.files or []:
             output_message.parts.append(Part.from_file(file))
 
         if message.tool_call_requests:
+            add_text_part = False
             output_message.parts.extend(
                 [Part.from_tool_call_request(tool_call_request) for tool_call_request in message.tool_call_requests],
             )
 
         if message.tool_call_results:
+            add_text_part = False
             output_message.parts.extend(
                 [Part.from_tool_call_result(tool_call_result) for tool_call_result in message.tool_call_results],
             )
+
+        if add_text_part:
+            output_message.parts.insert(0, Part.from_str("-"))
 
         return output_message
 
@@ -611,6 +621,8 @@ class CompletionRequest(BaseModel):
         threshold: BLOCK_THRESHOLD
 
     safetySettings: list[SafetySettings] | None = None
+
+    # Parallel tool calls are not supported
 
 
 class SafetyRating(BaseModel):

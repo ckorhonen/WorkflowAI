@@ -1823,26 +1823,33 @@ class TestBuildTaskOutput:
 
 
 class TestBuildProviderData:
-    def test_model_data_is_copied(self, patched_runner: WorkflowAIRunner, patched_provider_factory: Mock):
-        model_data = FinalModelData(
+    @pytest.fixture
+    def model_data(self) -> FinalModelData:
+        return FinalModelData(
             model=Model.GPT_4O_MINI_2024_07_18,
             supports_structured_output=True,
             supports_json_mode=True,
             supports_input_image=True,
             supports_input_pdf=True,
             supports_input_audio=True,
-            display_name="test",
-            icon_url="test",
-            max_tokens_data=MaxTokensData(source="", max_tokens=100),
-            provider_for_pricing=Provider.AZURE_OPEN_AI,
+            display_name="Test GPT-4O Mini",
+            icon_url="http://test.icon",
+            max_tokens_data=MaxTokensData(source="test", max_tokens=1000),
+            provider_for_pricing=Provider.OPEN_AI,
             providers=[],
             release_date=date(2024, 1, 1),
-            quality_data=QualityData(index=100),
             quality_index=100,
+            quality_data=QualityData(index=100),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
         )
 
+    def test_model_data_is_copied(
+        self,
+        patched_runner: WorkflowAIRunner,
+        patched_provider_factory: Mock,
+        model_data: FinalModelData,
+    ):
         def side_effect(model_data: ModelData):
             model_data.supports_structured_output = False
 
@@ -1866,15 +1873,12 @@ class TestBuildProviderData:
     async def test_build_provider_data_with_chain_of_thought_and_tools(
         self,
         mock_provider_factory_full: Mock,
+        model_data: FinalModelData,
     ) -> None:
         """
         Test that build_provider_data adapts the output_schema to include reasoning steps (COT)
         and tool usage when the runner has chain_of_thought and tools enabled.
         """
-        from datetime import date
-
-        from core.domain.models import Provider
-        from core.domain.models.model_data import FinalModelData, MaxTokensData
 
         # Enable chain of thought and tool usage
         runner = _build_runner2(
@@ -1888,25 +1892,6 @@ class TestBuildProviderData:
         )
 
         runner._check_tool_calling_support = Mock()  # pyright: ignore[reportPrivateUsage]
-
-        model_data = FinalModelData(
-            model=Model.GPT_4O_MINI_2024_07_18,
-            supports_structured_output=True,
-            supports_json_mode=True,
-            supports_input_image=True,
-            supports_input_pdf=True,
-            supports_input_audio=True,
-            display_name="Test GPT-4O Mini",
-            icon_url="http://test.icon",
-            max_tokens_data=MaxTokensData(source="test", max_tokens=1000),
-            provider_for_pricing=Provider.OPEN_AI,
-            providers=[],
-            release_date=date(2024, 1, 1),
-            quality_index=100,
-            quality_data=QualityData(index=100),
-            provider_name=DisplayedProvider.OPEN_AI.value,
-            supports_tool_calling=True,
-        )
 
         # Act: build provider data
         provider, _, provider_options, _ = runner._build_provider_data(  # pyright: ignore[reportPrivateUsage]
@@ -1927,37 +1912,15 @@ class TestBuildProviderData:
         self,
         patched_runner: WorkflowAIRunner,
         patched_provider_factory: Mock,
+        model_data: FinalModelData,
     ) -> None:
         """
         Test that build_provider_data does not modify the output_schema when chain_of_thought and tools are disabled.
         """
-        from datetime import date
-
-        from core.domain.models import Provider
-        from core.domain.models.model_data import FinalModelData, MaxTokensData
 
         # Disable chain of thought and tool usage
         patched_runner.properties.is_chain_of_thought_enabled = False
         patched_runner.properties.enabled_tools = []
-
-        model_data = FinalModelData(
-            model=Model.GPT_4O_MINI_2024_07_18,
-            supports_structured_output=True,
-            supports_json_mode=True,
-            supports_input_image=True,
-            supports_input_pdf=True,
-            supports_input_audio=True,
-            display_name="Test GPT-4O Mini",
-            icon_url="http://test.icon",
-            max_tokens_data=MaxTokensData(source="test", max_tokens=1000),
-            provider_for_pricing=Provider.OPEN_AI,
-            providers=[],
-            release_date=date(2024, 1, 1),
-            quality_index=100,
-            quality_data=QualityData(index=100),
-            provider_name=DisplayedProvider.OPEN_AI.value,
-            supports_tool_calling=True,
-        )
 
         # Act: build provider data
         provider, _, provider_options, _ = patched_runner._build_provider_data(  # pyright: ignore[reportPrivateUsage]
@@ -1972,6 +1935,20 @@ class TestBuildProviderData:
         assert isinstance(output_schema, dict)
         assert "internal_reasoning_steps" not in output_schema["properties"]
         assert "internal_tool_calls" not in output_schema["properties"]
+
+    def test_all_provider_options_fields_are_set(
+        self,
+        patched_runner: WorkflowAIRunner,
+        patched_provider_factory: Mock,
+        model_data: FinalModelData,
+    ):
+        """Test that all fields are set in the provider options"""
+        _, _, provider_options, _ = patched_runner._build_provider_data(  # pyright: ignore[reportPrivateUsage]
+            patched_provider_factory.openai,
+            model_data,
+            is_structured_generation_enabled=True,
+        )
+        assert provider_options.model_fields_set == set(ProviderOptions.model_fields.keys())
 
 
 class TestStreamTaskOutput:

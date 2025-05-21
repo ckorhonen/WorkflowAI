@@ -104,10 +104,6 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
         return ["GROQ_API_KEY"]
 
     @override
-    def default_model(self) -> Model:
-        return Model.LLAMA_3_1_70B
-
-    @override
     def _build_request(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool) -> BaseModel:
         groq_messages: list[GroqMessage] = []
         for m in messages:
@@ -127,6 +123,7 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
             top_p=options.top_p,
             presence_penalty=options.presence_penalty,
             frequency_penalty=options.frequency_penalty,
+            parallel_tool_calls=options.parallel_tool_calls,
         )
 
     @override

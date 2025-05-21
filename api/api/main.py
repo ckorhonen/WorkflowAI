@@ -4,7 +4,7 @@ import os
 import time
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
-from typing import Annotated, Awaitable, Callable, Literal
+from typing import Annotated, Any, Awaitable, Callable, Literal
 
 import stripe
 from fastapi import FastAPI, Query, Request, Response
@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from sentry_sdk.integrations.logging import ignore_logger
 
 from api.errors import configure_scope_for_error
-from api.routers import openai_proxy_router
+from api.routers.openai_proxy import openai_proxy_router
 from api.services.storage import storage_for_tenant
 from api.tags import RouteTags
 from api.utils import (
@@ -29,7 +29,9 @@ from api.utils import (
 from core.domain.errors import DefaultError
 from core.domain.models import Model
 from core.domain.models.model_data import FinalModelData, LatestModel
+from core.domain.models.model_data_supports import ModelDataSupports
 from core.domain.models.model_datas_mapping import MODEL_DATAS
+from core.providers.base.httpx_provider_base import HTTPXProviderBase
 from core.providers.base.provider_error import ProviderError
 from core.storage import ObjectNotFoundException
 from core.storage.mongo.migrations.migrate import check_migrations, migrate
@@ -95,6 +97,7 @@ async def lifespan(app: FastAPI):
     # Closing the metrics service to send whatever is left in the buffer
     await close_metrics(metrics_service)
     await wait_for_background_tasks()
+    await HTTPXProviderBase.close()
 
 
 _ONLY_RUN_ROUTES = os.getenv("ONLY_RUN_ROUTES") == "true"
@@ -155,6 +158,7 @@ class StarndardModelResponse(BaseModel):
         owned_by: str
         display_name: str
         icon_url: str
+        supports: dict[str, Any]
 
         @classmethod
         def from_model_data(cls, id: str, model: FinalModelData):
@@ -164,6 +168,13 @@ class StarndardModelResponse(BaseModel):
                 owned_by=model.provider_name,
                 display_name=model.display_name,
                 icon_url=model.icon_url,
+                supports={
+                    k.removeprefix("supports_"): v
+                    for k, v in model.model_dump(
+                        mode="json",
+                        include=set(ModelDataSupports.model_fields.keys()),
+                    ).items()
+                },
             )
 
     data: list[ModelItem]

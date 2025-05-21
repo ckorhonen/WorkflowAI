@@ -52,6 +52,7 @@ from core.providers.base.provider_error import (
 from core.providers.base.provider_options import ProviderOptions
 from core.runners.abstract_runner import AbstractRunner, CacheFetcher
 from core.runners.workflowai.internal_tool import build_all_internal_tools
+from core.runners.workflowai.message_fixer import MessageAutofixer
 from core.runners.workflowai.provider_pipeline import ProviderPipeline
 from core.runners.workflowai.templates import (
     TemplateName,
@@ -138,6 +139,8 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         metadata: dict[str, Any] | None = None,
         disable_fallback: bool = False,
         stream_deltas: bool = False,
+        # TODO: this is not set anywhere for now
+        timeout: float | None = None,
     ):
         super().__init__(
             task=task,
@@ -172,6 +175,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             self.is_tool_use_enabled,
             self._typology,
         )
+        self._timeout = timeout
 
     @override
     def version(self) -> str:
@@ -516,6 +520,13 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             if builder := self._get_builder_context():
                 builder.record_file_download_seconds(download_duration)
 
+    @classmethod
+    def _fix_messages(cls, messages: Messages):
+        try:
+            messages.messages = MessageAutofixer().fix(messages.messages)
+        except ValueError as e:
+            raise BadRequestError(msg=str(e)) from e
+
     async def _inline_messages(
         self,
         messages: Messages,
@@ -525,6 +536,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
     ) -> list[MessageDeprecated]:
         # First handle all files as needed
         await self._handle_files_in_messages(messages, provider)
+        self._fix_messages(messages)
 
         if structured_output or not self._prepared_output_schema.prepared_schema:
             return messages.to_deprecated()
@@ -560,10 +572,13 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             if isinstance(input, list):
                 input = {"messages": input}
             try:
-                return Messages.model_validate(input)
+                messages = Messages.model_validate(input)
             except ValidationError as e:
                 # Capturing for now just in case
                 raise BadRequestError(f"Input is not a valid list of messages: {str(e)}", capture=True) from e
+            if self._options.messages:
+                messages.messages = [*self._options.messages, *messages.messages]
+            return messages
         if not self._options.messages:
             return None
         # Then the current version is a full message template
@@ -852,8 +867,6 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         iteration_count = 0
         current_messages = messages
 
-        options.enabled_tools = list(self._all_tools())
-
         while iteration_count < MAX_TOOL_CALL_ITERATIONS:
             iteration_count += 1
 
@@ -894,6 +907,8 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             return res, True
 
         # TODO: use the tool cache for that
+        # That's not good also because it probably breaks the tool call message ordering
+        # since most models require the tool call result to be immediately after the tool call request
         # Detect the tools calls made in previous HTTPS requests, but present in the messages
         if any(tool_call.id in message.content for message in messages):
             return ToolCall(
@@ -1052,6 +1067,10 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             top_p=self._options.top_p,
             presence_penalty=self._options.presence_penalty,
             frequency_penalty=self._options.frequency_penalty,
+            parallel_tool_calls=self._options.parallel_tool_calls,
+            enabled_tools=list(self._all_tools()),
+            tool_choice=self._options.tool_choice,
+            timeout=self._timeout,
         )
 
         model_data_copy = model_data.model_copy()
@@ -1072,10 +1091,6 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         options: ProviderOptions,
         messages: list[MessageDeprecated],
     ):
-        # TODO: this should really not be here but instead built when computing options
-        # in _build_provider_data
-        options.enabled_tools = list(self._all_tools())
-
         # For now we don't stream images
         streamable = not self._typology.output.is_text_only and provider.is_streamable(
             options.model,

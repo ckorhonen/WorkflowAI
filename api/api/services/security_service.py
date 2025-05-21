@@ -10,7 +10,6 @@ from core.domain.analytics_events.analytics_events import (
     OrganizationCreatedProperties,
     OrganizationProperties,
 )
-from core.domain.consts import WORKFLOWAI_APP_URL
 from core.domain.errors import DuplicateValueError, InvalidToken
 from core.domain.events import Event, EventRouter, SendAnalyticsEvent, TenantCreatedEvent, TenantMigratedEvent
 from core.domain.tenant_data import TenantData
@@ -207,10 +206,7 @@ class SecurityService:
             )
             return res
         except ObjectNotFoundException:
-            raise InvalidToken(
-                f"""Oops! Invalid API key.
-Grab a fresh one (plus $5 in free LLM credits for new users) at {WORKFLOWAI_APP_URL}/keys 🚀""",
-            )
+            raise InvalidToken.from_invalid_api_key(credentials)
 
     async def _find_anonymous_tenant(self, unknown_user_id: str) -> TenantData:
         try:

@@ -74,6 +74,7 @@ class MistralAIProvider(HTTPXProvider[MistralAIConfig, CompletionResponse]):
             top_p=options.top_p,
             presence_penalty=options.presence_penalty,
             frequency_penalty=options.frequency_penalty,
+            parallel_tool_calls=options.parallel_tool_calls,
         )
         if not options.output_schema:
             request.response_format = ResponseFormat(type="text")
@@ -172,7 +173,7 @@ class MistralAIProvider(HTTPXProvider[MistralAIConfig, CompletionResponse]):
                     return MaxTokensExceededError(msg=error_message, response=response, store_task_run=False)
             case "value_error":
                 # We store here for debugging purposes
-                return ProviderBadRequestError(error_message or "Unknown error", response=response, store_task_run=True)
+                return ProviderBadRequestError(error_message or "Unknown error", response=response)
             case "context_length_exceeded":
                 # Here the task run is stored because the error might
                 # have occurred during the generation
@@ -201,10 +202,6 @@ class MistralAIProvider(HTTPXProvider[MistralAIConfig, CompletionResponse]):
             api_key=get_provider_config_env("MISTRAL_API_KEY", index),
             url=get_provider_config_env("MISTRAL_API_URL", index, "https://api.mistral.ai/v1/chat/completions"),
         )
-
-    @override
-    def default_model(self) -> Model:
-        return Model.PIXTRAL_12B_2409
 
     def _extra_stream_delta_tool_calls(
         self,

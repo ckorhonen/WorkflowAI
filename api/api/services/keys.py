@@ -115,7 +115,9 @@ class KeyRing:
         """Verify a token and return the associated claims"""
         splits = token.split(".")
         if len(splits) != 3:
-            raise InvalidToken("Invalid jwt")
+            # That can happen when the user provides a malformed API Key
+            # Or an api key that is not a JWT
+            raise InvalidToken.from_invalid_api_key(token)
 
         try:
             header = JWTHeader.from_jwt_part(splits[0])

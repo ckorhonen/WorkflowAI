@@ -14,7 +14,7 @@ class ProviderOptions(BaseModel):
     temperature: float = 0
     max_tokens: Optional[int] = None
     structured_generation: bool = False
-    timeout: Optional[float] = 180
+    timeout: Optional[float] = None
     enabled_tools: list[Tool] | None = None
     tenant: str | None = None
     stream_deltas: bool = False
@@ -22,3 +22,4 @@ class ProviderOptions(BaseModel):
     top_p: float | None = None
     presence_penalty: float | None = None
     frequency_penalty: float | None = None
+    parallel_tool_calls: bool | None = None
