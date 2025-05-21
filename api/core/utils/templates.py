@@ -133,7 +133,12 @@ class _SchemaBuilder(NodeVisitor):
         start_schema: dict[str, Any] | None = None,
         use_types_from: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        schema: dict[str, Any] = start_schema or {}
+        schema: dict[str, Any] | None = start_schema
+        if not schema and use_types_from:
+            _carried_over_keys = {"format", "description", "examples"}
+            schema = {k: v for k, v in use_types_from.items() if k in _carried_over_keys}
+        if not schema:
+            schema = {}
         self._handle_components(
             schema=schema,
             existing=JsonSchema(use_types_from) if use_types_from else None,
