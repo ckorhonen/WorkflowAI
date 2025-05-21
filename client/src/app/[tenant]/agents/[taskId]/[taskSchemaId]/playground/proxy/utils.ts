@@ -185,7 +185,7 @@ export function isProxyMessageContentEmpty(content: ProxyMessageContent): boolea
   return true;
 }
 
-export function createEmptyMessageContent(type?: ContentType): ProxyMessageContent {
+export function createEmptyMessageContent(type?: ContentType, previouseMessage?: ProxyMessage): ProxyMessageContent {
   if (!type) {
     return {
       text: undefined,
@@ -226,35 +226,47 @@ export function createEmptyMessageContent(type?: ContentType): ProxyMessageConte
         tool_call_result: undefined,
       };
     case 'toolCallResult':
+      const request = previouseMessage?.content.find((content) => !!content.tool_call_request);
+
+      const id = request?.tool_call_request?.id ?? nanoid(10);
+      const toolName = request?.tool_call_request?.tool_name ?? '';
+      const toolInputDict = request?.tool_call_request?.tool_input_dict ?? {};
+
       return {
         text: undefined,
         file: undefined,
         tool_call_result: {
-          id: nanoid(),
+          id: id,
           result: 'Result of the tool call',
-          tool_name: '',
-          tool_input_dict: {},
+          tool_name: toolName,
+          tool_input_dict: toolInputDict,
         } as ToolCallResult,
       };
     case 'toolCallRequest':
+      const result = previouseMessage?.content.find((content) => !!content.tool_call_result);
+
+      const toolCallRequestId = result?.tool_call_result?.id ?? nanoid(10);
+      const toolCallRequestToolName = result?.tool_call_result?.tool_name ?? '';
+      const toolCallRequestToolInputDict = result?.tool_call_result?.tool_input_dict ?? {
+        parameter: 'value',
+      };
+
       return {
         text: undefined,
         file: undefined,
         tool_call_request: {
-          tool_input_dict: {
-            parameter: 'value',
-          },
-          tool_name: 'tool_name',
-          id: nanoid(),
+          tool_input_dict: toolCallRequestToolInputDict,
+          tool_name: toolCallRequestToolName,
+          id: toolCallRequestId,
         } as ToolCallRequestWithID,
       };
   }
 }
 
-export function createEmptyMessage(role: ExtendedMessageType): ProxyMessage {
+export function createEmptyMessage(role: ExtendedMessageType, previouseMessage?: ProxyMessage): ProxyMessage {
   return {
     role: getMessageType(role),
-    content: [createEmptyMessageContent()],
+    content: [createEmptyMessageContent(undefined, previouseMessage)],
   };
 }
 

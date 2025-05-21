@@ -1,18 +1,16 @@
-import { Code16Regular, Save16Regular } from '@fluentui/react-icons';
+import { Code16Regular } from '@fluentui/react-icons';
 import { cx } from 'class-variance-authority';
 import { useRouter } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
 import { DebouncedState } from 'usehooks-ts';
 import { ProxyMessagesView } from '@/app/[tenant]/agents/[taskId]/[taskSchemaId]/playground/proxy/universal/ProxyMessagesView';
 import { TaskVersionNotes } from '@/components/TaskVersionNotes';
-import { Badge } from '@/components/ui/Badge';
 import { TaskRunCountBadge } from '@/components/v2/TaskRunCountBadge/TaskRunCountBadge';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { useIsAllowed } from '@/lib/hooks/useIsAllowed';
 import { useTaskSchemaParams } from '@/lib/hooks/useTaskParams';
 import { taskApiRoute } from '@/lib/routeFormatter';
 import { environmentsForVersion, formatSemverVersion, isVersionSaved } from '@/lib/versionUtils';
-import { useIsSavingVersion } from '@/store/fetchers';
 import { useVersions } from '@/store/versions';
 import { TaskSchemaID } from '@/types/aliases';
 import { ProxyMessage, VersionV1 } from '@/types/workflowAI';
@@ -43,43 +41,6 @@ export function TaskMetadataSection(props: TaskMetadataSectionProps) {
       {footer}
     </div>
   );
-}
-
-const keysToFilter = [
-  'model',
-  'provider',
-  'temperature',
-  'examples',
-  'few_shot',
-  'instructions',
-  'runner_name',
-  'runner_version',
-  'task_schema_id',
-  'task_variant_id',
-  'template_name',
-  'model_name',
-  'model_icon',
-  'messages',
-  'is_chain_of_thought_enabled',
-];
-
-function extractNamesAndValues(version: VersionV1 | undefined): { name: string; value: string }[] {
-  if (!version) {
-    return [];
-  }
-
-  const keys = Object.keys(version.properties).filter((key) => !keysToFilter.includes(key));
-
-  const result: { name: string; value: string }[] = [];
-
-  keys.forEach((key) => {
-    const value = String(version.properties[key]);
-    if (!!value && value !== 'null') {
-      result.push({ name: key, value });
-    }
-  });
-
-  return result;
 }
 
 type TaskMetadataProps = {
@@ -115,10 +76,7 @@ export function ProxyVersionDetails(props: TaskMetadataProps) {
   const { temperature, instructions, provider, few_shot, messages } = properties;
   const model = version?.model;
 
-  const namesAndValues: { name: string; value: string }[] = useMemo(() => extractNamesAndValues(version), [version]);
-
   const isSaved = isVersionSaved(version);
-  const isSaving = useIsSavingVersion(version?.id);
   const { isInDemoMode } = useDemoMode();
 
   const versionNumber = useMemo(() => {
@@ -138,13 +96,6 @@ export function ProxyVersionDetails(props: TaskMetadataProps) {
 
   const saveVersion = useVersions((state) => state.saveVersion);
   const { checkIfSignedIn } = useIsAllowed();
-
-  const onSave = useCallback(async () => {
-    if (!checkIfSignedIn()) {
-      return;
-    }
-    await saveVersion(tenant, taskId, version.id);
-  }, [saveVersion, tenant, taskId, version.id, checkIfSignedIn]);
 
   const [isOpeningCode, setIsOpeningCode] = useState(false);
 
@@ -187,34 +138,20 @@ export function ProxyVersionDetails(props: TaskMetadataProps) {
     <div className={cx(className, 'pb-1.5 bg-white')}>
       <div className='flex flex-row gap-2 items-center justify-between border-b border-gray-200 border-dashed h-11 px-4 mb-2'>
         {isSaved ? (
-          <>
-            <div className='text-[15px] font-semibold text-gray-700'>Version {versionNumber}</div>
-            <Button
-              variant='newDesign'
-              size='sm'
-              icon={<Code16Regular />}
-              onClick={onOpenTaskCode}
-              loading={isOpeningCode}
-              disabled={isInDemoMode}
-            >
-              View Code
-            </Button>
-          </>
+          <div className='text-[15px] font-semibold text-gray-700'>Version {versionNumber}</div>
         ) : (
-          <>
-            <div className='text-[15px] font-semibold text-gray-700'>Version Preview</div>
-            <Button
-              variant='newDesign'
-              size='sm'
-              icon={<Save16Regular />}
-              onClick={onSave}
-              loading={isSaving}
-              disabled={isInDemoMode}
-            >
-              Save
-            </Button>
-          </>
+          <div className='text-[15px] font-semibold text-gray-700'>Version Preview</div>
         )}
+        <Button
+          variant='newDesign'
+          size='sm'
+          icon={<Code16Regular />}
+          onClick={onOpenTaskCode}
+          loading={isOpeningCode}
+          disabled={isInDemoMode}
+        >
+          View Code
+        </Button>
       </div>
 
       {version.notes !== undefined && (
@@ -291,14 +228,6 @@ export function ProxyVersionDetails(props: TaskMetadataProps) {
             {`${fewShotCount} ${fewShotCount > 1 ? 'examples' : 'example'}`}
           </TaskMetadataSection>
         )}
-
-        {namesAndValues.map(({ name, value }) => (
-          <TaskMetadataSection key={name} title={name}>
-            <Badge variant='tertiary' className='w-fit'>
-              {value}
-            </Badge>
-          </TaskMetadataSection>
-        ))}
       </div>
       {children}
     </div>

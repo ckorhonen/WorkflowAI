@@ -42,7 +42,7 @@ export function ProxyInput(props: Props) {
             <div className='flex flex-row items-center gap-1'>
               <div className='flex w-full items-center font-semibold text-[16px] text-gray-700'>Version Variables</div>
               <SimpleTooltip
-                content={`Version variables are noted in\nversion messages with double curly\nbraces: {{ variable_here }}`}
+                content={`Version variables are noted in\nversion messages with double curly\nbraces: {{variable_here}}`}
                 tooltipClassName='whitespace-pre-line text-center'
                 tooltipDelay={100}
               >

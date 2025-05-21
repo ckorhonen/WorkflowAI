@@ -1271,6 +1271,7 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
                   useParametersFromMajorVersion={useParametersFromMajorVersion}
                   showSaveAllVersions={showSaveAllVersions && !noCreditsLeft && !isInDemoMode}
                   onSaveAllVersions={onSaveAllVersions}
+                  versionsForRuns={versionsForRuns}
                 />
               ) : (
                 <PlaygroundInputContainer

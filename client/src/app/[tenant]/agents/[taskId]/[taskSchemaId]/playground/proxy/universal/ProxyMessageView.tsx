@@ -28,6 +28,8 @@ type Props = {
   onMoveToVersion?: () => void;
   readonly?: boolean;
   oneMessageMode?: boolean;
+  isLastMessage?: boolean;
+  previouseMessage?: ProxyMessage;
 };
 
 export function ProxyMessageView(props: Props) {
@@ -40,6 +42,8 @@ export function ProxyMessageView(props: Props) {
     onMoveToVersion,
     readonly,
     oneMessageMode = false,
+    isLastMessage = false,
+    previouseMessage,
   } = props;
 
   const onMessageChange = useCallback(
@@ -120,7 +124,7 @@ export function ProxyMessageView(props: Props) {
       });
 
       if (!isDefaultContentTypeAlreadyInContent) {
-        newContent.unshift(createEmptyMessageContent(defaultContentType));
+        newContent.unshift(createEmptyMessageContent(defaultContentType, previouseMessage));
       }
 
       const newMessage = {
@@ -131,7 +135,7 @@ export function ProxyMessageView(props: Props) {
 
       setMessage(newMessage);
     },
-    [message, setMessage]
+    [message, setMessage, previouseMessage]
   );
 
   const onRemove = useCallback(() => {
@@ -162,7 +166,7 @@ export function ProxyMessageView(props: Props) {
         type={getExtendedMessageType(message.role, message.content)}
         isHovering={isHovering}
         avaibleTypes={avaibleTypes}
-        onRemove={oneMessageMode ? undefined : onRemove}
+        onRemove={oneMessageMode || isLastMessage ? undefined : onRemove}
         onChangeType={(type) => onChangeType(type)}
         onAddContentEntry={onAddContentEntry}
         readonly={readonly}

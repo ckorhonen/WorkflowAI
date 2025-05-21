@@ -35,7 +35,7 @@ export function ProxyToolCallRequest(props: Props) {
 
   return (
     <div
-      className='flex flex-row w-full items-center justify-between'
+      className='flex flex-row w-full items-center justify-between relative'
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
     >
@@ -56,7 +56,7 @@ export function ProxyToolCallRequest(props: Props) {
         </div>
       </div>
       {isHovering && !readonly && (
-        <div className='flex items-center justify-center gap-2'>
+        <div className='absolute right-0 top-[50%] -translate-y-1/2 flex items-center justify-center gap-2'>
           <Button variant='newDesign' size='sm' onClick={() => setIsEditModalOpen(true)}>
             Edit
           </Button>

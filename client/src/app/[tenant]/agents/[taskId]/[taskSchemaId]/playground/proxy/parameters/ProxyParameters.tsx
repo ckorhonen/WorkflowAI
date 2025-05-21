@@ -1,6 +1,9 @@
+import { useMemo } from 'react';
 import { TemperatureSelector } from '@/components/TemperatureSelector/TemperatureSelector';
 import { Button } from '@/components/ui/Button';
-import { MajorVersion, ProxyMessage, ToolKind, Tool_Output } from '@/types/workflowAI';
+import { SimpleTooltip } from '@/components/ui/Tooltip';
+import { ProxyMajorVersionDetails } from '@/components/v2/ProxyMajorVersionDetails';
+import { MajorVersion, ProxyMessage, ToolKind, Tool_Output, VersionV1 } from '@/types/workflowAI';
 import { MajorVersionCombobox } from '../../components/MajorVersionSelector/MajorVersionSelector';
 import { ProxyMessagesView } from '../universal/ProxyMessagesView';
 import { getAvaibleMessageTypes } from '../utils';
@@ -22,6 +25,7 @@ type ProxyParametersProps = {
 
   showSaveAllVersions: boolean;
   onSaveAllVersions: () => void;
+  versionsForRuns: Record<string, VersionV1>;
 };
 
 export function ProxyParameters(props: ProxyParametersProps) {
@@ -37,17 +41,34 @@ export function ProxyParameters(props: ProxyParametersProps) {
     useParametersFromMajorVersion,
     showSaveAllVersions,
     onSaveAllVersions,
+    versionsForRuns,
   } = props;
+
+  const version = useMemo(() => {
+    const keys = Object.keys(versionsForRuns);
+    if (keys.length === 0) {
+      return undefined;
+    }
+    return versionsForRuns[keys[0]];
+  }, [versionsForRuns]);
 
   return (
     <div className='flex flex-col w-full h-full'>
       <div className='flex flex-row h-[48px] w-full justify-between items-center shrink-0 border-b border-gray-200 border-dashed px-4'>
         <div className='flex flex-row items-center gap-2'>
           <div className='flex items-center font-semibold text-[16px] text-gray-700'>Version</div>
-          {showSaveAllVersions && (
-            <Button variant='newDesign' size='sm' onClick={onSaveAllVersions}>
-              Save
-            </Button>
+          {showSaveAllVersions && version && (
+            <SimpleTooltip
+              content={<ProxyMajorVersionDetails version={version} />}
+              tooltipClassName='w-[350px] p-0 rounded-[2px] border border-gray-200'
+              tooltipDelay={100}
+              side='bottom'
+              align='start'
+            >
+              <Button variant='newDesign' size='sm' onClick={onSaveAllVersions}>
+                Save
+              </Button>
+            </SimpleTooltip>
           )}
         </div>
         <div className='flex w-full justify-end'>
@@ -68,7 +89,7 @@ export function ProxyParameters(props: ProxyParametersProps) {
         />
       </div>
       <div className='flex flex-col w-full border-t border-gray-200 border-dashed'>
-        <div className='flex flex-col gap-1 px-4 pt-2'>
+        <div className='flex flex-col gap-1 px-4 pt-2 pb-3 border-b border-gray-200 border-dashed'>
           <div className='flex w-full items-center font-medium text-[13px] text-gray-900'>Tools</div>
           <ProxyTools toolCalls={toolCalls} setToolCalls={setToolCalls} />
         </div>

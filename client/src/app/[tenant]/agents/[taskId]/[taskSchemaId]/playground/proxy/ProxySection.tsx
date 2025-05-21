@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { TaskID, TenantID } from '@/types/aliases';
 import { JsonSchema } from '@/types/json_schema';
 import { GeneralizedTaskInput } from '@/types/task_run';
-import { MajorVersion, ProxyMessage, ToolKind, Tool_Output } from '@/types/workflowAI';
+import { MajorVersion, ProxyMessage, ToolKind, Tool_Output, VersionV1 } from '@/types/workflowAI';
 import { useProxyInputStructure } from './hooks/useProxyInputStructure';
 import { ProxyInput } from './input/ProxyInput';
 import { ProxyParameters } from './parameters/ProxyParameters';
@@ -34,6 +34,8 @@ interface Props {
 
   showSaveAllVersions: boolean;
   onSaveAllVersions: () => void;
+
+  versionsForRuns: Record<string, VersionV1>;
 }
 
 export function ProxySection(props: Props) {
@@ -55,6 +57,7 @@ export function ProxySection(props: Props) {
     useParametersFromMajorVersion,
     showSaveAllVersions,
     onSaveAllVersions,
+    versionsForRuns,
   } = props;
 
   const {
@@ -120,6 +123,7 @@ export function ProxySection(props: Props) {
           useParametersFromMajorVersion={useParametersFromMajorVersion}
           showSaveAllVersions={showSaveAllVersions}
           onSaveAllVersions={onSaveAllVersions}
+          versionsForRuns={versionsForRuns}
         />
       </div>
     </div>

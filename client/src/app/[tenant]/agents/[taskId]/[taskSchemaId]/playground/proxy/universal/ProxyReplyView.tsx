@@ -1,7 +1,6 @@
 import { nanoid } from 'nanoid';
 import { useCallback, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { Textarea } from '@/components/ui/Textarea';
 import { JsonSchema } from '@/types/json_schema';
 import { ToolCallPreview } from '@/types/task_run';
 import { TaskInputDict, TaskOutputDict, ToolCallRequestWithID } from '@/types/workflowAI';
@@ -20,7 +19,6 @@ type Props = {
 
 export function ProxyReplyView(props: Props) {
   const { input, output, toolCalls, updateInputAndRun, inputSchema } = props;
-  const [toolCallResultText, setToolCallResultText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const toolCallRequest: ToolCallRequestWithID | undefined = useMemo(() => {
@@ -53,7 +51,27 @@ export function ProxyReplyView(props: Props) {
     }
   }, [inputSchema]);
 
+  const supportToolCallResult = useMemo(() => {
+    return !!toolCallRequest;
+  }, [toolCallRequest]);
+
   const blankMessage: ProxyMessage = useMemo(() => {
+    if (supportToolCallResult) {
+      return {
+        role: 'user',
+        content: [
+          {
+            tool_call_result: {
+              id: toolCallRequest?.id ?? nanoid(),
+              result: 'Result of the tool call',
+              tool_name: toolCallRequest?.tool_name ?? 'tool_name',
+              tool_input_dict: toolCallRequest?.tool_input_dict,
+            },
+          },
+        ],
+      };
+    }
+
     return {
       role: 'user',
       content: [
@@ -62,18 +80,10 @@ export function ProxyReplyView(props: Props) {
         },
       ],
     };
-  }, []);
+  }, [supportToolCallResult, toolCallRequest]);
 
-  const [userMessage, setUserMessage] = useState<ProxyMessage>(blankMessage);
-
-  const onSendMessage = useCallback(async () => {
-    const taskInput = input as Record<string, unknown>;
-    const oldMessages: ProxyMessage[] = (taskInput[keyForMessage] as ProxyMessage[]) ?? [];
-
-    const messages = [...oldMessages];
-
+  const assistantMessage: ProxyMessage = useMemo(() => {
     const assistantText = JSON.stringify(output);
-
     const requestContent: ProxyMessageContent[] = [];
 
     if (toolCallRequest) {
@@ -88,53 +98,38 @@ export function ProxyReplyView(props: Props) {
       });
     }
 
-    const assistantMessage: ProxyMessage = {
+    return {
       role: 'assistant',
       content: requestContent,
     };
+  }, [toolCallRequest, output]);
+
+  const [newMessage, setNewMessage] = useState<ProxyMessage>(blankMessage);
+
+  const onSendMessage = useCallback(async () => {
+    const taskInput = input as Record<string, unknown>;
+    const oldMessages: ProxyMessage[] = (taskInput[keyForMessage] as ProxyMessage[]) ?? [];
+
+    const messages = [...oldMessages];
 
     messages.push(assistantMessage);
-
-    let responseContent: ProxyMessageContent[] = [];
-
-    if (toolCallRequest && !!toolCallResultText) {
-      responseContent.push({
-        tool_call_result: {
-          id: toolCallRequest?.id ?? nanoid(),
-          result: toolCallResultText,
-          tool_name: toolCallRequest?.tool_name,
-          tool_input_dict: toolCallRequest?.tool_input_dict,
-        },
-      });
-    }
-
-    if (!toolCallRequest) {
-      responseContent = userMessage.content;
-    }
-
-    const newMessage: ProxyMessage = {
-      role: 'user',
-      content: responseContent,
-    };
-
     messages.push(newMessage);
 
     const updatedInput: TaskInputDict = { ...input, [keyForMessage]: messages };
 
-    setToolCallResultText('');
     setIsLoading(true);
     await updateInputAndRun(updatedInput);
     setIsLoading(false);
-  }, [input, toolCallResultText, output, updateInputAndRun, toolCallRequest, keyForMessage, userMessage]);
+  }, [input, updateInputAndRun, keyForMessage, newMessage, assistantMessage]);
 
   const handleSetMessage = useCallback(
     (message: ProxyMessage | undefined) => {
       if (!message || message.content.length === 0) {
-        setUserMessage(blankMessage);
+        setNewMessage(blankMessage);
         return;
       }
 
-      setUserMessage({
+      setNewMessage({
         ...message,
         content: cleanMessageContent(message.content),
       });
@@ -142,40 +137,18 @@ export function ProxyReplyView(props: Props) {
     [blankMessage]
   );
 
-  if (!!toolCallRequest) {
-    return (
-      <div className='flex flex-col w-full px-4 py-2 gap-2.5'>
-        <Textarea
-          className='flex w-full text-gray-900 placeholder:text-gray-500 font-normal text-[13px] rounded-[2px] border-gray-300 overflow-y-auto focus-within:ring-inset'
-          placeholder={'Tool Call Result'}
-          value={toolCallResultText}
-          onChange={(e) => setToolCallResultText(e.target.value)}
-          autoFocus
-          disabled={isLoading}
-        />
-        <div className='flex flex-row w-full justify-between items-center'>
-          <div className='flex flex-row gap-2 items-center'>
-            <Button variant='newDesign' size='sm' onClick={onSendMessage} disabled={!toolCallResultText}>
-              Send Tool Call Result
-            </Button>
-          </div>
-          <div className='text-[12px] text-gray-500'>Will be sent to all models</div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className='flex flex-col w-full px-4 py-2 gap-2.5'>
       <ProxyMessageView
-        message={userMessage}
-        avaibleTypes={['user']}
+        message={newMessage}
+        avaibleTypes={supportToolCallResult ? ['toolCallResult', 'user'] : ['user']}
         setMessage={handleSetMessage}
         oneMessageMode={true}
+        previouseMessage={assistantMessage}
       />
       <div className='flex flex-row w-full justify-between items-center'>
         <div className='flex flex-row gap-2 items-center'>
-          <Button variant='newDesign' size='sm' onClick={onSendMessage}>
+          <Button variant='newDesign' size='sm' onClick={onSendMessage} loading={isLoading}>
             Send
           </Button>
         </div>
