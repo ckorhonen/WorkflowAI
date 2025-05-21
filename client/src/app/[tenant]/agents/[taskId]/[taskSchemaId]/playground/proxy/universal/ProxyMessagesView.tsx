@@ -16,6 +16,7 @@ type Props = {
   className?: string;
 
   onMoveToVersion?: (message: ProxyMessage) => void;
+  allowRemovalOfLastMessage?: boolean;
 };
 
 export function ProxyMessagesView(props: Props) {
@@ -29,6 +30,7 @@ export function ProxyMessagesView(props: Props) {
     className,
 
     onMoveToVersion,
+    allowRemovalOfLastMessage = true,
   } = props;
 
   const [isHovering, setIsHovering] = useState(false);
@@ -116,7 +118,7 @@ export function ProxyMessagesView(props: Props) {
           addMessageBelow={() => addMessage(index + 1)}
           onMoveToVersion={onMoveToVersion ? () => handleMoveToVersion(index) : undefined}
           readonly={readonly}
-          isLastMessage={!cleanedMessages || cleanedMessages?.length === 1}
+          isLastMessage={(!cleanedMessages || cleanedMessages?.length === 1) && !allowRemovalOfLastMessage}
           previouseMessage={cleanedMessages?.[index - 1]}
         />
       ))}

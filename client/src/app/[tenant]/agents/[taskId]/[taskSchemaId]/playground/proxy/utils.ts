@@ -157,7 +157,7 @@ export function getTitleForType(type: ExtendedMessageType) {
     case 'system':
       return 'System Message';
     case 'assistant':
-      return 'Agent Message';
+      return 'Assistant Message';
     case 'toolCallResult':
       return 'Tool Call Result';
     case 'toolCallRequest':

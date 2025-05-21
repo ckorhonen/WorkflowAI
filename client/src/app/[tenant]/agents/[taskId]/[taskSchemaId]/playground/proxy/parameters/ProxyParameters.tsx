@@ -86,6 +86,7 @@ export function ProxyParameters(props: ProxyParametersProps) {
           defaultType={getAvaibleMessageTypes('version')[0]}
           avaibleTypes={getAvaibleMessageTypes('version')}
           className='px-4 py-4 min-h-[100px]'
+          allowRemovalOfLastMessage={false}
         />
       </div>
       <div className='flex flex-col w-full border-t border-gray-200 border-dashed'>

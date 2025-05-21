@@ -1230,7 +1230,7 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
               <Button variant='newDesign' icon={<Link16Regular />} onClick={copyUrl} className='w-9 h-9 px-0 py-0' />
               {!isMobile && (
                 <RunAgentsButton
-                  showSaveAllVersions={showSaveAllVersions && !noCreditsLeft && !isInDemoMode}
+                  showSaveAllVersions={showSaveAllVersions && !noCreditsLeft && !isInDemoMode && !isProxy}
                   areTasksRunning={areTasksRunning}
                   inputLoading={inputLoading}
                   areInstructionsLoading={areInstructionsLoading}
@@ -1366,7 +1366,7 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
 
             <div className='fixed bottom-0 left-0 right-0 z-10 bg-white border-t border-gray-200 p-4 sm:hidden flex w-full'>
               <RunAgentsButton
-                showSaveAllVersions={showSaveAllVersions && !noCreditsLeft && !isInDemoMode}
+                showSaveAllVersions={showSaveAllVersions && !noCreditsLeft && !isInDemoMode && !isProxy}
                 areTasksRunning={areTasksRunning}
                 inputLoading={inputLoading}
                 areInstructionsLoading={areInstructionsLoading}
