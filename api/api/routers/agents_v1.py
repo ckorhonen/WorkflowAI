@@ -187,5 +187,5 @@ async def extract_template(request: ExtractTemplateRequest) -> ExtractTemplateRe
         else:
             raise BadRequestError("Either template or messages must be provided")
     except InvalidTemplateError as e:
-        raise BadRequestError(e.message)
+        raise BadRequestError(f"Invalid template: {e.message}", details=e.serialize_details())
     return ExtractTemplateResponse(json_schema=json_schema, last_templated_index=last_templated_index)

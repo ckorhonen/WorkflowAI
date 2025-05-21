@@ -583,7 +583,10 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             return None
         # Then the current version is a full message template
         # So we just need to return the messages
-        base = await Messages(messages=self._options.messages).templated(self.template_manager.renderer(input))
+        try:
+            base = await Messages(messages=self._options.messages).templated(self.template_manager.renderer(input))
+        except InvalidTemplateError as e:
+            raise BadRequestError(f"Invalid template: {e.message}", details=e.serialize_details()) from e
         if self.task.input_schema.uses_messages and (input_messages := input.get(INPUT_KEY_MESSAGES)):
             # We have extra messages to append
             try:
