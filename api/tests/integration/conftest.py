@@ -185,7 +185,7 @@ async def integration_storage(
         db = storage.client[_INT_DB_NAME]
         names = await db.list_collection_names()
         await asyncio.gather(
-            *(db[c].delete_many({}) for c in names),
+            *(db[c].delete_many({}) for c in names if c != "system.profile"),
         )
 
     return storage
