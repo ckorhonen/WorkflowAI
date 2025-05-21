@@ -16,6 +16,7 @@ from taskiq import InMemoryBroker
 from core.domain.models import Model
 from core.domain.types import CacheUsage
 from core.utils.background import wait_for_background_tasks
+from tests.pausable_memory_broker import PausableInMemoryBroker
 from tests.utils import fixtures_json, request_json_body
 
 # 03832ff71a03e47e372479593879ad2e is the input hash of `{"name": "John", "age": 30}`
@@ -295,6 +296,8 @@ async def import_task_run(
 
 
 async def wait_for_completed_tasks(broker: InMemoryBroker, max_retries: int = 10):
+    if isinstance(broker, PausableInMemoryBroker):
+        await broker.resume()
     """Sleep for intervals of 100 until all tasks are completed or max_retries is reached."""
     running = []
     for _ in range(max_retries):

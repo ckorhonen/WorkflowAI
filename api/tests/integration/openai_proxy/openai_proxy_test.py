@@ -585,38 +585,6 @@ async def test_deployed_version_no_messages_with_empty_input(
     assert body["messages"][1]["content"] == "Hello hades!"
 
 
-async def test_internal_tools(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
-    test_client.mock_openai_call(
-        tool_calls_content=[
-            {
-                "id": "some_id",
-                "type": "function",
-                "function": {"name": "search-google", "arguments": '{"query": "bla"}'},
-            },
-        ],
-    )
-    test_client.httpx_mock.add_response(
-        url="https://google.serper.dev/search",
-        text="blabla",
-    )
-    test_client.mock_openai_call(raw_content="Hello, world!")
-
-    res = await openai_client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": "Use @search-google to find information"},
-            {"role": "user", "content": "Hello, world!"},
-        ],
-    )
-    assert res.choices[0].message.content == "Hello, world!"
-
-    await test_client.wait_for_completed_tasks()
-
-    serper_request = test_client.httpx_mock.get_request(url="https://google.serper.dev/search")
-    assert serper_request
-    assert serper_request.content == b'{"q": "bla"}'
-
-
 async def test_profile_db_calls(
     test_client: IntegrationTestClient,
     openai_client: AsyncOpenAI,
@@ -658,3 +626,35 @@ async def test_profile_db_calls(
     assert calls[1]["op"] == "query"
     assert calls[1]["ns"] == "workflowai_int_test.tasks"
     assert "IXSCAN" in calls[1]["planSummary"]
+
+
+async def test_internal_tools(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+    test_client.mock_openai_call(
+        tool_calls_content=[
+            {
+                "id": "some_id",
+                "type": "function",
+                "function": {"name": "search-google", "arguments": '{"query": "bla"}'},
+            },
+        ],
+    )
+    test_client.httpx_mock.add_response(
+        url="https://google.serper.dev/search",
+        text="blabla",
+    )
+    test_client.mock_openai_call(raw_content="Hello, world!")
+
+    res = await openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "Use @search-google to find information"},
+            {"role": "user", "content": "Hello, world!"},
+        ],
+    )
+    assert res.choices[0].message.content == "Hello, world!"
+
+    await test_client.wait_for_completed_tasks()
+
+    serper_request = test_client.httpx_mock.get_request(url="https://google.serper.dev/search")
+    assert serper_request
+    assert serper_request.content == b'{"q": "bla"}'

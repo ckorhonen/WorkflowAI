@@ -2,7 +2,7 @@
 
 import asyncio
 import os
-from typing import Any, cast
+from typing import Any
 from unittest import mock
 from unittest.mock import Mock, patch
 
@@ -91,7 +91,6 @@ async def patched_broker():
         from api.broker import broker
 
     yield broker
-    await cast(PausableInMemoryBroker, broker).resume()
 
 
 @pytest.fixture(scope="function", autouse=True)
