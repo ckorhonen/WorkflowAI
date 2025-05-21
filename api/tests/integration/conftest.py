@@ -1,6 +1,8 @@
+# pyright: reportPrivateUsage=false
+
 import asyncio
 import os
-from typing import Any
+from typing import Any, cast
 from unittest import mock
 from unittest.mock import Mock, patch
 
@@ -12,6 +14,7 @@ from taskiq import InMemoryBroker
 
 from tests.asgi_transport import patch_asgi_transport
 from tests.integration.common import IntegrationTestClient
+from tests.pausable_memory_broker import PausableInMemoryBroker
 
 
 @pytest.fixture
@@ -83,10 +86,12 @@ def setup_environment():
 
 
 @pytest.fixture(scope="function")
-def patched_broker():
-    from api.broker import broker
+async def patched_broker():
+    with patch("taskiq.InMemoryBroker", new=PausableInMemoryBroker):
+        from api.broker import broker
 
     yield broker
+    await cast(PausableInMemoryBroker, broker).resume()
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -184,6 +189,26 @@ async def integration_storage(
         )
 
     return storage
+
+
+@pytest.fixture(scope="function")
+async def start_mongo_profiling(integration_storage: Any):
+    db = integration_storage._db
+
+    async def _purge_and_start():
+        # Disable profiling
+        await db.command({"profile": 0})
+        # Drop system profile collection
+        await db.command({"drop": "system.profile"})
+        # Enable profiling
+        await db.command({"profile": 2})
+
+        return db["system.profile"]
+
+    yield _purge_and_start
+
+    # Reset profiling
+    await db.command({"profile": 0})
 
 
 @pytest.fixture(scope="module")
