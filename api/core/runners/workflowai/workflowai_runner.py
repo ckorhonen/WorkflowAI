@@ -538,7 +538,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         await self._handle_files_in_messages(messages, provider)
         self._fix_messages(messages)
 
-        if structured_output or not self._prepared_output_schema.prepared_schema:
+        if structured_output or self._prepared_output_schema.prepared_schema is None:
             return messages.to_deprecated()
 
         # Otherwise we append the output to the first system message
@@ -559,10 +559,15 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             return messages.to_deprecated()
 
         tool_call_str = "either tool call(s) or " if use_tools else ""
-        suffix = f"""Return {tool_call_str}a single JSON object enforcing the following schema:
+        schema_str = (
+            f""" enforcing the following schema:
 ```json
 {json.dumps(self._prepared_output_schema.prepared_schema, indent=2)}
 ```"""
+            if self._prepared_output_schema.prepared_schema
+            else ""
+        )
+        suffix = f"Return {tool_call_str}a single JSON object{schema_str}"
         prefix = f"{text_content.text}\n\n" if text_content.text else ""
         text_content.text = f"{prefix}{suffix}"
         return messages.to_deprecated()
@@ -612,13 +617,17 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         if (builder := self._get_builder_context()) and builder.reply:
             return await self._build_messages_for_reply(builder.reply)
 
+        use_structured_output = (
+            model_data.supports_structured_output and self._options.is_structured_generation_enabled is not False
+        )
+
         # If the input is already a Messages object we can just use as is
         if isinstance(input, Messages):
             return await self._inline_messages(
                 input,
                 provider,
-                model_data.supports_structured_output,
-                self.is_tool_use_enabled,
+                structured_output=use_structured_output,
+                use_tools=self.is_tool_use_enabled,
             )
 
         # If the input is a raw messages schema we have to extract the messages
@@ -628,8 +637,8 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             return await self._inline_messages(
                 raw_messages,
                 provider,
-                model_data.supports_structured_output,
-                self.is_tool_use_enabled,
+                structured_output=use_structured_output,
+                use_tools=self.is_tool_use_enabled,
             )
 
         start_time = time.time()
@@ -1192,22 +1201,30 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
     ) -> WorkflowAIRunnerOptions:
         model, provider = sanitize_model_and_provider(properties.model, properties.provider)
 
+        is_structured_generation_enabled = (
+            False if task.output_schema.is_structured_output_disabled else properties.is_structured_generation_enabled
+        )
+
         instructions = properties.instructions
         if properties.template_name:
             template_name = sanitize_template_name(
                 template_name=properties.template_name,
                 is_tool_use_enabled=len(properties.enabled_tools or []) > 0,
-                is_structured_generation_enabled=properties.is_structured_generation_enabled or False,
+                is_structured_generation_enabled=is_structured_generation_enabled or False,
                 supports_input_schema=get_model_data(model).support_input_schema,
             )
         else:
             template_name = None
 
-        raw = properties.model_dump(exclude_none=True, exclude={"instructions", "name", "provider", "few_shot"})
+        raw = properties.model_dump(
+            exclude_none=True,
+            exclude={"instructions", "name", "provider", "few_shot", "is_structured_generation_enabled"},
+        )
         raw["instructions"] = instructions
         raw["provider"] = provider
         raw["model"] = model
         raw["template_name"] = template_name
+        raw["is_structured_generation_enabled"] = is_structured_generation_enabled
 
         if properties.few_shot:
             if properties.few_shot.examples:
