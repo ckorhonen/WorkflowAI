@@ -15,7 +15,7 @@ class Model(StrEnum):
     # Default model order
     GPT_41_LATEST = "gpt-4.1-latest"
     GEMINI_2_0_FLASH_LATEST = "gemini-2.0-flash-latest"
-    CLAUDE_4_SONNET_LATEST = "claude-4-sonnet-latest"
+    CLAUDE_4_SONNET_LATEST = "claude-sonnet-4-latest"
     IMAGEN_3_0_LATEST = "imagen-3.0-generate-latest"
 
     # --------------------------------------------------------------------------
@@ -108,10 +108,10 @@ class Model(StrEnum):
     # --------------------------------------------------------------------------
     # Claude Models
     # --------------------------------------------------------------------------
-    # CLAUDE_4_SONNET_LATEST = "claude-4-sonnet-latest"
-    CLAUDE_4_SONNET_20250514 = "claude-4-sonnet-20250219"
-    CLAUDE_4_OPUS_LATEST = "claude-4-opus-latest"
-    CLAUDE_4_OPUS_20250514 = "claude-4-opus-20250514"
+    # CLAUDE_4_SONNET_LATEST = "claude-sonnet-4-latest"
+    CLAUDE_4_SONNET_20250514 = "claude-sonnet-4-20250514"
+    CLAUDE_4_OPUS_LATEST = "claude-opus-4-latest"
+    CLAUDE_4_OPUS_20250514 = "claude-opus-4-20250514"
     CLAUDE_3_7_SONNET_LATEST = "claude-3-7-sonnet-latest"
     CLAUDE_3_7_SONNET_20250219 = "claude-3-7-sonnet-20250219"
     CLAUDE_3_5_SONNET_LATEST = "claude-3-5-sonnet-latest"
