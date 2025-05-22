@@ -1,3 +1,5 @@
+# pyright: reportPrivateUsage=false
+
 from __future__ import annotations
 
 import json
@@ -51,6 +53,26 @@ def anthropic_provider():
 
 def _output_factory(x: str, _: bool):
     return StructuredOutput(json.loads(x))
+
+
+class TestMaxTokens:
+    @pytest.mark.parametrize(
+        ("model", "requested_max_tokens", "expected_max_tokens"),
+        [
+            pytest.param(Model.CLAUDE_3_5_HAIKU_LATEST, 10, 10, id="Requested less than default"),
+            pytest.param(Model.CLAUDE_3_7_SONNET_20250219, None, 8192, id="Default"),
+            pytest.param(Model.CLAUDE_3_7_SONNET_20250219, 50_000, 50_000, id="Requested less than max"),
+            pytest.param(Model.CLAUDE_3_7_SONNET_20250219, 100_000, 64_000, id="Requested more than max"),
+        ],
+    )
+    def test_max_tokens(
+        self,
+        anthropic_provider: AnthropicProvider,
+        model: Model,
+        requested_max_tokens: int,
+        expected_max_tokens: int,
+    ):
+        assert anthropic_provider._max_tokens(get_model_data(model), requested_max_tokens) == expected_max_tokens
 
 
 class TestBuildRequest:
