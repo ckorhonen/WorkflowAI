@@ -27,6 +27,11 @@ async def test_raw_string_output(test_client: IntegrationTestClient, openai_clie
 
     await test_client.wait_for_completed_tasks()
 
+    # Check the amplitude call
+    amplitude_events = test_client.amplitude_events_with_type("org.ran.task")
+    assert len(amplitude_events) == 1
+    assert amplitude_events[0]["event_properties"]["task"]["id"] == "default"
+
     task_id, run_id = res.id.split("/")
     run = await test_client.fetch_run({"id": task_id}, run_id=run_id, v1=True)
     assert run["id"] == run_id

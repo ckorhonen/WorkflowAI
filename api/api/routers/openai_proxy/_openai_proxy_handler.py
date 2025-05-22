@@ -10,7 +10,7 @@ from api.dependencies.storage import StorageDep
 from api.services.messages.messages_utils import json_schema_for_template
 from api.services.models import ModelsService
 from api.utils import get_start_time
-from core.domain.analytics_events.analytics_events import SourceType
+from core.domain.analytics_events.analytics_events import SourceType, TaskProperties
 from core.domain.consts import INPUT_KEY_MESSAGES, WORKFLOWAI_APP_URL
 from core.domain.errors import BadRequestError
 from core.domain.events import ProxyAgentCreatedEvent
@@ -86,6 +86,16 @@ class OpenAIProxyHandler:
             {**schema_from_template, "format": "messages"},
             streamline=True,
         ), last_templated_index
+
+    def _update_event_router(self, tenant_data: PublicOrganizationData, variant: SerializableTaskVariant):
+        try:
+            self._event_router.task_properties = TaskProperties.build(  # pyright: ignore [reportAttributeAccessIssue]
+                variant.task_id,
+                variant.task_schema_id,
+                tenant_data,
+            )
+        except Exception:
+            _logger.exception("Could not set task properties for event router")
 
     @classmethod
     def _build_variant(
@@ -183,6 +193,8 @@ class OpenAIProxyHandler:
                 extra={"agent_ref": agent_ref},
             )
             variant, _ = self._build_variant(messages, agent_ref.agent_id, input, response_format)
+            variant, _ = await self._storage.store_task_resource(variant)
+        self._update_event_router(tenant_data, variant)
 
         if not properties.messages:
             # The version does not contain any messages so the input is the messages
@@ -211,6 +223,7 @@ class OpenAIProxyHandler:
     async def _prepare_for_model(
         self,
         agent_ref: ModelRef,
+        tenant_data: PublicOrganizationData,
         messages: Messages,
         input: dict[str, Any] | None,
         response_format: OpenAIProxyResponseFormat | None,
@@ -222,6 +235,7 @@ class OpenAIProxyHandler:
             response_format=response_format,
         )
         variant, new_variant_created = await self._storage.store_task_resource(raw_variant)
+        self._update_event_router(tenant_data, variant)
 
         if new_variant_created:
             self._event_router(
@@ -306,6 +320,7 @@ class OpenAIProxyHandler:
         else:
             prepared_run = await self._prepare_for_model(
                 agent_ref=agent_ref,
+                tenant_data=tenant_data,
                 messages=messages,
                 input=body.input,
                 response_format=body.response_format,

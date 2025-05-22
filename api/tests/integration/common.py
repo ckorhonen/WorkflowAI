@@ -1287,3 +1287,14 @@ class IntegrationTestClient:
     @property
     def tenant(self):
         return self.org["tenant"]
+
+    def amplitude_events_with_type(self, event_type: str):
+        def _iterator():
+            requests = self.httpx_mock.get_requests(url="https://amplitude-mock")
+            for request in requests:
+                body = request_json_body(request)
+                for event in body["events"]:
+                    if event["event_type"] == event_type:
+                        yield event
+
+        return list(_iterator())
