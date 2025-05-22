@@ -107,7 +107,7 @@ async def create_agent(
         creation_chat_messages=request.chat_messages,
     )
 
-    stored, created = await storage.store_task_resource(variant)
+    stored, created = await storage.store_task_resource(variant, update_created_at=True)
     if created:
         event_router(
             TaskSchemaCreatedEvent(

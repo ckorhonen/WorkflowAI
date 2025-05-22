@@ -461,11 +461,19 @@ class MongoStorage(BackendStorage):
     async def store_task_resource(
         self,
         task: SerializableTaskVariant,
+        update_created_at: bool = False,
     ) -> tuple[SerializableTaskVariant, Annotated[bool, "whether a new task was created"]]:
-        existing_variant = await self._task_variants_collection.find_one(
-            {"version": task.id, "slug": task.task_id, **self._tenant_filter()},
-            hint="version_and_slug",
-        )
+        if update_created_at:
+            existing_variant = await self._task_variants_collection.find_one_and_update(
+                {"version": task.id, "slug": task.task_id, **self._tenant_filter()},
+                {"$set": {"created_at": task.created_at}},
+                return_document=True,
+            )
+        else:
+            existing_variant = await self._task_variants_collection.find_one(
+                {"version": task.id, "slug": task.task_id, **self._tenant_filter()},
+                hint="version_and_slug",
+            )
         if existing_variant:
             return TaskVariantDocument.model_validate(existing_variant).to_resource(), False
 
