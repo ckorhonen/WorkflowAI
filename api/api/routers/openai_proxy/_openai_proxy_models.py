@@ -27,7 +27,7 @@ from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.domain.types import AgentOutput
 from core.domain.version_environment import VersionEnvironment
 from core.providers.base.provider_error import MissingModelError
-from core.tools import ToolKind
+from core.tools import ToolKind, get_tools_in_instructions
 
 # Goal of these models is to be as flexible as possible
 # We definitely do not want to reject calls without being sure
@@ -49,10 +49,11 @@ _UNSUPPORTED_FIELDS = {
     "top_logprobs",
     "web_search_options",
 }
-_IGNORED_FIELDS = {
-    "service_tier",
-    "store",
-}
+# We used to send a warning when the ignored fields were used
+# _IGNORED_FIELDS = {
+#     "service_tier",
+#     "store",
+# }
 _role_mapping: dict[str, MessageRole] = {
     "user": "user",
     "assistant": "assistant",
@@ -224,6 +225,14 @@ class OpenAIProxyMessage(BaseModel):
             else None,
         )
 
+    @property
+    def first_string_content(self) -> str | None:
+        if isinstance(self.content, str):
+            return self.content
+        if self.content and self.content[0].type == "text":
+            return self.content[0].text
+        return None
+
     def _content_iterator(self) -> Iterator[MessageContent]:
         # When the role is tool we know that the message only contains the tool call result
 
@@ -240,7 +249,7 @@ class OpenAIProxyMessage(BaseModel):
                 yield MessageContent(tool_call_request=t.to_domain())
 
     def _to_tool_call_result_message(self) -> Message:
-        if not self.content:
+        if self.content is None:
             raise BadRequestError("Content is required when providing a tool call result", capture=True)
         if not self.tool_call_id:
             raise BadRequestError("tool_call_id is required when providing a tool call result", capture=True)
@@ -410,6 +419,12 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
 
     use_cache: CacheUsage | None = None
 
+    workflowai_tools: list[str] | None = Field(
+        default=None,
+        description=f"A list of WorkflowAI hosted tools. Possible values are `{'`, `'.join(ToolKind)}`."
+        "When not provided, we attempt to detect tools in the system message.",
+    )
+
     model_config = ConfigDict(extra="allow")
 
     @property
@@ -418,11 +433,37 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
 
     def domain_tools(self) -> list[Tool | ToolKind] | None:
         """Returns a tuple of the tools and a boolean indicating if the function call is deprecated"""
-        if self.tools:
-            return [t.to_domain() for t in self.tools]
-        if self.functions:
-            return [t.to_domain() for t in self.functions]
-        return None
+
+        def _raw_tool_iterator() -> Iterator[OpenAIProxyTool | OpenAIProxyFunctionDefinition]:
+            if self.tools:
+                yield from self.tools
+            if self.functions:
+                yield from self.functions
+
+        def _iterator() -> Iterator[Tool | ToolKind]:
+            used_tool_names = set[str]()
+            for t in _raw_tool_iterator():
+                d = t.to_domain()
+                if d.name in used_tool_names:
+                    raise BadRequestError(f"Tool {d.name} is defined multiple times", capture=True)
+                used_tool_names.add(d.name)
+                yield d
+
+            if self.workflowai_tools is not None:
+                # WorkflowAI tools provides a way to avoid detection of tools in the instructions
+                try:
+                    yield from (ToolKind.from_str(t) for t in self.workflowai_tools)
+                except ValueError as e:
+                    raise BadRequestError(f"{str(e)}. Valid WorkflowAI tools are `{'`, `'.join(ToolKind)}`")
+            else:
+                if (
+                    self.messages
+                    and self.messages[0].role == "system"
+                    and (first_content := self.messages[0].first_string_content)
+                ):
+                    yield from get_tools_in_instructions(first_content)
+
+        return list(_iterator()) or None
 
     def full_metadata(self, headers: Mapping[str, Any]) -> dict[str, Any] | None:
         base = self.metadata or {}
@@ -444,8 +485,6 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
                 f"Field{'s' if plural else ''} `{'`, `'.join(fields)}` {'are' if plural else 'is'} not supported",
                 capture=True,
             )
-        for field in _IGNORED_FIELDS:
-            _logger.warning(f"Field {field} is ignored by openai proxy")  # noqa: G004
 
     @property
     def workflowai_provider(self) -> Provider | None:
