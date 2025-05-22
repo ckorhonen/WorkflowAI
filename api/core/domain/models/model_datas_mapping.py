@@ -709,7 +709,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             max_tokens_data=MaxTokensData(
                 max_tokens=200_000,
                 # See https://docs.anthropic.com/en/docs/about-claude/models/all-models
-                max_output_tokens=8192,
+                max_output_tokens=64_000,
                 source="https://docs.anthropic.com/en/docs/about-claude/models",
             ),
             provider_for_pricing=Provider.AMAZON_BEDROCK,
@@ -736,7 +736,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             max_tokens_data=MaxTokensData(
                 max_tokens=200_000,
                 # See https://docs.anthropic.com/en/docs/about-claude/models/all-models
-                max_output_tokens=8192,
+                max_output_tokens=32_000,
                 source="https://docs.anthropic.com/en/docs/about-claude/models",
             ),
             provider_for_pricing=Provider.AMAZON_BEDROCK,
@@ -762,9 +762,8 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
                 max_tokens=200_000,
-                # TODO: 64_000 in extended thinking mode
                 # See https://docs.anthropic.com/en/docs/about-claude/models/all-models
-                max_output_tokens=8192,
+                max_output_tokens=64_000,
                 source="https://docs.anthropic.com/en/docs/about-claude/models",
             ),
             provider_for_pricing=Provider.AMAZON_BEDROCK,

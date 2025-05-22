@@ -11,12 +11,12 @@ const MODELS_TO_ADVERTISE: ModelToAdvertise[] = [
   {
     name: 'Claude 4 Sonnet',
     date: '2025-05-22',
-    modelId: 'claude-4-sonnet-20250514',
+    modelId: 'claude-sonnet-4-20250514',
   },
   {
     name: 'Claude 4 Opus',
     date: '2025-05-22',
-    modelId: 'claude-4-opus-20250514',
+    modelId: 'claude-opus-4-20250514',
   },
 ];
 
