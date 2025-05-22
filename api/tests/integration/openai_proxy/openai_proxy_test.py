@@ -333,6 +333,14 @@ async def test_stream_raw_json(test_client: IntegrationTestClient, openai_client
     run = await test_client.get("/v1/_/agents/default/runs/latest")
     assert run["task_output"] == {"hello": "world2"}
 
+    # Here we don't add a message since
+    request = test_client.httpx_mock.get_request(url="https://api.openai.com/v1/chat/completions")
+    assert request
+    body = json.loads(request.content)
+    assert len(body["messages"]) == 2
+    assert body["messages"][0]["content"] == "Return a single JSON object"
+    assert body["messages"][1]["content"] == "Hello, world!"
+
 
 async def test_stream_structured_output(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
     test_client.mock_openai_stream(deltas=['{"hello": ', '"world2"}'])
