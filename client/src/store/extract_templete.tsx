@@ -7,6 +7,7 @@ import { useRef } from 'react';
 import { create } from 'zustand';
 import { client } from '@/lib/api';
 import { RequestError } from '@/lib/api/client';
+import { areSchemasEquivalent } from '@/lib/schemaEditorUtils';
 import { TaskID, TenantID } from '@/types/aliases';
 import { JsonSchema } from '@/types/json_schema';
 import { ProxyMessage } from '@/types/workflowAI';
@@ -172,10 +173,16 @@ export const useOrExtractTemplete = (
     }, 500)();
   }, [extract, tenant, taskId, messages, inputSchema, id]);
 
+  const areThereChangesInInputSchema = useMemo(() => {
+    if (!schema || !inputSchema) return false;
+    return !areSchemasEquivalent(schema, inputSchema);
+  }, [schema, inputSchema]);
+
   return {
     isLoading: isLoading || isWaitingForRequestToEnd,
     schema,
     inputVariblesKeys,
     error,
+    areThereChangesInInputSchema,
   };
 };

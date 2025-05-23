@@ -22,8 +22,10 @@ import {
   useScheduledMetaAgentMessages,
   useTasks,
 } from '@/store';
+import { useOrExtractTemplete } from '@/store/extract_templete';
 import { useOrganizationSettings } from '@/store/organization_settings';
 import { ToolCallName, usePlaygroundChatStore } from '@/store/playgroundChatStore';
+import { useTaskSchemas } from '@/store/task_schemas';
 import { useVersions } from '@/store/versions';
 import { GeneralizedTaskInput, TaskSchemaResponseWithSchema } from '@/types';
 import { ModelOptional, TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
@@ -50,6 +52,7 @@ import { useVersionsForTaskRunners } from '../hooks/useVersionsForRuns';
 import { PlaygroundModels } from '../hooks/utils';
 import { PlaygroundOutput } from '../playgroundOutput';
 import { ProxySection } from './ProxySection';
+import { useProxyHistory } from './hooks/useProxyHistory';
 import { useProxyOutputModels } from './hooks/useProxyOutputModels';
 import { useProxyPlaygroundStates } from './hooks/useProxyPlaygroundStates';
 import { useProxyStreamedChunks } from './hooks/useProxyStreamedChunks';
@@ -84,46 +87,62 @@ export function ProxyPlayground(props: Props) {
     resetTaskRunIds,
     setRunIdForModal,
     runIdForModal,
+    changeSchemaId,
+    historyId,
   } = useProxyPlaygroundStates(tenant, taskId, taskSchemaId);
 
   const inputSchema = useMemo(() => schema?.input_schema.json_schema, [schema]);
   const outputSchema = useMemo(() => schema?.output_schema.json_schema, [schema]);
 
-  const [input, setInput] = useState<GeneralizedTaskInput | undefined>(undefined);
-  const [proxyMessages, setProxyMessages] = useState<ProxyMessage[] | undefined>(undefined);
+  const { getInputFromHistory, getProxyMessagesFromHistory, saveInputToHistory, saveProxyMessagesToHistory } =
+    useProxyHistory(historyId);
+
+  const [input, setInput] = useState<GeneralizedTaskInput | undefined>(getInputFromHistory());
+  const [proxyMessages, setProxyMessages] = useState<ProxyMessage[] | undefined>(getProxyMessagesFromHistory());
   const [instructions, setInstructions] = useState<string | undefined>(undefined);
   const [temperature, setTemperature] = useState<number | undefined>(undefined);
   const [proxyToolCalls, setProxyToolCalls] = useState<(ToolKind | Tool_Output)[] | undefined>(undefined);
 
-  const inputRef = useRef<GeneralizedTaskInput | undefined>(input);
-  inputRef.current = input;
+  useEffect(() => {
+    saveInputToHistory(input);
+  }, [input, saveInputToHistory]);
 
-  const proxyMessagesRef = useRef<ProxyMessage[] | undefined>(proxyMessages);
-  proxyMessagesRef.current = proxyMessages;
-
-  const instructionsRef = useRef<string | undefined>(instructions);
-  instructionsRef.current = instructions;
-
-  const temperatureRef = useRef<number | undefined>(temperature);
-  temperatureRef.current = temperature;
-
-  const proxyToolCallsRef = useRef<(ToolKind | Tool_Output)[] | undefined>(proxyToolCalls);
-  proxyToolCallsRef.current = proxyToolCalls;
+  useEffect(() => {
+    saveProxyMessagesToHistory(proxyMessages);
+  }, [proxyMessages, saveProxyMessagesToHistory]);
 
   useEffect(() => {
     const proxyMessages = findMessagesInVersion(version);
-    setProxyMessages(proxyMessages);
+    setProxyMessages((prev) => {
+      if (!!prev) {
+        return prev;
+      }
+      return proxyMessages;
+    });
+
     setInstructions(version?.properties.instructions ?? undefined);
     setTemperature(version?.properties.temperature ?? undefined);
     setProxyToolCalls(version?.properties.enabled_tools ?? undefined);
-  }, [version]);
+  }, [version, getProxyMessagesFromHistory]);
 
   useEffect(() => {
     if (baseRun) {
       const input = repairMessageKeyInInput(baseRun?.task_input);
-      setInput(input);
+      setInput((prev) => {
+        if (!!prev) {
+          return prev;
+        }
+        return input;
+      });
     }
-  }, [baseRun]);
+  }, [baseRun, getInputFromHistory]);
+
+  const {
+    schema: extractedInputSchema,
+    inputVariblesKeys,
+    error: extractedInputSchemaError,
+    areThereChangesInInputSchema,
+  } = useOrExtractTemplete(tenant, taskId, proxyMessages, inputSchema);
 
   const playgroundOutputRef = useRef<HTMLDivElement>(null);
   const [scheduledPlaygroundStateMessage, setScheduledPlaygroundStateMessage] = useState<string | undefined>(undefined);
@@ -214,6 +233,9 @@ export function ProxyPlayground(props: Props) {
     }
   }, []);
 
+  const updateTaskSchema = useTasks((state) => state.updateTaskSchema);
+  const fetchTaskSchema = useTaskSchemas((state) => state.fetchTaskSchema);
+
   const handleRunTask = useCallback(
     async (index: number, runOptions: RunTaskOptions = {}) =>
       new Promise<void>(async (resolve, reject) => {
@@ -227,6 +249,7 @@ export function ProxyPlayground(props: Props) {
         };
 
         const model = runOptions.externalModel || outputModelsRef.current[index];
+
         if (!model) {
           cleanTaskRun();
           resolve(undefined);
@@ -242,18 +265,33 @@ export function ProxyPlayground(props: Props) {
         setAbortController(index, abortController);
 
         try {
+          let schemaIdToUse = taskSchemaId;
+
+          if (areThereChangesInInputSchema) {
+            const updatedTask = await updateTaskSchema(tenant, taskId, {
+              input_schema: extractedInputSchema as Record<string, unknown>,
+              output_schema: outputSchema as Record<string, unknown>,
+            });
+            schemaIdToUse = `${updatedTask.schema_id}` as TaskSchemaID;
+          }
+
+          if (schemaIdToUse !== taskSchemaId) {
+            await fetchTaskSchema(tenant, taskId, schemaIdToUse);
+            changeSchemaId(schemaIdToUse);
+          }
+
           const properties: TaskGroupProperties_Input = {
             model,
-            instructions: instructionsRef.current,
-            temperature: temperatureRef.current,
-            enabled_tools: proxyToolCallsRef.current,
-            messages: proxyMessagesRef.current,
+            instructions,
+            temperature,
+            enabled_tools: proxyToolCalls,
+            messages: proxyMessages,
           };
 
           // We need to find or create the version that corresponds to these properties
           let id: string | undefined;
           try {
-            const response = await createVersion(tenant, taskId, taskSchemaId, {
+            const response = await createVersion(tenant, taskId, schemaIdToUse, {
               properties,
             });
             id = response.id;
@@ -281,11 +319,11 @@ export function ProxyPlayground(props: Props) {
           }
 
           const body: RunRequest = {
-            task_input: inputRef.current as Record<string, unknown>,
+            task_input: input as Record<string, unknown>,
             version: id,
           };
 
-          if (temperatureRef.current !== 0) {
+          if (temperature !== 0) {
             // the whole point of a higher temperature is to get more "creativity" and our cache removes that opportunity.
             body.use_cache = 'never';
           }
@@ -293,7 +331,7 @@ export function ProxyPlayground(props: Props) {
           const { id: run_id } = await runTask({
             tenant,
             taskId,
-            taskSchemaId,
+            taskSchemaId: schemaIdToUse,
             body,
             onMessage: (message) => {
               if (abortController.signal.aborted) {
@@ -312,7 +350,7 @@ export function ProxyPlayground(props: Props) {
 
           await fetchTaskRunUntilCreated(tenant, taskId, run_id);
           // Running the task may have changed the models prices, so we need to refetch them
-          await fetchModels(tenant, taskId, taskSchemaId);
+          await fetchModels(tenant, taskId, schemaIdToUse);
           setTaskRunId(index, run_id);
           resolve();
         } catch (error) {
@@ -361,6 +399,17 @@ export function ProxyPlayground(props: Props) {
       setAbortController,
       findAbortController,
       setTaskRunId,
+      input,
+      instructions,
+      proxyMessages,
+      proxyToolCalls,
+      temperature,
+      areThereChangesInInputSchema,
+      extractedInputSchema,
+      outputSchema,
+      updateTaskSchema,
+      changeSchemaId,
+      fetchTaskSchema,
     ]
   );
 
@@ -623,6 +672,14 @@ export function ProxyPlayground(props: Props) {
     [setInput, scrollToBottomOfProxyMessages, handleRunTasks]
   );
 
+  const switchTest = useCallback(() => {
+    if (taskSchemaId === '2') {
+      changeSchemaId('3' as TaskSchemaID);
+    } else {
+      changeSchemaId('2' as TaskSchemaID);
+    }
+  }, [taskSchemaId, changeSchemaId]);
+
   return (
     <div className='flex flex-row h-full w-full'>
       <div className='flex h-full flex-1 overflow-hidden'>
@@ -637,6 +694,9 @@ export function ProxyPlayground(props: Props) {
           rightBarChildren={
             <div className='flex flex-row items-center gap-2 font-lato'>
               <Button variant='newDesign' icon={<Link16Regular />} onClick={copyUrl} className='w-9 h-9 px-0 py-0' />
+              <div onClick={switchTest} className='p-2 bg-gray-300 cursor-pointer'>
+                {taskSchemaId}
+              </div>
               {!isMobile && (
                 <RunAgentsButton
                   showSaveAllVersions={false}
@@ -663,6 +723,9 @@ export function ProxyPlayground(props: Props) {
             <div className='flex flex-col w-full sm:pb-0 pb-20'>
               <ProxySection
                 inputSchema={inputSchema}
+                extractedInputSchema={extractedInputSchema}
+                inputVariblesKeys={inputVariblesKeys}
+                error={extractedInputSchemaError}
                 input={input}
                 setInput={onSetInputAndResetRuns}
                 temperature={temperature ?? 0}
@@ -713,7 +776,6 @@ export function ProxyPlayground(props: Props) {
                 />
               </div>
             </div>
-
             <div className='fixed bottom-0 left-0 right-0 z-10 bg-white border-t border-gray-200 p-4 sm:hidden flex w-full'>
               <RunAgentsButton
                 showSaveAllVersions={false}
@@ -726,7 +788,6 @@ export function ProxyPlayground(props: Props) {
                 className='flex w-full'
               />
             </div>
-
             {runIdForModal && (
               <TaskRunModal
                 tenant={tenant}

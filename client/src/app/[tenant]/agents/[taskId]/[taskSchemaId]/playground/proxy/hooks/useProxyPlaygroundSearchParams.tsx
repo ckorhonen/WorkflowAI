@@ -1,5 +1,10 @@
+import { useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { useParsedSearchParams, useRedirectWithParams } from '@/lib/queryString';
+import { replaceTaskSchemaId } from '@/lib/routeFormatter';
+import { TaskSchemaID } from '@/types/aliases';
 
 export function useProxyPlaygroundSearchParams() {
   const {
@@ -11,6 +16,7 @@ export function useProxyPlaygroundSearchParams() {
     baseRunId: baseRunIdFromParams,
     showDiffMode: showDiffModeFromParams,
     hiddenModelColumns: hiddenModelColumnsFromParams,
+    historyId: historyIdFromParams,
   } = useParsedSearchParams(
     'versionId',
     'taskRunId',
@@ -19,7 +25,8 @@ export function useProxyPlaygroundSearchParams() {
     'taskRunId3',
     'baseRunId',
     'showDiffMode',
-    'hiddenModelColumns'
+    'hiddenModelColumns',
+    'historyId'
   );
 
   const redirectWithParams = useRedirectWithParams();
@@ -31,6 +38,7 @@ export function useProxyPlaygroundSearchParams() {
   const [baseRunId, setBaseRunId] = useState(baseRunIdFromParams);
   const [showDiffMode, setShowDiffMode] = useState(showDiffModeFromParams);
   const [hiddenModelColumns, setHiddenModelColumns] = useState(hiddenModelColumnsFromParams);
+  const [historyId, setHistoryId] = useState(historyIdFromParams);
 
   useEffect(() => {
     redirectWithParams({
@@ -42,10 +50,21 @@ export function useProxyPlaygroundSearchParams() {
         baseRunId: baseRunId,
         showDiffMode: showDiffMode,
         hiddenModelColumns: hiddenModelColumns,
+        historyId: historyId,
       },
       scroll: false,
     });
-  }, [versionId, taskRunId1, taskRunId2, taskRunId3, baseRunId, showDiffMode, hiddenModelColumns, redirectWithParams]);
+  }, [
+    versionId,
+    taskRunId1,
+    taskRunId2,
+    taskRunId3,
+    baseRunId,
+    showDiffMode,
+    hiddenModelColumns,
+    historyId,
+    redirectWithParams,
+  ]);
 
   const setRunIdForModal = useCallback(
     (taskRunId: string | undefined) => {
@@ -57,6 +76,20 @@ export function useProxyPlaygroundSearchParams() {
       });
     },
     [redirectWithParams]
+  );
+
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const changeSchemaId = useCallback(
+    (taskSchemaId: TaskSchemaID) => {
+      const newUrl = replaceTaskSchemaId(pathname, taskSchemaId);
+      const search = searchParams.toString();
+      const finalUrl = search ? `${newUrl}?${search}` : newUrl;
+      router.replace(finalUrl, { scroll: false });
+    },
+    [pathname, searchParams, router]
   );
 
   return {
@@ -76,5 +109,8 @@ export function useProxyPlaygroundSearchParams() {
     setShowDiffMode,
     setHiddenModelColumns,
     setRunIdForModal,
+    changeSchemaId,
+    historyId,
+    setHistoryId,
   };
 }

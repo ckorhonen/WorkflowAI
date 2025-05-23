@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { useOrExtractTemplete } from '@/store/extract_templete';
+import { ExtractTempleteError } from '@/store/extract_templete';
 import { TaskID, TenantID } from '@/types/aliases';
 import { JsonSchema } from '@/types/json_schema';
 import { GeneralizedTaskInput } from '@/types/task_run';
@@ -11,6 +11,9 @@ import { createEmptyMessage } from './proxy-messages/utils';
 
 interface Props {
   inputSchema: JsonSchema | undefined;
+  extractedInputSchema: JsonSchema | undefined;
+  inputVariblesKeys: string[] | undefined;
+  error: ExtractTempleteError | undefined;
 
   input: GeneralizedTaskInput | undefined;
   setInput: (input: GeneralizedTaskInput) => void;
@@ -41,7 +44,9 @@ interface Props {
 
 export function ProxySection(props: Props) {
   const {
-    inputSchema,
+    extractedInputSchema,
+    inputVariblesKeys,
+    error,
     input,
     setInput,
     temperature,
@@ -83,12 +88,6 @@ export function ProxySection(props: Props) {
     },
     [proxyMessages, setProxyMessages]
   );
-
-  const {
-    schema: extractedInputSchema,
-    inputVariblesKeys,
-    error,
-  } = useOrExtractTemplete(tenant, taskId, proxyMessages, inputSchema);
 
   const {
     messages: inputMessages,

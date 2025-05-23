@@ -1,3 +1,4 @@
+import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useOrFetchLatestRun, useOrFetchRunV1, useOrFetchVersion } from '@/store/fetchers';
 import { TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
@@ -21,6 +22,9 @@ export function useProxyPlaygroundStates(tenant: TenantID | undefined, taskId: T
     setHiddenModelColumns,
     setRunIdForModal,
     runIdForModal,
+    changeSchemaId,
+    historyId,
+    setHistoryId,
   } = useProxyPlaygroundSearchParams();
 
   const { version } = useOrFetchVersion(tenant, taskId, versionId);
@@ -34,6 +38,11 @@ export function useProxyPlaygroundStates(tenant: TenantID | undefined, taskId: T
   const { latestRun } = useOrFetchLatestRun(tenant, taskId, taskSchemaId);
 
   // We only need to set two parameters: baseRunId and versionId
+  useEffect(() => {
+    if (!historyId) {
+      setHistoryId(nanoid(10));
+    }
+  }, [historyId, setHistoryId]);
 
   useEffect(() => {
     if (!!baseRunId) {
@@ -134,5 +143,7 @@ export function useProxyPlaygroundStates(tenant: TenantID | undefined, taskId: T
     resetTaskRunIds,
     setRunIdForModal,
     runIdForModal,
+    changeSchemaId,
+    historyId,
   };
 }
