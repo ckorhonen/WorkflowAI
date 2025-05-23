@@ -96,6 +96,7 @@ class FileData(BaseModel):
 
 
 # https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.tuningJobs#Part
+# https://ai.google.dev/api/caching#Part
 class Part(BaseModel):
     text: str | None = None
 

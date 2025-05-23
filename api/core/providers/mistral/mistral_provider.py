@@ -173,7 +173,7 @@ class MistralAIProvider(HTTPXProvider[MistralAIConfig, CompletionResponse]):
                     return MaxTokensExceededError(msg=error_message, response=response, store_task_run=False)
             case "value_error":
                 # We store here for debugging purposes
-                return ProviderBadRequestError(error_message or "Unknown error", response=response, store_task_run=True)
+                return ProviderBadRequestError(error_message or "Unknown error", response=response)
             case "context_length_exceeded":
                 # Here the task run is stored because the error might
                 # have occurred during the generation

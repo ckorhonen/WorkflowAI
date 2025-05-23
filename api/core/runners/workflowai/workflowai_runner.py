@@ -52,6 +52,7 @@ from core.providers.base.provider_error import (
 from core.providers.base.provider_options import ProviderOptions
 from core.runners.abstract_runner import AbstractRunner, CacheFetcher
 from core.runners.workflowai.internal_tool import build_all_internal_tools
+from core.runners.workflowai.message_fixer import MessageAutofixer
 from core.runners.workflowai.provider_pipeline import ProviderPipeline
 from core.runners.workflowai.templates import (
     TemplateName,
@@ -519,6 +520,13 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             if builder := self._get_builder_context():
                 builder.record_file_download_seconds(download_duration)
 
+    @classmethod
+    def _fix_messages(cls, messages: Messages):
+        try:
+            messages.messages = MessageAutofixer().fix(messages.messages)
+        except ValueError as e:
+            raise BadRequestError(msg=str(e)) from e
+
     async def _inline_messages(
         self,
         messages: Messages,
@@ -528,8 +536,9 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
     ) -> list[MessageDeprecated]:
         # First handle all files as needed
         await self._handle_files_in_messages(messages, provider)
+        self._fix_messages(messages)
 
-        if structured_output or not self._prepared_output_schema.prepared_schema:
+        if structured_output or self._prepared_output_schema.prepared_schema is None:
             return messages.to_deprecated()
 
         # Otherwise we append the output to the first system message
@@ -550,10 +559,15 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             return messages.to_deprecated()
 
         tool_call_str = "either tool call(s) or " if use_tools else ""
-        suffix = f"""Return {tool_call_str}a single JSON object enforcing the following schema:
+        schema_str = (
+            f""" enforcing the following schema:
 ```json
 {json.dumps(self._prepared_output_schema.prepared_schema, indent=2)}
 ```"""
+            if self._prepared_output_schema.prepared_schema
+            else ""
+        )
+        suffix = f"Return {tool_call_str}a single JSON object{schema_str}"
         prefix = f"{text_content.text}\n\n" if text_content.text else ""
         text_content.text = f"{prefix}{suffix}"
         return messages.to_deprecated()
@@ -574,7 +588,10 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             return None
         # Then the current version is a full message template
         # So we just need to return the messages
-        base = await Messages(messages=self._options.messages).templated(self.template_manager.renderer(input))
+        try:
+            base = await Messages(messages=self._options.messages).templated(self.template_manager.renderer(input))
+        except InvalidTemplateError as e:
+            raise BadRequestError(f"Invalid template: {e.message}", details=e.serialize_details()) from e
         if self.task.input_schema.uses_messages and (input_messages := input.get(INPUT_KEY_MESSAGES)):
             # We have extra messages to append
             try:
@@ -600,13 +617,17 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         if (builder := self._get_builder_context()) and builder.reply:
             return await self._build_messages_for_reply(builder.reply)
 
+        use_structured_output = (
+            model_data.supports_structured_output and self._options.is_structured_generation_enabled is not False
+        )
+
         # If the input is already a Messages object we can just use as is
         if isinstance(input, Messages):
             return await self._inline_messages(
                 input,
                 provider,
-                model_data.supports_structured_output,
-                self.is_tool_use_enabled,
+                structured_output=use_structured_output,
+                use_tools=self.is_tool_use_enabled,
             )
 
         # If the input is a raw messages schema we have to extract the messages
@@ -616,8 +637,8 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             return await self._inline_messages(
                 raw_messages,
                 provider,
-                model_data.supports_structured_output,
-                self.is_tool_use_enabled,
+                structured_output=use_structured_output,
+                use_tools=self.is_tool_use_enabled,
             )
 
         start_time = time.time()
@@ -898,6 +919,8 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             return res, True
 
         # TODO: use the tool cache for that
+        # That's not good also because it probably breaks the tool call message ordering
+        # since most models require the tool call result to be immediately after the tool call request
         # Detect the tools calls made in previous HTTPS requests, but present in the messages
         if any(tool_call.id in message.content for message in messages):
             return ToolCall(
@@ -1178,22 +1201,30 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
     ) -> WorkflowAIRunnerOptions:
         model, provider = sanitize_model_and_provider(properties.model, properties.provider)
 
+        is_structured_generation_enabled = (
+            False if task.output_schema.is_structured_output_disabled else properties.is_structured_generation_enabled
+        )
+
         instructions = properties.instructions
         if properties.template_name:
             template_name = sanitize_template_name(
                 template_name=properties.template_name,
                 is_tool_use_enabled=len(properties.enabled_tools or []) > 0,
-                is_structured_generation_enabled=properties.is_structured_generation_enabled or False,
+                is_structured_generation_enabled=is_structured_generation_enabled or False,
                 supports_input_schema=get_model_data(model).support_input_schema,
             )
         else:
             template_name = None
 
-        raw = properties.model_dump(exclude_none=True, exclude={"instructions", "name", "provider", "few_shot"})
+        raw = properties.model_dump(
+            exclude_none=True,
+            exclude={"instructions", "name", "provider", "few_shot", "is_structured_generation_enabled"},
+        )
         raw["instructions"] = instructions
         raw["provider"] = provider
         raw["model"] = model
         raw["template_name"] = template_name
+        raw["is_structured_generation_enabled"] = is_structured_generation_enabled
 
         if properties.few_shot:
             if properties.few_shot.examples:

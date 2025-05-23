@@ -135,29 +135,20 @@ def test_tool_handle_variations(instructions: str, handle: str, expected: bool) 
             "Please use @search-google for research.",
             {ToolKind.WEB_SEARCH_GOOGLE},
         ),
-        # Browser text tool
-        (
-            "Let's get some text using @browser-text immediately.",
-            {ToolKind.WEB_BROWSER_TEXT},
-        ),
         # Multiple tools
         (
             "Please use @search and also use @browser-text for an overview.",
             {ToolKind.WEB_SEARCH_GOOGLE, ToolKind.WEB_BROWSER_TEXT},
         ),
-        # Tools with punctuation
-        (
-            "Start with @search, then finish with @browser-text.",
-            {ToolKind.WEB_SEARCH_GOOGLE, ToolKind.WEB_BROWSER_TEXT},
-        ),
-        # Additional edge cases
-        (
+        pytest.param(
             "Use '@search' with quotes.",
             {ToolKind.WEB_SEARCH_GOOGLE},
+            id="Quotes",
         ),
-        (
+        pytest.param(
             "Use @search: with colon",
             {ToolKind.WEB_SEARCH_GOOGLE},
+            id="Colon",
         ),
         (
             "Use @search; with semicolon",
@@ -167,6 +158,19 @@ def test_tool_handle_variations(instructions: str, handle: str, expected: bool) 
             "Use @perplexity-sonar-pro to get content",
             {ToolKind.WEB_SEARCH_PERPLEXITY_SONAR_PRO},
         ),
+        pytest.param(
+            "Use @search-google and tell @guillaume to do something for once",
+            {ToolKind.WEB_SEARCH_GOOGLE},
+            id="Invalid handle",
+        ),
+        *[
+            pytest.param(
+                t.value,
+                {t},
+                id=t.value,
+            )
+            for t in ToolKind
+        ],
     ],
 )
 def test_get_tools_in_instructions(instructions: str, expected_tools: set[ToolKind]) -> None:
