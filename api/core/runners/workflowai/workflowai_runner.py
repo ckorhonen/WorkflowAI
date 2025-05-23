@@ -25,7 +25,6 @@ from core.domain.errors import (
 )
 from core.domain.fields.file import File
 from core.domain.fields.image_options import ImageOptions
-from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.message import Message, MessageContent, MessageDeprecated, Messages
 from core.domain.metrics import send_gauge
 from core.domain.models.model_data import FinalModelData, ModelData
@@ -69,6 +68,7 @@ from core.runners.workflowai.utils import (
     convert_pdf_to_images,
     download_file,
     extract_files,
+    reasoning_step_mapper,
     remove_files_from_schema,
     sanitize_model_and_provider,
     split_tools,
@@ -77,7 +77,6 @@ from core.utils.background import add_background_task
 from core.utils.dicts import set_at_keypath
 from core.utils.file_utils.file_utils import extract_text_from_file_base64
 from core.utils.generics import T
-from core.utils.iter_utils import safe_map_optional
 from core.utils.json_utils import parse_tolerant_json
 from core.utils.schema_augmentation_utils import (
     add_agent_run_result_to_schema,
@@ -756,7 +755,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         try:
             return parser(raw)
         except Exception:
-            logger.exception("Failed to parse internal reasoning steps", extra={"raw": raw})
+            logger.exception("Failed to parse internal key", extra={"raw": raw})
             return None
 
     @classmethod
@@ -771,7 +770,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         reasoning_steps = cls._extract_internal_key(
             raw,
             INTERNAL_REASONING_STEPS_SCHEMA_KEY,
-            lambda x: safe_map_optional(x, InternalReasoningStep.model_validate, None if partial else logger),
+            lambda x: reasoning_step_mapper(x, None if partial else logger),
         )
 
         agent_run_result = cls._extract_internal_key(
