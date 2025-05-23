@@ -3,10 +3,11 @@ import { TemperatureSelector } from '@/components/TemperatureSelector/Temperatur
 import { Button } from '@/components/ui/Button';
 import { SimpleTooltip } from '@/components/ui/Tooltip';
 import { ProxyMajorVersionDetails } from '@/components/v2/ProxyMajorVersionDetails';
+import { ExtractTempleteError } from '@/store/extract_templete';
 import { MajorVersion, ProxyMessage, ToolKind, Tool_Output, VersionV1 } from '@/types/workflowAI';
 import { MajorVersionCombobox } from '../../components/MajorVersionSelector/MajorVersionSelector';
-import { ProxyMessagesView } from '../universal/ProxyMessagesView';
-import { getAvaibleMessageTypes } from '../utils';
+import { ProxyMessagesView } from '../proxy-messages/ProxyMessagesView';
+import { getAvaibleMessageTypes } from '../proxy-messages/utils';
 import { ProxyTools } from './ProxyTools';
 
 type ProxyParametersProps = {
@@ -26,6 +27,9 @@ type ProxyParametersProps = {
   showSaveAllVersions: boolean;
   onSaveAllVersions: () => void;
   versionsForRuns: Record<string, VersionV1>;
+
+  inputVariblesKeys: string[] | undefined;
+  error: ExtractTempleteError | undefined;
 };
 
 export function ProxyParameters(props: ProxyParametersProps) {
@@ -42,6 +46,8 @@ export function ProxyParameters(props: ProxyParametersProps) {
     showSaveAllVersions,
     onSaveAllVersions,
     versionsForRuns,
+    inputVariblesKeys,
+    error,
   } = props;
 
   const version = useMemo(() => {
@@ -79,15 +85,23 @@ export function ProxyParameters(props: ProxyParametersProps) {
           />
         </div>
       </div>
-      <div className='flex flex-col w-full h-full overflow-y-auto'>
-        <ProxyMessagesView
-          messages={messages}
-          setMessages={setMessages}
-          defaultType={getAvaibleMessageTypes('version')[0]}
-          avaibleTypes={getAvaibleMessageTypes('version')}
-          className='px-4 py-4 min-h-[100px]'
-          allowRemovalOfLastMessage={false}
-        />
+      <div className='relative flex flex-col w-full h-full'>
+        <div className='flex flex-col w-full h-full overflow-y-auto'>
+          <ProxyMessagesView
+            messages={messages}
+            setMessages={setMessages}
+            defaultType={getAvaibleMessageTypes('version')[0]}
+            avaibleTypes={getAvaibleMessageTypes('version')}
+            className='px-4 py-4 min-h-[100px]'
+            allowRemovalOfLastMessage={false}
+            inputVariblesKeys={inputVariblesKeys}
+          />
+        </div>
+        {error && (
+          <div className='absolute top-0 right-0 -translate-x-[88px] translate-y-[4px] bg-red-500 rounded-[2px] border border-red-600 shadow-lg py-1 px-2 z-100'>
+            <div className='text-white text-[13px]'>{error.message}</div>
+          </div>
+        )}
       </div>
       <div className='flex flex-col w-full border-t border-gray-200 border-dashed'>
         <div className='flex flex-col gap-1 px-4 pt-2 pb-3 border-b border-gray-200 border-dashed'>

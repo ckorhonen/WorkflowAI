@@ -1,7 +1,7 @@
 import { Save16Regular } from '@fluentui/react-icons';
 import { HoverCard, HoverCardContentProps, HoverCardTrigger } from '@radix-ui/react-hover-card';
 import { useCallback, useMemo, useState } from 'react';
-import { checkVersionForProxy } from '@/app/[tenant]/agents/[taskId]/[taskSchemaId]/playground/proxy/hooks/useIsProxy';
+import { checkVersionForProxy } from '@/app/[tenant]/agents/[taskId]/[taskSchemaId]/playground/proxy/utils';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { useFavoriteToggle } from '@/lib/hooks/useFavoriteToggle';
 import { useIsAllowed } from '@/lib/hooks/useIsAllowed';

@@ -3,8 +3,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { ProxyMessage } from '@/types/workflowAI';
-import { ExtendedMessageType, allExtendedMessageTypes, cleanMessagesAndAddIDs, createEmptyMessage } from '../utils';
 import { ProxyMessageView } from './ProxyMessageView';
+import { ExtendedMessageType, allExtendedMessageTypes, cleanMessagesAndAddIDs, createEmptyMessage } from './utils';
 
 type Props = {
   messages: ProxyMessage[] | undefined;
@@ -17,6 +17,9 @@ type Props = {
 
   onMoveToVersion?: (message: ProxyMessage) => void;
   allowRemovalOfLastMessage?: boolean;
+
+  inputVariblesKeys?: string[];
+  supportInputVaribles?: boolean;
 };
 
 export function ProxyMessagesView(props: Props) {
@@ -31,6 +34,9 @@ export function ProxyMessagesView(props: Props) {
 
     onMoveToVersion,
     allowRemovalOfLastMessage = true,
+
+    inputVariblesKeys,
+    supportInputVaribles = true,
   } = props;
 
   const [isHovering, setIsHovering] = useState(false);
@@ -120,6 +126,8 @@ export function ProxyMessagesView(props: Props) {
           readonly={readonly}
           isLastMessage={(!cleanedMessages || cleanedMessages?.length === 1) && !allowRemovalOfLastMessage}
           previouseMessage={cleanedMessages?.[index - 1]}
+          inputVariblesKeys={inputVariblesKeys}
+          supportInputVaribles={supportInputVaribles}
         />
       ))}
       {showAddMessageButton && (

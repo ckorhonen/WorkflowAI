@@ -20,19 +20,19 @@ export function useVersionsForTaskRunners(props: Props) {
   const { version: versionRunOne } = useOrFetchVersion(
     tenant,
     taskId,
-    hiddenModelColumns?.includes(0) ? undefined : taskRunners[0].data?.group.id
+    hiddenModelColumns?.includes(0) ? undefined : taskRunners[0].data?.version.id
   );
 
   const { version: versionRunTwo } = useOrFetchVersion(
     tenant,
     taskId,
-    hiddenModelColumns?.includes(1) ? undefined : taskRunners[1].data?.group.id
+    hiddenModelColumns?.includes(1) ? undefined : taskRunners[1].data?.version.id
   );
 
   const { version: versionRunThree } = useOrFetchVersion(
     tenant,
     taskId,
-    hiddenModelColumns?.includes(2) ? undefined : taskRunners[2].data?.group.id
+    hiddenModelColumns?.includes(2) ? undefined : taskRunners[2].data?.version.id
   );
 
   const versionsForRuns = useMemo(() => {

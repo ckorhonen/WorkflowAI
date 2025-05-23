@@ -10,9 +10,9 @@ import { SimpleTooltip } from '@/components/ui/Tooltip';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
 import { useRedirectWithParams } from '@/lib/queryString';
 import { useOrFetchOrganizationSettings } from '@/store';
-import { GeneralizedTaskInput, JsonSchema, TaskRun } from '@/types';
+import { GeneralizedTaskInput, JsonSchema } from '@/types';
 import { Model, TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
-import { ModelResponse, VersionV1 } from '@/types/workflowAI';
+import { ModelResponse, RunV1, VersionV1 } from '@/types/workflowAI';
 import { TaskInputDict } from '@/types/workflowAI';
 import { FreeCreditsLimitReachedInfo } from './FreeCreditsLimitReachedInfo';
 import { CreateTaskRunButton } from './components/CreateTaskRunButton';
@@ -23,10 +23,11 @@ import { TaskRunner } from './hooks/useTaskRunners';
 import { PlaygroundModels } from './hooks/utils';
 import { PlaygroundModelOutputContent } from './playgroundModelOutputContent';
 
-function computeHasInputChanged(taskRun: TaskRun | undefined, generatedInput: GeneralizedTaskInput | undefined) {
+function computeHasInputChanged(taskRun: RunV1 | undefined, generatedInput: GeneralizedTaskInput | undefined) {
   if (taskRun === undefined || generatedInput === undefined) {
     return false;
   }
+
   // We need to remove undefined values from the generated input
   const processedGeneratedInput = JSON.parse(JSON.stringify(generatedInput));
   return !isEqual(taskRun.task_input, processedGeneratedInput);
@@ -40,8 +41,8 @@ type ModelOutputProps = {
   generatedInput: GeneralizedTaskInput | undefined;
   improveInstructions: (text: string, runId: string | undefined) => Promise<void>;
   index: number;
-  minimumCostTaskRun: TaskRun | undefined;
-  minimumLatencyTaskRun: TaskRun | undefined;
+  minimumCostTaskRun: RunV1 | undefined;
+  minimumLatencyTaskRun: RunV1 | undefined;
   models: PlaygroundModels;
   onModelsChange: (index: number, newModel: Model | null | undefined) => void;
   outputSchema: JsonSchema | undefined;
@@ -88,7 +89,12 @@ function ModelOutput(props: ModelOutputProps) {
 
   const taskRun = taskRunner.data;
   const taskRunId = taskRun?.id;
-  const hasInputChanged = useMemo(() => computeHasInputChanged(taskRun, generatedInput), [taskRun, generatedInput]);
+  const hasInputChanged = useMemo(() => {
+    if (isProxy) {
+      return false;
+    }
+    return computeHasInputChanged(taskRun, generatedInput);
+  }, [taskRun, generatedInput, isProxy]);
 
   const redirectWithParams = useRedirectWithParams();
   const onOpenTaskRun = useCallback(() => {
@@ -100,12 +106,12 @@ function ModelOutput(props: ModelOutputProps) {
 
   const currentModel = models[index];
   const currentAIModel = useMemo(
-    () => aiModels.find((model) => model.id === taskRun?.group.properties?.model),
-    [aiModels, taskRun?.group.properties?.model]
+    () => aiModels.find((model) => model.id === taskRun?.version.properties?.model),
+    [aiModels, taskRun?.version.properties?.model]
   );
   const minimumCostAIModel = useMemo(
-    () => aiModels.find((model) => model.id === minimumCostTaskRun?.group.properties?.model),
-    [aiModels, minimumCostTaskRun?.group.properties?.model]
+    () => aiModels.find((model) => model.id === minimumCostTaskRun?.version.properties?.model),
+    [aiModels, minimumCostTaskRun?.version.properties?.model]
   );
 
   const onImprovePrompt = useCallback(
@@ -286,7 +292,7 @@ export function PlaygroundOutput(props: PlaygroundOutputProps) {
   }, [filteredTaskRunners]);
 
   const taskRuns = useMemo(() => {
-    const result: TaskRun[] = [];
+    const result: RunV1[] = [];
     for (const taskRunner of filteredTaskRunners) {
       if (taskRunner.data) {
         result.push(taskRunner.data);
@@ -389,7 +395,7 @@ export function PlaygroundOutput(props: PlaygroundOutputProps) {
           {filteredTaskRunners.map((taskRunner, index) => (
             <ModelOutput
               {...rest}
-              version={!!taskRunner.data?.group.id ? versionsForRuns[taskRunner.data?.group.id] : undefined}
+              version={!!taskRunner.data?.version.id ? versionsForRuns[taskRunner.data?.version.id] : undefined}
               index={notFilteredIndex(index)}
               key={`${taskRunner.data?.id}-${notFilteredIndex(index)}`}
               minimumCostTaskRun={minimumCostTaskRun}

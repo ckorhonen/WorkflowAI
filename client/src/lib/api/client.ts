@@ -28,6 +28,7 @@ export class RequestError extends Error {
   status: number;
   path: string;
   response: Response;
+  rawResponse: string;
 
   constructor(status: number, path: string, response: Response) {
     super(`Failed to request ${path}`);
@@ -35,6 +36,12 @@ export class RequestError extends Error {
     this.path = path;
     this.status = status;
     this.response = response;
+    this.rawResponse = '';
+  }
+
+  async init() {
+    this.rawResponse = await this.response.text();
+    return this;
   }
 
   async humanReadableMessage() {
@@ -177,9 +184,11 @@ async function fetchWrapper<T, R = unknown>(
   {
     method,
     body,
+    signal,
   }: {
     method: Method;
     body?: T;
+    signal?: AbortSignal;
   }
 ): Promise<R> {
   // We don't compute a token here
@@ -192,12 +201,13 @@ async function fetchWrapper<T, R = unknown>(
     method,
     headers,
     body: JSON.stringify(body),
+    signal,
   });
   if (!res.ok) {
-    const error = new RequestError(res.status, path, res);
+    const error = await new RequestError(res.status, path, res).init();
     captureException(error, {
       tags: { path },
-      extra: { path, status: res.status, raw: await res.text() },
+      extra: { path, status: res.status, raw: error.rawResponse },
     });
     throw error;
   }
@@ -214,8 +224,8 @@ export async function get<T>(path: string, query?: URLSearchParams): Promise<T> 
   return fetchWrapper(url, { method: Method.GET });
 }
 
-export async function post<T, R = unknown>(path: string, body: T): Promise<R> {
-  return fetchWrapper(path, { method: Method.POST, body });
+export async function post<T, R = unknown>(path: string, body: T, signal?: AbortSignal): Promise<R> {
+  return fetchWrapper(path, { method: Method.POST, body, signal });
 }
 
 export async function put<T, R = unknown>(path: string, body: T): Promise<R> {

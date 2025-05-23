@@ -43,7 +43,7 @@ import { useTaskPreview } from '@/store/task_preview';
 import { useUpload } from '@/store/upload';
 import { buildScopeKey } from '@/store/utils';
 import { useVersions } from '@/store/versions';
-import { StreamedChunk, TaskRun, TaskSchemaResponseWithSchema } from '@/types';
+import { StreamedChunk, TaskSchemaResponseWithSchema } from '@/types';
 import { GeneralizedTaskInput } from '@/types';
 import { ModelOptional, TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
 import { StreamError, captureIfNeeded } from '@/types/errors';
@@ -58,11 +58,8 @@ import {
   SerializableTask,
   TaskGroupProperties_Input,
   TaskInputDict,
-  ToolKind,
-  Tool_Output,
   VersionV1,
 } from '@/types/workflowAI';
-import { ProxyMessage } from '@/types/workflowAI';
 import { PlaygroundChat } from './components/Chat/PlaygroundChat';
 import { RunAgentsButton } from './components/RunAgentsButton';
 import { useFetchTaskRunUntilCreated } from './hooks/useFetchTaskRunUntilCreated';
@@ -82,15 +79,12 @@ import { pickFinalRunProperties } from './hooks/utils';
 import { PlaygroundInputContainer } from './playgroundInputContainer';
 import { PlaygroundInputSettingsModal } from './playgroundInputSettingsModal';
 import { PlaygroundOutput } from './playgroundOutput';
-import { ProxySection } from './proxy/ProxySection';
-import { useIsProxy } from './proxy/hooks/useIsProxy';
 
 export type PlaygroundContentProps = {
   taskId: TaskID;
   tenant: TenantID | undefined;
   taskSchemaId: TaskSchemaID;
   userRunTasks?: () => void;
-  playgroundOutputRef?: React.RefObject<HTMLDivElement>;
 };
 
 type PlaygroundContentBodyProps = PlaygroundContentProps & {
@@ -157,7 +151,6 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
     aiModels,
     allAIModels,
     latestRun,
-    playgroundOutputRef,
     versions,
     taskId,
     taskSchema: currentTaskSchema,
@@ -195,8 +188,8 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
     'runAgents'
   );
 
+  const playgroundOutputRef = useRef<HTMLDivElement>(null);
   const fetchTaskRunUntilCreated = useFetchTaskRunUntilCreated();
-
   const [streamedChunks, setStreamedChunks] = useState<(StreamedChunk | undefined)[]>(() => []);
 
   const {
@@ -228,30 +221,12 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
 
   const { version: currentVersion } = useOrFetchVersion(tenant, taskId, versionId ?? persistedVersionId);
 
-  const { isProxy, messages: proxyMessagesFromVersion } = useIsProxy(currentTaskSchema, currentVersion);
-
-  const [proxyMessages, setProxyMessages] = useState<ProxyMessage[] | undefined>(proxyMessagesFromVersion);
-  const proxyMessagesRef = useRef<ProxyMessage[] | undefined>(proxyMessages);
-  proxyMessagesRef.current = proxyMessages;
-
-  useEffect(() => {
-    setProxyMessages(proxyMessagesFromVersion);
-  }, [proxyMessagesFromVersion]);
-
   const isInputGenerationSupported = useMemo(() => {
-    if (isProxy) {
-      return false;
-    }
     return !requiresFileSupport(
       currentTaskSchema.input_schema.json_schema,
       currentTaskSchema.input_schema.json_schema.$defs
     );
-  }, [currentTaskSchema, isProxy]);
-
-  const [proxyToolCalls, setProxyToolCalls] = useState<(ToolKind | Tool_Output)[] | undefined>(undefined);
-  useEffect(() => {
-    setProxyToolCalls(currentVersion?.properties.enabled_tools ?? undefined);
-  }, [currentVersion]);
+  }, [currentTaskSchema]);
 
   const allVersions = useMemo(() => {
     if (!currentVersion) {
@@ -348,9 +323,10 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
     majorVersions,
     temperature,
     instructions,
-    proxyMessages,
+    proxyMessages: undefined,
     variantId,
     userSelectedMajor,
+    skipCheckingProxyMessages: true,
   });
 
   const fetchModels = useAIModels((state) => state.fetchModels);
@@ -452,13 +428,6 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
             temperature: finalTemperature,
             task_variant_id: finalVariantId,
           };
-
-          if (isProxy) {
-            properties.enabled_tools = proxyToolCalls;
-            if (!!proxyMessagesRef.current) {
-              properties.messages = proxyMessagesRef.current;
-            }
-          }
 
           // We need to find or create the version that corresponds to these properties
           let id: string | undefined;
@@ -578,8 +547,6 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
       fetchOrganizationSettings,
       setAbortController,
       findAbortController,
-      isProxy,
-      proxyToolCalls,
     ]
   );
 
@@ -732,10 +699,6 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
   const fetchTaskRuns = useTaskRuns((state) => state.fetchTaskRuns);
 
   const handleGenerateInstructions = useCallback(async () => {
-    if (isProxy) {
-      return;
-    }
-
     // This is triggered when a new task schema is created to migrate instructions
     // from the previous task schema
 
@@ -784,7 +747,6 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
     handleGeneratePlaygroundInput,
     isInputGenerationSupported,
     fetchTaskRuns,
-    isProxy,
   ]);
 
   const { getUploadURL } = useUpload();
@@ -861,7 +823,7 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
 
   const taskRuns = useMemo(() => [taskRun1, taskRun2, taskRun3], [taskRun1, taskRun2, taskRun3]);
   const filteredTaskRunIds = useMemo(() => {
-    const runs = taskRuns.filter((taskRun) => !!taskRun) as TaskRun[];
+    const runs = taskRuns.filter((taskRun) => !!taskRun) as RunV1[];
     return runs.map((taskRun) => taskRun?.id ?? '');
   }, [taskRuns]);
 
@@ -1012,12 +974,10 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
       onResetTaskRunIds();
       setInstructions(version.properties.instructions);
       setTemperature(version.properties.temperature);
-      const messages = (version.properties.messages as ProxyMessage[]) ?? undefined;
-      setProxyMessages(messages);
       setVariantId(!!version.properties.task_variant_id ? version.properties.task_variant_id : undefined);
       setUserSelectedMajor(version.major);
     },
-    [setInstructions, setTemperature, setUserSelectedMajor, onResetTaskRunIds, setVariantId, setProxyMessages]
+    [setInstructions, setTemperature, setUserSelectedMajor, onResetTaskRunIds, setVariantId]
   );
 
   const onSetInstructions = useCallback(
@@ -1050,9 +1010,9 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
     };
 
     const result = {
-      is_proxy: isProxy,
+      is_proxy: false,
       version_id: currentVersion?.id,
-      version_messages: proxyMessages,
+      version_messages: undefined,
       agent_input: generatedInput as Record<string, unknown>,
       agent_instructions: instructions,
       agent_temperature: temperature,
@@ -1060,16 +1020,7 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
       selected_models: models,
     };
     return result;
-  }, [
-    generatedInput,
-    instructions,
-    temperature,
-    filteredTaskRunIds,
-    schemaModels,
-    isProxy,
-    currentVersion,
-    proxyMessages,
-  ]);
+  }, [generatedInput, instructions, temperature, filteredTaskRunIds, schemaModels, currentVersion]);
 
   const markToolCallAsDone = usePlaygroundChatStore((state) => state.markToolCallAsDone);
 
@@ -1198,22 +1149,6 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
     [setGeneratedInput, scrollToBottomOfProxyMessages, handleRunTasks]
   );
 
-  const onSetProxyMessages = useCallback(
-    (messages: ProxyMessage[] | undefined) => {
-      onResetTaskRunIds();
-      setProxyMessages(messages);
-    },
-    [setProxyMessages, onResetTaskRunIds]
-  );
-
-  const onSetGeneratedInput = useCallback(
-    (input: GeneralizedTaskInput | undefined) => {
-      onResetTaskRunIds();
-      setGeneratedInput(input);
-    },
-    [setGeneratedInput, onResetTaskRunIds]
-  );
-
   return (
     <div className='flex flex-row h-full w-full'>
       <div className='flex h-full flex-1 overflow-hidden'>
@@ -1230,7 +1165,7 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
               <Button variant='newDesign' icon={<Link16Regular />} onClick={copyUrl} className='w-9 h-9 px-0 py-0' />
               {!isMobile && (
                 <RunAgentsButton
-                  showSaveAllVersions={showSaveAllVersions && !noCreditsLeft && !isInDemoMode && !isProxy}
+                  showSaveAllVersions={showSaveAllVersions && !noCreditsLeft && !isInDemoMode}
                   areTasksRunning={areTasksRunning}
                   inputLoading={inputLoading}
                   areInstructionsLoading={areInstructionsLoading}
@@ -1252,71 +1187,48 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
             id='playground-scroll'
           >
             <div className='flex flex-col w-full sm:pb-0 pb-20'>
-              {isProxy ? (
-                <ProxySection
-                  inputSchema={inputSchema}
-                  input={generatedInput}
-                  setInput={onSetGeneratedInput}
-                  temperature={temperature}
-                  setTemperature={setTemperature}
-                  toolCalls={proxyToolCalls}
-                  setToolCalls={setProxyToolCalls}
-                  maxHeight={isMobile ? undefined : containerHeight - 50}
-                  proxyMessages={proxyMessages}
-                  setProxyMessages={onSetProxyMessages}
-                  tenant={tenant}
-                  taskId={taskId}
-                  matchedMajorVersion={matchedMajorVersion}
-                  majorVersions={majorVersions}
-                  useParametersFromMajorVersion={useParametersFromMajorVersion}
-                  showSaveAllVersions={showSaveAllVersions && !noCreditsLeft && !isInDemoMode}
-                  onSaveAllVersions={onSaveAllVersions}
-                  versionsForRuns={versionsForRuns}
-                />
-              ) : (
-                <PlaygroundInputContainer
-                  inputSchema={inputSchema}
-                  generatedInput={generatedInput}
-                  handleGeneratePlaygroundInput={handleGeneratePlaygroundInput}
-                  handleRunTasks={onUserRunTasks}
-                  inputLoading={inputLoading}
-                  areInstructionsLoading={areInstructionsLoading}
-                  isImproveVersionLoading={isImproveVersionLoading || areInstructionsLoading}
-                  oldInstructions={oldInstructions}
-                  onEdit={onEdit}
-                  onImportInput={onImportInput}
-                  areTasksRunning={areTasksRunning}
-                  toggleSettingsModal={toggleSettingsModal}
-                  instructions={instructions}
-                  setInstructions={onSetInstructions}
-                  temperature={temperature}
-                  setTemperature={setTemperature}
-                  improveVersionChangelog={improveVersionChangelog}
-                  resetImprovedInstructions={resetImprovedInstructions}
-                  approveImprovedInstructions={approveImprovedInstructions}
-                  isPreviousAvailableForParameters={isPreviousAvailableForParameters}
-                  isNextAvailableForParameters={isNextAvailableForParameters}
-                  moveToPreviousForParameters={moveToPreviousForParameters}
-                  moveToNextForParameters={moveToNextForParameters}
-                  isPreviousAvailableForInput={isPreviousAvailableForInput}
-                  isNextAvailableForInput={isNextAvailableForInput}
-                  moveToPreviousForInput={moveToPreviousForInput}
-                  moveToNextForInput={moveToNextForInput}
-                  isInputGenerationSupported={isInputGenerationSupported}
-                  onShowEditDescriptionModal={onShowEditDescriptionModal}
-                  onShowEditSchemaModal={onShowEditSchemaModal}
-                  fetchAudioTranscription={fetchAudioTranscription}
-                  handleUploadFile={handleUploadFile}
-                  maxHeight={isMobile ? undefined : containerHeight - 50}
-                  matchedMajorVersion={matchedMajorVersion}
-                  majorVersions={majorVersions}
-                  useInstructionsAndTemperatureFromMajorVersion={useParametersFromMajorVersion}
-                  onToolsChange={updateTaskInstructions}
-                  onStopGeneratingInput={onStopGeneratingInput}
-                  isInDemoMode={isInDemoMode}
-                  stopAllRuns={stopAllRuns}
-                />
-              )}
+              <PlaygroundInputContainer
+                inputSchema={inputSchema}
+                generatedInput={generatedInput}
+                handleGeneratePlaygroundInput={handleGeneratePlaygroundInput}
+                handleRunTasks={onUserRunTasks}
+                inputLoading={inputLoading}
+                areInstructionsLoading={areInstructionsLoading}
+                isImproveVersionLoading={isImproveVersionLoading || areInstructionsLoading}
+                oldInstructions={oldInstructions}
+                onEdit={onEdit}
+                onImportInput={onImportInput}
+                areTasksRunning={areTasksRunning}
+                toggleSettingsModal={toggleSettingsModal}
+                instructions={instructions}
+                setInstructions={onSetInstructions}
+                temperature={temperature}
+                setTemperature={setTemperature}
+                improveVersionChangelog={improveVersionChangelog}
+                resetImprovedInstructions={resetImprovedInstructions}
+                approveImprovedInstructions={approveImprovedInstructions}
+                isPreviousAvailableForParameters={isPreviousAvailableForParameters}
+                isNextAvailableForParameters={isNextAvailableForParameters}
+                moveToPreviousForParameters={moveToPreviousForParameters}
+                moveToNextForParameters={moveToNextForParameters}
+                isPreviousAvailableForInput={isPreviousAvailableForInput}
+                isNextAvailableForInput={isNextAvailableForInput}
+                moveToPreviousForInput={moveToPreviousForInput}
+                moveToNextForInput={moveToNextForInput}
+                isInputGenerationSupported={isInputGenerationSupported}
+                onShowEditDescriptionModal={onShowEditDescriptionModal}
+                onShowEditSchemaModal={onShowEditSchemaModal}
+                fetchAudioTranscription={fetchAudioTranscription}
+                handleUploadFile={handleUploadFile}
+                maxHeight={isMobile ? undefined : containerHeight - 50}
+                matchedMajorVersion={matchedMajorVersion}
+                majorVersions={majorVersions}
+                useInstructionsAndTemperatureFromMajorVersion={useParametersFromMajorVersion}
+                onToolsChange={updateTaskInstructions}
+                onStopGeneratingInput={onStopGeneratingInput}
+                isInDemoMode={isInDemoMode}
+                stopAllRuns={stopAllRuns}
+              />
 
               <div ref={playgroundOutputRef} className='flex w-full'>
                 <PlaygroundOutput
@@ -1344,7 +1256,7 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
                   addModelColumn={addModelColumn}
                   hideModelColumn={hideModelColumn}
                   hiddenModelColumns={hiddenModelColumns}
-                  isProxy={isProxy}
+                  isProxy={false}
                   updateInputAndRun={updateInputAndRun}
                 />
               </div>
@@ -1366,7 +1278,7 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
 
             <div className='fixed bottom-0 left-0 right-0 z-10 bg-white border-t border-gray-200 p-4 sm:hidden flex w-full'>
               <RunAgentsButton
-                showSaveAllVersions={showSaveAllVersions && !noCreditsLeft && !isInDemoMode && !isProxy}
+                showSaveAllVersions={showSaveAllVersions && !noCreditsLeft && !isInDemoMode}
                 areTasksRunning={areTasksRunning}
                 inputLoading={inputLoading}
                 areInstructionsLoading={areInstructionsLoading}

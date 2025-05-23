@@ -5,9 +5,9 @@ import { SimpleTooltip } from '@/components/ui/Tooltip';
 import { JsonSchema } from '@/types';
 import { TaskID, TenantID } from '@/types/aliases';
 import { ProxyMessage } from '@/types/workflowAI';
-import { checkInputSchemaForInputVaribles } from '../hooks/useIsProxy';
-import { ProxyMessagesView } from '../universal/ProxyMessagesView';
-import { getAvaibleMessageTypes } from '../utils';
+import { ProxyMessagesView } from '../proxy-messages/ProxyMessagesView';
+import { getAvaibleMessageTypes } from '../proxy-messages/utils';
+import { numberOfInputVariblesInInputSchema } from '../utils';
 import { ProxyInputVariables } from './ProxyInputVariables';
 
 type Props = {
@@ -19,19 +19,26 @@ type Props = {
   input: Record<string, unknown> | undefined;
   setInput: (input: Record<string, unknown>) => void;
   onMoveToVersion: (message: ProxyMessage) => void;
+  inputVariblesKeys: string[] | undefined;
 };
 
 export function ProxyInput(props: Props) {
-  const { inputMessages, setInputMessages, inputSchema, input, setInput, tenant, taskId, onMoveToVersion } = props;
+  const {
+    inputMessages,
+    setInputMessages,
+    inputSchema,
+    input,
+    setInput,
+    tenant,
+    taskId,
+    onMoveToVersion,
+    inputVariblesKeys,
+  } = props;
 
   const [areVariablesVisible, setAreVariablesVisible] = useState(true);
 
   const showInputVariables = useMemo(() => {
-    if (!inputSchema) {
-      return false;
-    }
-
-    return checkInputSchemaForInputVaribles(inputSchema);
+    return numberOfInputVariblesInInputSchema(inputSchema) > 0;
   }, [inputSchema]);
 
   return (
@@ -92,6 +99,8 @@ export function ProxyInput(props: Props) {
         avaibleTypes={getAvaibleMessageTypes('input')}
         className='px-4 py-4'
         onMoveToVersion={onMoveToVersion}
+        inputVariblesKeys={inputVariblesKeys}
+        supportInputVaribles={false}
       />
     </div>
   );

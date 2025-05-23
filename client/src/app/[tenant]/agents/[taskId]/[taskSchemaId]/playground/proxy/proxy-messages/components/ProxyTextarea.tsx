@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
-import { Textarea } from '@/components/ui/Textarea';
 import { ProxyMessageContent } from '@/types/workflowAI';
-import { createEmptyMessageContent, formatResponseToText } from '../../utils';
+import { createEmptyMessageContent, formatResponseToText } from '../utils';
+import { VariablesTextarea } from '../variables-textarea/VariablesTextarea';
 
 type ProxyTextareaProps = {
   content: ProxyMessageContent | undefined;
@@ -9,10 +9,12 @@ type ProxyTextareaProps = {
   placeholder: string;
   minHeight?: number;
   readOnly?: boolean;
+  inputVariblesKeys?: string[];
+  supportInputVaribles?: boolean;
 };
 
 export function ProxyTextarea(props: ProxyTextareaProps) {
-  const { content, placeholder, minHeight, setContent, readOnly } = props;
+  const { content, placeholder, setContent, readOnly, inputVariblesKeys, supportInputVaribles = true } = props;
 
   const onChange = useCallback(
     (value: string) => {
@@ -28,13 +30,13 @@ export function ProxyTextarea(props: ProxyTextareaProps) {
   }, [content]);
 
   return (
-    <Textarea
-      className='flex py-0 text-gray-900 placeholder:text-gray-500 font-normal text-[13px] overflow-y-auto border-none focus:ring-0 !ring-0 outline-none focus:outline-none'
-      style={{ minHeight: minHeight }}
+    <VariablesTextarea
+      text={text ?? ''}
+      onTextChange={onChange}
       placeholder={placeholder}
-      value={text}
-      onChange={(e) => onChange(e.target.value)}
       readOnly={readOnly}
+      inputVariblesKeys={inputVariblesKeys}
+      supportInputVaribles={supportInputVaribles}
     />
   );
 }

@@ -6,7 +6,7 @@ import { useOrFetchVersion } from '@/store/fetchers';
 import { TaskID } from '@/types/aliases';
 import { TenantID } from '@/types/aliases';
 import { JsonSchema } from '@/types/json_schema';
-import { checkVersionForProxy } from '../playground/proxy/hooks/useIsProxy';
+import { checkVersionForProxy } from '../playground/proxy/utils';
 
 type InputOutputSchemasProps = {
   tenant: TenantID;

@@ -1,4 +1,4 @@
-import { ProxyMessagesView } from '@/app/[tenant]/agents/[taskId]/[taskSchemaId]/playground/proxy/universal/ProxyMessagesView';
+import { ProxyMessagesView } from '@/app/[tenant]/agents/[taskId]/[taskSchemaId]/playground/proxy/proxy-messages/ProxyMessagesView';
 import { ProxyMessage, VersionV1 } from '@/types/workflowAI';
 import { TaskTemperatureBadge } from './TaskTemperatureBadge';
 

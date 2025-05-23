@@ -10,28 +10,19 @@ type Props = {
 export function useProxyInputStructure(props: Props) {
   const { input, setInput } = props;
 
-  const newKeyForMessages = useMemo(() => {
-    if (!input) {
-      return 'messages';
-    }
-
-    return 'properties' in input ? 'workflowai.replies' : 'messages';
-  }, [input]);
-
   const { messages, cleanInput } = useMemo(() => {
-    if (!input || (!('workflowai.replies' in input) && !('messages' in input))) {
+    if (!input || !('workflowai.replies' in input)) {
       return { messages: undefined, cleanInput: input as Record<string, unknown> };
     }
 
     const taskInput = input as Record<string, unknown>;
-    const messages = (taskInput['workflowai.replies'] || taskInput['messages']) as ProxyMessage[];
+    const messages = taskInput['workflowai.replies'] as ProxyMessage[];
 
     const cleanTaskInput: Record<string, unknown> = {
       ...taskInput,
     };
 
     delete cleanTaskInput['workflowai.replies'];
-    delete cleanTaskInput['messages'];
 
     return {
       messages: messages,
@@ -48,20 +39,20 @@ export function useProxyInputStructure(props: Props) {
   const setMessages = useCallback(
     (messages: ProxyMessage[] | undefined) => {
       const taskInput = {
-        [newKeyForMessages]: messages,
+        ['workflowai.replies']: messages,
         ...cleanInputRef.current,
       };
 
       setInput(taskInput as GeneralizedTaskInput);
     },
-    [setInput, newKeyForMessages]
+    [setInput]
   );
 
   const setCleanInput = useCallback(
     (cleanInput: Record<string, unknown>) => {
-      setInput({ ...cleanInput, [newKeyForMessages]: messagesRef.current });
+      setInput({ ...cleanInput, ['workflowai.replies']: messagesRef.current });
     },
-    [setInput, newKeyForMessages]
+    [setInput]
   );
 
   return { messages, setMessages, cleanInput, setCleanInput };

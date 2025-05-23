@@ -1,23 +1,23 @@
 import { isEmpty, isEqual } from 'lodash';
 import { useCallback, useMemo } from 'react';
-import { GeneralizedTaskInput, StreamedChunk, TaskRun, mapReasoningSteps } from '@/types';
+import { GeneralizedTaskInput, StreamedChunk, mapReasoningSteps } from '@/types';
 import { ToolCallPreview } from '@/types';
-import { toolCallsFromRun } from '@/types/utils';
-import { ReasoningStep } from '@/types/workflowAI';
+import { toolCallsFromRunV1 } from '@/types/utils';
+import { ReasoningStep, RunV1 } from '@/types/workflowAI';
 
 export type TaskRunner = {
   loading: boolean;
   streamingOutput: Record<string, unknown> | undefined;
   toolCalls: Array<ToolCallPreview> | undefined;
   reasoningSteps: ReasoningStep[] | undefined;
-  data: TaskRun | undefined;
+  data: RunV1 | undefined;
   inputStatus: 'unprocessed' | 'processed';
   execute: () => void;
   cancel: () => void;
 };
 
 type Props = {
-  taskRuns: (TaskRun | undefined)[];
+  taskRuns: (RunV1 | undefined)[];
   playgroundOutputsLoading: [boolean, boolean, boolean];
   streamedChunks: (StreamedChunk | undefined)[];
   handleRunTask: (index: number) => Promise<void>;
@@ -42,15 +42,15 @@ function useInputMatchStatus(
   }, [taskRunInput, formInput]);
 }
 
-function extractToolCalls(streamedChunk: StreamedChunk | undefined, final: TaskRun | undefined) {
-  const taskRunToolCalls = toolCallsFromRun(final);
+function extractToolCalls(streamedChunk: StreamedChunk | undefined, final: RunV1 | undefined) {
+  const taskRunToolCalls = toolCallsFromRunV1(final);
   if (!!taskRunToolCalls && taskRunToolCalls.length > 0) {
     return taskRunToolCalls;
   }
   return streamedChunk?.toolCalls;
 }
 
-function extractReasoningSteps(streamedChunk: StreamedChunk | undefined, final: TaskRun | undefined) {
+function extractReasoningSteps(streamedChunk: StreamedChunk | undefined, final: RunV1 | undefined) {
   const taskRunReasoningSteps = final?.reasoning_steps;
   if (!isEmpty(taskRunReasoningSteps)) {
     return mapReasoningSteps(taskRunReasoningSteps);

@@ -1,24 +1,21 @@
 import { nanoid } from 'nanoid';
 import { useCallback, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { JsonSchema } from '@/types/json_schema';
 import { ToolCallPreview } from '@/types/task_run';
 import { TaskInputDict, TaskOutputDict, ToolCallRequestWithID } from '@/types/workflowAI';
 import { ProxyMessage, ProxyMessageContent } from '@/types/workflowAI';
-import { checkInputSchemaForInputVaribles } from '../hooks/useIsProxy';
-import { cleanMessageContent } from '../utils';
 import { ProxyMessageView } from './ProxyMessageView';
+import { cleanMessageContent } from './utils';
 
 type Props = {
   input: TaskInputDict;
   output: TaskOutputDict;
-  inputSchema: JsonSchema | undefined;
   toolCalls: ToolCallPreview[] | undefined;
   updateInputAndRun: (input: TaskInputDict) => Promise<void>;
 };
 
 export function ProxyReplyView(props: Props) {
-  const { input, output, toolCalls, updateInputAndRun, inputSchema } = props;
+  const { input, output, toolCalls, updateInputAndRun } = props;
   const [isLoading, setIsLoading] = useState(false);
 
   const toolCallRequest: ToolCallRequestWithID | undefined = useMemo(() => {
@@ -38,18 +35,6 @@ export function ProxyReplyView(props: Props) {
       return undefined;
     }
   }, [toolCalls]);
-
-  const keyForMessage = useMemo(() => {
-    if (!inputSchema) {
-      return 'workflowai.replies';
-    }
-
-    if (checkInputSchemaForInputVaribles(inputSchema)) {
-      return 'workflowai.replies';
-    } else {
-      return 'messages';
-    }
-  }, [inputSchema]);
 
   const supportToolCallResult = useMemo(() => {
     return !!toolCallRequest;
@@ -108,19 +93,19 @@ export function ProxyReplyView(props: Props) {
 
   const onSendMessage = useCallback(async () => {
     const taskInput = input as Record<string, unknown>;
-    const oldMessages: ProxyMessage[] = (taskInput[keyForMessage] as ProxyMessage[]) ?? [];
+    const oldMessages: ProxyMessage[] = (taskInput['workflowai.replies'] as ProxyMessage[]) ?? [];
 
     const messages = [...oldMessages];
 
     messages.push(assistantMessage);
     messages.push(newMessage);
 
-    const updatedInput: TaskInputDict = { ...input, [keyForMessage]: messages };
+    const updatedInput: TaskInputDict = { ...input, ['workflowai.replies']: messages };
 
     setIsLoading(true);
     await updateInputAndRun(updatedInput);
     setIsLoading(false);
-  }, [input, updateInputAndRun, keyForMessage, newMessage, assistantMessage]);
+  }, [input, updateInputAndRun, newMessage, assistantMessage]);
 
   const handleSetMessage = useCallback(
     (message: ProxyMessage | undefined) => {

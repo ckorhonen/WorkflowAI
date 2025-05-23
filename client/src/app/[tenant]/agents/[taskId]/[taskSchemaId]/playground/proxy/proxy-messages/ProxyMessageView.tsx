@@ -2,6 +2,11 @@ import { Add12Regular } from '@fluentui/react-icons';
 import { useCallback, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { ProxyMessage, ProxyMessageContent } from '@/types/workflowAI';
+import { ProxyMessageViewHeader } from './ProxyMessageViewHeader';
+import { ProxyFile } from './components/ProxyFile';
+import { ProxyTextarea } from './components/ProxyTextarea';
+import { ProxyToolCallRequest } from './components/ProxyToolCallRequest';
+import { ProxyToolCallResultView } from './components/ProxyToolCallResult';
 import {
   ContentType,
   ExtendedMessageType,
@@ -12,12 +17,7 @@ import {
   getMessageType,
   isProxyMessageContentEmpty,
   requiredContentTypeForType,
-} from '../utils';
-import { ProxyMessageViewHeader } from './ProxyMessageViewHeader';
-import { ProxyFile } from './components/ProxyFile';
-import { ProxyTextarea } from './components/ProxyTextarea';
-import { ProxyToolCallRequest } from './components/ProxyToolCallRequest';
-import { ProxyToolCallResultView } from './components/ProxyToolCallResult';
+} from './utils';
 
 type Props = {
   message: ProxyMessage;
@@ -30,6 +30,8 @@ type Props = {
   oneMessageMode?: boolean;
   isLastMessage?: boolean;
   previouseMessage?: ProxyMessage;
+  inputVariblesKeys?: string[];
+  supportInputVaribles?: boolean;
 };
 
 export function ProxyMessageView(props: Props) {
@@ -44,6 +46,8 @@ export function ProxyMessageView(props: Props) {
     oneMessageMode = false,
     isLastMessage = false,
     previouseMessage,
+    inputVariblesKeys,
+    supportInputVaribles = true,
   } = props;
 
   const onMessageChange = useCallback(
@@ -183,6 +187,8 @@ export function ProxyMessageView(props: Props) {
                     setContent={(content) => onMessageChange(index, content)}
                     placeholder='Message text content'
                     readOnly={readonly}
+                    inputVariblesKeys={inputVariblesKeys}
+                    supportInputVaribles={supportInputVaribles}
                   />
                 </div>
               )}

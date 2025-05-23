@@ -9,7 +9,7 @@ import {
   getContentTypesToShowToUser,
   getTextAndIconFotContentType,
   getTitleForType,
-} from '../utils';
+} from './utils';
 
 type Props = {
   type: ExtendedMessageType;

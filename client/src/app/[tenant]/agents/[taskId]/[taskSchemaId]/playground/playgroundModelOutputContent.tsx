@@ -19,22 +19,23 @@ import { taskApiRoute } from '@/lib/routeFormatter';
 import { getContextWindowInformation } from '@/lib/taskRunUtils';
 import { cn } from '@/lib/utils';
 import { isVersionSaved } from '@/lib/versionUtils';
+import { useOrFetchRunCompletions } from '@/store/fetchers';
 import { useVersions } from '@/store/versions';
-import { JsonSchema, TaskOutput, TaskRun, ToolCallPreview } from '@/types';
+import { JsonSchema, TaskOutput, ToolCallPreview } from '@/types';
 import { TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
-import { ModelResponse, ReasoningStep, VersionV1 } from '@/types/workflowAI';
+import { ModelResponse, ReasoningStep, RunV1, VersionV1 } from '@/types/workflowAI';
 import { TaskInputDict } from '@/types/workflowAI';
 import { ImprovePrompt } from './ImprovePrompt';
 import { AIEvaluationReview } from './components/AIEvaluation/AIEvaluationReview';
 import { TaskRunOutputRows } from './components/TaskRunOutputRows/TaskRunOutputRows';
-import { ProxyReplyView } from './proxy/universal/ProxyReplyView';
+import { ProxyReplyView } from './proxy/proxy-messages/ProxyReplyView';
 
 type ModelOutputContentProps = {
   currentAIModel: ModelResponse | undefined;
   minimumCostAIModel: ModelResponse | undefined;
   hasInputChanged: boolean;
-  minimumCostTaskRun: TaskRun | undefined;
-  minimumLatencyTaskRun: TaskRun | undefined;
+  minimumCostTaskRun: RunV1 | undefined;
+  minimumLatencyTaskRun: RunV1 | undefined;
   onOpenTaskRun: () => void;
   onImprovePrompt: (evaluation: string) => Promise<void>;
   outputSchema: JsonSchema | undefined;
@@ -43,7 +44,7 @@ type ModelOutputContentProps = {
   streamLoading: boolean;
   version: VersionV1 | undefined;
   taskOutput: TaskOutput | undefined;
-  taskRun: TaskRun | undefined;
+  taskRun: RunV1 | undefined;
   tenant: TenantID | undefined;
   taskId: TaskID | undefined;
   taskSchemaId: TaskSchemaID | undefined;
@@ -86,9 +87,11 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
 
   const onCopyTaskRunUrl = useCopyRunURL(tenant, taskId, taskRun?.id);
 
+  const { completions: runCompletions } = useOrFetchRunCompletions(tenant, taskId, taskRun?.id);
+
   const contextWindowInformation = useMemo(() => {
-    return getContextWindowInformation(taskRun);
-  }, [taskRun]);
+    return getContextWindowInformation(runCompletions);
+  }, [runCompletions]);
 
   const router = useRouter();
   const saveVersion = useVersions((state) => state.saveVersion);
@@ -142,7 +145,6 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
   const emptyMode = !taskOutput || hasInputChanged;
 
   const outputSchema = (version?.output_schema as JsonSchema) ?? outputSchemaFromProps;
-  const inputSchema = version?.input_schema as JsonSchema;
 
   const [showReplyView, setShowReplyView] = useState(false);
   const showReplyButton = isProxy && !!taskRun && !showReplyView;
@@ -222,7 +224,6 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
             toolCalls={toolCallsPreview}
             input={taskRun.task_input}
             output={taskRun.task_output}
-            inputSchema={inputSchema}
             updateInputAndRun={updateInputAndRun}
           />
         )}

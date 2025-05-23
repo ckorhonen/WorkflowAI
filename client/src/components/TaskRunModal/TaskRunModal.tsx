@@ -9,6 +9,7 @@ import { useRedirectWithParams } from '@/lib/queryString';
 import { taskSchemaRoute } from '@/lib/routeFormatter';
 import {
   useOrFetchCurrentTaskSchema,
+  useOrFetchRunV1,
   useOrFetchTaskRun,
   useOrFetchTaskRunTranscriptions,
   useOrFetchVersion,
@@ -29,7 +30,7 @@ type TaskRunModalProps = {
 
 export default function TaskRunModal(props: TaskRunModalProps) {
   const { onClose, open, showPlaygroundButton, taskId, taskRunId, taskSchemaIdFromParams, taskRunIds, tenant } = props;
-  const { taskRun, isInitialized } = useOrFetchTaskRun(tenant, taskId, taskRunId);
+  const { run: taskRun, isInitialized } = useOrFetchRunV1(tenant, taskId, taskRunId);
 
   const taskSchemaId = (taskRun?.task_schema_id ?? taskSchemaIdFromParams) as TaskSchemaID;
 
@@ -48,7 +49,7 @@ export default function TaskRunModal(props: TaskRunModalProps) {
     taskId,
   });
 
-  const { version } = useOrFetchVersion(tenant, taskId, taskRun?.group.id);
+  const { version } = useOrFetchVersion(tenant, taskId, taskRun?.version.id);
 
   const onFavoriteToggle = useCallback(() => {
     if (!version) {

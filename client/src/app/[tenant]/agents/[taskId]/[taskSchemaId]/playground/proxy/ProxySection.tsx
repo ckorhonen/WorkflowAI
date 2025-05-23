@@ -1,12 +1,13 @@
 import { useCallback, useMemo } from 'react';
+import { useOrExtractTemplete } from '@/store/extract_templete';
 import { TaskID, TenantID } from '@/types/aliases';
 import { JsonSchema } from '@/types/json_schema';
 import { GeneralizedTaskInput } from '@/types/task_run';
 import { MajorVersion, ProxyMessage, ToolKind, Tool_Output, VersionV1 } from '@/types/workflowAI';
 import { useProxyInputStructure } from './hooks/useProxyInputStructure';
-import { ProxyInput } from './input/ProxyInput';
-import { ProxyParameters } from './parameters/ProxyParameters';
-import { createEmptyMessage } from './utils';
+import { ProxyInput } from './input-section/ProxyInput';
+import { ProxyParameters } from './parameters-section/ProxyParameters';
+import { createEmptyMessage } from './proxy-messages/utils';
 
 interface Props {
   inputSchema: JsonSchema | undefined;
@@ -60,16 +61,6 @@ export function ProxySection(props: Props) {
     versionsForRuns,
   } = props;
 
-  const {
-    messages: inputMessages,
-    setMessages: setInputMessages,
-    cleanInput,
-    setCleanInput,
-  } = useProxyInputStructure({
-    input,
-    setInput,
-  });
-
   const messagesWithDefaultSystemMessage = useMemo(() => {
     if (!proxyMessages || proxyMessages?.length === 0) {
       return [createEmptyMessage('system')];
@@ -93,6 +84,22 @@ export function ProxySection(props: Props) {
     [proxyMessages, setProxyMessages]
   );
 
+  const {
+    schema: extractedInputSchema,
+    inputVariblesKeys,
+    error,
+  } = useOrExtractTemplete(tenant, taskId, proxyMessages, inputSchema);
+
+  const {
+    messages: inputMessages,
+    setMessages: setInputMessages,
+    cleanInput,
+    setCleanInput,
+  } = useProxyInputStructure({
+    input,
+    setInput,
+  });
+
   return (
     <div
       className='flex w-full items-stretch border-b border-gray-200 border-dashed overflow-hidden'
@@ -104,10 +111,11 @@ export function ProxySection(props: Props) {
           setInputMessages={setInputMessages}
           tenant={tenant}
           taskId={taskId}
-          inputSchema={inputSchema}
+          inputSchema={extractedInputSchema}
           input={cleanInput}
           setInput={setCleanInput}
           onMoveToVersion={onMoveToVersion}
+          inputVariblesKeys={inputVariblesKeys}
         />
       </div>
       <div className='w-1/2'>
@@ -124,6 +132,8 @@ export function ProxySection(props: Props) {
           showSaveAllVersions={showSaveAllVersions}
           onSaveAllVersions={onSaveAllVersions}
           versionsForRuns={versionsForRuns}
+          inputVariblesKeys={inputVariblesKeys}
+          error={error}
         />
       </div>
     </div>
