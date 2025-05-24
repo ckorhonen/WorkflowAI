@@ -87,12 +87,12 @@ export function ProxyPlayground(props: Props) {
     resetTaskRunIds,
     setRunIdForModal,
     runIdForModal,
-    changeSchemaId,
     temperature,
     setTemperature,
     outputModels,
     setOutputModels,
     allModels,
+    changeSchemaIdAndRequestRunning,
   } = useProxyPlaygroundStates(tenant, taskId, taskSchemaId);
 
   const inputSchema = useMemo(() => schema?.input_schema.json_schema, [schema]);
@@ -211,6 +211,44 @@ export function ProxyPlayground(props: Props) {
   const updateTaskSchema = useTasks((state) => state.updateTaskSchema);
   const fetchTaskSchema = useTaskSchemas((state) => state.fetchTaskSchema);
 
+  const checkAndUpdateSchemaIfNeeded = useCallback(
+    async (index?: number) => {
+      if (!areThereChangesInInputSchema) {
+        return false;
+      }
+
+      const updatedTask = await updateTaskSchema(tenant, taskId, {
+        input_schema: extractedInputSchema as Record<string, unknown>,
+        output_schema: outputSchema as Record<string, unknown>,
+      });
+
+      const newSchema = `${updatedTask.schema_id}` as TaskSchemaID;
+
+      if (newSchema === taskSchemaId) {
+        return false;
+      }
+
+      await fetchTaskSchema(tenant, taskId, newSchema);
+      await fetchModels(tenant, taskId, newSchema);
+
+      changeSchemaIdAndRequestRunning(newSchema, index);
+
+      return true;
+    },
+    [
+      areThereChangesInInputSchema,
+      extractedInputSchema,
+      outputSchema,
+      updateTaskSchema,
+      tenant,
+      taskId,
+      changeSchemaIdAndRequestRunning,
+      fetchTaskSchema,
+      taskSchemaId,
+      fetchModels,
+    ]
+  );
+
   const handleRunTask = useCallback(
     async (index: number, runOptions: RunTaskOptions = {}) =>
       new Promise<void>(async (resolve, reject) => {
@@ -240,21 +278,6 @@ export function ProxyPlayground(props: Props) {
         setAbortController(index, abortController);
 
         try {
-          let schemaIdToUse = taskSchemaId;
-
-          if (areThereChangesInInputSchema) {
-            const updatedTask = await updateTaskSchema(tenant, taskId, {
-              input_schema: extractedInputSchema as Record<string, unknown>,
-              output_schema: outputSchema as Record<string, unknown>,
-            });
-            schemaIdToUse = `${updatedTask.schema_id}` as TaskSchemaID;
-          }
-
-          if (schemaIdToUse !== taskSchemaId) {
-            await fetchTaskSchema(tenant, taskId, schemaIdToUse);
-            changeSchemaId(schemaIdToUse);
-          }
-
           const properties: TaskGroupProperties_Input = {
             model,
             temperature,
@@ -265,7 +288,7 @@ export function ProxyPlayground(props: Props) {
           // We need to find or create the version that corresponds to these properties
           let id: string | undefined;
           try {
-            const response = await createVersion(tenant, taskId, schemaIdToUse, {
+            const response = await createVersion(tenant, taskId, taskSchemaId, {
               properties,
             });
             id = response.id;
@@ -305,7 +328,7 @@ export function ProxyPlayground(props: Props) {
           const { id: run_id } = await runTask({
             tenant,
             taskId,
-            taskSchemaId: schemaIdToUse,
+            taskSchemaId: taskSchemaId,
             body,
             onMessage: (message) => {
               if (abortController.signal.aborted) {
@@ -324,7 +347,7 @@ export function ProxyPlayground(props: Props) {
 
           await fetchTaskRunUntilCreated(tenant, taskId, run_id);
           // Running the task may have changed the models prices, so we need to refetch them
-          await fetchModels(tenant, taskId, schemaIdToUse);
+          await fetchModels(tenant, taskId, taskSchemaId);
           setTaskRunId(index, run_id);
           resolve();
         } catch (error) {
@@ -377,14 +400,19 @@ export function ProxyPlayground(props: Props) {
       proxyMessages,
       proxyToolCalls,
       temperature,
-      areThereChangesInInputSchema,
-      extractedInputSchema,
-      outputSchema,
-      updateTaskSchema,
-      changeSchemaId,
-      fetchTaskSchema,
       outputModels,
     ]
+  );
+
+  const handleTaskRunAndCheckSchema = useCallback(
+    async (index: number, runOptions: RunTaskOptions = {}) => {
+      const schemaWasUpdated = await checkAndUpdateSchemaIfNeeded(index);
+      if (schemaWasUpdated) {
+        return;
+      }
+      await handleRunTask(index, runOptions);
+    },
+    [checkAndUpdateSchemaIfNeeded, handleRunTask]
   );
 
   const cancelRunTask = useCallback(
@@ -401,42 +429,37 @@ export function ProxyPlayground(props: Props) {
     abortControllerRun2.current?.abort();
   }, []);
 
-  const { getScheduledPlaygroundStateMessageToSendAfterRuns } = usePlaygroundChatStore();
-
   const handleRunTasks = useCallback(
     async (options?: RunTaskOptions, individualOptions?: Record<number, RunTaskOptions>) => {
       resetTaskRunIds();
+
+      const schemaWasUpdated = await checkAndUpdateSchemaIfNeeded();
+      if (schemaWasUpdated) {
+        return;
+      }
 
       await Promise.all([
         handleRunTask(0, individualOptions?.[0] ?? options),
         handleRunTask(1, individualOptions?.[1] ?? options),
         handleRunTask(2, individualOptions?.[2] ?? options),
       ]);
-
-      const message = getScheduledPlaygroundStateMessageToSendAfterRuns();
-      if (message) {
-        setScheduledPlaygroundStateMessage(message);
-      }
     },
-    [
-      handleRunTask,
-      resetTaskRunIds,
-      getScheduledPlaygroundStateMessageToSendAfterRuns,
-      setScheduledPlaygroundStateMessage,
-    ]
+    [handleRunTask, resetTaskRunIds, checkAndUpdateSchemaIfNeeded]
   );
 
   const setModelsAndRunTask = useCallback(
-    (index: number, model: ModelOptional) => {
+    async (index: number, model: ModelOptional) => {
       setOutputModels(index, model ?? null);
+
       const options = model
         ? {
             externalModel: model,
           }
         : undefined;
-      handleRunTask(index, options);
+
+      handleTaskRunAndCheckSchema(index, options);
     },
-    [handleRunTask, setOutputModels]
+    [handleTaskRunAndCheckSchema, setOutputModels]
   );
 
   const areTasksRunning = useMemo(() => {
@@ -466,7 +489,7 @@ export function ProxyPlayground(props: Props) {
     playgroundOutputsLoading,
     streamedChunks,
     taskRuns,
-    handleRunTask,
+    handleRunTask: handleTaskRunAndCheckSchema,
     cancelRunTask,
     generatedInput: input,
   });
@@ -495,9 +518,9 @@ export function ProxyPlayground(props: Props) {
 
   const onTryPromptClick = useCallback(async () => {
     scrollToPlaygroundOutput();
-    await handleRunTasks();
+    await handleTaskRunAndCheckSchema(0);
     scrollToPlaygroundOutput();
-  }, [handleRunTasks, scrollToPlaygroundOutput]);
+  }, [handleTaskRunAndCheckSchema, scrollToPlaygroundOutput]);
 
   useHotkeys('meta+enter', onTryPromptClick);
 
@@ -640,18 +663,10 @@ export function ProxyPlayground(props: Props) {
       setInput(input);
       await new Promise((resolve) => setTimeout(resolve, 200));
       scrollToBottomOfProxyMessages();
-      handleRunTasks();
+      await handleRunTasks();
     },
     [setInput, scrollToBottomOfProxyMessages, handleRunTasks]
   );
-
-  const switchTest = useCallback(() => {
-    if (taskSchemaId === '2') {
-      changeSchemaId('3' as TaskSchemaID);
-    } else {
-      changeSchemaId('2' as TaskSchemaID);
-    }
-  }, [taskSchemaId, changeSchemaId]);
 
   return (
     <div className='flex flex-row h-full w-full'>
@@ -667,9 +682,6 @@ export function ProxyPlayground(props: Props) {
           rightBarChildren={
             <div className='flex flex-row items-center gap-2 font-lato'>
               <Button variant='newDesign' icon={<Link16Regular />} onClick={copyUrl} className='w-9 h-9 px-0 py-0' />
-              <div onClick={switchTest} className='p-2 bg-gray-300 cursor-pointer'>
-                {taskSchemaId}
-              </div>
               {!isMobile && (
                 <RunAgentsButton
                   showSaveAllVersions={false}

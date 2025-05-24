@@ -116,11 +116,14 @@ export function useProxyPlaygroundSearchParams(
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const changeSchemaId = useCallback(
-    (taskSchemaId: TaskSchemaID) => {
+  const changeSchemaIdAndRequestRunning = useCallback(
+    (taskSchemaId: TaskSchemaID, index?: number) => {
       const newUrl = replaceTaskSchemaId(pathname, taskSchemaId);
-      const search = searchParams.toString();
-      const finalUrl = search ? `${newUrl}?${search}` : newUrl;
+      const paramsText = searchParams.toString();
+      const indexesParameterValue = index ? `${index}` : 'all';
+      const finalUrl = paramsText
+        ? `${newUrl}?${paramsText}&performRun=${indexesParameterValue}`
+        : `${newUrl}?&performRun=${indexesParameterValue}`;
       router.replace(finalUrl, { scroll: false });
     },
     [pathname, searchParams, router]
@@ -148,7 +151,7 @@ export function useProxyPlaygroundSearchParams(
     setShowDiffMode,
     setHiddenModelColumns,
     setRunIdForModal,
-    changeSchemaId,
+    changeSchemaIdAndRequestRunning,
     setHistoryId,
     setTemperature,
     setModel1,

@@ -23,7 +23,6 @@ export function useProxyPlaygroundStates(tenant: TenantID | undefined, taskId: T
     setHiddenModelColumns,
     setRunIdForModal,
     runIdForModal,
-    changeSchemaId,
     historyId,
     setHistoryId,
     temperature,
@@ -34,6 +33,7 @@ export function useProxyPlaygroundStates(tenant: TenantID | undefined, taskId: T
     setModel1,
     setModel2,
     setModel3,
+    changeSchemaIdAndRequestRunning,
   } = useProxyPlaygroundSearchParams(tenant, taskId, taskSchemaId);
 
   const { version } = useOrFetchVersion(tenant, taskId, versionId);
@@ -175,7 +175,6 @@ export function useProxyPlaygroundStates(tenant: TenantID | undefined, taskId: T
     resetTaskRunIds,
     setRunIdForModal,
     runIdForModal,
-    changeSchemaId,
     historyId,
     temperature,
     setTemperature,
@@ -183,5 +182,6 @@ export function useProxyPlaygroundStates(tenant: TenantID | undefined, taskId: T
     setOutputModels,
     compatibleModels,
     allModels,
+    changeSchemaIdAndRequestRunning,
   };
 }
