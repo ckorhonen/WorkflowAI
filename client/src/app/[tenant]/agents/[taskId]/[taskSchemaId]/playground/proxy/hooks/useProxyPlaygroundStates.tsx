@@ -2,6 +2,7 @@ import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useOrFetchLatestRun, useOrFetchRunV1, useOrFetchVersion } from '@/store/fetchers';
 import { TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
+import { useProxyOutputModels } from './useProxyOutputModels';
 import { useProxyPlaygroundSearchParams } from './useProxyPlaygroundSearchParams';
 
 export function useProxyPlaygroundStates(tenant: TenantID | undefined, taskId: TaskID, taskSchemaId: TaskSchemaID) {
@@ -25,7 +26,15 @@ export function useProxyPlaygroundStates(tenant: TenantID | undefined, taskId: T
     changeSchemaId,
     historyId,
     setHistoryId,
-  } = useProxyPlaygroundSearchParams();
+    temperature,
+    setTemperature,
+    model1,
+    model2,
+    model3,
+    setModel1,
+    setModel2,
+    setModel3,
+  } = useProxyPlaygroundSearchParams(tenant, taskId, taskSchemaId);
 
   const { version } = useOrFetchVersion(tenant, taskId, versionId);
 
@@ -76,6 +85,14 @@ export function useProxyPlaygroundStates(tenant: TenantID | undefined, taskId: T
     }
   }, [versionId, baseRun, setVersionId, run1, run2, run3, baseRunId, setTaskRunId1]);
 
+  useEffect(() => {
+    if (temperature !== undefined || !version) {
+      return;
+    }
+
+    setTemperature(version.properties.temperature ?? undefined);
+  }, [version, temperature, setTemperature]);
+
   // Setters and Getters with Sync
 
   const showDiffModeParsed = useMemo(() => showDiffMode === 'true', [showDiffMode]);
@@ -124,6 +141,21 @@ export function useProxyPlaygroundStates(tenant: TenantID | undefined, taskId: T
     setTaskRunId3(undefined);
   }, [setTaskRunId1, setTaskRunId2, setTaskRunId3]);
 
+  const { outputModels, setOutputModels, compatibleModels, allModels } = useProxyOutputModels(
+    tenant,
+    taskId,
+    taskSchemaId,
+    run1,
+    run2,
+    run3,
+    model1,
+    model2,
+    model3,
+    setModel1,
+    setModel2,
+    setModel3
+  );
+
   return {
     version,
     run1,
@@ -145,5 +177,11 @@ export function useProxyPlaygroundStates(tenant: TenantID | undefined, taskId: T
     runIdForModal,
     changeSchemaId,
     historyId,
+    temperature,
+    setTemperature,
+    outputModels,
+    setOutputModels,
+    compatibleModels,
+    allModels,
   };
 }

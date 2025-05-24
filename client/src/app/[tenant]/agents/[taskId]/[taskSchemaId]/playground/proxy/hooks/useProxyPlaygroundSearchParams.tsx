@@ -2,11 +2,16 @@ import { useRouter } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';
 import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
-import { useParsedSearchParams, useRedirectWithParams } from '@/lib/queryString';
+import { QueryParam, useParsedSearchParams, useRedirectWithParams } from '@/lib/queryString';
 import { replaceTaskSchemaId } from '@/lib/routeFormatter';
-import { TaskSchemaID } from '@/types/aliases';
+import { TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
+import { saveSearchParamsToHistory } from './useProxyHistory';
 
-export function useProxyPlaygroundSearchParams() {
+export function useProxyPlaygroundSearchParams(
+  tenant: TenantID | undefined,
+  taskId: TaskID,
+  taskSchemaId: TaskSchemaID
+) {
   const {
     versionId: versionIdFromParams,
     taskRunId: runIdForModal,
@@ -17,6 +22,10 @@ export function useProxyPlaygroundSearchParams() {
     showDiffMode: showDiffModeFromParams,
     hiddenModelColumns: hiddenModelColumnsFromParams,
     historyId: historyIdFromParams,
+    temperature: temperatureFromParams,
+    model1: model1FromParams,
+    model2: model2FromParams,
+    model3: model3FromParams,
   } = useParsedSearchParams(
     'versionId',
     'taskRunId',
@@ -26,7 +35,11 @@ export function useProxyPlaygroundSearchParams() {
     'baseRunId',
     'showDiffMode',
     'hiddenModelColumns',
-    'historyId'
+    'historyId',
+    'temperature',
+    'model1',
+    'model2',
+    'model3'
   );
 
   const redirectWithParams = useRedirectWithParams();
@@ -39,19 +52,33 @@ export function useProxyPlaygroundSearchParams() {
   const [showDiffMode, setShowDiffMode] = useState(showDiffModeFromParams);
   const [hiddenModelColumns, setHiddenModelColumns] = useState(hiddenModelColumnsFromParams);
   const [historyId, setHistoryId] = useState(historyIdFromParams);
+  const [temperature, setTemperature] = useState<number | undefined>(
+    temperatureFromParams ? Number(temperatureFromParams) : undefined
+  );
+  const [model1, setModel1] = useState<string | undefined>(model1FromParams);
+  const [model2, setModel2] = useState<string | undefined>(model2FromParams);
+  const [model3, setModel3] = useState<string | undefined>(model3FromParams);
 
   useEffect(() => {
+    const params: Record<string, QueryParam> = {
+      versionId: versionId,
+      taskRunId1: taskRunId1,
+      taskRunId2: taskRunId2,
+      taskRunId3: taskRunId3,
+      baseRunId: baseRunId,
+      showDiffMode: showDiffMode,
+      hiddenModelColumns: hiddenModelColumns,
+      historyId: historyId,
+      temperature: temperature ? temperature.toString() : undefined,
+      model1: model1,
+      model2: model2,
+      model3: model3,
+    };
+
+    saveSearchParamsToHistory(tenant, taskId, taskSchemaId, params);
+
     redirectWithParams({
-      params: {
-        versionId: versionId,
-        taskRunId1: taskRunId1,
-        taskRunId2: taskRunId2,
-        taskRunId3: taskRunId3,
-        baseRunId: baseRunId,
-        showDiffMode: showDiffMode,
-        hiddenModelColumns: hiddenModelColumns,
-        historyId: historyId,
-      },
+      params,
       scroll: false,
     });
   }, [
@@ -63,7 +90,14 @@ export function useProxyPlaygroundSearchParams() {
     showDiffMode,
     hiddenModelColumns,
     historyId,
+    temperature,
+    model1,
+    model2,
+    model3,
     redirectWithParams,
+    tenant,
+    taskId,
+    taskSchemaId,
   ]);
 
   const setRunIdForModal = useCallback(
@@ -101,6 +135,11 @@ export function useProxyPlaygroundSearchParams() {
     showDiffMode,
     hiddenModelColumns,
     runIdForModal,
+    historyId,
+    temperature,
+    model1,
+    model2,
+    model3,
     setVersionId,
     setTaskRunId1,
     setTaskRunId2,
@@ -110,7 +149,10 @@ export function useProxyPlaygroundSearchParams() {
     setHiddenModelColumns,
     setRunIdForModal,
     changeSchemaId,
-    historyId,
     setHistoryId,
+    setTemperature,
+    setModel1,
+    setModel2,
+    setModel3,
   };
 }

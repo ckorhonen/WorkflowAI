@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useCompatibleAIModels } from '@/lib/hooks/useCompatibleAIModels';
 import { ModelOptional, TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
 import { RunV1 } from '@/types/workflowAI';
@@ -10,12 +10,14 @@ export function useProxyOutputModels(
   taskSchemaId: TaskSchemaID,
   run1: RunV1 | undefined,
   run2: RunV1 | undefined,
-  run3: RunV1 | undefined
+  run3: RunV1 | undefined,
+  model1: string | undefined,
+  model2: string | undefined,
+  model3: string | undefined,
+  setModel1: (model: string | undefined) => void,
+  setModel2: (model: string | undefined) => void,
+  setModel3: (model: string | undefined) => void
 ) {
-  const [model1, setModel1] = useState<string | undefined>(undefined);
-  const [model2, setModel2] = useState<string | undefined>(undefined);
-  const [model3, setModel3] = useState<string | undefined>(undefined);
-
   const { compatibleModels, allModels, defaultModels } = useCompatibleAIModels({
     tenant,
     taskId,
@@ -30,37 +32,40 @@ export function useProxyOutputModels(
     ] as PlaygroundModels;
   }, [model1, model2, model3, defaultModels]);
 
-  const setOutputModels = useCallback((index: number, model: ModelOptional) => {
-    switch (index) {
-      case 0:
-        setModel1(model ?? undefined);
-        break;
-      case 1:
-        setModel2(model ?? undefined);
-        break;
-      case 2:
-        setModel3(model ?? undefined);
-        break;
-    }
-  }, []);
+  const setOutputModels = useCallback(
+    (index: number, model: ModelOptional) => {
+      switch (index) {
+        case 0:
+          setModel1(model ?? undefined);
+          break;
+        case 1:
+          setModel2(model ?? undefined);
+          break;
+        case 2:
+          setModel3(model ?? undefined);
+          break;
+      }
+    },
+    [setModel1, setModel2, setModel3]
+  );
 
   useEffect(() => {
     if (!!run1?.version.properties.model) {
       setModel1(run1.version.properties.model);
     }
-  }, [run1?.version.properties.model]);
+  }, [run1?.version.properties.model, setModel1]);
 
   useEffect(() => {
     if (!!run2?.version.properties.model) {
       setModel2(run2.version.properties.model);
     }
-  }, [run2?.version.properties.model]);
+  }, [run2?.version.properties.model, setModel2]);
 
   useEffect(() => {
     if (!!run3?.version.properties.model) {
       setModel3(run3.version.properties.model);
     }
-  }, [run3?.version.properties.model]);
+  }, [run3?.version.properties.model, setModel3]);
 
   return {
     outputModels,

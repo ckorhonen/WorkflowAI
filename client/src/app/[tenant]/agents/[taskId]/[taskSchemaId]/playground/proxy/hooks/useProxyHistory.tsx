@@ -1,83 +1,63 @@
-import { useCallback } from 'react';
-import { GeneralizedTaskInput } from '@/types/task_run';
-import { ProxyMessage } from '@/types/workflowAI';
+import { useEffect } from 'react';
+import { QueryParam } from '@/lib/queryString';
+import { TaskID } from '@/types/aliases';
+import { TenantID } from '@/types/aliases';
+import { TaskSchemaID } from '@/types/aliases';
 
-export function useProxyHistory(historyId: string | undefined) {
-  const inputKey = 'proxy-input' + historyId;
-  const proxyMessagesKey = 'proxy-messages' + historyId;
+export function getFromProxyHistory<T>(historyId: string | undefined, key: string): T | undefined {
+  if (!historyId) {
+    return undefined;
+  }
 
-  const saveInput = useCallback(
-    (input: GeneralizedTaskInput | undefined) => {
-      if (!historyId) {
-        return undefined;
-      }
+  const fullKey = historyId + '-' + key;
+  const item = sessionStorage.getItem(fullKey);
 
-      if (input === undefined) {
-        sessionStorage.removeItem(inputKey);
-      } else {
-        sessionStorage.setItem(inputKey, JSON.stringify(input));
-      }
-    },
-    [inputKey, historyId]
-  );
+  if (item === null) {
+    return undefined;
+  }
 
-  const getInput = useCallback(() => {
-    if (!historyId) {
-      return undefined;
+  try {
+    return JSON.parse(item) as T;
+  } catch (error) {
+    console.error('Failed to parse stored input:', error);
+    sessionStorage.removeItem(fullKey);
+    return undefined;
+  }
+}
+
+export function useSaveToProxyHistory<T>(historyId: string | undefined, key: string, value: T | undefined) {
+  useEffect(() => {
+    if (value === undefined) {
+      sessionStorage.removeItem(historyId + '-' + key);
+    } else {
+      sessionStorage.setItem(historyId + '-' + key, JSON.stringify(value));
     }
+  }, [value, historyId, key]);
+}
 
-    const input = sessionStorage.getItem(inputKey);
+export function saveToProxyHistory<T>(historyId: string | undefined, key: string, value: T | undefined) {
+  if (value === undefined) {
+    sessionStorage.removeItem(historyId + '-' + key);
+  } else {
+    sessionStorage.setItem(historyId + '-' + key, JSON.stringify(value));
+  }
+}
 
-    if (input === null) {
-      return undefined;
-    }
-    try {
-      return JSON.parse(input) as GeneralizedTaskInput;
-    } catch (error) {
-      console.error('Failed to parse stored input:', error);
-      sessionStorage.removeItem(inputKey);
-      return undefined;
-    }
-  }, [inputKey, historyId]);
+export function saveSearchParamsToHistory(
+  tenant: TenantID | undefined,
+  taskId: TaskID | undefined,
+  taskSchemaId: TaskSchemaID | undefined,
+  params: Record<string, QueryParam>
+) {
+  const historyId = `${tenant}-${taskId}-${taskSchemaId}`;
+  saveToProxyHistory(historyId, 'params', params);
+}
 
-  const saveProxyMessages = useCallback(
-    (proxyMessages: ProxyMessage[] | undefined) => {
-      if (!historyId) {
-        return;
-      }
-
-      if (proxyMessages === undefined) {
-        sessionStorage.removeItem(proxyMessagesKey);
-      } else {
-        sessionStorage.setItem(proxyMessagesKey, JSON.stringify(proxyMessages));
-      }
-    },
-    [proxyMessagesKey, historyId]
-  );
-
-  const getProxyMessages = useCallback(() => {
-    if (!historyId) {
-      return undefined;
-    }
-
-    const proxyMessages = sessionStorage.getItem(proxyMessagesKey);
-
-    if (proxyMessages === null) {
-      return undefined;
-    }
-    try {
-      return JSON.parse(proxyMessages) as ProxyMessage[];
-    } catch (error) {
-      console.error('Failed to parse stored proxy messages:', error);
-      sessionStorage.removeItem(proxyMessagesKey);
-      return undefined;
-    }
-  }, [proxyMessagesKey, historyId]);
-
-  return {
-    getInputFromHistory: getInput,
-    getProxyMessagesFromHistory: getProxyMessages,
-    saveInputToHistory: saveInput,
-    saveProxyMessagesToHistory: saveProxyMessages,
-  };
+export function getSearchParamsFromHistory(
+  tenant: TenantID | undefined,
+  taskId: TaskID | undefined,
+  taskSchemaId: TaskSchemaID | undefined
+): Record<string, QueryParam> | undefined {
+  const historyId = `${tenant}-${taskId}-${taskSchemaId}`;
+  return getFromProxyHistory(historyId, 'params');
 }

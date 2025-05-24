@@ -1,7 +1,5 @@
 import { TaskRun, ToolCallPreview } from './task_run';
 import {
-  InternalReasoningStep,
-  ReasoningStep,
   RunV1,
   ToolCall,
   ToolCallRequestWithID,
@@ -90,18 +88,6 @@ export function toolCallsFromRun(run: TaskRun | undefined): ToolCallPreview[] | 
   });
 
   return result.length > 0 ? result : undefined;
-}
-
-// TODO: temporarily map the reasoning steps to the new format
-// Will no longer be needed when we use the v1 endpoint to fetch runs by id
-export function mapReasoningSteps(
-  reasoningSteps: InternalReasoningStep[] | undefined | null
-): ReasoningStep[] | undefined {
-  return reasoningSteps?.map((step) => ({
-    title: step.title ?? null,
-    step: step.explaination ?? null,
-    output: step.output ?? null,
-  }));
 }
 
 export function displayToolName(toolName: ToolKind): string {

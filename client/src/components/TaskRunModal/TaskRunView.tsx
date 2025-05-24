@@ -7,7 +7,7 @@ import { PersistantAllotment } from '@/components/PersistantAllotment';
 import { Loader } from '@/components/ui/Loader';
 import { useCopyRunURL } from '@/lib/hooks/useCopy';
 import { useOrFetchRunCompletions } from '@/store/fetchers';
-import { JsonSchema, mapReasoningSteps } from '@/types';
+import { JsonSchema } from '@/types';
 import { TaskID, TenantID } from '@/types/aliases';
 import { SerializableTaskIOWithSchema } from '@/types/task';
 import { toolCallsFromRunV1 } from '@/types/utils';
@@ -85,7 +85,7 @@ export function TaskRunView(props: TaskRunViewProps) {
     return otherKeys.length === 0;
   }, [taskRun]);
 
-  const mappedReasoningSteps = useMemo(() => mapReasoningSteps(taskRun?.reasoning_steps), [taskRun?.reasoning_steps]);
+  const mappedReasoningSteps = taskRun?.reasoning_steps;
 
   const copyTaskRunURL = useCopyRunURL(tenant, taskRun?.task_id, taskRun?.id);
 
@@ -156,7 +156,7 @@ export function TaskRunView(props: TaskRunViewProps) {
               {!!error && <ModelOutputErrorInformation errorForModel={error} />}
               {isOutputEmpty ? (
                 <InternalReasoningSteps
-                  steps={mappedReasoningSteps}
+                  steps={mappedReasoningSteps ?? undefined}
                   streamLoading={false}
                   toolCalls={toolCalls}
                   defaultOpen={true}
@@ -171,7 +171,7 @@ export function TaskRunView(props: TaskRunViewProps) {
                     className='h-full w-full overflow-y-auto'
                     errorsByKeypath={undefined}
                     toolCalls={toolCalls}
-                    reasoningSteps={mappedReasoningSteps}
+                    reasoningSteps={mappedReasoningSteps ?? undefined}
                     defaultOpenForSteps={true}
                   />
                 </div>

@@ -45,15 +45,14 @@ import { ProxyMessage } from '@/types/workflowAI';
 import { PlaygroundChat } from '../components/Chat/PlaygroundChat';
 import { RunAgentsButton } from '../components/RunAgentsButton';
 import { useFetchTaskRunUntilCreated } from '../hooks/useFetchTaskRunUntilCreated';
-import { useMatchVersion } from '../hooks/useMatchVersion';
 import { RunTaskOptions } from '../hooks/usePlaygroundPersistedState';
 import { useTaskRunners } from '../hooks/useTaskRunners';
 import { useVersionsForTaskRunners } from '../hooks/useVersionsForRuns';
 import { PlaygroundModels } from '../hooks/utils';
 import { PlaygroundOutput } from '../playgroundOutput';
 import { ProxySection } from './ProxySection';
-import { useProxyHistory } from './hooks/useProxyHistory';
-import { useProxyOutputModels } from './hooks/useProxyOutputModels';
+import { getFromProxyHistory, useSaveToProxyHistory } from './hooks/useProxyHistory';
+import { useProxyMatchVersion } from './hooks/useProxyMatchVersion';
 import { useProxyPlaygroundStates } from './hooks/useProxyPlaygroundStates';
 import { useProxyStreamedChunks } from './hooks/useProxyStreamedChunks';
 import { findMessagesInVersion, repairMessageKeyInInput } from './utils';
@@ -71,6 +70,7 @@ export function ProxyPlayground(props: Props) {
   const { task, isInitialized: isTaskInitialized } = useOrFetchTask(tenant, taskId);
 
   const {
+    historyId,
     version,
     setShowDiffMode,
     setHiddenModelColumns,
@@ -88,76 +88,54 @@ export function ProxyPlayground(props: Props) {
     setRunIdForModal,
     runIdForModal,
     changeSchemaId,
-    historyId,
+    temperature,
+    setTemperature,
+    outputModels,
+    setOutputModels,
+    allModels,
   } = useProxyPlaygroundStates(tenant, taskId, taskSchemaId);
 
   const inputSchema = useMemo(() => schema?.input_schema.json_schema, [schema]);
   const outputSchema = useMemo(() => schema?.output_schema.json_schema, [schema]);
 
-  const { getInputFromHistory, getProxyMessagesFromHistory, saveInputToHistory, saveProxyMessagesToHistory } =
-    useProxyHistory(historyId);
+  const [input, setInput] = useState<GeneralizedTaskInput | undefined>(getFromProxyHistory(historyId, 'input'));
 
-  const [input, setInput] = useState<GeneralizedTaskInput | undefined>(getInputFromHistory());
-  const [proxyMessages, setProxyMessages] = useState<ProxyMessage[] | undefined>(getProxyMessagesFromHistory());
-  const [instructions, setInstructions] = useState<string | undefined>(undefined);
-  const [temperature, setTemperature] = useState<number | undefined>(undefined);
-  const [proxyToolCalls, setProxyToolCalls] = useState<(ToolKind | Tool_Output)[] | undefined>(undefined);
+  const [proxyMessages, setProxyMessages] = useState<ProxyMessage[] | undefined>(
+    getFromProxyHistory(historyId, 'proxy-messages')
+  );
 
-  useEffect(() => {
-    saveInputToHistory(input);
-  }, [input, saveInputToHistory]);
+  const [proxyToolCalls, setProxyToolCalls] = useState<(ToolKind | Tool_Output)[] | undefined>(
+    getFromProxyHistory(historyId, 'proxy-tool-calls')
+  );
 
-  useEffect(() => {
-    saveProxyMessagesToHistory(proxyMessages);
-  }, [proxyMessages, saveProxyMessagesToHistory]);
+  useSaveToProxyHistory(historyId, 'input', input);
+  useSaveToProxyHistory(historyId, 'proxy-messages', proxyMessages);
+  useSaveToProxyHistory(historyId, 'proxy-tool-calls', proxyToolCalls);
 
   useEffect(() => {
-    const proxyMessages = findMessagesInVersion(version);
-    setProxyMessages((prev) => {
-      if (!!prev) {
-        return prev;
-      }
-      return proxyMessages;
-    });
-
-    setInstructions(version?.properties.instructions ?? undefined);
-    setTemperature(version?.properties.temperature ?? undefined);
-    setProxyToolCalls(version?.properties.enabled_tools ?? undefined);
-  }, [version, getProxyMessagesFromHistory]);
+    setProxyMessages(getFromProxyHistory(historyId, 'proxy-messages') ?? findMessagesInVersion(version));
+    setProxyToolCalls(
+      getFromProxyHistory(historyId, 'proxy-tool-calls') ?? version?.properties.enabled_tools ?? undefined
+    );
+  }, [version, historyId]);
 
   useEffect(() => {
-    if (baseRun) {
-      const input = repairMessageKeyInInput(baseRun?.task_input);
-      setInput((prev) => {
-        if (!!prev) {
-          return prev;
-        }
-        return input;
-      });
-    }
-  }, [baseRun, getInputFromHistory]);
+    const input = repairMessageKeyInInput(baseRun?.task_input);
+    setInput(getFromProxyHistory(historyId, 'input') ?? input);
+  }, [baseRun, historyId]);
 
   const {
     schema: extractedInputSchema,
     inputVariblesKeys,
     error: extractedInputSchemaError,
     areThereChangesInInputSchema,
-  } = useOrExtractTemplete(tenant, taskId, proxyMessages, inputSchema);
+  } = useOrExtractTemplete(tenant, taskId, proxyMessages, inputSchema, historyId);
 
   const playgroundOutputRef = useRef<HTMLDivElement>(null);
   const [scheduledPlaygroundStateMessage, setScheduledPlaygroundStateMessage] = useState<string | undefined>(undefined);
   const fetchTaskRunUntilCreated = useFetchTaskRunUntilCreated();
 
   const { streamedChunks, handleStreamedChunk } = useProxyStreamedChunks(taskRunId1, taskRunId2, taskRunId3);
-
-  const { outputModels, setOutputModels, allModels } = useProxyOutputModels(
-    tenant,
-    taskId,
-    taskSchemaId,
-    run1,
-    run2,
-    run3
-  );
 
   const outputModelsRef = useRef<PlaygroundModels>(outputModels);
   outputModelsRef.current = outputModels;
@@ -180,14 +158,11 @@ export function ProxyPlayground(props: Props) {
 
   const [userSelectedMajor, setUserSelectedMajor] = useState<number | undefined>(undefined);
 
-  const { matchedVersion: matchedMajorVersion } = useMatchVersion({
+  const { matchedVersion: matchedMajorVersion } = useProxyMatchVersion({
     majorVersions,
-    temperature,
-    instructions,
-    proxyMessages,
-    variantId: undefined,
     userSelectedMajor,
-    skipCheckingVariantId: true,
+    temperature,
+    proxyMessages,
   });
 
   const fetchModels = useAIModels((state) => state.fetchModels);
@@ -248,7 +223,7 @@ export function ProxyPlayground(props: Props) {
           setTaskRunId(index, undefined);
         };
 
-        const model = runOptions.externalModel || outputModelsRef.current[index];
+        const model = runOptions.externalModel || outputModels?.[index];
 
         if (!model) {
           cleanTaskRun();
@@ -282,7 +257,6 @@ export function ProxyPlayground(props: Props) {
 
           const properties: TaskGroupProperties_Input = {
             model,
-            instructions,
             temperature,
             enabled_tools: proxyToolCalls,
             messages: proxyMessages,
@@ -400,7 +374,6 @@ export function ProxyPlayground(props: Props) {
       findAbortController,
       setTaskRunId,
       input,
-      instructions,
       proxyMessages,
       proxyToolCalls,
       temperature,
@@ -410,6 +383,7 @@ export function ProxyPlayground(props: Props) {
       updateTaskSchema,
       changeSchemaId,
       fetchTaskSchema,
+      outputModels,
     ]
   );
 
@@ -530,7 +504,6 @@ export function ProxyPlayground(props: Props) {
   const useParametersFromMajorVersion = useCallback(
     (version: MajorVersion) => {
       resetTaskRunIds();
-      setInstructions(version.properties.instructions);
       setTemperature(version.properties.temperature);
 
       const messages = (version.properties.messages as ProxyMessage[]) ?? undefined;
@@ -555,13 +528,13 @@ export function ProxyPlayground(props: Props) {
       version_id: version?.id,
       version_messages: proxyMessages,
       agent_input: input as Record<string, unknown>,
-      agent_instructions: instructions,
+      agent_instructions: '',
       agent_temperature: temperature,
       agent_run_ids: filteredTaskRunIds,
       selected_models: models,
     };
     return result;
-  }, [input, instructions, temperature, filteredTaskRunIds, outputModels, version, proxyMessages]);
+  }, [input, temperature, filteredTaskRunIds, outputModels, version, proxyMessages]);
 
   const markToolCallAsDone = usePlaygroundChatStore((state) => state.markToolCallAsDone);
 

@@ -1,6 +1,5 @@
 import { enableMapSet, produce } from 'immer';
 import { debounce } from 'lodash';
-import { nanoid } from 'nanoid';
 import { useMemo, useState } from 'react';
 import { useEffect } from 'react';
 import { useRef } from 'react';
@@ -132,15 +131,17 @@ export const useOrExtractTemplete = (
   tenant: TenantID | undefined,
   taskId: TaskID,
   messages: ProxyMessage[] | undefined,
-  inputSchema: JsonSchema | undefined
+  inputSchema: JsonSchema | undefined,
+  historyId: string | undefined
 ) => {
   const id = useMemo(() => {
-    return `${tenant}-${taskId}-${nanoid()}`;
-  }, [tenant, taskId]);
+    return `${tenant}-${taskId}-${historyId}`;
+  }, [tenant, taskId, historyId]);
 
   const isLoading = useExtractTemplete((state) => state.isLoadingById.get(id));
   const extractedSchema = useExtractTemplete((state) => state.schemaById.get(id));
   const error = useExtractTemplete((state) => state.errorById.get(id));
+
   const schema = useMemo(() => {
     if (!extractedSchema || messages?.length === 0 || !messages) return inputSchema;
     return fixSchema(extractedSchema, inputSchema);

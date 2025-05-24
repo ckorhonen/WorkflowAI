@@ -1,6 +1,6 @@
 import { isEmpty, isEqual } from 'lodash';
 import { useCallback, useMemo } from 'react';
-import { GeneralizedTaskInput, StreamedChunk, mapReasoningSteps } from '@/types';
+import { GeneralizedTaskInput, StreamedChunk } from '@/types';
 import { ToolCallPreview } from '@/types';
 import { toolCallsFromRunV1 } from '@/types/utils';
 import { ReasoningStep, RunV1 } from '@/types/workflowAI';
@@ -53,9 +53,9 @@ function extractToolCalls(streamedChunk: StreamedChunk | undefined, final: RunV1
 function extractReasoningSteps(streamedChunk: StreamedChunk | undefined, final: RunV1 | undefined) {
   const taskRunReasoningSteps = final?.reasoning_steps;
   if (!isEmpty(taskRunReasoningSteps)) {
-    return mapReasoningSteps(taskRunReasoningSteps);
+    return taskRunReasoningSteps;
   }
-  return streamedChunk?.reasoningSteps;
+  return streamedChunk?.reasoningSteps ?? undefined;
 }
 
 function useTaskRunner(index: 0 | 1 | 2, props: Props) {
@@ -84,7 +84,7 @@ function useTaskRunner(index: 0 | 1 | 2, props: Props) {
       inputStatus,
       execute,
       cancel,
-      reasoningSteps: extractReasoningSteps(streamedChunk, data),
+      reasoningSteps: extractReasoningSteps(streamedChunk, data) ?? undefined,
     }),
     [loading, streamedChunk, data, inputStatus, execute, cancel]
   );
