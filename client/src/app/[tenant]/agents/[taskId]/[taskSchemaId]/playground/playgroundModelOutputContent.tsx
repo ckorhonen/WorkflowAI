@@ -25,10 +25,10 @@ import { JsonSchema, TaskOutput, ToolCallPreview } from '@/types';
 import { TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
 import { ModelResponse, ReasoningStep, RunV1, VersionV1 } from '@/types/workflowAI';
 import { TaskInputDict } from '@/types/workflowAI';
+import { ProxyReplyView } from '../proxy-playground/proxy-messages/ProxyReplyView';
 import { ImprovePrompt } from './ImprovePrompt';
 import { AIEvaluationReview } from './components/AIEvaluation/AIEvaluationReview';
 import { TaskRunOutputRows } from './components/TaskRunOutputRows/TaskRunOutputRows';
-import { ProxyReplyView } from './proxy/proxy-messages/ProxyReplyView';
 
 type ModelOutputContentProps = {
   currentAIModel: ModelResponse | undefined;

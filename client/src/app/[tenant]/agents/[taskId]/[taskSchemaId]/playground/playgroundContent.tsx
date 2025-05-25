@@ -1129,24 +1129,13 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
     [hiddenModelColumns, setHiddenModelColumns]
   );
 
-  const scrollToBottomOfProxyMessages = useCallback(() => {
-    const proxyMessagesView = document.getElementById('proxy-messages-view');
-    if (proxyMessagesView) {
-      proxyMessagesView.scrollTo({
-        top: proxyMessagesView.scrollHeight,
-        behavior: 'auto',
-      });
-    }
-  }, []);
-
   const updateInputAndRun = useCallback(
     async (input: TaskInputDict) => {
       setGeneratedInput(input);
       await new Promise((resolve) => setTimeout(resolve, 200));
-      scrollToBottomOfProxyMessages();
       handleRunTasks();
     },
-    [setGeneratedInput, scrollToBottomOfProxyMessages, handleRunTasks]
+    [setGeneratedInput, handleRunTasks]
   );
 
   return (

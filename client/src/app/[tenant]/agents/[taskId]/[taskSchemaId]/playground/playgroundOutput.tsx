@@ -343,7 +343,7 @@ export function PlaygroundOutput(props: PlaygroundOutputProps) {
   );
 
   return (
-    <div className='flex flex-col w-full overflow-hidden' style={{ maxHeight }}>
+    <div className='flex flex-col w-full overflow-hidden' style={maxHeight ? { maxHeight } : undefined}>
       <div
         className='w-full flex items-center justify-between px-4 h-[50px] shrink-0 border-b border-dashed border-gray-200'
         onMouseEnter={() => setIsHoveringOverHeader(true)}

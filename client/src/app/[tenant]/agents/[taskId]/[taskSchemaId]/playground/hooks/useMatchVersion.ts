@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { MajorVersion, ProxyMessage } from '@/types/workflowAI';
-import { removeIdsFromMessages } from '../proxy/proxy-messages/utils';
+import { removeIdsFromMessages } from '../../proxy-playground/proxy-messages/utils';
 
 function proxyMessagesValue(proxyMessages: ProxyMessage[] | undefined) {
   if (proxyMessages) {

@@ -102,7 +102,7 @@ export function ProxySection(props: Props) {
   return (
     <div
       className='flex w-full items-stretch border-b border-gray-200 border-dashed overflow-hidden'
-      style={{ maxHeight }}
+      style={maxHeight ? { maxHeight } : undefined}
     >
       <div className='w-1/2 border-r border-gray-200 border-dashed overflow-y-auto flex' id='proxy-messages-view'>
         <ProxyInput

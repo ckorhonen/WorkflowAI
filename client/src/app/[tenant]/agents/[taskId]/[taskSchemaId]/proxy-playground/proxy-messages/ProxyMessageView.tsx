@@ -178,7 +178,7 @@ export function ProxyMessageView(props: Props) {
       <div className='flex flex-col gap-[10px]'>
         {message.content.map((content, index) => {
           return (
-            <>
+            <div key={index} className='flex flex-col gap-[10px]'>
               {content.text !== undefined && (
                 <div className='flex w-full'>
                   <ProxyTextarea
@@ -220,7 +220,7 @@ export function ProxyMessageView(props: Props) {
                   />
                 </div>
               )}
-            </>
+            </div>
           );
         })}
       </div>

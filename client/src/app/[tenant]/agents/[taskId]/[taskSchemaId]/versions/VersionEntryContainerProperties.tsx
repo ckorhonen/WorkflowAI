@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { TaskTemperatureView } from '@/components/v2/TaskTemperatureBadge';
 import { useCopy } from '@/lib/hooks/useCopy';
-import { ProxyMessagesView } from '../playground/proxy/proxy-messages/ProxyMessagesView';
+import { ProxyMessagesView } from '../proxy-playground/proxy-messages/ProxyMessagesView';
 import { InstructionTooltip } from './InstructionTooltip';
 import { VersionEntry } from './utils';
 

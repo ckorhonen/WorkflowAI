@@ -1,4 +1,4 @@
-import { getSearchParamsFromHistory } from '@/app/[tenant]/agents/[taskId]/[taskSchemaId]/playground/proxy/hooks/useProxyHistory';
+import { getSearchParamsFromHistory } from '@/app/[tenant]/agents/[taskId]/[taskSchemaId]/proxy-playground/hooks/useProxyHistory';
 import { TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
 import { QueryParam, stringifyQueryParams } from './queryString';
 

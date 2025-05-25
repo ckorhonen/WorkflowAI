@@ -1,5 +1,6 @@
 import { useCopyCurrentUrl } from '@/lib/hooks/useCopy';
 import { cn } from '@/lib/utils';
+import { TaskSchemaID } from '@/types/aliases';
 import { SerializableTask } from '@/types/workflowAI';
 import { Loader } from '../ui/Loader';
 import { ExtendedBordersContainer } from './ExtendedBordersContainer';
@@ -19,6 +20,7 @@ type PageContainerProps = {
   showSchema?: boolean;
   documentationLink?: string;
   showBorders?: boolean;
+  schemaId?: TaskSchemaID;
 };
 
 export function PageContainer(props: PageContainerProps) {
@@ -35,6 +37,7 @@ export function PageContainer(props: PageContainerProps) {
     showSchema = true,
     documentationLink,
     showBorders = true,
+    schemaId,
   } = props;
 
   const copyUrl = useCopyCurrentUrl();
@@ -70,6 +73,7 @@ export function PageContainer(props: PageContainerProps) {
       <ExtendedBordersContainer className='flex flex-col h-full w-full' borderColor={borderColor} margin={margin}>
         <PageHeader
           task={task}
+          schemaId={schemaId}
           name={name}
           documentationLink={documentationLink}
           className={cn(

@@ -9,9 +9,9 @@ import { TenantID } from '@/types/aliases';
 import { TaskID } from '@/types/aliases';
 import { TaskSchemaID } from '@/types/aliases';
 import { TaskSchemaResponseWithSchema } from '@/types/task';
+import { ProxyPlayground } from '../proxy-playground/ProxyPlayground';
+import { checkSchemaForProxy } from '../proxy-playground/utils';
 import { PlaygroundContent } from './playgroundContent';
-import { ProxyPlayground } from './proxy/ProxyPlayground';
-import { checkSchemaForProxy } from './proxy/utils';
 
 type NonProxyPlaygroundContentWrapperProps = {
   taskId: TaskID;
@@ -91,7 +91,7 @@ export function PlaygroundContentWrapper(props: Props) {
       <ProxyPlayground
         tenant={tenant}
         taskId={taskId}
-        taskSchemaId={`${schema.schema_id}` as TaskSchemaID}
+        schemaId={`${schema.schema_id}` as TaskSchemaID}
         schema={schema}
       />
     );

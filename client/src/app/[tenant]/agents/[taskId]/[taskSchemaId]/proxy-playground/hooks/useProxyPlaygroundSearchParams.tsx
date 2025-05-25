@@ -1,8 +1,7 @@
 import { useRouter } from 'next/navigation';
-import { useSearchParams } from 'next/navigation';
 import { usePathname } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
-import { QueryParam, useParsedSearchParams, useRedirectWithParams } from '@/lib/queryString';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { QueryParam, stringifyQueryParams, useParsedSearchParams, useRedirectWithParams } from '@/lib/queryString';
 import { replaceTaskSchemaId } from '@/lib/routeFormatter';
 import { TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
 import { saveSearchParamsToHistory } from './useProxyHistory';
@@ -10,7 +9,7 @@ import { saveSearchParamsToHistory } from './useProxyHistory';
 export function useProxyPlaygroundSearchParams(
   tenant: TenantID | undefined,
   taskId: TaskID,
-  taskSchemaId: TaskSchemaID
+  urlSchemaId: TaskSchemaID
 ) {
   const {
     versionId: versionIdFromParams,
@@ -26,6 +25,7 @@ export function useProxyPlaygroundSearchParams(
     model1: model1FromParams,
     model2: model2FromParams,
     model3: model3FromParams,
+    scrollToBottom: scrollToBottomFromParams,
   } = useParsedSearchParams(
     'versionId',
     'taskRunId',
@@ -39,7 +39,8 @@ export function useProxyPlaygroundSearchParams(
     'temperature',
     'model1',
     'model2',
-    'model3'
+    'model3',
+    'scrollToBottom'
   );
 
   const redirectWithParams = useRedirectWithParams();
@@ -59,8 +60,12 @@ export function useProxyPlaygroundSearchParams(
   const [model2, setModel2] = useState<string | undefined>(model2FromParams);
   const [model3, setModel3] = useState<string | undefined>(model3FromParams);
 
-  useEffect(() => {
-    const params: Record<string, QueryParam> = {
+  const [scrollToBottom, setScrollToBottom] = useState(scrollToBottomFromParams);
+
+  const [schemaId, setSchemaId] = useState(urlSchemaId);
+
+  const params = useMemo(() => {
+    const result: Record<string, QueryParam> = {
       versionId: versionId,
       taskRunId1: taskRunId1,
       taskRunId2: taskRunId2,
@@ -75,12 +80,7 @@ export function useProxyPlaygroundSearchParams(
       model3: model3,
     };
 
-    saveSearchParamsToHistory(tenant, taskId, taskSchemaId, params);
-
-    redirectWithParams({
-      params,
-      scroll: false,
-    });
+    return result;
   }, [
     versionId,
     taskRunId1,
@@ -94,11 +94,21 @@ export function useProxyPlaygroundSearchParams(
     model1,
     model2,
     model3,
-    redirectWithParams,
-    tenant,
-    taskId,
-    taskSchemaId,
   ]);
+
+  const paramsRef = useRef(params);
+  paramsRef.current = params;
+  useEffect(() => {
+    paramsRef.current = params;
+  }, [params]);
+
+  useEffect(() => {
+    saveSearchParamsToHistory(tenant, taskId, schemaId, params);
+    redirectWithParams({
+      params,
+      scroll: false,
+    });
+  }, [params, tenant, taskId, schemaId, redirectWithParams]);
 
   const setRunIdForModal = useCallback(
     (taskRunId: string | undefined) => {
@@ -114,48 +124,61 @@ export function useProxyPlaygroundSearchParams(
 
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
-  const changeSchemaIdAndRequestRunning = useCallback(
-    (taskSchemaId: TaskSchemaID, index?: number) => {
+  const changeURLSchemaId = useCallback(
+    (taskSchemaId: TaskSchemaID, scrollToBottom?: boolean) => {
+      const params = paramsRef.current;
+      if (scrollToBottom) {
+        params.scrollToBottom = 'true';
+      }
       const newUrl = replaceTaskSchemaId(pathname, taskSchemaId);
-      const paramsText = searchParams.toString();
-      const indexesParameterValue = index ? `${index}` : 'all';
-      const finalUrl = paramsText
-        ? `${newUrl}?${paramsText}&performRun=${indexesParameterValue}`
-        : `${newUrl}?&performRun=${indexesParameterValue}`;
-      router.replace(finalUrl, { scroll: false });
+      const newParamsString = stringifyQueryParams(params);
+      router.replace(`${newUrl}${newParamsString}`, { scroll: false });
     },
-    [pathname, searchParams, router]
+    [pathname, router]
   );
 
   return {
     versionId,
+    setVersionId,
+
     taskRunId1,
     taskRunId2,
     taskRunId3,
-    baseRunId,
-    showDiffMode,
-    hiddenModelColumns,
-    runIdForModal,
-    historyId,
-    temperature,
-    model1,
-    model2,
-    model3,
-    setVersionId,
     setTaskRunId1,
     setTaskRunId2,
     setTaskRunId3,
+
+    baseRunId,
     setBaseRunId,
+
+    showDiffMode,
     setShowDiffMode,
+
+    hiddenModelColumns,
     setHiddenModelColumns,
+
+    runIdForModal,
     setRunIdForModal,
-    changeSchemaIdAndRequestRunning,
+
+    historyId,
     setHistoryId,
+
+    temperature,
     setTemperature,
+
+    model1,
+    model2,
+    model3,
     setModel1,
     setModel2,
     setModel3,
+
+    schemaId,
+    setSchemaId,
+    changeURLSchemaId,
+
+    scrollToBottom,
+    setScrollToBottom,
   };
 }

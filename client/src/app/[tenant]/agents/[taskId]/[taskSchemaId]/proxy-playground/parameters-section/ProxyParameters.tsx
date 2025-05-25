@@ -5,7 +5,7 @@ import { SimpleTooltip } from '@/components/ui/Tooltip';
 import { ProxyMajorVersionDetails } from '@/components/v2/ProxyMajorVersionDetails';
 import { ExtractTempleteError } from '@/store/extract_templete';
 import { MajorVersion, ProxyMessage, ToolKind, Tool_Output, VersionV1 } from '@/types/workflowAI';
-import { MajorVersionCombobox } from '../../components/MajorVersionSelector/MajorVersionSelector';
+import { MajorVersionCombobox } from '../../playground/components/MajorVersionSelector/MajorVersionSelector';
 import { ProxyMessagesView } from '../proxy-messages/ProxyMessagesView';
 import { getAvaibleMessageTypes } from '../proxy-messages/utils';
 import { ProxyTools } from './ProxyTools';

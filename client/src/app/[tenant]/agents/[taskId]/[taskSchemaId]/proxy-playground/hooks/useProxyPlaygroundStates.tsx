@@ -5,7 +5,7 @@ import { TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
 import { useProxyOutputModels } from './useProxyOutputModels';
 import { useProxyPlaygroundSearchParams } from './useProxyPlaygroundSearchParams';
 
-export function useProxyPlaygroundStates(tenant: TenantID | undefined, taskId: TaskID, taskSchemaId: TaskSchemaID) {
+export function useProxyPlaygroundStates(tenant: TenantID | undefined, taskId: TaskID, urlSchemaId: TaskSchemaID) {
   const {
     versionId,
     taskRunId1,
@@ -33,8 +33,14 @@ export function useProxyPlaygroundStates(tenant: TenantID | undefined, taskId: T
     setModel1,
     setModel2,
     setModel3,
-    changeSchemaIdAndRequestRunning,
-  } = useProxyPlaygroundSearchParams(tenant, taskId, taskSchemaId);
+
+    schemaId,
+    setSchemaId,
+    changeURLSchemaId,
+
+    scrollToBottom,
+    setScrollToBottom,
+  } = useProxyPlaygroundSearchParams(tenant, taskId, urlSchemaId);
 
   const { version } = useOrFetchVersion(tenant, taskId, versionId);
 
@@ -44,7 +50,7 @@ export function useProxyPlaygroundStates(tenant: TenantID | undefined, taskId: T
 
   const { run: baseRun } = useOrFetchRunV1(tenant, taskId, baseRunId);
 
-  const { latestRun } = useOrFetchLatestRun(tenant, taskId, taskSchemaId);
+  const { latestRun } = useOrFetchLatestRun(tenant, taskId, schemaId);
 
   // We only need to set two parameters: baseRunId and versionId
   useEffect(() => {
@@ -144,7 +150,7 @@ export function useProxyPlaygroundStates(tenant: TenantID | undefined, taskId: T
   const { outputModels, setOutputModels, compatibleModels, allModels } = useProxyOutputModels(
     tenant,
     taskId,
-    taskSchemaId,
+    schemaId,
     run1,
     run2,
     run3,
@@ -182,6 +188,10 @@ export function useProxyPlaygroundStates(tenant: TenantID | undefined, taskId: T
     setOutputModels,
     compatibleModels,
     allModels,
-    changeSchemaIdAndRequestRunning,
+    schemaId,
+    setSchemaId,
+    changeURLSchemaId,
+    scrollToBottom,
+    setScrollToBottom,
   };
 }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useCompatibleAIModels } from '@/lib/hooks/useCompatibleAIModels';
 import { ModelOptional, TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
 import { RunV1 } from '@/types/workflowAI';
-import { PlaygroundModels } from '../../hooks/utils';
+import { PlaygroundModels } from '../../playground/hooks/utils';
 
 export function useProxyOutputModels(
   tenant: TenantID | undefined,

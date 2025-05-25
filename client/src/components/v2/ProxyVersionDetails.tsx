@@ -3,7 +3,7 @@ import { cx } from 'class-variance-authority';
 import { useRouter } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
 import { DebouncedState } from 'usehooks-ts';
-import { ProxyMessagesView } from '@/app/[tenant]/agents/[taskId]/[taskSchemaId]/playground/proxy/proxy-messages/ProxyMessagesView';
+import { ProxyMessagesView } from '@/app/[tenant]/agents/[taskId]/[taskSchemaId]/proxy-playground/proxy-messages/ProxyMessagesView';
 import { TaskVersionNotes } from '@/components/TaskVersionNotes';
 import { TaskRunCountBadge } from '@/components/v2/TaskRunCountBadge/TaskRunCountBadge';
 import { useDemoMode } from '@/lib/hooks/useDemoMode';
