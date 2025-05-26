@@ -23,6 +23,7 @@ from core.providers.base.provider_error import (
     ProviderError,
     ProviderInternalError,
     ProviderInvalidFileError,
+    StructuredGenerationError,
     UnknownProviderError,
 )
 from core.providers.base.provider_options import ProviderOptions
@@ -335,6 +336,8 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
                 error_cls = ProviderInvalidFileError
             case m if "prefill bootstrap failed for request" in m:
                 error_cls = ProviderInternalError
+            case m if "model does not support formatted output" in m:
+                error_cls = StructuredGenerationError
             case _:
                 error_cls = UnknownProviderError
         return error_cls(msg=message, response=response)

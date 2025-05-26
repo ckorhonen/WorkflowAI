@@ -924,3 +924,10 @@ class TestUnknownError:
             "error": "Downloaded response does not contain a valid JPG or PNG image",
         }
         assert isinstance(unknown_error_fn(payload), ProviderInvalidFileError)
+
+    def test_structured_generation_error(self, unknown_error_fn: Callable[[dict[str, Any]], ProviderError]):
+        payload = {
+            "code": "Client specified an invalid argument",
+            "error": "Invalid request content: The model does not support formatted output but some have been specified in the request.",
+        }
+        assert isinstance(unknown_error_fn(payload), StructuredGenerationError)
