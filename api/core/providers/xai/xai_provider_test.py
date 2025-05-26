@@ -1,3 +1,5 @@
+# pyright: reportPrivateUsage=false
+
 import copy
 import json
 from collections.abc import Callable
@@ -28,6 +30,7 @@ from core.providers.base.provider_error import (
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.xai.xai_domain import CompletionRequest
 from core.providers.xai.xai_provider import XAIConfig, XAIProvider
+from tests import models as test_models
 from tests.utils import fixture_bytes, fixtures_json, fixtures_stream
 
 
@@ -931,3 +934,31 @@ class TestUnknownError:
             "error": "Invalid request content: The model does not support formatted output but some have been specified in the request.",
         }
         assert isinstance(unknown_error_fn(payload), StructuredGenerationError)
+
+
+class TestResponseFormat:
+    def test_response_format_structured_output_disabled(self, xai_provider: XAIProvider):
+        options = ProviderOptions(
+            model=Model.GPT_4O_2024_08_06,
+            max_tokens=10,
+            temperature=0,
+            structured_generation=False,
+            output_schema={"type": "object"},
+        )
+        model_data = test_models.model_data(supports_structured_output=True)
+        response_format = xai_provider._response_format(options, model_data)
+        assert response_format is None
+
+    def test_response_format_structured_output_enabled(self, xai_provider: XAIProvider):
+        options = ProviderOptions(
+            model=Model.GPT_4O_2024_08_06,
+            max_tokens=10,
+            temperature=0,
+            structured_generation=True,
+            output_schema={"type": "object"},
+        )
+        model_data = test_models.model_data(supports_structured_output=True)
+        response_format = xai_provider._response_format(options, model_data)
+        assert response_format is not None
+        assert response_format.type == "json_schema"
+        assert response_format.json_schema.json_schema == {"type": "object"}

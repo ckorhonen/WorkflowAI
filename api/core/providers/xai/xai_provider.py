@@ -39,11 +39,9 @@ from core.providers.xai.xai_config import THINKING_MODEL_MAP, XAIConfig
 from core.providers.xai.xai_domain import (
     CompletionRequest,
     CompletionResponse,
-    JSONResponseFormat,
     JSONSchemaResponseFormat,
     StreamedResponse,
     StreamOptions,
-    TextResponseFormat,
     Tool,
     ToolFunction,
     XAIError,
@@ -56,9 +54,13 @@ from core.providers.xai.xai_domain import (
 class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
     def _response_format(self, options: ProviderOptions, model_data: ModelData):
         if not options.output_schema:
-            return TextResponseFormat()
-        if not should_use_structured_output(options, model_data) or not options.output_schema:
-            return JSONResponseFormat()
+            return None
+        if (
+            not should_use_structured_output(options, model_data)
+            or not options.output_schema
+            or options.structured_generation is False
+        ):
+            return None
 
         return JSONSchemaResponseFormat(
             json_schema=XAISchema(
