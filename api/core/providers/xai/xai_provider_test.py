@@ -558,7 +558,7 @@ class TestComplete:
         request = httpx_mock.get_requests()[0]
         assert request.method == "POST"  # pyright: ignore reportUnknownMemberType
         body = json.loads(request.read().decode())
-        assert body["response_format"]["type"] == "text"
+        assert "response_format" not in body
 
     async def test_complete_500(self, httpx_mock: HTTPXMock):
         httpx_mock.add_response(
