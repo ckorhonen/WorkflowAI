@@ -371,3 +371,7 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
         except Exception:
             self.logger.exception("failed to parse XAI error response", extra={"response": response.text})
         return UnknownProviderError(msg=f"Unknown error status {response.status_code}", response=response)
+
+    @override
+    def default_model(self) -> Model:
+        return Model.GROK_3_MINI_BETA_LOW_REASONING_EFFORT
