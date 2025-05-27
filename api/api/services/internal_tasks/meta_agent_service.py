@@ -327,6 +327,9 @@ class AddToolToolCall(MetaAgentToolCall):
         description="The parameters of the tool to add.",
     )
 
+    def to_domain(self) -> None:
+        return None
+
 
 MetaAgentToolCallType: TypeAlias = (
     ImprovePromptToolCall
