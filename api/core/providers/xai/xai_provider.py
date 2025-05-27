@@ -53,17 +53,15 @@ from core.providers.xai.xai_domain import (
 
 class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
     def _response_format(self, options: ProviderOptions, model_data: ModelData):
-        if not options.output_schema:
+        if options.output_schema is None:
             return None
-        if (
-            not should_use_structured_output(options, model_data)
-            or not options.output_schema
-            or options.structured_generation is False
-        ):
+
+        if not should_use_structured_output(options, model_data) or not options.output_schema:
             # TODO: at the time of writing, xAI does not support
-            # any response format
-            # So returing None for now
+            # any response format, so we return None when structured generation is disabled
+            # to be able to use the structured output
             return None
+            # return JSONResponseFormat()
 
         return JSONSchemaResponseFormat(
             json_schema=XAISchema(

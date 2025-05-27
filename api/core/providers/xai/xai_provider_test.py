@@ -371,9 +371,9 @@ class TestStream:
                     "role": "user",
                 },
             ],
-            "response_format": {
-                "type": "json_object",
-            },
+            # "response_format": {
+            #     "type": "json_object",
+            # },
             "stream": True,
             "stream_options": {
                 "include_usage": True,
