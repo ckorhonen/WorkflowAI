@@ -24,7 +24,6 @@ import { JsonSchema, TaskOutput, TaskRun, ToolCallPreview } from '@/types';
 import { TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
 import { ModelResponse, ReasoningStep, VersionV1 } from '@/types/workflowAI';
 import { TaskInputDict } from '@/types/workflowAI';
-import { ImprovePrompt } from './ImprovePrompt';
 import { AIEvaluationReview } from './components/AIEvaluation/AIEvaluationReview';
 import { TaskRunOutputRows } from './components/TaskRunOutputRows/TaskRunOutputRows';
 import { ProxyReplyView } from './proxy/ProxyReplyView';
@@ -197,8 +196,6 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
         />
         {!!taskId && !!taskRun && !hasInputChanged && !isProxy && (
           <div className='flex flex-col w-full overflow-hidden max-h-[400px]'>
-            {!isProxy && <ImprovePrompt onImprovePrompt={onImprovePrompt} />}
-
             <AIEvaluationReview
               tenant={tenant}
               taskId={taskId}
