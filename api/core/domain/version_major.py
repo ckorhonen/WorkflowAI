@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from core.domain.changelogs import VersionChangelog
+from core.domain.message import Message
 from core.domain.models import Model, Provider
 from core.domain.task_deployment import TaskDeployment
 from core.domain.users import UserIdentifier
@@ -31,6 +32,7 @@ class VersionMajor(BaseModel):
     class Properties(BaseModel):
         temperature: float | None = None
         instructions: str | None = None
+        messages: list[Message] | None = None
         task_variant_id: str | None = None
 
     properties: Properties

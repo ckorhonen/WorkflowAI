@@ -1,8 +1,14 @@
 'use client';
 
-import { ArrowCircleUp16Regular, ArrowExpand16Regular, Code16Regular, Link16Regular } from '@fluentui/react-icons';
+import {
+  Add16Filled,
+  ArrowCircleUp16Regular,
+  ArrowExpand16Regular,
+  Code16Regular,
+  Link16Regular,
+} from '@fluentui/react-icons';
 import { useRouter } from 'next/navigation';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDeployVersionModal } from '@/components/DeployIterationModal/DeployVersionModal';
 import { TaskOutputViewer } from '@/components/ObjectViewer/TaskOutputViewer';
 import { Button } from '@/components/ui/Button';
@@ -17,8 +23,10 @@ import { useVersions } from '@/store/versions';
 import { JsonSchema, TaskOutput, TaskRun, ToolCallPreview } from '@/types';
 import { TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
 import { ModelResponse, ReasoningStep, VersionV1 } from '@/types/workflowAI';
+import { TaskInputDict } from '@/types/workflowAI';
 import { AIEvaluationReview } from './components/AIEvaluation/AIEvaluationReview';
 import { TaskRunOutputRows } from './components/TaskRunOutputRows/TaskRunOutputRows';
+import { ProxyReplyView } from './proxy/ProxyReplyView';
 
 type ModelOutputContentProps = {
   currentAIModel: ModelResponse | undefined;
@@ -43,6 +51,9 @@ type ModelOutputContentProps = {
   isInDemoMode: boolean;
   isHideModelColumnAvaible: boolean;
   hideModelColumn: () => void;
+  isProxy: boolean;
+  hasProxyInput: boolean;
+  updateInputAndRun: (input: TaskInputDict) => Promise<void>;
 };
 
 export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
@@ -69,6 +80,9 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
     isInDemoMode,
     isHideModelColumnAvaible,
     hideModelColumn,
+    isProxy,
+    hasProxyInput,
+    updateInputAndRun,
   } = props;
 
   const onCopyTaskRunUrl = useCopyRunURL(tenant, taskId, taskRun?.id);
@@ -130,6 +144,29 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
 
   const outputSchema = (version?.output_schema as JsonSchema) ?? outputSchemaFromProps;
 
+  const [showReplyView, setShowReplyView] = useState(false);
+  const showReplyButton = isProxy && !!taskRun && !showReplyView;
+
+  const scrollToBottom = useCallback(() => {
+    const proxyMessagesView = document.getElementById('playground-scroll');
+    if (proxyMessagesView) {
+      proxyMessagesView.scrollTo({
+        top: proxyMessagesView.scrollHeight,
+        behavior: 'auto',
+      });
+    }
+  }, []);
+
+  const onShowReplyView = useCallback(() => {
+    setShowReplyView(true);
+  }, []);
+
+  useEffect(() => {
+    if (showReplyView) {
+      scrollToBottom();
+    }
+  }, [showReplyView, scrollToBottom]);
+
   return (
     <div
       onMouseEnter={() => setIsHovering(true)}
@@ -149,15 +186,22 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
           )}
           showTypes={emptyMode}
           showExamplesHints
-          onShowEditDescriptionModal={isInDemoMode ? undefined : onShowEditDescriptionModal}
+          onShowEditDescriptionModal={isInDemoMode || isProxy ? undefined : onShowEditDescriptionModal}
           streamLoading={streamLoading}
           toolCalls={toolCallsPreview}
           reasoningSteps={reasoningSteps}
-          showDescriptionExamples={emptyMode ? 'all' : undefined}
+          showDescriptionExamples={emptyMode && !isProxy ? 'all' : undefined}
+          showDescriptionPopover={!isProxy}
+          defaultOpenForSteps={isProxy}
         />
-        {!!taskId && !!taskRun && !hasInputChanged && (
+        {!!taskId && !!taskRun && !hasInputChanged && !isProxy && (
           <div className='flex flex-col w-full overflow-hidden max-h-[400px]'>
-            <AIEvaluationReview tenant={tenant} taskId={taskId} runId={taskRun.id} onImprovePrompt={onImprovePrompt} />
+            <AIEvaluationReview
+              tenant={tenant}
+              taskId={taskId}
+              runId={taskRun.id}
+              onImprovePrompt={isProxy ? undefined : onImprovePrompt}
+            />
           </div>
         )}
         <TaskRunOutputRows
@@ -170,8 +214,33 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
           showVersion={true}
           contextWindowInformation={contextWindowInformation}
           showTaskIterationDetails={true}
+          isProxy={isProxy}
+          hasProxyInput={hasProxyInput}
         />
+        {showReplyView && !!taskRun && (
+          <ProxyReplyView
+            hasProxyInput={hasProxyInput}
+            toolCalls={toolCallsPreview}
+            input={taskRun.task_input}
+            output={taskRun.task_output}
+            updateInputAndRun={updateInputAndRun}
+          />
+        )}
       </div>
+
+      {showReplyButton && (
+        <div className='flex w-full overflow-hidden pb-2'>
+          <Button
+            variant='newDesignGray'
+            size='sm'
+            onClick={onShowReplyView}
+            icon={<Add16Filled className='h-3.5 w-3.5' />}
+          >
+            User Message
+          </Button>
+        </div>
+      )}
+
       <div className={cn('sm:flex hidden items-center justify-between', isHovering ? 'opacity-100' : 'opacity-0')}>
         <div className='flex items-center gap-2'>
           <SimpleTooltip content='Copy Link to Run'>

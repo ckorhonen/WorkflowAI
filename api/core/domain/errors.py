@@ -4,8 +4,10 @@ from typing import Any, override
 from pydantic import ValidationError
 from sentry_sdk import Scope, capture_exception, new_scope
 
+from core.domain.consts import WORKFLOWAI_APP_URL
 from core.domain.error_response import ErrorCode, ErrorResponse
 from core.domain.models import Model, Provider
+from core.utils.strings import obfuscate
 
 
 class UnparsableChunkError(Exception):
@@ -21,7 +23,7 @@ class ScopeConfigurableError(Exception, ABC):
 class DefaultError(ScopeConfigurableError):
     """An error that is automatically caught and converted to a proper response"""
 
-    code: ErrorCode = "internal_error"
+    code: ErrorCode | str = "internal_error"
     default_status_code: int | None = None
     default_capture: bool = True
     default_message: str = "An error occurred"
@@ -283,3 +285,10 @@ class InvalidToken(DefaultError):
     default_capture: bool = True
     default_message = "Invalid token"
     code = "authentication_failed"
+
+    @classmethod
+    def from_invalid_api_key(cls, api_key: str):
+        return InvalidToken(
+            f"""Invalid API key provided: {obfuscate(api_key, 5)}.
+Grab a fresh one (plus $5 in free LLM credits for new users) at {WORKFLOWAI_APP_URL}/keys 🚀""",
+        )

@@ -1,3 +1,5 @@
+# pyright: reportPrivateUsage=false
+
 import json
 import re
 from collections.abc import Awaitable, Callable
@@ -75,11 +77,12 @@ def _build_runner2(
     mock_provider_factory: Mock,
     input_schema: dict[str, Any] | SerializableTaskIO,
     output_schema: dict[str, Any] | SerializableTaskIO,
-    instructions: str,
-    model: Model,
+    instructions: str | None = None,
+    model: Model = Model.GPT_4O_2024_08_06,
     has_templated_instructions: bool = False,
     is_chain_of_thought_enabled: bool | None = None,
     enabled_tools: list[ToolKind | Tool] | None = None,
+    messages: list[Message] | None = None,
 ):
     runner = WorkflowAIRunner(
         task=SerializableTaskVariant(
@@ -108,6 +111,7 @@ def _build_runner2(
             is_chain_of_thought_enabled=is_chain_of_thought_enabled,
             enabled_tools=enabled_tools,
             provider=None,
+            messages=messages,
         ),
     )
     runner.provider_factory = mock_provider_factory
@@ -367,8 +371,13 @@ Output:
 
 
 class TestInlineMessages:
-    async def test_inlined_structured_output(self, patched_runner: WorkflowAIRunner):
-        messages = await patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
+    async def test_inlined_structured_output(self, mock_provider_factory_full: Mock):
+        runner = _build_runner2(
+            mock_provider_factory=mock_provider_factory_full,
+            input_schema=RawMessagesSchema,
+            output_schema={"properties": {"output": {"type": "string"}}},
+        )
+        messages = await runner._inline_messages(
             Messages(messages=[Message(role="user", content=[MessageContent(text="cool cool cool")])]),
             Mock(),
             True,
@@ -378,8 +387,13 @@ class TestInlineMessages:
         assert messages[0].role == MessageDeprecated.Role.USER
         assert messages[0].content == "cool cool cool"
 
-    async def test_inlined_no_structured_output(self, patched_runner: WorkflowAIRunner):
-        messages = await patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
+    async def test_inlined_raw_json(self, mock_provider_factory_full: Mock):
+        runner = _build_runner2(
+            mock_provider_factory=mock_provider_factory_full,
+            input_schema=RawMessagesSchema,
+            output_schema=RawJSONMessageSchema,
+        )
+        messages = await runner._inline_messages(
             Messages(messages=[Message(role="user", content=[MessageContent(text="cool cool cool")])]),
             Mock(),
             False,
@@ -387,15 +401,7 @@ class TestInlineMessages:
         )
         assert len(messages) == 2
         assert messages[0].role == MessageDeprecated.Role.SYSTEM
-        assert (
-            messages[0].content
-            == """Return a single JSON object enforcing the following schema:
-```json
-{
-  "properties": {}
-}
-```"""
-        )
+        assert messages[0].content == """Return a single JSON object"""
         assert messages[1].role == MessageDeprecated.Role.USER
         assert messages[1].content == "cool cool cool"
 
@@ -1821,26 +1827,33 @@ class TestBuildTaskOutput:
 
 
 class TestBuildProviderData:
-    def test_model_data_is_copied(self, patched_runner: WorkflowAIRunner, patched_provider_factory: Mock):
-        model_data = FinalModelData(
+    @pytest.fixture
+    def model_data(self) -> FinalModelData:
+        return FinalModelData(
             model=Model.GPT_4O_MINI_2024_07_18,
             supports_structured_output=True,
             supports_json_mode=True,
             supports_input_image=True,
             supports_input_pdf=True,
             supports_input_audio=True,
-            display_name="test",
-            icon_url="test",
-            max_tokens_data=MaxTokensData(source="", max_tokens=100),
-            provider_for_pricing=Provider.AZURE_OPEN_AI,
+            display_name="Test GPT-4O Mini",
+            icon_url="http://test.icon",
+            max_tokens_data=MaxTokensData(source="test", max_tokens=1000),
+            provider_for_pricing=Provider.OPEN_AI,
             providers=[],
             release_date=date(2024, 1, 1),
-            quality_data=QualityData(index=100),
             quality_index=100,
+            quality_data=QualityData(index=100),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
         )
 
+    def test_model_data_is_copied(
+        self,
+        patched_runner: WorkflowAIRunner,
+        patched_provider_factory: Mock,
+        model_data: FinalModelData,
+    ):
         def side_effect(model_data: ModelData):
             model_data.supports_structured_output = False
 
@@ -1864,15 +1877,12 @@ class TestBuildProviderData:
     async def test_build_provider_data_with_chain_of_thought_and_tools(
         self,
         mock_provider_factory_full: Mock,
+        model_data: FinalModelData,
     ) -> None:
         """
         Test that build_provider_data adapts the output_schema to include reasoning steps (COT)
         and tool usage when the runner has chain_of_thought and tools enabled.
         """
-        from datetime import date
-
-        from core.domain.models import Provider
-        from core.domain.models.model_data import FinalModelData, MaxTokensData
 
         # Enable chain of thought and tool usage
         runner = _build_runner2(
@@ -1886,25 +1896,6 @@ class TestBuildProviderData:
         )
 
         runner._check_tool_calling_support = Mock()  # pyright: ignore[reportPrivateUsage]
-
-        model_data = FinalModelData(
-            model=Model.GPT_4O_MINI_2024_07_18,
-            supports_structured_output=True,
-            supports_json_mode=True,
-            supports_input_image=True,
-            supports_input_pdf=True,
-            supports_input_audio=True,
-            display_name="Test GPT-4O Mini",
-            icon_url="http://test.icon",
-            max_tokens_data=MaxTokensData(source="test", max_tokens=1000),
-            provider_for_pricing=Provider.OPEN_AI,
-            providers=[],
-            release_date=date(2024, 1, 1),
-            quality_index=100,
-            quality_data=QualityData(index=100),
-            provider_name=DisplayedProvider.OPEN_AI.value,
-            supports_tool_calling=True,
-        )
 
         # Act: build provider data
         provider, _, provider_options, _ = runner._build_provider_data(  # pyright: ignore[reportPrivateUsage]
@@ -1925,37 +1916,15 @@ class TestBuildProviderData:
         self,
         patched_runner: WorkflowAIRunner,
         patched_provider_factory: Mock,
+        model_data: FinalModelData,
     ) -> None:
         """
         Test that build_provider_data does not modify the output_schema when chain_of_thought and tools are disabled.
         """
-        from datetime import date
-
-        from core.domain.models import Provider
-        from core.domain.models.model_data import FinalModelData, MaxTokensData
 
         # Disable chain of thought and tool usage
         patched_runner.properties.is_chain_of_thought_enabled = False
         patched_runner.properties.enabled_tools = []
-
-        model_data = FinalModelData(
-            model=Model.GPT_4O_MINI_2024_07_18,
-            supports_structured_output=True,
-            supports_json_mode=True,
-            supports_input_image=True,
-            supports_input_pdf=True,
-            supports_input_audio=True,
-            display_name="Test GPT-4O Mini",
-            icon_url="http://test.icon",
-            max_tokens_data=MaxTokensData(source="test", max_tokens=1000),
-            provider_for_pricing=Provider.OPEN_AI,
-            providers=[],
-            release_date=date(2024, 1, 1),
-            quality_index=100,
-            quality_data=QualityData(index=100),
-            provider_name=DisplayedProvider.OPEN_AI.value,
-            supports_tool_calling=True,
-        )
 
         # Act: build provider data
         provider, _, provider_options, _ = patched_runner._build_provider_data(  # pyright: ignore[reportPrivateUsage]
@@ -1970,6 +1939,20 @@ class TestBuildProviderData:
         assert isinstance(output_schema, dict)
         assert "internal_reasoning_steps" not in output_schema["properties"]
         assert "internal_tool_calls" not in output_schema["properties"]
+
+    def test_all_provider_options_fields_are_set(
+        self,
+        patched_runner: WorkflowAIRunner,
+        patched_provider_factory: Mock,
+        model_data: FinalModelData,
+    ):
+        """Test that all fields are set in the provider options"""
+        _, _, provider_options, _ = patched_runner._build_provider_data(  # pyright: ignore[reportPrivateUsage]
+            patched_provider_factory.openai,
+            model_data,
+            is_structured_generation_enabled=True,
+        )
+        assert provider_options.model_fields_set == set(ProviderOptions.model_fields.keys())
 
 
 class TestStreamTaskOutput:
@@ -3036,3 +3019,32 @@ class TestMessagesInput:
         messages = cast(list[MessageDeprecated], messages)
         assert len(messages) == 1
         assert messages[0].content == "Hello world"
+
+
+class TestTemplatedMessages:
+    async def test_templated_messages(self, mock_provider_factory_full: Mock):
+        runner = _build_runner2(
+            mock_provider_factory_full,
+            SerializableTaskIO.from_json_schema({"type": "object", "properties": {"text": {"type": "string"}}}),
+            RawStringMessageSchema,
+            messages=[Message.with_text("Hello {{text}}")],
+        )
+
+        mock_provider_factory_full.openai.complete.side_effect = mock_complete("Hello world")
+
+        builder = await runner.task_run_builder(
+            {
+                "text": "bla",
+            },
+            start_time=0,
+        )
+        run = await runner.run(builder)
+        assert run.task_output == "Hello world"
+
+        mock_provider_factory_full.openai.complete.assert_called_once()
+
+        messages = mock_provider_factory_full.openai.complete.call_args_list[0].args[0]
+        assert isinstance(messages, list)
+        messages = cast(list[MessageDeprecated], messages)
+        assert len(messages) == 1
+        assert messages[0].content == "Hello bla"

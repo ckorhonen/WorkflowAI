@@ -4,6 +4,7 @@ from typing import Any, Type
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from freezegun import freeze_time
 from pydantic import BaseModel
 
 from api.services.documentation_service import DocumentationService
@@ -19,7 +20,10 @@ from api.services.internal_tasks.meta_agent_service import (
     PlaygroundState,
     RunCurrentAgentOnModelsToolCall,
 )
-from api.services.runs import RunsService
+from api.services.internal_tasks.meta_agent_service import (
+    _remove_typescript_comments as remove_ts_comments,  # pyright: ignore[reportPrivateUsage]
+)
+from api.services.runs.runs_service import RunsService
 from core.agents.extract_company_info_from_domain_task import Product
 from core.agents.meta_agent import (
     EditSchemaDescriptionAndExamplesToolCallRequest,
@@ -29,6 +33,7 @@ from core.agents.meta_agent import (
     MetaAgentInput,
     MetaAgentOutput,
     RunCurrentAgentOnModelsToolCallRequest,
+    SelectedModels,
 )
 from core.agents.meta_agent import PlaygroundState as PlaygroundStateDomain
 from core.domain.agent_run import AgentRun
@@ -80,7 +85,7 @@ class TestMetaAgentService:
                             output_schema={},
                         ),
                         available_models=[],
-                        selected_models=PlaygroundStateDomain.SelectedModels(
+                        selected_models=SelectedModels(
                             column_1=None,
                             column_2=None,
                             column_3=None,
@@ -118,7 +123,7 @@ class TestMetaAgentService:
                             output_schema={},
                         ),
                         available_models=[],
-                        selected_models=PlaygroundStateDomain.SelectedModels(
+                        selected_models=SelectedModels(
                             column_1=None,
                             column_2=None,
                             column_3=None,
@@ -237,12 +242,21 @@ class TestMetaAgentService:
                     assert product.name == expected_input.company_context.company_products[i].name
                     assert product.description == expected_input.company_context.company_products[i].description
 
+    # Freeze the "now"
+    @freeze_time("2025-04-17T12:56:41.413541")
     @pytest.mark.parametrize(
         "user_email, messages, meta_agent_chunks, expected_outputs",
         [
             (
                 "user@example.com",
-                [MetaAgentChatMessage(role="USER", content="Hello")],
+                [
+                    MetaAgentChatMessage(
+                        sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541, tzinfo=datetime.timezone.utc),
+                        role="USER",
+                        content="Hello",
+                        kind="non_specific",
+                    ),
+                ],
                 [
                     MetaAgentOutput(
                         content="Hi there!",
@@ -252,19 +266,47 @@ class TestMetaAgentService:
                     ),
                 ],
                 [
-                    [MetaAgentChatMessage(role="ASSISTANT", content="Hi there!")],
-                    [MetaAgentChatMessage(role="ASSISTANT", content="How can I help you today?")],
+                    [
+                        MetaAgentChatMessage(
+                            sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541, tzinfo=datetime.timezone.utc),
+                            role="ASSISTANT",
+                            content="Hi there!",
+                            kind="non_specific",
+                        ),
+                    ],
+                    [
+                        MetaAgentChatMessage(
+                            sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541, tzinfo=datetime.timezone.utc),
+                            role="ASSISTANT",
+                            content="How can I help you today?",
+                            kind="non_specific",
+                        ),
+                    ],
                 ],
             ),
             (
                 None,
-                [MetaAgentChatMessage(role="USER", content="Help")],
+                [
+                    MetaAgentChatMessage(
+                        sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541, tzinfo=datetime.timezone.utc),
+                        role="USER",
+                        content="Help",
+                        kind="non_specific",
+                    ),
+                ],
                 [
                     MetaAgentOutput(content=None),  # Empty chunk
                     MetaAgentOutput(content="I can help with WorkflowAI!"),
                 ],
                 [
-                    [MetaAgentChatMessage(role="ASSISTANT", content="I can help with WorkflowAI!")],
+                    [
+                        MetaAgentChatMessage(
+                            sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541, tzinfo=datetime.timezone.utc),
+                            role="ASSISTANT",
+                            content="I can help with WorkflowAI!",
+                            kind="non_specific",
+                        ),
+                    ],
                 ],
             ),
             (
@@ -274,8 +316,10 @@ class TestMetaAgentService:
                 [
                     [
                         MetaAgentChatMessage(
+                            sent_at=datetime.datetime(2025, 4, 17, 12, 56, 41, 413541, tzinfo=datetime.timezone.utc),
                             role="ASSISTANT",
                             content="Hi, I'm WorkflowAI's agent. How can I help you?",
+                            kind="non_specific",
                         ),
                     ],
                 ],
@@ -341,7 +385,7 @@ class TestMetaAgentService:
                     output_schema={},
                 ),
                 available_models=[],
-                selected_models=PlaygroundStateDomain.SelectedModels(
+                selected_models=SelectedModels(
                     column_1=None,
                     column_2=None,
                     column_3=None,
@@ -1166,3 +1210,26 @@ class TestMetaAgentService:
             assert result.instructions == "Generate another sample input"
             assert result.auto_run is False
             mock_resolve.assert_called_once()
+
+    @pytest.mark.parametrize(
+        "content, expected",
+        [
+            # No comments to remove
+            ("print('hello')", "print('hello')"),
+            # Single inline TypeScript style comment
+            (
+                "const a = 1; /* this is a comment */ const b = 2;",
+                "const a = 1;  const b = 2;",
+            ),
+            # Comment at the beginning
+            ("/* leading comment */const x = 5;", "const x = 5;"),
+            # Multiple comments in one string
+            (
+                "const x=1;/* c1 */const y=2;/* c2 */const z=3;",
+                "const x=1;const y=2;const z=3;",
+            ),
+        ],
+    )
+    def test_remove_typescript_comments(self, content: str, expected: str) -> None:
+        """Verify that _remove_typescript_comments correctly strips TypeScript style block comments."""
+        assert remove_ts_comments(content) == expected

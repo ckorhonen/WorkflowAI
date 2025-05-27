@@ -22,7 +22,6 @@ from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ParsedResponse, ToolCallRequestBuffer
 from core.providers.base.utils import get_provider_config_env
 from core.providers.google.google_provider_domain import (
-    internal_tool_name_to_native_tool_call,
     native_tool_name_to_internal,
 )
 from core.utils.json_utils import safe_extract_dict_from_json
@@ -32,12 +31,11 @@ from .mistral_domain import (
     CompletionRequest,
     CompletionResponse,
     DeltaMessage,
-    FunctionParameters,
     MistralAIMessage,
     MistralError,
+    MistralTool,
     MistralToolMessage,
     ResponseFormat,
-    Tool,
 )
 
 
@@ -70,10 +68,13 @@ class MistralAIProvider(HTTPXProvider[MistralAIConfig, CompletionResponse]):
             messages=domain_messages,
             model=MODEL_MAP.get(options.model, options.model),
             temperature=options.temperature,
-            # TODO[max-tokens]: Set the max token from the context data
             max_tokens=options.max_tokens,
             stream=stream,
             tool_choice=CompletionRequest.tool_choice_from_domain(options.tool_choice),
+            top_p=options.top_p,
+            presence_penalty=options.presence_penalty,
+            frequency_penalty=options.frequency_penalty,
+            parallel_tool_calls=options.parallel_tool_calls,
         )
         if not options.output_schema:
             request.response_format = ResponseFormat(type="text")
@@ -82,17 +83,7 @@ class MistralAIProvider(HTTPXProvider[MistralAIConfig, CompletionResponse]):
             # Can't use json_object with tools
             # 400 from Mistral AI when doing so: "Cannot use json response type with tools","type":"invalid_request_error"
             request.response_format = ResponseFormat(type="text")
-            request.tools = [
-                Tool(
-                    type="function",
-                    function=FunctionParameters(
-                        name=internal_tool_name_to_native_tool_call(tool.name),
-                        description=tool.description or "",
-                        parameters=tool.input_schema,
-                    ),
-                )
-                for tool in options.enabled_tools
-            ]
+            request.tools = [MistralTool.from_domain(tool) for tool in options.enabled_tools]
 
         return request
 
@@ -182,7 +173,7 @@ class MistralAIProvider(HTTPXProvider[MistralAIConfig, CompletionResponse]):
                     return MaxTokensExceededError(msg=error_message, response=response, store_task_run=False)
             case "value_error":
                 # We store here for debugging purposes
-                return ProviderBadRequestError(error_message or "Unknown error", response=response, store_task_run=True)
+                return ProviderBadRequestError(error_message or "Unknown error", response=response)
             case "context_length_exceeded":
                 # Here the task run is stored because the error might
                 # have occurred during the generation
@@ -211,10 +202,6 @@ class MistralAIProvider(HTTPXProvider[MistralAIConfig, CompletionResponse]):
             api_key=get_provider_config_env("MISTRAL_API_KEY", index),
             url=get_provider_config_env("MISTRAL_API_URL", index, "https://api.mistral.ai/v1/chat/completions"),
         )
-
-    @override
-    def default_model(self) -> Model:
-        return Model.PIXTRAL_12B_2409
 
     def _extra_stream_delta_tool_calls(
         self,

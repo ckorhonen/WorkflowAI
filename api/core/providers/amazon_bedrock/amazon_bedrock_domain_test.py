@@ -1,15 +1,19 @@
 import base64
-from typing import List
+from typing import Any, List
 
 import pytest
 
 from core.domain.errors import InvalidRunOptionsError, UnpriceableRunError
 from core.domain.message import File, MessageDeprecated
 from core.domain.models import Model
+from core.domain.task_group_properties import ToolChoice as DomainToolChoice
+from core.domain.task_group_properties import ToolChoiceFunction
+from core.domain.tool import Tool as DomainTool
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.providers.amazon_bedrock.amazon_bedrock_domain import (
     AmazonBedrockMessage,
     AmazonBedrockSystemMessage,
+    BedrockToolConfig,
     ContentBlock,
 )
 from core.providers.base.provider_error import ModelDoesNotSupportMode
@@ -318,3 +322,111 @@ class TestAmazonBedrockMessageWithTools:
             == "b5d2b7dfe4a49cbaf8f3ee7b6b3589703e16d06d4a4f4c73562406a0d205c78b"
         )
         assert bedrock_message.content[1].toolResult.content[0].json_content == {"result": "plain text result"}
+
+
+class TestBedrockToolConfig:
+    def test_from_domain_with_tools(self):
+        # Create test tools
+        tool1 = DomainTool(
+            name="test_tool_1",
+            description="Test tool 1 description",
+            input_schema={"type": "object", "properties": {"param1": {"type": "string"}}},
+            output_schema={"type": "object", "properties": {"result": {"type": "string"}}},
+        )
+        tool2 = DomainTool(
+            name="test_tool_2",
+            description="Test tool 2 description",
+            input_schema={"type": "object", "properties": {"param2": {"type": "number"}}},
+            output_schema={"type": "object", "properties": {"result": {"type": "number"}}},
+        )
+
+        # Test with tools but no tool choice
+        config = BedrockToolConfig.from_domain([tool1, tool2], None)
+        assert config is not None
+        assert len(config.tools) == 2
+        assert config.tools[0].toolSpec.name == "test_tool_1"
+        assert config.tools[0].toolSpec.description == "Test tool 1 description"
+        assert config.tools[0].toolSpec.inputSchema.json_schema == {
+            "type": "object",
+            "properties": {"param1": {"type": "string"}},
+        }
+        assert config.tools[1].toolSpec.name == "test_tool_2"
+        assert config.tools[1].toolSpec.description == "Test tool 2 description"
+        assert config.tools[1].toolSpec.inputSchema.json_schema == {
+            "type": "object",
+            "properties": {"param2": {"type": "number"}},
+        }
+        assert config.toolChoice is None
+
+        # Test with no tools
+        assert BedrockToolConfig.from_domain(None, None) is None
+
+    @pytest.mark.parametrize(
+        "tool_choice,expected_tool_choice",
+        [
+            pytest.param("auto", {"auto": {}, "any": None, "tool": None}, id="auto"),
+            pytest.param("required", {"auto": None, "any": {}, "tool": None}, id="required"),
+            pytest.param("none", None, id="none"),
+            pytest.param(
+                ToolChoiceFunction(name="test_tool"),
+                {"auto": None, "any": None, "tool": {"name": "test_tool"}},
+                id="tool_choice_function",
+            ),
+        ],
+    )
+    def test_from_domain_with_tool_choice(
+        self,
+        tool_choice: DomainToolChoice,
+        expected_tool_choice: dict[str, Any] | None,
+    ):
+        tool = DomainTool(
+            name="test_tool",
+            description="Test tool description",
+            input_schema={"type": "object", "properties": {"param": {"type": "string"}}},
+            output_schema={"type": "object", "properties": {"result": {"type": "string"}}},
+        )
+
+        config = BedrockToolConfig.from_domain([tool], tool_choice)
+        assert config is not None
+
+        if expected_tool_choice is None:
+            assert config.toolChoice is None
+        else:
+            assert config.toolChoice is not None
+            assert config.toolChoice.auto == expected_tool_choice["auto"]
+            assert config.toolChoice.any == expected_tool_choice["any"]
+            assert config.toolChoice.tool == expected_tool_choice["tool"]
+
+    def test_tool_without_description(self):
+        # Test tool with empty description
+        tool = DomainTool(
+            name="test_tool",
+            description="",
+            input_schema={"type": "object", "properties": {"param": {"type": "string"}}},
+            output_schema={"type": "object", "properties": {"result": {"type": "string"}}},
+        )
+        config = BedrockToolConfig.from_domain([tool], None)
+        assert config is not None
+        assert config.tools[0].toolSpec.description is None
+
+        # Test tool with single character description
+        tool = DomainTool(
+            name="test_tool",
+            description="a",
+            input_schema={"type": "object", "properties": {"param": {"type": "string"}}},
+            output_schema={"type": "object", "properties": {"result": {"type": "string"}}},
+        )
+        config = BedrockToolConfig.from_domain([tool], None)
+        assert config is not None
+        assert config.tools[0].toolSpec.description is None
+
+        # Test tool with valid description
+        tool = DomainTool(
+            name="test_tool",
+            description="Valid description",
+            input_schema={"type": "object", "properties": {"param": {"type": "string"}}},
+            output_schema={"type": "object", "properties": {"result": {"type": "string"}}},
+        )
+        config = BedrockToolConfig.from_domain([tool], None)
+        assert config is not None
+        assert config.tools[0].toolSpec.description == "Valid description"

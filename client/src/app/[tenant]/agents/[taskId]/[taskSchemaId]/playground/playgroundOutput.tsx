@@ -13,6 +13,7 @@ import { useOrFetchOrganizationSettings } from '@/store';
 import { GeneralizedTaskInput, JsonSchema, TaskRun } from '@/types';
 import { Model, TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
 import { ModelResponse, VersionV1 } from '@/types/workflowAI';
+import { TaskInputDict } from '@/types/workflowAI';
 import { FreeCreditsLimitReachedInfo } from './FreeCreditsLimitReachedInfo';
 import { CreateTaskRunButton } from './components/CreateTaskRunButton';
 import { ModelOutputErrorInformation } from './components/ModelOutputErrorInformation';
@@ -54,6 +55,9 @@ type ModelOutputProps = {
   isInDemoMode: boolean;
   isHideModelColumnAvaible: boolean;
   hideModelColumn: () => void;
+  isProxy: boolean;
+  updateInputAndRun: (input: TaskInputDict) => Promise<void>;
+  hasProxyInput: boolean;
 };
 
 function ModelOutput(props: ModelOutputProps) {
@@ -79,6 +83,9 @@ function ModelOutput(props: ModelOutputProps) {
     isInDemoMode,
     isHideModelColumnAvaible,
     hideModelColumn,
+    isProxy,
+    updateInputAndRun,
+    hasProxyInput,
   } = props;
 
   const taskRun = taskRunner.data;
@@ -147,6 +154,8 @@ function ModelOutput(props: ModelOutputProps) {
             fitToContent={false}
             open={openModelCombobox}
             setOpen={setOpenModelCombobox}
+            isProxy={isProxy}
+            taskId={taskId}
           />
           <CreateTaskRunButton
             taskRunner={taskRunner}
@@ -186,6 +195,9 @@ function ModelOutput(props: ModelOutputProps) {
               isInDemoMode={isInDemoMode}
               isHideModelColumnAvaible={isHideModelColumnAvaible}
               hideModelColumn={hideModelColumn}
+              isProxy={isProxy}
+              updateInputAndRun={updateInputAndRun}
+              hasProxyInput={hasProxyInput}
             />
           </div>
         )}
@@ -219,6 +231,9 @@ type PlaygroundOutputProps = Pick<
   addModelColumn: () => void;
   hideModelColumn: (index: number) => void;
   hiddenModelColumns: number[] | undefined;
+  isProxy: boolean;
+  hasProxyInput: boolean;
+  updateInputAndRun: (input: TaskInputDict) => Promise<void>;
 };
 
 export function PlaygroundOutput(props: PlaygroundOutputProps) {
@@ -234,6 +249,9 @@ export function PlaygroundOutput(props: PlaygroundOutputProps) {
     maxHeight,
     isInDemoMode,
     hiddenModelColumns,
+    isProxy,
+    hasProxyInput,
+    updateInputAndRun,
     ...rest
   } = props;
 
@@ -331,9 +349,9 @@ export function PlaygroundOutput(props: PlaygroundOutputProps) {
         onMouseLeave={() => setIsHoveringOverHeader(false)}
       >
         <div className='flex flex-row items-center gap-3.5'>
-          <div className='font-semibold text-gray-700 text-base'>Outputs</div>
+          <div className='font-semibold text-gray-700 text-base'>{isProxy ? 'Assistant Messages' : 'Outputs'}</div>
 
-          {isHoveringOverHeader && (
+          {isHoveringOverHeader && !isProxy && (
             <Button
               variant='newDesign'
               onClick={onOutputsClick}
@@ -388,6 +406,9 @@ export function PlaygroundOutput(props: PlaygroundOutputProps) {
               isInDemoMode={isInDemoMode}
               isHideModelColumnAvaible={isHideModelColumnAvaible}
               hideModelColumn={() => onHideModelColumn(index)}
+              isProxy={isProxy}
+              updateInputAndRun={updateInputAndRun}
+              hasProxyInput={hasProxyInput}
             />
           ))}
         </div>

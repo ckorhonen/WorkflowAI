@@ -21,6 +21,7 @@ from api.schemas.version_properties import FullVersionProperties, ShortVersionPr
 from api.tags import RouteTags
 from core.domain.changelogs import VersionChangelog
 from core.domain.major_minor import MajorMinor
+from core.domain.message import Message
 from core.domain.models import Model
 from core.domain.page import Page
 from core.domain.task_group import TaskGroup, TaskGroupIdentifier
@@ -61,6 +62,9 @@ class CreateVersionRequest(BaseModel):
     )
 
 
+# TODO: duplicate from runs_v1 CreateVersionResponse, we should remove this once
+# versions are not stored until saved
+# ref https://linear.app/workflowai/issue/WOR-4485/stop-storing-non-saved-versions-and-attach-them-to-runs-instead
 class CreateVersionResponse(BaseModel):
     id: str
     # TODO[versionsv1]: Remove this once the usage of iteration is removed
@@ -78,6 +82,7 @@ class CreateVersionResponse(BaseModel):
         )
 
 
+# TODO: remove https://linear.app/workflowai/issue/WOR-4485/stop-storing-non-saved-versions-and-attach-them-to-runs-instead
 @router.post(
     "/schemas/{task_schema_id}/versions",
     description="Create a new version for a agent."
@@ -177,14 +182,16 @@ async def improve_prompt(
 
 class MajorVersionProperties(BaseModel):
     temperature: float
-    instructions: str
+    instructions: str | None
+    messages: list[Message] | None
     task_variant_id: str | None = Field(description="The id of the full schema, including versions and examples")
 
     @classmethod
     def from_domain(cls, properties: VersionMajor.Properties):
         return cls(
             temperature=properties.temperature or 0.0,
-            instructions=properties.instructions or "",
+            instructions=properties.instructions,
+            messages=properties.messages,
             task_variant_id=properties.task_variant_id,
         )
 

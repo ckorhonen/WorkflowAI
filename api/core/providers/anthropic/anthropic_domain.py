@@ -8,6 +8,7 @@ from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.task_group_properties import ToolChoice, ToolChoiceFunction
+from core.domain.tool import Tool as DomainTool
 from core.providers.base.models import (
     DocumentContentDict,
     DocumentURLDict,
@@ -30,14 +31,14 @@ from core.providers.google.google_provider_domain import (
 )
 
 _role_to_map: dict[MessageDeprecated.Role, Literal["user", "assistant"]] = {
-    MessageDeprecated.Role.SYSTEM: "assistant",
+    MessageDeprecated.Role.SYSTEM: "user",
     MessageDeprecated.Role.USER: "user",
     MessageDeprecated.Role.ASSISTANT: "assistant",
 }
 
 
 class TextContent(BaseModel):
-    type: Literal["text"]
+    type: Literal["text"] = "text"
     text: str
 
     def to_standard(self) -> TextContentDict:
@@ -229,18 +230,38 @@ class AntToolChoice(BaseModel):
 
 
 class CompletionRequest(BaseModel):
+    # https://docs.anthropic.com/en/api/messages#body-messages
     messages: List[AnthropicMessage]
     model: str
     max_tokens: int
     temperature: float
     stream: bool
     tool_choice: AntToolChoice | None = None
+    top_p: float | None = None
+
+    # https://docs.anthropic.com/en/api/messages#body-system
+    # System could be an object if needed
+    system: str | None = None
 
     class Tool(BaseModel):
         name: str
         description: str | None = None
         input_schema: dict[str, Any]
 
+        @classmethod
+        def from_domain(cls, tool: DomainTool):
+            # Anthropic does not support strict yet
+            return cls(
+                name=internal_tool_name_to_native_tool_call(tool.name),
+                description=tool.description,
+                # When sending an empty schema, anthropic rejects the request
+                # It seems that Anthropic only accepts object tool schemas, not sure if
+                # we should spend time trying to sanitize the schema or not
+                # Anthropic does not validate the actual tool call input
+                input_schema=tool.input_schema if tool.input_schema else {"type": "object"},
+            )
+
+    # https://docs.anthropic.com/en/api/messages#body-tools
     tools: list[Tool] | None = None
 
 

@@ -1,3 +1,5 @@
+import pytest
+
 from core.domain.tool_call import ToolCall, ToolCallOutput, ToolCallRequestWithID
 
 
@@ -136,3 +138,33 @@ def test_tool_call_request_with_id_equality() -> None:
     assert tool_call1 == tool_call2
     assert tool_call1 != tool_call3
     assert tool_call1 != not_a_tool_call  # type: ignore[comparison-overlap]
+
+
+class TestToolCallPreview:
+    @pytest.mark.parametrize(
+        ("tool", "expected"),
+        [
+            pytest.param(
+                ToolCall(tool_name="test_name", tool_input_dict={"arg": "value"}),
+                "test_name(arg: value)",
+                id="string_only",
+            ),
+            pytest.param(
+                ToolCall(tool_name="test_name", tool_input_dict={"arg": 1}),
+                "test_name(arg: 1)",
+                id="number",
+            ),
+            pytest.param(
+                ToolCall(tool_name="get_weather", tool_input_dict={"latitude": 1.0, "longitude": 2.0}),
+                "get_weather(latitude: 1, longitude: 2)",
+                id="two_floats",
+            ),
+            pytest.param(
+                ToolCall(tool_name="get_weather", tool_input_dict={"latitude": "1" * 50, "longitude": 2.0}),
+                f"get_weather(latitude: {'1' * 30}..., longitude: 2)",
+                id="long_string",
+            ),
+        ],
+    )
+    def test_preview(self, tool: ToolCall, expected: str):
+        assert tool.preview == expected

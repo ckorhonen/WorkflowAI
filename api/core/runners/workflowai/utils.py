@@ -3,10 +3,10 @@ import base64
 import copy
 import logging
 from io import BytesIO
-from typing import Any, cast, override
+from typing import Any, cast
 
 import httpx
-from pydantic import Field, ValidationError
+from pydantic import ValidationError
 
 from core.domain.consts import AUDIO_REF_NAME, FILE_DEFS, FILE_REF_NAME, IMAGE_REF_NAME, PDF_REF_NAME
 from core.domain.errors import (
@@ -15,7 +15,8 @@ from core.domain.errors import (
     InvalidRunOptionsError,
     message_from_validation_error,
 )
-from core.domain.fields.file import File
+from core.domain.fields.file import File, FileWithKeyPath
+from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.models import Model, Provider
 from core.domain.models.model_data import DeprecatedModel
 from core.domain.models.model_datas_mapping import MODEL_DATAS
@@ -25,41 +26,12 @@ from core.runners.workflowai.internal_tool import InternalTool
 from core.tools import ToolKind
 from core.utils.dicts import set_at_keypath
 from core.utils.file_utils.file_utils import guess_content_type
+from core.utils.iter_utils import safe_map_optional
 from core.utils.schema_sanitation import get_file_format
 from core.utils.schemas import JsonSchema
 from core.utils.strings import clean_unicode_chars
 
 _logger = logging.getLogger(__file__)
-
-
-class FileWithKeyPath(File):
-    key_path: list[str | int]
-    storage_url: str | None = Field(default=None, description="The URL of the file in Azure Blob Storage")
-    format: str | None = Field(default=None, description="The format of the file")
-
-    @property
-    def key_path_str(self) -> str:
-        return ".".join(str(key) for key in self.key_path)
-
-    @property
-    @override
-    def is_audio(self) -> bool | None:
-        audio = super().is_audio
-        if audio is not None:
-            return audio
-        if self.format is None:
-            return None
-        return self.format == "audio"
-
-    @property
-    @override
-    def is_image(self) -> bool | None:
-        image = super().is_image
-        if image is not None:
-            return image
-        if self.format is None:
-            return None
-        return self.format == "image"
 
 
 def _replace_file_in_payload(
@@ -391,3 +363,15 @@ def cleanup_provider_json(obj: Any) -> Any:
     if isinstance(obj, str):
         return clean_unicode_chars(obj)
     return obj
+
+
+def reasoning_step_mapper(x: Any, logger: logging.Logger | None = None) -> list[InternalReasoningStep] | None:
+    if not isinstance(x, list):
+        if logger:
+            logger.warning("Expected a list of reasoning steps", extra={"x": x})
+        return None
+    return safe_map_optional(
+        (i for i in cast(list[Any], x) if i),
+        InternalReasoningStep.model_validate,
+        logger=logger,
+    )

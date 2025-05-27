@@ -102,8 +102,8 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
             )
 
             tool_config = CompletionRequest.ToolConfig(
-                functionCallingConfig=CompletionRequest.ToolConfig.FunctionCallingConfig(
-                    mode="AUTO",
+                functionCallingConfig=CompletionRequest.ToolConfig.FunctionCallingConfig.from_domain(
+                    options.tool_choice,
                 ),
             )
 
@@ -137,7 +137,13 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
         else:
             system_message = None
 
-        return [GoogleMessage.from_domain(message) for message in messages], system_message
+        user_messages = (
+            [GoogleMessage.from_domain(message) for message in messages]
+            if messages
+            else [GoogleMessage(role="user", parts=[Part(text="-")])]
+        )
+
+        return user_messages, system_message
 
     @override
     def _build_request(self, messages: list[MessageDeprecated], options: ProviderOptions, stream: bool) -> BaseModel:
@@ -163,6 +169,9 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
             # Google does not allow setting the response mime type at all when using tools.
             else "text/plain",
             thinking_config=thinking_config,
+            presencePenalty=options.presence_penalty,
+            frequencyPenalty=options.frequency_penalty,
+            topP=options.top_p,
         )
         if messages[0].image_options and messages[0].image_options.image_count:
             generation_config.responseModalities = ["IMAGE", "TEXT"]
@@ -331,10 +340,6 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
         )
 
     @override
-    def default_model(self) -> Model:
-        return Model.GEMINI_1_5_FLASH_002
-
-    @override
     @classmethod
     def requires_downloading_file(cls, file: File, model: Model) -> bool:
         if model in MODELS_THAT_REQUIRE_DOWNLOADING_FILES:
@@ -360,6 +365,7 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
         "url_unreachable-unreachable_5xx",
         "url_rejected",
         "url_roboted",
+        "please ensure the URL is valid and accessible",
     ]
 
     @classmethod

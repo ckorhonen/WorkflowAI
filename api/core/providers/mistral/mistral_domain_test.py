@@ -10,10 +10,9 @@ from core.providers.mistral.mistral_domain import (
     ImageURLChunk,
     MistralAIMessage,
     MistralError,
+    MistralToolCall,
     MistralToolMessage,
     TextChunk,
-    ToolCall,
-    ToolCallFunction,
 )
 from core.providers.mistral.mistral_provider import MistralAIProvider
 
@@ -156,9 +155,9 @@ class TestMistralAIMessage:
             role="assistant",
             content="Using calculator",
             tool_calls=[
-                ToolCall(
+                MistralToolCall(
                     id="123",
-                    function=ToolCallFunction(
+                    function=MistralToolCall.Function(
                         name="calculator",
                         arguments={"operation": "add", "numbers": [1, 2]},
                     ),
@@ -214,9 +213,9 @@ class TestMistralAIMessage:
                 ImageURLChunk(image_url=ImageURL(url="https://example.com/image.jpg")),
             ],
             tool_calls=[
-                ToolCall(
+                MistralToolCall(
                     id="acbdefghi",
-                    function=ToolCallFunction(
+                    function=MistralToolCall.Function(
                         name="image_analyzer",
                         arguments={"image_url": "https://example.com/image.jpg"},
                     ),
@@ -261,9 +260,12 @@ class TestMistralAIMessageToStandard:
         to_standard converts the chunks and appends a tool_call_request.
         """
         text_chunk = TextChunk(text="Calculation result:")
-        tool_call = ToolCall(
+        tool_call = MistralToolCall(
             id="123456789",
-            function=ToolCallFunction(name="calculator", arguments={"operation": "add", "numbers": [1, 2]}),
+            function=MistralToolCall.Function(
+                name="calculator",
+                arguments={"operation": "add", "numbers": [1, 2]},
+            ),
             index=0,
         )
         msg = MistralAIMessage(
@@ -312,7 +314,7 @@ class TestMistralToolMessageToStandard:
         expected_contents = [
             {
                 "type": "tool_call_result",
-                "id": "tool1",
+                "id": "1bc3b0c4b",
                 "tool_name": "analyzer",  # assuming identity transformation
                 "tool_input_dict": None,
                 "result": '{"analysis": "success"}',
@@ -320,7 +322,7 @@ class TestMistralToolMessageToStandard:
             },
             {
                 "type": "tool_call_result",
-                "id": "tool2",
+                "id": "175ad3e3e",
                 "tool_name": "summarizer",
                 "tool_input_dict": None,
                 "result": '{"summary": "all good"}',
@@ -363,7 +365,7 @@ class TestStandardizeMessagesProvider:
         assert isinstance(first["content"], list)
         expected_first = {
             "type": "tool_call_result",
-            "id": "tm1",
+            "id": "ad8a21601",
             "tool_name": "calculator",
             "tool_input_dict": None,
             "result": '{"result": 42}',
@@ -381,7 +383,7 @@ class TestStandardizeMessagesProvider:
         assert third["role"] == "user"
         expected_third = {
             "type": "tool_call_result",
-            "id": "tm1",
+            "id": "ad8a21601",
             "tool_name": "calculator",
             "tool_input_dict": None,
             "result": '{"result": 42}',

@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/Command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
 import { ScrollArea } from '@/components/ui/ScrollArea';
-import { Model } from '@/types/aliases';
+import { Model, TaskID } from '@/types/aliases';
 import { ModelResponse } from '@/types/workflowAI';
 import { MysteryModelIcon } from '../icons/models/mysteryModelIcon';
 import { SimpleTooltip } from '../ui/Tooltip';
@@ -26,10 +26,12 @@ type TriggerContentProps = {
   value: string;
   selectedOption: AIModelComboboxOption | undefined;
   defaultLabel: string;
+  isProxy?: boolean;
+  taskId?: TaskID;
 };
 
 function TriggerContent(props: TriggerContentProps) {
-  const { value, selectedOption, defaultLabel } = props;
+  const { value, selectedOption, defaultLabel, isProxy, taskId } = props;
   if (!value) {
     return (
       <div className='flex items-center gap-2'>
@@ -39,7 +41,12 @@ function TriggerContent(props: TriggerContentProps) {
     );
   }
   if (selectedOption) {
-    return selectedOption.renderLabel({ isSelected: true, showCheck: false });
+    return selectedOption.renderLabel({
+      isSelected: true,
+      showCheck: false,
+      isProxy: isProxy,
+      taskId: taskId,
+    });
   }
   return defaultLabel;
 }
@@ -55,6 +62,8 @@ export type AIModelComboboxProps = {
   fitToContent?: boolean;
   open?: boolean;
   setOpen?: (open: boolean) => void;
+  isProxy?: boolean;
+  taskId?: TaskID;
 };
 
 export function AIModelCombobox(props: AIModelComboboxProps) {
@@ -69,6 +78,8 @@ export function AIModelCombobox(props: AIModelComboboxProps) {
     fitToContent = true,
     open: propsOpen,
     setOpen: propsSetOpen,
+    isProxy = false,
+    taskId,
   } = props;
   const [internalOpen, setInternalOpen] = React.useState(false);
 
@@ -159,7 +170,13 @@ export function AIModelCombobox(props: AIModelComboboxProps) {
             fitToContent ? 'min-w-[75px] justify-between' : 'w-full justify-between'
           )}
         >
-          <TriggerContent value={value} selectedOption={selectedOption} defaultLabel={noOptionsMessage} />
+          <TriggerContent
+            value={value}
+            selectedOption={selectedOption}
+            defaultLabel={noOptionsMessage}
+            isProxy={isProxy}
+            taskId={taskId}
+          />
           <ChevronUpDownFilled className='h-4 w-4 shrink-0 text-gray-500 ml-2' />
         </div>
       </PopoverTrigger>
@@ -231,6 +248,8 @@ export function AIModelCombobox(props: AIModelComboboxProps) {
                     {option.renderLabel({
                       isSelected: value === option.value,
                       dropdownOpen: open,
+                      isProxy: isProxy,
+                      taskId: taskId,
                     })}
                   </CommandItem>
                 ))}

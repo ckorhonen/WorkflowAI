@@ -16,6 +16,7 @@ from taskiq import InMemoryBroker
 from core.domain.models import Model
 from core.domain.types import CacheUsage
 from core.utils.background import wait_for_background_tasks
+from tests.pausable_memory_broker import PausableInMemoryBroker
 from tests.utils import fixtures_json, request_json_body
 
 # 03832ff71a03e47e372479593879ad2e is the input hash of `{"name": "John", "age": 30}`
@@ -295,6 +296,8 @@ async def import_task_run(
 
 
 async def wait_for_completed_tasks(broker: InMemoryBroker, max_retries: int = 10):
+    if isinstance(broker, PausableInMemoryBroker):
+        await broker.resume()
     """Sleep for intervals of 100 until all tasks are completed or max_retries is reached."""
     running = []
     for _ in range(max_retries):
@@ -834,13 +837,14 @@ class IntegrationTestClient:
         private_fields: list[str] | None = None,
         autowait: bool = True,
         tenant: str = "_",
+        provider: str | None = None,
     ) -> dict[str, Any]:
         try:
             return await run_task_v1(
                 self.int_api_client,
                 _task_id(task),
                 _schema_id(task),
-                version,
+                version if version else ({"model": model, "provider": provider} if provider and model else None),
                 model.value if isinstance(model, Model) else model,
                 task_input,
                 tenant,
@@ -897,6 +901,20 @@ class IntegrationTestClient:
         status_code: int = 200,
         latency: float | None = None,
     ):
+        if url:
+            mock_vertex_call(
+                self.httpx_mock,
+                json,
+                model,
+                parts,
+                usage=usage,
+                publisher=publisher,
+                url=url,
+                status_code=status_code,
+                latency=latency,
+            )
+            return
+
         if not regions:
             regions = os.environ.get("GOOGLE_VERTEX_AI_LOCATION", "us-central1").split(",")
 
@@ -1129,14 +1147,17 @@ class IntegrationTestClient:
     async def put(self, url: str, json: Any, **kwargs: Any) -> dict[str, Any]:
         return result_or_raise(await self.int_api_client.put(url, json=json, **kwargs))
 
+    ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
+
     def mock_anthropic_call(
         self,
         status_code: int = 200,
         content_json: dict[str, Any] | None = None,
+        raw_content: str | None = None,
         model: Model = Model.CLAUDE_3_5_SONNET_20241022,
     ):
         self.httpx_mock.add_response(
-            url="https://api.anthropic.com/v1/messages",
+            url=self.ANTHROPIC_URL,
             status_code=status_code,
             json={
                 "id": "msg_011FfbzF4F72Gc1rzSvvDCnR",
@@ -1146,7 +1167,8 @@ class IntegrationTestClient:
                 "content": [
                     {
                         "type": "text",
-                        "text": json.dumps(
+                        "text": raw_content
+                        or json.dumps(
                             content_json,
                             indent=2,
                         ),
@@ -1265,3 +1287,14 @@ class IntegrationTestClient:
     @property
     def tenant(self):
         return self.org["tenant"]
+
+    def amplitude_events_with_type(self, event_type: str):
+        def _iterator():
+            requests = self.httpx_mock.get_requests(url="https://amplitude-mock")
+            for request in requests:
+                body = request_json_body(request)
+                for event in body["events"]:
+                    if event["event_type"] == event_type:
+                        yield event
+
+        return list(_iterator())

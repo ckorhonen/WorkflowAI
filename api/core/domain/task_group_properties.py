@@ -4,6 +4,7 @@ from typing import Any, Literal, Optional, TypeAlias
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from core.domain.fields.image_options import ImageOptions
+from core.domain.message import Message
 from core.domain.tool import Tool
 from core.tools import ToolKind
 from core.utils.hash import compute_model_hash, compute_obj_hash
@@ -97,6 +98,19 @@ class TaskGroupProperties(BaseModel):
 
     tool_choice: ToolChoice | None = None
 
+    top_p: float | None = None
+
+    presence_penalty: float | None = None
+
+    frequency_penalty: float | None = None
+
+    parallel_tool_calls: bool | None = Field(
+        default=None,
+        description="Whether to allow the model to output mutliple tool calls",
+    )
+
+    messages: list[Message] | None = None
+
     def model_hash(self) -> str:
         # Excluding fields are compiled from other fields
         return compute_model_hash(self, exclude_none=True, exclude={"has_templated_instructions"})
@@ -134,6 +148,7 @@ class TaskGroupProperties(BaseModel):
                 "instructions",
                 "temperature",
                 "task_variant_id",
+                "messages",
             },
         )
         return compute_obj_hash(properties_dict)

@@ -1,9 +1,9 @@
 import hashlib
 import json
 import re
-from typing import Any, Literal, Self
+from typing import Annotated, Any, Literal, Self
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
+from pydantic import AliasChoices, BaseModel, BeforeValidator, ConfigDict, Field
 
 from core.domain.errors import UnpriceableRunError
 from core.domain.fields.file import File
@@ -11,6 +11,8 @@ from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.models import Model
 from core.domain.task_group_properties import ToolChoice, ToolChoiceFunction
+from core.domain.tool import Tool
+from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.base.models import (
     AudioContentDict,
     DocumentContentDict,
@@ -32,15 +34,28 @@ class ResponseFormat(BaseModel):
     type: Literal["json_object", "text"] = "json_object"
 
 
-class FunctionParameters(BaseModel):
-    name: str
-    description: str = ""
-    parameters: dict[str, Any] = Field(default_factory=dict)
-
-
-class Tool(BaseModel):
+class MistralTool(BaseModel):
     type: Literal["function"]
-    function: FunctionParameters
+
+    class Function(BaseModel):
+        name: str
+        description: str = ""
+        parameters: dict[str, Any] = Field(default_factory=dict)
+        strict: bool | None = None
+
+    function: Function
+
+    @classmethod
+    def from_domain(cls, tool: Tool):
+        return cls(
+            type="function",
+            function=cls.Function(
+                name=internal_tool_name_to_native_tool_call(tool.name),
+                description=tool.description or "",
+                parameters=tool.input_schema,
+                strict=tool.strict,
+            ),
+        )
 
 
 class TextChunk(BaseModel):
@@ -82,34 +97,44 @@ _role_to_map: dict[MessageDeprecated.Role, Literal["user", "assistant", "system"
 }
 
 
-class ToolCallFunction(BaseModel):
-    name: str
-    arguments: dict[str, Any] | str
+def _sanitize_tool_id(v: str | None) -> str | None:
+    if not v:
+        return None
+    if re.match(r"^[a-zA-Z0-9_-]{9}$", v) is not None:
+        return v
+    # Otherwise we hash the tool call id as a hex and take the first 9 characters
+    return hashlib.sha256(v.encode()).hexdigest()[:9]
 
 
-class ToolCall(BaseModel):
-    id: str | None = None
+MistralToolID = Annotated[str, BeforeValidator(_sanitize_tool_id)]
+
+
+class MistralToolCall(BaseModel):
+    id: MistralToolID | None = None
     type: Literal["function"] = "function"
-    function: ToolCallFunction
+
+    class Function(BaseModel):
+        name: str
+        arguments: dict[str, Any] | str
+
+    function: Function
     index: int | None = None
 
-    @field_validator("id")
-    def validate_id(cls, v: str | None) -> str | None:
-        """Sanitize the tool call id to be a valid Mistral tool call id.
-        "must be a-z, A-Z, 0-9, with a length of 9." from the mistral error message
-        """
-        if not v:
-            return None
-        if re.match(r"^[a-zA-Z0-9_-]{9}", v) is not None:
-            return v
-        # Otherwise we hash the tool call id as a hex and take the first 9 characters
-        return hashlib.sha256(v.encode()).hexdigest()[:9]
+    @classmethod
+    def from_domain(cls, tool_call: ToolCallRequestWithID):
+        return cls(
+            id=tool_call.id,
+            function=cls.Function(
+                name=internal_tool_name_to_native_tool_call(tool_call.tool_name),
+                arguments=tool_call.tool_input_dict,
+            ),
+        )
 
 
 class MistralAIMessage(BaseModel):
     role: Literal["user", "assistant", "system"]
     content: str | list[TextChunk | ImageURLChunk | DocumentURLChunk]
-    tool_calls: list[ToolCall] | None = None
+    tool_calls: list[MistralToolCall] | None = None
 
     @classmethod
     def from_domain(cls, message: MessageDeprecated):
@@ -128,22 +153,13 @@ class MistralAIMessage(BaseModel):
                 else:
                     content.append(DocumentURLChunk(document_url=file.to_url(default_content_type="application/pdf")))
 
-        tool_calls: list[ToolCall] = []
-        if message.tool_call_requests:
-            tool_calls.extend(
-                [
-                    ToolCall(
-                        id=tool.id,
-                        function=ToolCallFunction(
-                            name=internal_tool_name_to_native_tool_call(tool.tool_name),
-                            arguments=tool.tool_input_dict,
-                        ),
-                    )
-                    for tool in message.tool_call_requests
-                ],
-            )
-
-        return cls(content=content, role=role, tool_calls=tool_calls if tool_calls else None)
+        return cls(
+            content=content,
+            role=role,
+            tool_calls=[MistralToolCall.from_domain(tool_call) for tool_call in message.tool_call_requests]
+            if message.tool_call_requests
+            else None,
+        )
 
     def to_standard(self) -> StandardMessage:
         content: (
@@ -205,9 +221,10 @@ class MistralToolChoice(BaseModel):
     function: FunctionName
 
 
+# TODO: merge with MistralMessage above
 class MistralToolMessage(BaseModel):
     role: Literal["tool"]
-    tool_call_id: str
+    tool_call_id: MistralToolID
     name: str
     content: str
 
@@ -265,6 +282,7 @@ class MistralToolMessage(BaseModel):
         return tokens_from_string(self.content, model)
 
 
+# https://docs.mistral.ai/api/#tag/chat/operation/chat_completion_v1_chat_completions_post
 class CompletionRequest(BaseModel):
     model: str
     temperature: float = 0.3
@@ -275,9 +293,13 @@ class CompletionRequest(BaseModel):
     random_seed: int | None = None
     messages: list[MistralAIMessage | MistralToolMessage]
     response_format: ResponseFormat = Field(default_factory=ResponseFormat)
-    tools: list[Tool] | None = None
+    tools: list[MistralTool] | None = None
     tool_choice: MistralToolChoiceEnum | MistralToolChoice | None = None
     safe_prompt: bool | None = None
+    presence_penalty: float | None = None
+    frequency_penalty: float | None = None
+    top_p: float | None = None
+    parallel_tool_calls: bool | None = None
 
     @classmethod
     def tool_choice_from_domain(
@@ -293,7 +315,7 @@ class CompletionRequest(BaseModel):
 
 class AssistantMessage(BaseModel):
     content: str | None = None
-    tool_calls: list[ToolCall] | None = None
+    tool_calls: list[MistralToolCall] | None = None
     # prefix: bool = False
     # role: Literal["assistant"] = "assistant"
 
@@ -363,7 +385,7 @@ class MistralError(BaseModel):
 class DeltaMessage(BaseModel):
     role: str | None = None
     content: str | None = None
-    tool_calls: list[ToolCall] | None = None
+    tool_calls: list[MistralToolCall] | None = None
 
 
 class CompletionResponseStreamChoice(BaseModel):

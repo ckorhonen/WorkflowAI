@@ -1,4 +1,10 @@
-from core.domain.fields.file import File
+from urllib.parse import urlencode
+
+import pytest
+from pydantic import ValidationError
+
+from core.domain.fields.file import File, FileKind
+from core.utils.schema_sanitation import clean_pydantic_schema
 
 
 class TestFile:
@@ -17,6 +23,7 @@ class TestFile:
         assert img.to_url() == "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA"
         assert img.content_type == "image/png"
         assert img.data == "iVBORw0KGgoAAAANSUhEUgAAAAUA"
+        assert img.url is None
 
     def test_validate_data_content_type(self):
         img = File(
@@ -27,3 +34,47 @@ class TestFile:
     def test_validate_data_content_type_none(self):
         img = File(url="https://bla.com/file")
         assert img.content_type is None
+
+    def test_image_with_content_type(self):
+        img = File(url="https://bla.com/file?content_type=image/png")
+        assert img.content_type == "image/png"
+        assert img.data is None
+        assert img.url == "https://bla.com/file?content_type=image/png"
+
+        # Check with encoded content type
+        img = File(url=f"https://bla.com/file?{urlencode({'content_type': 'image/png'})}")
+        assert img.content_type == "image/png"
+        assert img.data is None
+        assert img.url == "https://bla.com/file?content_type=image%2Fpng"
+
+    def test_init_with_format(self):
+        img = File(url="https://bla.com/file", format="image")
+        assert img.format == FileKind.IMAGE
+
+    @pytest.mark.skip(reason="TODO: re-enabled when we add the check")
+    def test_invalid_url(self):
+        with pytest.raises(ValidationError):
+            File(url="invalid")
+
+
+class TestFileJsonSchema:
+    def test_json_schema(self):
+        """Check that the json schema is expected. Changing the schema could have an impact on
+        agents using the file field."""
+        assert clean_pydantic_schema(File) == {
+            "type": "object",
+            "properties": {
+                "url": {"type": "string", "description": "The URL of the image"},
+                "content_type": {
+                    "type": "string",
+                    "description": "The content type of the file",
+                    "examples": [
+                        "image/png",
+                        "image/jpeg",
+                        "audio/wav",
+                        "application/pdf",
+                    ],
+                },
+                "data": {"type": "string", "description": "The base64 encoded data of the file"},
+            },
+        }

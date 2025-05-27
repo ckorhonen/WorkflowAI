@@ -92,12 +92,14 @@ class FireworksAIProvider(HTTPXProvider[FireworksConfig, CompletionResponse]):
     _thinking_tag_context = ContextVar[bool | None]("_thinking_tag_context", default=None)
 
     def _response_format(self, options: ProviderOptions, model_data: ModelData):
-        if not options.output_schema:
-            return TextResponseFormat()
         if options.enabled_tools:
             # We disable structured generation if tools are enabled
-            # TODO: check why
+            # since fireworks does not support providing both tool calls and structured output
+            # Fireworks responds with "You cannot specify response format and function call at the same time"
+            # Meaning that even TextResponseFormat is not supported
             return None
+        if not options.output_schema:
+            return TextResponseFormat()
         if not model_data.supports_structured_output:
             # Structured gen is deactivated for some models like R1
             # Since it breaks the thinking part
@@ -134,6 +136,9 @@ class FireworksAIProvider(HTTPXProvider[FireworksConfig, CompletionResponse]):
             context_length_exceeded_behavior="truncate",
             stream=stream,
             response_format=self._response_format(options, data),
+            frequency_penalty=options.frequency_penalty,
+            presence_penalty=options.presence_penalty,
+            top_p=options.top_p,
         )
 
         # Add native tool calls if enabled
@@ -342,10 +347,6 @@ class FireworksAIProvider(HTTPXProvider[FireworksConfig, CompletionResponse]):
                 "https://api.fireworks.ai/inference/v1/chat/completions",
             ),
         )
-
-    @override
-    def default_model(self) -> Model:
-        return Model.LLAMA_3_3_70B
 
     @property
     def is_structured_generation_supported(self) -> bool:

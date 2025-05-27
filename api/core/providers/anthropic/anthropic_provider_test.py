@@ -1,3 +1,5 @@
+# pyright: reportPrivateUsage=false
+
 from __future__ import annotations
 
 import json
@@ -19,10 +21,12 @@ from core.domain.task_group_properties import ToolChoice, ToolChoiceFunction
 from core.domain.tool import Tool
 from core.domain.tool_call import ToolCallRequestWithID
 from core.providers.anthropic.anthropic_domain import (
+    AnthropicMessage,
     AntToolChoice,
     CompletionRequest,
     CompletionResponse,
     ContentBlock,
+    TextContent,
     Usage,
 )
 from core.providers.anthropic.anthropic_provider import AnthropicConfig, AnthropicProvider
@@ -51,9 +55,28 @@ def _output_factory(x: str, _: bool):
     return StructuredOutput(json.loads(x))
 
 
+class TestMaxTokens:
+    @pytest.mark.parametrize(
+        ("model", "requested_max_tokens", "expected_max_tokens"),
+        [
+            pytest.param(Model.CLAUDE_3_5_HAIKU_LATEST, 10, 10, id="Requested less than default"),
+            pytest.param(Model.CLAUDE_3_7_SONNET_20250219, None, 8192, id="Default"),
+            pytest.param(Model.CLAUDE_3_7_SONNET_20250219, 50_000, 50_000, id="Requested less than max"),
+            pytest.param(Model.CLAUDE_3_7_SONNET_20250219, 100_000, 64_000, id="Requested more than max"),
+        ],
+    )
+    def test_max_tokens(
+        self,
+        anthropic_provider: AnthropicProvider,
+        model: Model,
+        requested_max_tokens: int,
+        expected_max_tokens: int,
+    ):
+        assert anthropic_provider._max_tokens(get_model_data(model), requested_max_tokens) == expected_max_tokens
+
+
 class TestBuildRequest:
-    @pytest.mark.parametrize("model", ANTHROPIC_PROVIDER_DATA.keys())
-    def test_build_request(self, anthropic_provider: AnthropicProvider, model: Model):
+    def test_build_request(self, anthropic_provider: AnthropicProvider):
         request = cast(
             CompletionRequest,
             anthropic_provider._build_request(  # pyright: ignore[reportPrivateUsage]
@@ -61,20 +84,12 @@ class TestBuildRequest:
                     MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="Hello 1"),
                     MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello"),
                 ],
-                options=ProviderOptions(model=model, max_tokens=10, temperature=0),
+                options=ProviderOptions(model=Model.CLAUDE_3_5_SONNET_20241022, max_tokens=10, temperature=0),
                 stream=False,
             ),
         )
+        assert request.system == "Hello 1"
         assert request.model_dump(include={"messages"})["messages"] == [
-            {
-                "role": "assistant",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": "Hello 1",
-                    },
-                ],
-            },
             {
                 "role": "user",
                 "content": [
@@ -88,8 +103,7 @@ class TestBuildRequest:
         assert request.temperature == 0
         assert request.max_tokens == 10
 
-    @pytest.mark.parametrize("model", ANTHROPIC_PROVIDER_DATA.keys())
-    def test_build_request_without_max_tokens(self, anthropic_provider: AnthropicProvider, model: Model):
+    def test_build_request_without_max_tokens(self, anthropic_provider: AnthropicProvider):
         request = cast(
             CompletionRequest,
             anthropic_provider._build_request(  # pyright: ignore[reportPrivateUsage]
@@ -97,18 +111,12 @@ class TestBuildRequest:
                     MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="Hello 1"),
                     MessageDeprecated(role=MessageDeprecated.Role.USER, content="Hello"),
                 ],
-                options=ProviderOptions(model=model, temperature=0),
+                options=ProviderOptions(model=Model.CLAUDE_3_7_SONNET_20250219, temperature=0),
                 stream=False,
             ),
         )
-        model_data = get_model_data(model)
-        assert request.max_tokens is not None
-        if model_data.max_tokens_data.max_output_tokens:
-            assert request.max_tokens == model_data.max_tokens_data.max_output_tokens
-        elif model_data.max_tokens_data.max_tokens:
-            assert request.max_tokens == model_data.max_tokens_data.max_tokens
-        else:
-            assert request.max_tokens == 1024
+
+        assert request.max_tokens == 8192
 
     @pytest.mark.parametrize("model", ANTHROPIC_PROVIDER_DATA.keys())
     def test_build_request_with_tools(self, anthropic_provider: AnthropicProvider, model: Model) -> None:
@@ -172,6 +180,22 @@ class TestBuildRequest:
             ),
         )
         assert request.tool_choice == expected_ant_tool_choice
+
+    def test_build_request_no_messages(self, anthropic_provider: AnthropicProvider):
+        request = cast(
+            CompletionRequest,
+            anthropic_provider._build_request(  # pyright: ignore[reportPrivateUsage]
+                messages=[
+                    MessageDeprecated(role=MessageDeprecated.Role.SYSTEM, content="You are a helpful assistant."),
+                ],
+                options=ProviderOptions(model=Model.CLAUDE_3_5_SONNET_20241022),
+                stream=False,
+            ),
+        )
+        assert request.system == "You are a helpful assistant."
+        assert request.messages == [
+            AnthropicMessage(role="user", content=[TextContent(text="-")]),
+        ]
 
 
 class TestSingleStream:
@@ -1003,3 +1027,21 @@ class TestUnknownError:
         assert isinstance(err, ProviderBadRequestError)
         assert str(err) == "Image exceeds the maximum size"
         assert not err.capture
+
+
+class TestStandardizeMessages:
+    def test_with_system(self, anthropic_provider: AnthropicProvider):
+        request = CompletionRequest(
+            system="You are a helpful assistant.",
+            messages=[AnthropicMessage(role="user", content=[TextContent(text="Hello")])],
+            model="claude-3-opus-20240229",
+            stream=False,
+            max_tokens=100,
+            temperature=0.5,
+        )
+        raw_prompt = anthropic_provider._raw_prompt(request.model_dump())  # pyright: ignore[reportPrivateUsage]
+        standardized_prompt = AnthropicProvider.standardize_messages(raw_prompt)  # pyright: ignore[reportPrivateUsage]
+        assert standardized_prompt == [  # pyright: ignore[reportPrivateUsage]
+            {"role": "assistant", "content": "You are a helpful assistant."},
+            {"role": "user", "content": [{"type": "text", "text": "Hello"}]},
+        ]

@@ -1,10 +1,13 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from pydantic import BaseModel
 
 from core.domain.agent_run import AgentRun
 from core.domain.fields.file import File
+from core.domain.models._displayed_provider import DisplayedProvider
+from core.domain.models.model_data import MaxTokensData, ModelData, QualityData
+from core.domain.models.providers import Provider
 from core.domain.review import Review
 from core.domain.task_deployment import TaskDeployment
 from core.domain.task_evaluation import TaskEvaluation
@@ -14,6 +17,7 @@ from core.domain.task_group import TaskGroup
 from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_io import SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
+from core.domain.tool import Tool
 from core.domain.tool_call import ToolCallRequestWithID
 from core.domain.types import AgentOutput
 from core.domain.users import UserIdentifier
@@ -86,7 +90,9 @@ def task_example_ser(**kwargs: Any) -> SerializableTaskExample:
 
 def task_variant(
     input_schema: dict[str, Any] | None = None,
+    input_io: SerializableTaskIO | None = None,
     output_schema: dict[str, Any] | None = None,
+    output_io: SerializableTaskIO | None = None,
     input_model: type[BaseModel] | None = None,
     output_model: type[BaseModel] | None = None,
     **kwargs: Any,
@@ -96,14 +102,17 @@ def task_variant(
         task_id="task_id",
         name="task_name",
         task_schema_id=1,
-        input_schema=SerializableTaskIO.from_model(input_model)
-        if input_model
-        else SerializableTaskIO(
-            version="input_version",
-            json_schema=input_schema
-            or {"type": "object", "properties": {"input": {"type": "string"}}, "required": ["input"]},
+        input_schema=input_io
+        or (
+            SerializableTaskIO.from_model(input_model)
+            if input_model
+            else SerializableTaskIO(
+                version="input_version",
+                json_schema=input_schema
+                or {"type": "object", "properties": {"input": {"type": "string"}}, "required": ["input"]},
+            )
         ),
-        output_schema=SerializableTaskIO.from_model(output_model)
+        output_schema=output_io or SerializableTaskIO.from_model(output_model)
         if output_model
         else SerializableTaskIO(
             version="output_version",
@@ -267,3 +276,32 @@ def review(**kwargs: Any) -> Review:
         reviewer=Review.UserReviewer(user_id="user_id", user_email="user_email@example.com"),
     )
     return Review.model_validate({**raw.model_dump(exclude_none=True, exclude={"eval_hash"}), **kwargs})
+
+
+def model_data(**kwargs: Any) -> ModelData:
+    return ModelData(
+        display_name="Llama 3.1 (70B)",
+        supports_json_mode=True,
+        supports_input_image=False,
+        supports_input_pdf=False,
+        supports_input_audio=False,
+        max_tokens_data=MaxTokensData(
+            max_tokens=128000,
+            source="https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/MODEL_CARD.md",
+        ),
+        provider_for_pricing=Provider.FIREWORKS,
+        icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
+        release_date=date(2024, 7, 23),
+        quality_data=QualityData(mmlu=86, gpqa=48),
+        provider_name=DisplayedProvider.FIREWORKS.value,
+        supports_tool_calling=True,
+    ).model_copy(update=kwargs)
+
+
+def tool(**kwargs: Any) -> Tool:
+    return Tool(
+        name="tool_name",
+        description="tool_description",
+        input_schema={"type": "object"},
+        output_schema={"type": "object"},
+    ).model_copy(update=kwargs)

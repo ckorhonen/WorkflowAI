@@ -5,18 +5,19 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
-from api.dependencies.services import RunFeedbackGeneratorDep, RunsSearchServiceDep, RunsServiceDep
+from api.dependencies.services import RunFeedbackGeneratorDep, RunsSearchServiceDep, RunsServiceDep, VersionsServiceDep
 from api.dependencies.task_info import TaskInfoDep, TaskTupleDep
 from api.schemas.api_tool_call_request import APIToolCallRequest
 from api.schemas.reasoning_step import ReasoningStep
 from api.schemas.version_properties import ShortVersionProperties
-from api.services.runs import LLMCompletionsResponse
+from api.services.runs.runs_service import LLMCompletionsResponse
 from api.tags import RouteTags
 from core.domain.agent_run import AgentRun, AgentRunBase
 from core.domain.error_response import ErrorCode, ErrorResponse
 from core.domain.page import Page
 from core.domain.search_query import FieldQuery, SearchOperator
 from core.domain.task_group import TaskGroup
+from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.types import AgentInput, AgentOutput
 from core.storage import ObjectNotFoundException
 from core.utils.iter_utils import safe_map_optional
@@ -231,3 +232,32 @@ async def get_llm_completions(
     runs_service: RunsServiceDep,
 ) -> LLMCompletionsResponse:
     return await runs_service.llm_completions_by_id(task_tuple, run_id)
+
+
+class CreateVersionResponse(BaseModel):
+    id: str
+    # TODO[versionsv1]: Remove this once the usage of iteration is removed
+    iteration: int = Field(deprecated=True)
+    semver: tuple[int, int] | None
+    properties: TaskGroupProperties
+
+    @classmethod
+    def from_domain(cls, version: TaskGroup):
+        return cls(
+            id=version.id,
+            iteration=version.iteration,
+            semver=version.semver,
+            properties=version.properties,
+        )
+
+
+@router.post("/{run_id}/version/save")
+async def save_run_version(
+    task_tuple: TaskTupleDep,
+    run_id: str,
+    runs_service: RunsServiceDep,
+    versions_service: VersionsServiceDep,
+) -> CreateVersionResponse:
+    version_id = (await runs_service.run_by_id(task_tuple, run_id, include={"version_id"})).group.id
+    grp = await versions_service.save_version(task_tuple[0], version_id)
+    return CreateVersionResponse.from_domain(grp)

@@ -307,6 +307,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O3_MINI_LATEST_HIGH_REASONING_EFFORT,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.O3_MINI_2025_01_31_MEDIUM_REASONING_EFFORT: ModelData(
             display_name="o3-mini (2025-01-31) - Medium reasoning effort",
@@ -327,6 +328,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O3_MINI_LATEST_MEDIUM_REASONING_EFFORT,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.O3_MINI_2025_01_31_LOW_REASONING_EFFORT: ModelData(
             display_name="o3-mini (2025-01-31) - Low reasoning effort",
@@ -347,6 +349,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O3_MINI_LATEST_LOW_REASONING_EFFORT,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.O4_MINI_LATEST_HIGH_REASONING_EFFORT: LatestModel(
             model=Model.O4_MINI_2025_04_16_HIGH_REASONING_EFFORT,
@@ -381,6 +384,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O4_MINI_LATEST_HIGH_REASONING_EFFORT,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.O4_MINI_2025_04_16_MEDIUM_REASONING_EFFORT: ModelData(
             display_name="o4-mini (2025-04-16) - Medium reasoning effort",
@@ -405,6 +409,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O4_MINI_LATEST_MEDIUM_REASONING_EFFORT,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.O4_MINI_2025_04_16_LOW_REASONING_EFFORT: ModelData(
             display_name="o4-mini (2025-04-16) - Low reasoning effort",
@@ -427,6 +432,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O4_MINI_LATEST_LOW_REASONING_EFFORT,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.O3_LATEST_HIGH_REASONING_EFFORT: LatestModel(
             model=Model.O3_2025_04_16_HIGH_REASONING_EFFORT,
@@ -461,6 +467,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O3_LATEST_HIGH_REASONING_EFFORT,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.O3_2025_04_16_MEDIUM_REASONING_EFFORT: ModelData(
             display_name="o3 (2025-04-16) - Medium reasoning effort",
@@ -485,6 +492,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O3_LATEST_MEDIUM_REASONING_EFFORT,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.O3_2025_04_16_LOW_REASONING_EFFORT: ModelData(
             display_name="o3 (2025-04-16) - Low reasoning effort",
@@ -507,6 +515,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O3_LATEST_LOW_REASONING_EFFORT,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.GEMINI_1_5_PRO_PREVIEW_0514: DeprecatedModel(replacement_model=Model.GEMINI_1_5_PRO_002),
         Model.GEMINI_2_0_FLASH_LITE_PREVIEW_2502: DeprecatedModel(replacement_model=Model.GEMINI_2_0_FLASH_LITE_001),
@@ -679,31 +688,66 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
         ),
-        Model.GEMINI_1_5_PRO_001: ModelData(
-            display_name="Gemini 1.5 Pro (001)",
-            supports_json_mode=True,
-            supports_input_image=True,
-            supports_input_pdf=True,
-            supports_input_audio=True,
-            supports_structured_output=False,  # Model supports structured outputs, but we did not activate this feature for Google  yet
-            max_tokens_data=MaxTokensData(
-                max_tokens=2_097_152,
-                max_output_tokens=8_192,
-                source="https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#gemini-1.5-pro",
-            ),
-            provider_for_pricing=Provider.GOOGLE,
-            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
-            latest_model=Model.GEMINI_1_5_PRO_LATEST,
-            release_date=date(2024, 5, 24),
-            quality_data=QualityData(mmlu=81.9, gpqa=59.1),
-            provider_name=DisplayedProvider.GOOGLE.value,
-            supports_tool_calling=True,
-        ),
+        Model.GEMINI_1_5_PRO_001: DeprecatedModel(replacement_model=Model.GEMINI_1_5_PRO_002),
         Model.GEMINI_1_5_PRO_PREVIEW_0409: DeprecatedModel(replacement_model=Model.GEMINI_1_5_PRO_002),
         Model.GEMINI_1_5_FLASH_PREVIEW_0514: DeprecatedModel(replacement_model=Model.GEMINI_1_5_FLASH_002),
         Model.GEMINI_1_5_FLASH_LATEST: LatestModel(
             model=Model.GEMINI_1_5_FLASH_002,
             display_name="Gemini 1.5 Flash (latest)",
+        ),
+        Model.CLAUDE_4_SONNET_LATEST: LatestModel(
+            model=Model.CLAUDE_4_SONNET_20250514,
+            display_name="Claude 4 Sonnet (latest)",
+            is_default=True,
+        ),
+        Model.CLAUDE_4_SONNET_20250514: ModelData(
+            display_name="Claude 4 Sonnet (2025-05-14)",
+            supports_json_mode=False,
+            supports_input_image=True,
+            supports_input_pdf=True,
+            supports_input_audio=False,
+            max_tokens_data=MaxTokensData(
+                max_tokens=200_000,
+                # See https://docs.anthropic.com/en/docs/about-claude/models/all-models
+                max_output_tokens=64_000,
+                source="https://docs.anthropic.com/en/docs/about-claude/models",
+            ),
+            provider_for_pricing=Provider.AMAZON_BEDROCK,
+            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/anthropic.svg",
+            release_date=date(2025, 5, 22),
+            # https://www.anthropic.com/news/claude-4
+            # We only have the mmmlu for now...
+            quality_data=QualityData(gpqa_diamond=70),
+            latest_model=Model.CLAUDE_4_SONNET_LATEST,
+            provider_name=DisplayedProvider.ANTHROPIC.value,
+            supports_tool_calling=True,
+        ),
+        Model.CLAUDE_4_OPUS_LATEST: LatestModel(
+            model=Model.CLAUDE_4_OPUS_20250514,
+            display_name="Claude 4 Opus (latest)",
+            is_default=True,
+        ),
+        Model.CLAUDE_4_OPUS_20250514: ModelData(
+            display_name="Claude 4 Opus (2025-05-14)",
+            supports_json_mode=False,
+            supports_input_image=True,
+            supports_input_pdf=True,
+            supports_input_audio=False,
+            max_tokens_data=MaxTokensData(
+                max_tokens=200_000,
+                # See https://docs.anthropic.com/en/docs/about-claude/models/all-models
+                max_output_tokens=32_000,
+                source="https://docs.anthropic.com/en/docs/about-claude/models",
+            ),
+            provider_for_pricing=Provider.AMAZON_BEDROCK,
+            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/anthropic.svg",
+            release_date=date(2025, 5, 22),
+            # https://www.anthropic.com/news/claude-4
+            # We only have the mmmlu for now...
+            quality_data=QualityData(gpqa_diamond=74.9),
+            latest_model=Model.CLAUDE_4_OPUS_LATEST,
+            provider_name=DisplayedProvider.ANTHROPIC.value,
+            supports_tool_calling=True,
         ),
         Model.CLAUDE_3_7_SONNET_LATEST: LatestModel(
             model=Model.CLAUDE_3_7_SONNET_20250219,
@@ -718,9 +762,8 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             supports_input_audio=False,
             max_tokens_data=MaxTokensData(
                 max_tokens=200_000,
-                # TODO: 64_000 in extended thinking mode
                 # See https://docs.anthropic.com/en/docs/about-claude/models/all-models
-                max_output_tokens=8192,
+                max_output_tokens=64_000,
                 source="https://docs.anthropic.com/en/docs/about-claude/models",
             ),
             provider_for_pricing=Provider.AMAZON_BEDROCK,
@@ -771,26 +814,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
         ),
-        Model.GEMINI_1_5_FLASH_001: ModelData(
-            display_name="Gemini 1.5 Flash (001)",
-            supports_json_mode=True,
-            supports_input_image=True,
-            supports_input_pdf=True,
-            supports_input_audio=True,
-            supports_structured_output=False,  # Model supports structured outputs, but we did not activate this feature for Google  yet
-            max_tokens_data=MaxTokensData(
-                max_tokens=1048576,
-                max_output_tokens=8192,
-                source="https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#gemini-1.5-flash",
-            ),
-            provider_for_pricing=Provider.GOOGLE,
-            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
-            latest_model=Model.GEMINI_1_5_FLASH_LATEST,
-            release_date=date(2024, 5, 24),
-            quality_data=QualityData(mmlu=78.9, gpqa=51),
-            provider_name=DisplayedProvider.GOOGLE.value,
-            supports_tool_calling=True,
-        ),
+        Model.GEMINI_1_5_FLASH_001: DeprecatedModel(replacement_model=Model.GEMINI_1_5_PRO_002),
         Model.GEMINI_1_0_PRO_VISION_001: DeprecatedModel(replacement_model=Model.GEMINI_1_5_PRO_002),
         Model.GEMINI_1_0_PRO_001: DeprecatedModel(replacement_model=Model.GEMINI_1_5_PRO_002),
         Model.GEMINI_1_0_PRO_002: DeprecatedModel(replacement_model=Model.GEMINI_1_5_PRO_002),
@@ -816,6 +840,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=90.8, gpqa=78.3),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.O1_2024_12_17_HIGH_REASONING_EFFORT: ModelData(
             display_name="o1 (2024-12-17) - High reasoning effort",
@@ -835,6 +860,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=87, gpqa=91.6),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.O1_2024_12_17_LOW_REASONING_EFFORT: ModelData(
             display_name="o1 (2024-12-17) - Low reasoning effort",
@@ -854,6 +880,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=84.1, gpqa=78),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
+            supports_parallel_tool_calls=False,
         ),
         Model.CLAUDE_3_5_SONNET_20240620: ModelData(
             display_name="Claude 3.5 Sonnet (2024-06-20)",
@@ -1503,3 +1530,5 @@ def _build_model_datas() -> ModelDataMapping:
 
 
 MODEL_DATAS = _build_model_datas()
+
+MODEL_COUNT = len([model for model in MODEL_DATAS.values() if isinstance(model, FinalModelData)])

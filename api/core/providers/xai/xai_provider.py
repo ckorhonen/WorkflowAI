@@ -21,7 +21,9 @@ from core.providers.base.provider_error import (
     MaxTokensExceededError,
     ModelDoesNotSupportMode,
     ProviderError,
+    ProviderInternalError,
     ProviderInvalidFileError,
+    StructuredGenerationError,
     UnknownProviderError,
 )
 from core.providers.base.provider_options import ProviderOptions
@@ -37,11 +39,9 @@ from core.providers.xai.xai_config import THINKING_MODEL_MAP, XAIConfig
 from core.providers.xai.xai_domain import (
     CompletionRequest,
     CompletionResponse,
-    JSONResponseFormat,
     JSONSchemaResponseFormat,
     StreamedResponse,
     StreamOptions,
-    TextResponseFormat,
     Tool,
     ToolFunction,
     XAIError,
@@ -53,10 +53,15 @@ from core.providers.xai.xai_domain import (
 
 class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
     def _response_format(self, options: ProviderOptions, model_data: ModelData):
-        if not options.output_schema:
-            return TextResponseFormat()
+        if options.output_schema is None:
+            return None
+
         if not should_use_structured_output(options, model_data) or not options.output_schema:
-            return JSONResponseFormat()
+            # TODO: at the time of writing, xAI does not support
+            # any response format, so we return None when structured generation is disabled
+            # to be able to use the structured output
+            return None
+            # return JSONResponseFormat()
 
         return JSONSchemaResponseFormat(
             json_schema=XAISchema(
@@ -88,6 +93,9 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
             response_format=self._response_format(options, model_data),
             reasoning_effort=reasoning_effort,
             tool_choice=CompletionRequest.tool_choice_from_domain(options.tool_choice),
+            top_p=options.top_p,
+            presence_penalty=options.presence_penalty,
+            frequency_penalty=options.frequency_penalty,
         )
 
         if options.enabled_tools is not None and options.enabled_tools != []:
@@ -98,6 +106,7 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
                         name=internal_tool_name_to_native_tool_call(tool.name),
                         description=tool.description,
                         parameters=tool.input_schema,
+                        strict=tool.strict is True,
                     ),
                 )
                 for tool in options.enabled_tools
@@ -220,10 +229,6 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
     def _default_config(cls, index: int) -> XAIConfig:
         return XAIConfig(api_key=get_provider_config_env("XAI_API_KEY", index))
 
-    @override
-    def default_model(self) -> Model:
-        return Model.LLAMA_3_3_70B
-
     @property
     def is_structured_generation_supported(self) -> bool:
         return True
@@ -332,6 +337,10 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
                 error_cls = MaxTokensExceededError
             case m if "response does not contain a valid jpg or png image" in m:
                 error_cls = ProviderInvalidFileError
+            case m if "prefill bootstrap failed for request" in m:
+                error_cls = ProviderInternalError
+            case m if "model does not support formatted output" in m:
+                error_cls = StructuredGenerationError
             case _:
                 error_cls = UnknownProviderError
         return error_cls(msg=message, response=response)

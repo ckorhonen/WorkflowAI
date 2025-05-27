@@ -1,11 +1,17 @@
+import { Copy16Regular } from '@fluentui/react-icons';
 import { cx } from 'class-variance-authority';
 import { Check } from 'lucide-react';
 import Image from 'next/image';
 import * as React from 'react';
+import { useCallback, useState } from 'react';
+import { useCopyToClipboard } from 'usehooks-ts';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { displaySuccessToaster } from '@/components/ui/Sonner';
 import { formatDate } from '@/lib/date';
 import { useAutoScrollRef } from '@/lib/hooks/useAutoScrollRef';
 import { cn } from '@/lib/utils';
+import { TaskID } from '@/types/aliases';
 import { ModelResponse } from '@/types/workflowAI';
 import { SimpleTooltip } from '../../ui/Tooltip';
 import { TaskCostBadge } from '../../v2/TaskCostBadge';
@@ -14,16 +20,27 @@ import { IntelliganceProgress } from './IntelliganceProgress';
 import { ModelDetailsTooltip } from './ModelDetailsTooltip';
 
 type ModelLabelProps = {
+  taskId?: TaskID;
   isSelected: boolean;
   showCheck?: boolean;
   model: ModelResponse;
   dropdownOpen: boolean | undefined;
   information: 'price' | 'intelligence' | 'latest';
   allIntelligenceScores: number[] | undefined;
+  isProxy?: boolean;
 };
 
 export function ModelLabel(props: ModelLabelProps) {
-  const { isSelected, showCheck = true, model, dropdownOpen, information, allIntelligenceScores } = props;
+  const {
+    isSelected,
+    showCheck = true,
+    model,
+    dropdownOpen,
+    information,
+    allIntelligenceScores,
+    isProxy,
+    taskId,
+  } = props;
   const disabled = !!model.is_not_supported_reason;
 
   const autoScrollRef = useAutoScrollRef({
@@ -36,6 +53,19 @@ export function ModelLabel(props: ModelLabelProps) {
   const intelligence = model.metadata?.quality_index;
 
   const notSupportedText = 'is_not_supported_reason' in model ? model.is_not_supported_reason : undefined;
+
+  const [isHovering, setIsHovering] = useState(false);
+  const [, copy] = useCopyToClipboard();
+
+  const onCopyModelId = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      const text = taskId ? `${taskId}/${model.id}` : model.id;
+      copy(text);
+      displaySuccessToaster('Copied to clipboard');
+    },
+    [model.id, copy, taskId]
+  );
 
   return (
     <SimpleTooltip
@@ -52,15 +82,39 @@ export function ModelLabel(props: ModelLabelProps) {
           showCheck ? 'w-[288px]' : 'w-full'
         )}
         ref={autoScrollRef}
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
       >
         {showCheck && <Check className={cn('h-4 w-4 text-indigo-600 flex-shrink-0', !isSelected && 'opacity-0')} />}
         <div className='w-6 h-6 rounded-[2px] bg-white flex items-center justify-center border border-gray-100'>
           <Image src={model.icon_url} alt='' width={20} height={20} className='w-4 h-4 flex-shrink-0' />
         </div>
-        <div className='overflow-hidden text-ellipsis truncate whitespace-nowrap text-gray-900 text-[13px] font-normal flex-1'>
-          {model.name}
+        <div className='flex-1 flex items-center gap-0.5 overflow-hidden'>
+          <div className='overflow-hidden text-ellipsis truncate whitespace-nowrap text-gray-900 text-[13px] font-normal'>
+            {model.name}
+          </div>
+          {isHovering && isProxy && (
+            <SimpleTooltip
+              content={
+                <div>
+                  <span>Copy model id: </span>
+                  <span className='text-gray-300'>{`${taskId}/${model.id}`}</span>
+                </div>
+              }
+              side='top'
+              tooltipDelay={0}
+            >
+              <Button
+                variant='newDesignGray'
+                size='none'
+                icon={<Copy16Regular />}
+                className='w-5 h-5'
+                onClick={onCopyModelId}
+              />
+            </SimpleTooltip>
+          )}
         </div>
-        <div className='ml-auto flex flex-row gap-1'>
+        <div className='ml-auto flex flex-row gap-1 items-center'>
           {information === 'price' && (
             <TaskCostBadge
               cost={price}
@@ -104,7 +158,7 @@ export function formatAIModels(
     label: model.name,
     disabled: !!model.is_not_supported_reason,
     isLatest: model.is_latest ?? true,
-    renderLabel: ({ isSelected, showCheck = true, dropdownOpen }) => (
+    renderLabel: ({ isSelected, showCheck = true, dropdownOpen, isProxy, taskId }) => (
       <ModelLabel
         isSelected={isSelected}
         showCheck={showCheck}
@@ -112,6 +166,8 @@ export function formatAIModels(
         dropdownOpen={dropdownOpen}
         information={information}
         allIntelligenceScores={allIntelligenceScores}
+        isProxy={isProxy}
+        taskId={taskId}
       />
     ),
   }));
@@ -137,7 +193,7 @@ export function formatAIModel(
     label: model.name,
     disabled: !!model.is_not_supported_reason,
     isLatest: model.is_latest ?? true,
-    renderLabel: ({ isSelected, showCheck = true, dropdownOpen }) => (
+    renderLabel: ({ isSelected, showCheck = true, dropdownOpen, isProxy, taskId }) => (
       <ModelLabel
         isSelected={isSelected}
         showCheck={showCheck}
@@ -145,6 +201,8 @@ export function formatAIModel(
         dropdownOpen={dropdownOpen}
         information={information}
         allIntelligenceScores={allIntelligenceScores}
+        isProxy={isProxy}
+        taskId={taskId}
       />
     ),
   };

@@ -98,4 +98,25 @@ async def get_meta_agent_chat(
         ):
             yield MetaAgentChatResponse(messages=messages)
 
-    return safe_streaming_response(_stream)
+    async def _proxy_stream() -> AsyncIterator[BaseModel]:
+        async for messages in meta_agent_service.stream_proxy_meta_agent_response(
+            task_tuple=task_tuple,
+            agent_schema_id=request.schema_id,
+            user_email=user_properties.user_email,
+            messages=request.messages,
+            playground_state=request.playground_state,
+        ):
+            yield MetaAgentChatResponse(messages=messages)
+
+    stream_func = _proxy_stream if request.playground_state.is_proxy else _stream
+
+    return safe_streaming_response(stream_func)
+
+
+class ProxyMetaAgentChatRequest(BaseModel):
+    # Schema id is passed here instead of as a path parameters in order to have the endpoint schema-agnostic since
+    # the schema id might change in the middle of the conversation based on the agent's actions.
+    schema_id: TaskSchemaID
+    messages: list[MetaAgentChatMessage] = Field(
+        description="The list of messages in the conversation, the last message being the most recent one",
+    )

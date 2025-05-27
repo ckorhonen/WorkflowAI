@@ -373,12 +373,13 @@ ResponseFormat = Annotated[
 ]
 
 
+# https://docs.x.ai/docs/api-reference#chat-completions
 class CompletionRequest(BaseModel):
     temperature: float
     max_tokens: int | None
     model: str
     messages: list[XAIMessage | XAIToolMessage]
-    response_format: ResponseFormat = JSONResponseFormat()
+    response_format: ResponseFormat | None = JSONResponseFormat()
     stream: bool
     stream_options: StreamOptions | None = None
     reasoning_effort: str | None = None
@@ -386,6 +387,11 @@ class CompletionRequest(BaseModel):
     metadata: dict[str, Any] | None = None
     tools: list[Tool] | None = None
     tool_choice: XAIToolChoice | Literal["none", "auto", "required"] | None = None
+    top_p: float | None = None
+    presence_penalty: float | None = None
+    frequency_penalty: float | None = None
+    # Not supported yet
+    # parallel_tool_calls: bool | None = None
 
     @classmethod
     def tool_choice_from_domain(

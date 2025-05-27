@@ -3,7 +3,7 @@ import json
 import logging
 import os
 from datetime import datetime
-from typing import Any, AsyncIterator, Optional
+from typing import Annotated, Any, AsyncIterator, Optional
 
 from bson import CodecOptions
 from motor.motor_asyncio import (
@@ -424,9 +424,10 @@ class MongoStorage(BackendStorage):
         self,
         filter: dict[str, Any],
         sort: list[tuple[str, int]] | None = None,
+        hint: str | None = None,
     ) -> SerializableTaskVariant:
         filter = {**filter, **self._tenant_filter()}
-        corot = self._task_variants_collection.find_one(filter, sort=sort)
+        corot = self._task_variants_collection.find_one(filter, sort=sort, hint=hint)
         doc = await corot
         if not doc:
             raise ObjectNotFoundException(
@@ -445,7 +446,10 @@ class MongoStorage(BackendStorage):
 
     @override
     async def task_version_resource_by_id(self, task_id: str, version_id: str) -> SerializableTaskVariant:
-        return await self._find_task_version({"version": version_id, "slug": task_id, **self._tenant_filter()})
+        return await self._find_task_version(
+            {"version": version_id, "slug": task_id, **self._tenant_filter()},
+            hint="version_and_slug",
+        )
 
     @override
     async def task_variant_latest_by_schema_id(self, task_id: str, task_schema_id: int) -> SerializableTaskVariant:
@@ -454,12 +458,22 @@ class MongoStorage(BackendStorage):
             sort=[("created_at", -1)],
         )
 
-    async def store_task_resource(self, task: SerializableTaskVariant) -> tuple[SerializableTaskVariant, bool]:
-        existing_variant = await self._task_variants_collection.find_one_and_update(
-            {"version": task.id, "slug": task.task_id, **self._tenant_filter()},
-            {"$set": {"created_at": task.created_at}},
-            return_document=True,
-        )
+    async def store_task_resource(
+        self,
+        task: SerializableTaskVariant,
+        update_created_at: bool = False,
+    ) -> tuple[SerializableTaskVariant, Annotated[bool, "whether a new task was created"]]:
+        if update_created_at:
+            existing_variant = await self._task_variants_collection.find_one_and_update(
+                {"version": task.id, "slug": task.task_id, **self._tenant_filter()},
+                {"$set": {"created_at": task.created_at}},
+                return_document=True,
+            )
+        else:
+            existing_variant = await self._task_variants_collection.find_one(
+                {"version": task.id, "slug": task.task_id, **self._tenant_filter()},
+                hint="version_and_slug",
+            )
         if existing_variant:
             return TaskVariantDocument.model_validate(existing_variant).to_resource(), False
 
@@ -519,7 +533,7 @@ class MongoStorage(BackendStorage):
         }
 
         async def _find_group() -> Optional[TaskGroupDocument]:
-            grp = await self._task_run_group_collection.find_one(group_filter)
+            grp = await self._task_run_group_collection.find_one(group_filter, hint="hash")
             if not grp:
                 return None
             try:

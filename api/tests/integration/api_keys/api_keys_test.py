@@ -133,8 +133,7 @@ async def test_invalid_api_key(int_api_client: AsyncClient):
     assert response.json() == {
         "error": {
             "code": "authentication_failed",
-            "message": "API Key is invalid. Please check your API Key or generate a new one "
-            "at https://workflowai.com/organization/settings/api-keys",
+            "message": "Invalid API key provided: wai-i***.\nGrab a fresh one (plus $5 in free LLM credits for new users) at https://workflowai.com/keys 🚀",
             "status_code": 401,
         },
     }
@@ -152,7 +151,7 @@ async def test_missing_bearer(int_api_client: AsyncClient):
     assert response.json() == {
         "error": {
             "code": "authentication_failed",
-            "message": "Authorization header must be prefixed with 'Bearer'",
+            "message": "Invalid authorization header: wai-i***. A valid header with an API key looks like 'Bearer wai-****'. If you need a new API key, Grab a fresh one (plus $5 in free LLM credits for new users) at https://workflowai.com/keys 🚀",
             "status_code": 401,
         },
     }

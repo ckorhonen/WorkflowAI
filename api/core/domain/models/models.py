@@ -1,4 +1,5 @@
 from enum import StrEnum
+from typing import Iterator
 
 
 # All models that were supported at one point by WorkflowAI
@@ -14,7 +15,7 @@ class Model(StrEnum):
     # Default model order
     GPT_41_LATEST = "gpt-4.1-latest"
     GEMINI_2_0_FLASH_LATEST = "gemini-2.0-flash-latest"
-    CLAUDE_3_7_SONNET_LATEST = "claude-3-7-sonnet-latest"
+    CLAUDE_4_SONNET_LATEST = "claude-sonnet-4-latest"
     IMAGEN_3_0_LATEST = "imagen-3.0-generate-latest"
 
     # --------------------------------------------------------------------------
@@ -107,7 +108,11 @@ class Model(StrEnum):
     # --------------------------------------------------------------------------
     # Claude Models
     # --------------------------------------------------------------------------
-    # CLAUDE_3_7_SONNET_LATEST = "claude-3-7-sonnet-latest"
+    # CLAUDE_4_SONNET_LATEST = "claude-sonnet-4-latest"
+    CLAUDE_4_SONNET_20250514 = "claude-sonnet-4-20250514"
+    CLAUDE_4_OPUS_LATEST = "claude-opus-4-latest"
+    CLAUDE_4_OPUS_20250514 = "claude-opus-4-20250514"
+    CLAUDE_3_7_SONNET_LATEST = "claude-3-7-sonnet-latest"
     CLAUDE_3_7_SONNET_20250219 = "claude-3-7-sonnet-20250219"
     CLAUDE_3_5_SONNET_LATEST = "claude-3-5-sonnet-latest"
     CLAUDE_3_5_SONNET_20241022 = "claude-3-5-sonnet-20241022"
@@ -190,3 +195,21 @@ class Model(StrEnum):
     GROK_3_MINI_BETA_HIGH_REASONING_EFFORT = "grok-3-mini-beta-high"
     GROK_3_MINI_FAST_BETA_LOW_REASONING_EFFORT = "grok-3-mini-fast-beta-low"
     GROK_3_MINI_FAST_BETA_HIGH_REASONING_EFFORT = "grok-3-mini-fast-beta-high"
+
+    @classmethod
+    def possible_models(cls, model: str, reasoning_effort: str | None = None) -> Iterator[str]:
+        if reasoning_effort:
+            yield f"{model}-{reasoning_effort}"
+            yield f"{model}-latest-{reasoning_effort}"
+
+        yield model
+        yield f"{model}-latest"
+
+    @classmethod
+    def from_permissive(cls, model: str, reasoning_effort: str | None = None) -> "Model | None":
+        for possible_model in cls.possible_models(model, reasoning_effort):
+            try:
+                return Model(possible_model)
+            except ValueError:
+                pass
+        return None

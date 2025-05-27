@@ -19,10 +19,7 @@ from core.providers.amazon_bedrock.amazon_bedrock_domain import (
     AmazonBedrockMessage,
     AmazonBedrockSystemMessage,
     BedrockError,
-    BedrockTool,
     BedrockToolConfig,
-    BedrockToolInputSchema,
-    BedrockToolSpec,
     CompletionRequest,
     CompletionResponse,
     StreamedResponse,
@@ -41,7 +38,6 @@ from core.providers.base.provider_error import (
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ParsedResponse, ToolCallRequestBuffer
 from core.providers.google.google_provider_domain import (
-    internal_tool_name_to_native_tool_call,
     native_tool_name_to_internal,
 )
 
@@ -76,32 +72,17 @@ class AmazonBedrockProvider(HTTPXProvider[AmazonBedrockConfig, CompletionRespons
                     )
                     system_message.text += message.content
                 system_message = AmazonBedrockSystemMessage.from_domain(message)
-        request = CompletionRequest(
+        return CompletionRequest(
             system=[system_message] if system_message else [],
             messages=user_messages,
             inferenceConfig=CompletionRequest.InferenceConfig(
                 temperature=options.temperature,
-                # TODO[max_tokens]: Add max tokens from model data when we have e2e tests
                 maxTokens=options.max_tokens,
+                topP=options.top_p,
+                # Presence and frequency penalties are not yet supported by Amazon Bedrock
             ),
+            toolConfig=BedrockToolConfig.from_domain(options.enabled_tools, options.tool_choice),
         )
-
-        if options.enabled_tools is not None and options.enabled_tools != []:
-            request.toolConfig = BedrockToolConfig(
-                tools=[
-                    BedrockTool(
-                        toolSpec=BedrockToolSpec(
-                            name=internal_tool_name_to_native_tool_call(tool.name),
-                            # Bedrock requires a description to be at least 1 character
-                            description=tool.description if tool.description and len(tool.description) > 1 else None,
-                            inputSchema=BedrockToolInputSchema(json=tool.input_schema),
-                        ),
-                    )
-                    for tool in options.enabled_tools
-                ],
-            )
-
-        return request
 
     @classmethod
     @override
@@ -169,10 +150,6 @@ class AmazonBedrockProvider(HTTPXProvider[AmazonBedrockConfig, CompletionRespons
     @classmethod
     def _default_config(cls, index: int) -> AmazonBedrockConfig:
         return AmazonBedrockConfig.from_env(index)
-
-    @override
-    def default_model(self) -> Model:
-        return Model.CLAUDE_3_5_SONNET_20240620
 
     def _raise_for_message_if_needed(self, raw: str, response: httpx.Response | None = None):
         try:

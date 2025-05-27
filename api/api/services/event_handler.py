@@ -17,6 +17,7 @@ from core.domain.events import (
     FeaturesByDomainGenerationStarted,
     FeedbackCreatedEvent,
     MetaAgentChatMessagesSent,
+    ProxyAgentCreatedEvent,
     RecomputeReviewBenchmarkEvent,
     RunCreatedEvent,
     SendAnalyticsEvent,
@@ -48,6 +49,7 @@ class _JobListing(NamedTuple, Generic[T]):
 def _jobs():
     # Importing here to avoid circular dependency
     from api.jobs import (
+        agent_created_via_proxy_jobs,
         ai_review_completed_jobs,
         ai_review_started_jobs,
         ai_reviewer_build_started_jobs,
@@ -104,6 +106,7 @@ def _jobs():
         _JobListing(FeaturesByDomainGenerationStarted, features_by_domain_generation_started_jobs.JOBS),
         _JobListing(TenantCreatedEvent, tenant_created_jobs.JOBS),
         _JobListing(TenantMigratedEvent, tenant_migrated_jobs.JOBS),
+        _JobListing(ProxyAgentCreatedEvent, agent_created_via_proxy_jobs.JOBS),
     ]
 
 
@@ -171,6 +174,30 @@ def system_event_router() -> EventRouter:
     return _event_router
 
 
+class _TenantEventRouter:
+    def __init__(
+        self,
+        tenant: str,
+        tenant_uid: int,
+        user_properties: UserProperties | None,
+        organization_properties: OrganizationProperties | None,
+        task_properties: TaskProperties | None,
+    ) -> None:
+        self.tenant = tenant
+        self.tenant_uid = tenant_uid
+        self.user_properties = user_properties
+        self.organization_properties = organization_properties
+        self.task_properties = task_properties
+
+    def __call__(self, event: Event, retry_after: datetime | None = None) -> None:
+        event.tenant = self.tenant
+        event.tenant_uid = self.tenant_uid
+        event.user_properties = self.user_properties
+        event.organization_properties = self.organization_properties
+        event.task_properties = self.task_properties
+        _event_router(event, retry_after)
+
+
 def tenant_event_router(
     tenant: str,
     tenant_uid: int,
@@ -178,12 +205,4 @@ def tenant_event_router(
     organization_properties: OrganizationProperties | None,
     task_properties: TaskProperties | None,
 ) -> EventRouter:
-    def _tenant_event_router(event: Event, retry_after: datetime | None = None) -> None:
-        event.tenant = tenant
-        event.tenant_uid = tenant_uid
-        event.user_properties = user_properties
-        event.organization_properties = organization_properties
-        event.task_properties = task_properties
-        _event_router(event, retry_after)
-
-    return _tenant_event_router
+    return _TenantEventRouter(tenant, tenant_uid, user_properties, organization_properties, task_properties)

@@ -25,10 +25,6 @@ _logger = logging.getLogger(__name__)
 
 class GoogleImagenBaseProvider(HTTPXProviderBase[ProviderConfigVar, GoogleImagenRequest]):
     @override
-    def default_model(self) -> Model:
-        return Model.IMAGEN_3_0_001
-
-    @override
     def is_streamable(self, model: Model, enabled_tools: list[Tool] | None = None) -> bool:
         return False
 
@@ -147,7 +143,7 @@ class GoogleImagenBaseProvider(HTTPXProviderBase[ProviderConfigVar, GoogleImagen
             response = await client.post(
                 url,
                 headers=await self._request_headers(),
-                timeout=options.timeout,
+                timeout=self.timeout_or_default(options.timeout),
                 json=data,
             )
             response.raise_for_status()

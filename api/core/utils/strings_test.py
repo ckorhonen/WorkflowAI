@@ -4,7 +4,9 @@ from .strings import (
     b64_urldecode,
     clean_unicode_chars,
     is_url_safe,
+    is_valid_unicode,
     normalize,
+    obfuscate,
     remove_accents,
     remove_empty_lines,
     slugify,
@@ -172,3 +174,20 @@ def test_remove_empty_lines(text: str, expected: str) -> None:
 )
 def test_clean_unicode_chars(input_str: str, expected_output: str):
     assert clean_unicode_chars(input_str) == expected_output
+
+
+class TestObfuscate:
+    @pytest.mark.parametrize(
+        "input_str, max_chars, expected_output",
+        [
+            pytest.param("hello world", 5, "hello***", id="basic"),
+            pytest.param("hello world", 11, "***", id="max chars reached"),
+        ],
+    )
+    def test_obfuscate(self, input_str: str, max_chars: int, expected_output: str):
+        assert obfuscate(input_str, max_chars) == expected_output
+
+
+class TestIsValidUnicode:
+    def test_not_raised_on_single_byte(self):
+        assert is_valid_unicode(b"a") is None

@@ -18,7 +18,8 @@ ENV PYTHONUNBUFFERED=1 \
 # ffmpeg is needed for audio processing
 # poppler is needed for pdf processing
 # Other upgrades are due for CVEs
-RUN apk add --no-cache ffmpeg poppler-utils && apk upgrade libssl3 libcrypto3 libxml2 xz-libs sqlite-libs
+RUN apk update && apk add --no-cache ffmpeg poppler-utils \
+    && apk upgrade --available --no-cache libssl3 libcrypto3 libxml2 xz-libs sqlite-libs
 
 FROM python-base AS builder
 
@@ -29,7 +30,7 @@ WORKDIR /app
 RUN apk add --no-cache build-base libffi-dev geos-dev
 # Update pip, install poetry setuptools, and wheel
 # TODO: fetch version from pyproject.toml ?
-RUN pip install --upgrade pip setuptools wheel poetry==1.8.0 poetry-plugin-export==1.8.0
+RUN pip install --upgrade pip setuptools wheel poetry==2.1.3 poetry-plugin-export==1.9.0
 
 # Copy the requirements file and install dependencies
 ADD pyproject.toml poetry.lock ./
