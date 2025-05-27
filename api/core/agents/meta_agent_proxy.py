@@ -752,12 +752,11 @@ async def proxy_meta_agent(
                             },
                             "example_input": {
                                 "type": "object",
-                                "description": "The example input to update the current agent version with.",
+                                "description": "The example input to update the current agent version with, to fill only in case the version message contain {{input_variables}}",
                             },
                         },
                         "required": [
                             "updated_version_messages",
-                            "example_input",
                         ],
                         "additionalProperties": False,
                     },
@@ -832,7 +831,7 @@ async def proxy_meta_agent(
                 and tool_call.function.arguments
             ):
                 updated_version_messages = json.loads(tool_call.function.arguments)["updated_version_messages"]
-                example_input = json.loads(tool_call.function.arguments)["example_input"]
+                example_input = json.loads(tool_call.function.arguments).get("example_input", {})
             elif (
                 tool_call.function and tool_call.function.name == "create_custom_tool" and tool_call.function.arguments
             ):

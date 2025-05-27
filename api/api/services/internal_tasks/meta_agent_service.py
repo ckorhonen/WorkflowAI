@@ -305,8 +305,9 @@ class UpdateVersionMessagesToolCall(MetaAgentToolCall):
         description="The messages to update the version with.",
     )
 
-    input_variables: dict[str, Any] = Field(
-        description="The input variables to update the version with.",
+    input_variables: dict[str, Any] | None = Field(
+        default=None,
+        description="The input variables to update the version with, to fill only in case the version message contain {{input_variables}}",
     )
 
     def to_domain(self) -> None:
@@ -1852,7 +1853,7 @@ Please double check:
             if chunk.run_trigger_config:
                 run_trigger_config = chunk.run_trigger_config
 
-        if updated_version_messages and example_input:
+        if updated_version_messages:
             tool_call_to_return = UpdateVersionMessagesToolCall(
                 updated_version_messages=updated_version_messages,
                 input_variables=example_input,
