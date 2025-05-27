@@ -1,6 +1,6 @@
 ****# LiteLLM (Python)
 
-LiteLLM is a lightweight drop-in replacement for the OpenAI client. This guide shows how to use LiteLLM together with WorkflowAI **only** using the functionality covered in the reference test-suite (`tests/litellm_start_test.py`).
+LiteLLM is a drop-in replacement for the OpenAI client. This guide shows how to use LiteLLM together with WorkflowAI **only** using the functionality covered in the reference test-suite (`tests/litellm_start_test.py`).
 
 ---
 
