@@ -28,6 +28,7 @@ export class RequestError extends Error {
   status: number;
   path: string;
   response: Response;
+  rawResponse: string;
 
   constructor(status: number, path: string, response: Response) {
     super(`Failed to request ${path}`);
@@ -35,15 +36,12 @@ export class RequestError extends Error {
     this.path = path;
     this.status = status;
     this.response = response;
+    this.rawResponse = '';
   }
 
-  async humanReadableMessage() {
-    try {
-      const parsed = await this.response.json();
-      return extractErrorMessage(parsed);
-    } catch (e) {
-      return this.message;
-    }
+  async init() {
+    this.rawResponse = await this.response.text();
+    return this;
   }
 }
 
@@ -194,10 +192,10 @@ async function fetchWrapper<T, R = unknown>(
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    const error = new RequestError(res.status, path, res);
+    const error = await new RequestError(res.status, path, res).init();
     captureException(error, {
       tags: { path },
-      extra: { path, status: res.status, raw: await res.text() },
+      extra: { path, status: res.status, raw: error.rawResponse },
     });
     throw error;
   }

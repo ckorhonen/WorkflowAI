@@ -17,7 +17,6 @@ import { useVersions } from '@/store/versions';
 import { JsonSchema, TaskOutput, TaskRun, ToolCallPreview } from '@/types';
 import { TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
 import { ModelResponse, ReasoningStep, VersionV1 } from '@/types/workflowAI';
-import { ImprovePrompt } from './ImprovePrompt';
 import { AIEvaluationReview } from './components/AIEvaluation/AIEvaluationReview';
 import { TaskRunOutputRows } from './components/TaskRunOutputRows/TaskRunOutputRows';
 
@@ -158,8 +157,6 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
         />
         {!!taskId && !!taskRun && !hasInputChanged && (
           <div className='flex flex-col w-full overflow-hidden max-h-[400px]'>
-            <ImprovePrompt onImprovePrompt={onImprovePrompt} />
-
             <AIEvaluationReview tenant={tenant} taskId={taskId} runId={taskRun.id} onImprovePrompt={onImprovePrompt} />
           </div>
         )}
