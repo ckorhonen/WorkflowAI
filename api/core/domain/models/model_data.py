@@ -21,6 +21,9 @@ _quality_index_weights = {
     "gpqa_diamond": 0.35,
 }
 
+# TODO: add pricing tier to the model data ?
+PricingTier: TypeAlias = Literal["cheapest", "cheap", "medium", "expensive"]
+
 
 class QualityData(SourcedBaseModel):
     mmlu: float | None = None
@@ -80,6 +83,54 @@ class MaxTokensData(SourcedBaseModel):
     )
 
 
+class ModelFallback(BaseModel):
+    content_moderation: Model = Field(
+        description="The model to use when the requested model raises a content moderation error",
+    )
+    structured_output: Model = Field(
+        description="The model to use when the requested model raises a structured output error",
+    )
+    rate_limit: Model = Field(
+        description="The model to use when the requested model raises a rate limit error",
+    )
+    unkwnown_error: Model | None = Field(
+        default=None,
+        description="The model to use when the requested model raises an unknown error. By default, "
+        "it is the same as the model used for rate limit fallback",
+    )
+
+    @classmethod
+    def default(
+        cls,
+        pricing_tier: PricingTier,
+        content_moderation: Model | None = None,
+        structured_output: Model | None = None,
+        rate_limit: Model | None = None,
+    ):
+        """The default fallback for models at the cheapest price point. OpenAI is a prime candidate for fallback
+        since it has large quotas, supports structured output and has reasonable content moderation"""
+        match pricing_tier:
+            case "cheapest":
+                content_moderation = content_moderation or Model.GEMINI_2_0_FLASH_LATEST
+                structured_output = structured_output or Model.GPT_41_NANO_LATEST
+                rate_limit = rate_limit or Model.GPT_41_NANO_LATEST
+            case "cheap":
+                content_moderation = content_moderation or Model.GEMINI_2_0_FLASH_LATEST
+                structured_output = structured_output or Model.GPT_41_MINI_LATEST
+                rate_limit = rate_limit or Model.GPT_41_MINI_LATEST
+            case "medium":
+                content_moderation = content_moderation or Model.GEMINI_1_5_PRO_002
+                structured_output = structured_output or Model.GPT_41_LATEST
+                rate_limit = rate_limit or Model.GPT_41_LATEST
+            case "expensive":
+                # TODO: Switch to 2_5 pro when it's out of preview ?
+                content_moderation = content_moderation or Model.O3_LATEST_MEDIUM_REASONING_EFFORT
+                structured_output = structured_output or Model.O3_LATEST_MEDIUM_REASONING_EFFORT
+                rate_limit = rate_limit or Model.O3_LATEST_MEDIUM_REASONING_EFFORT
+
+        return cls(content_moderation=content_moderation, structured_output=structured_output, rate_limit=rate_limit)
+
+
 class ModelData(ModelDataSupports):
     display_name: str = Field(description="The display name of the model, that will be used in the UIs, etc.")
     icon_url: str = Field(description="The icon url of the model")
@@ -113,6 +164,9 @@ class ModelData(ModelDataSupports):
     reasoning_level: Literal["none", "low", "medium", "high"] | None = None
 
     aliases: list[str] | None = None
+    fallback: ModelFallback | None = Field(
+        description="Automatic fallback configuration. If None, the model fallback is disabled",
+    )
 
     @property
     def modes(self) -> list[str]:

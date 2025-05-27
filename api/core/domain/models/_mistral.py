@@ -1,7 +1,14 @@
 from datetime import date
 
 from core.domain.models._displayed_provider import DisplayedProvider
-from core.domain.models.model_data import DeprecatedModel, LatestModel, MaxTokensData, ModelData, QualityData
+from core.domain.models.model_data import (
+    DeprecatedModel,
+    LatestModel,
+    MaxTokensData,
+    ModelData,
+    ModelFallback,
+    QualityData,
+)
 from core.domain.models.models import Model
 from core.domain.models.providers import Provider
 
@@ -32,6 +39,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=84, gpqa=46.09),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("medium"),
         ),
         Model.MISTRAL_LARGE_LATEST: LatestModel(
             model=Model.MISTRAL_LARGE_2411,
@@ -54,6 +62,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=84, gpqa=59.1),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("medium"),
         ),
         Model.PIXTRAL_LARGE_LATEST: LatestModel(
             model=Model.PIXTRAL_LARGE_2411,
@@ -76,6 +85,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=70.1, gpqa=39.3),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("medium"),
         ),
         Model.PIXTRAL_12B_2409: ModelData(
             display_name="PixTral (12B-2409)",
@@ -93,6 +103,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=69.2, gpqa=39),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("cheapest"),
         ),
         Model.MINISTRAL_3B_2410: ModelData(
             display_name="MiniStral (3B-2410)",
@@ -110,6 +121,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=33.9, gpqa=33.59),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("cheapest"),
         ),
         Model.MINISTRAL_8B_2410: ModelData(
             display_name="MiniStral (8B-2410)",
@@ -127,6 +139,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=63.4, gpqa=33.8),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("cheapest"),
         ),
         Model.MISTRAL_SMALL_LATEST: LatestModel(
             model=Model.MISTRAL_SMALL_2503,
@@ -149,6 +162,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
             latest_model=Model.MISTRAL_SMALL_LATEST,
+            fallback=ModelFallback.default("cheapest"),
         ),
         Model.MISTRAL_SMALL_2501: ModelData(
             display_name="Mistral Small (25-01)",
@@ -167,6 +181,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
             latest_model=Model.MISTRAL_SMALL_LATEST,
+            fallback=ModelFallback.default("cheapest"),
         ),
         Model.MISTRAL_SMALL_2409: ModelData(
             display_name="Mistral Small (24-09)",
@@ -185,6 +200,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
             latest_model=Model.MISTRAL_SMALL_LATEST,
+            fallback=ModelFallback.default("cheapest"),
         ),
         Model.MISTRAL_SABA_2502: ModelData(
             display_name="Mistral Saba (25-02)",
@@ -202,6 +218,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=52.9, gpqa=33.8),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("cheapest"),
         ),
         Model.CODESTRAL_2501: ModelData(
             display_name="CodeStral Mamba (25-01)",
@@ -219,6 +236,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=63.47, gpqa=38.35),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("cheap"),
         ),
         Model.CODESTRAL_MAMBA_2407: ModelData(
             display_name="CodeStral Mamba (24-07)",
@@ -237,6 +255,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=63.47, gpqa=38.35),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("cheapest"),
         ),
         Model.MISTRAL_MEDIUM_2505: ModelData(
             display_name="Mistral Medium 3 (25-05)",
@@ -259,5 +278,6 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             ),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("cheap"),
         ),
     }
