@@ -251,6 +251,10 @@ class PlaygroundState(BaseModel):
         default=None,
         description="The temperature for the agent",
     )
+    playground_agent_runs: list[AgentRun] | None = Field(
+        default=None,
+        description="The agent runs that were made in the playground",
+    )
 
     class PlaygroundModel(BaseModel):
         id: str = Field(
@@ -362,8 +366,8 @@ class ProxyMetaAgentInput(BaseModel):
         description="The documentation of the integration that the user is using, if any",
     )
 
-    available_tools_description: str = Field(
-        description="The description of the available tools, that can be potientially added to the 'agent_instructions' in order to improve the agent's output",
+    available_hosted_tools_description: str = Field(
+        description="The description of the available hosted tools, that can be potientially added to the agent 'messages' in order to improve the agent's output.",
     )
 
     playground_state: PlaygroundState
@@ -507,6 +511,16 @@ class ProxyMetaAgentOutput(BaseModel):
     new_tool: NewTool | None = Field(
         default=None,
         description="The new tool to add to the current agent, if any",
+    )
+
+    class RunTriggerConfig(BaseModel):
+        model_1: str
+        model_2: str | None = None
+        model_3: str | None = None
+
+    run_trigger_config: RunTriggerConfig | None = Field(
+        default=None,
+        description="The run trigger config to use for the agent, if any",
     )
 
 
@@ -668,6 +682,28 @@ You MUST end your message with the 'setup_structured_output_assistant_proposal' 
 You MUST end your message with the 'setup_deployment_assistant_proposal' in this cases
 </setup_deployment>
 
+<tools>
+<hosted_tools>
+You can enhance the agent capabilities by using hosted tools that will run inside the workflow AI platform when the user makes an agent run, those tools are detailled in 'available_hosted_tools_description'. Hosted tools can directly be added to the agent's message, so to add an hosted tool, you can call the 'update_version_messages' tool call with the new message containing the hosted tool (@....)
+</hosted_tools>
+
+<custom_tools>
+In case the tools are not enough to endure the task the agent must do, you can propose the user to add a custom tool by making a 'create_custom_tool' tool call. In this case, the user will have to implement the actual tool in their codebase.
+</custom_tools>
+</tools>
+
+<adjusting agent's results>
+<updating agent's messages>
+The main way to alter the agent's behavior is to alter on the version messages you pass to it. You can do this by calling the 'update_version_messages' tool call with the updated messages.
+When you recommend version message update, always do so by calling the 'update_version_messages'.
+</updating_agent's_messages>
+
+<running agent on different models>
+You can also run the agent on different models to see which one is the best for the task. You can do this by calling the 'run_agent_on_model' tool call with the models you want to run the agent on.
+Note that these changes only affect the playground, and the user will still need to update its code in order for its agent to use the new model.
+</running_agent_on_different_models>
+
+</adjusting_agent's_results>
 
 # All other cases:
 You must answer users' questions, but what you know from all the documentation in 'workflowai_documentation_sections' and 'integration_documentation' is not enough to answer the question.
@@ -730,8 +766,8 @@ async def proxy_meta_agent(
             {
                 "type": "function",
                 "function": {
-                    "name": "add_tool",
-                    "description": "Adds a tool to the current agent to enhance its capabilities. When proposing a tool, be mindful of what is the realistic needed parameters, for example for a translation tool, the parameters will be 'source_text' and 'target_language'.",
+                    "name": "create_custom_tool",
+                    "description": "Adds a custom tool to the current agent to enhance its capabilities. When proposing a tool, be mindful of what is the realistic needed parameters, for example for a translation tool, the parameters will be 'source_text' and 'target_language'.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -750,6 +786,32 @@ async def proxy_meta_agent(
                     },
                 },
             },
+            {
+                "type": "function",
+                "function": {
+                    "name": "run_agent_on_model",
+                    "description": "A lot to run the agent on new models (for better performance, speed or cost). The runs will effectively replace the 'playground_agent_runs' must be existing models from 'available_models'",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "model_1": {
+                                "type": "string",
+                                "description": "The model to run the agent on, in the first column of the playground, ex: 'gpt-4o-mini-latest', etc",
+                            },
+                            "model_2": {
+                                "type": "string",
+                                "description": "The model to run the agent on, in the second column of the playground",
+                            },
+                            "model_3": {
+                                "type": "string",
+                                "description": "The model to run the agent on, in the third column of the playground",
+                            },
+                        },
+                        "required": ["model_1"],
+                        "additionalProperties": False,
+                    },
+                },
+            },
         ]
         if use_tool_calls
         else [],
@@ -761,6 +823,7 @@ async def proxy_meta_agent(
         tool_name = None
         tool_description = None
         tool_parameters = None
+        run_trigger_config: ProxyMetaAgentOutput.RunTriggerConfig | None = None
         if chunk.choices[0].delta.tool_calls:
             tool_call = chunk.choices[0].delta.tool_calls[0]
             if (
@@ -770,10 +833,23 @@ async def proxy_meta_agent(
             ):
                 updated_version_messages = json.loads(tool_call.function.arguments)["updated_version_messages"]
                 example_input = json.loads(tool_call.function.arguments)["example_input"]
-            elif tool_call.function and tool_call.function.name == "add_tool" and tool_call.function.arguments:
+            elif (
+                tool_call.function and tool_call.function.name == "create_custom_tool" and tool_call.function.arguments
+            ):
                 tool_name = json.loads(tool_call.function.arguments)["name"]
                 tool_description = json.loads(tool_call.function.arguments)["description"]
                 tool_parameters = json.loads(tool_call.function.arguments)["parameters"]
+            elif (
+                tool_call.function and tool_call.function.name == "run_agent_on_model" and tool_call.function.arguments
+            ):
+                model_1 = json.loads(tool_call.function.arguments).get("model_1")
+                model_2 = json.loads(tool_call.function.arguments).get("model_2")
+                model_3 = json.loads(tool_call.function.arguments).get("model_3")
+                run_trigger_config = ProxyMetaAgentOutput.RunTriggerConfig(
+                    model_1=model_1,
+                    model_2=model_2,
+                    model_3=model_3,
+                )
 
         yield ProxyMetaAgentOutput(
             assistant_answer=chunk.choices[0].delta.content,
@@ -786,4 +862,5 @@ async def proxy_meta_agent(
             )
             if tool_name and tool_description and tool_parameters
             else None,
+            run_trigger_config=run_trigger_config,
         )
