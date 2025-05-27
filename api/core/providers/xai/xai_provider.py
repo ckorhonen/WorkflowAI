@@ -60,6 +60,9 @@ class XAIProvider(HTTPXProvider[XAIConfig, CompletionResponse]):
             or not options.output_schema
             or options.structured_generation is False
         ):
+            # TODO: at the time of writing, xAI does not support
+            # any response format
+            # So returing None for now
             return None
 
         return JSONSchemaResponseFormat(

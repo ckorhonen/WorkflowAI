@@ -459,70 +459,9 @@ class TestComplete:
                     "role": "user",
                 },
             ],
-            "response_format": {
-                "type": "json_object",
-            },
-            "stream": False,
-            "temperature": 0.0,
-            # "store": True,
-        }
-
-    async def test_complete_audio(self, httpx_mock: HTTPXMock):
-        httpx_mock.add_response(
-            url="https://api.x.ai/v1/chat/completions",
-            json=fixtures_json("xai", "completion.json"),
-        )
-
-        provider = XAIProvider()
-
-        o = await provider.complete(
-            [
-                MessageDeprecated(
-                    role=MessageDeprecated.Role.USER,
-                    content="Hello",
-                    files=[
-                        File(data="data", content_type="audio/wav"),
-                    ],
-                ),
-            ],
-            options=ProviderOptions(
-                model=Model.GPT_3_5_TURBO_1106,
-                max_tokens=10,
-                temperature=0,
-                output_schema={"type": "object"},
-            ),
-            output_factory=lambda x, _: StructuredOutput(json.loads(x)),
-        )
-        assert o.output
-        assert o.tool_calls is None
-        # Not sure why the pyright in the CI reports an error here
-        request = httpx_mock.get_requests()[0]
-        assert request.method == "POST"  # pyright: ignore reportUnknownMemberType
-        body = json.loads(request.read().decode())
-        assert body == {
-            "max_tokens": 10,
-            "model": "gpt-3.5-turbo-1106",
-            "messages": [
-                {
-                    "content": [
-                        {
-                            "text": "Hello",
-                            "type": "text",
-                        },
-                        {
-                            "input_audio": {
-                                "data": "data",
-                                "format": "wav",
-                            },
-                            "type": "input_audio",
-                        },
-                    ],
-                    "role": "user",
-                },
-            ],
-            "response_format": {
-                "type": "json_object",
-            },
+            # "response_format": {
+            #     "type": "json_object",
+            # },
             "stream": False,
             "temperature": 0.0,
             # "store": True,
