@@ -44,9 +44,11 @@ from core.agents.meta_agent_proxy import (
     GENERIC_INSTRUCTIONS,
     PROPOSE_DEPLOYMENT_INSTRUCTIONS,
     PROPOSE_INPUT_VARIABLES_INSTRUCTIONS,
+    PROPOSE_INPUT_VARIABLES_INSTRUCTIONS_NO_VERSION_MESSAGES,
     PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS,
     PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS,
     ProxyMetaAgentInput,
+    ProxyMetaAgentOutput,
     proxy_meta_agent,
 )
 from core.agents.meta_agent_proxy import (
@@ -310,12 +312,29 @@ class UpdateVersionMessagesToolCall(MetaAgentToolCall):
         return None
 
 
+class AddToolToolCall(MetaAgentToolCall):
+    tool_name: str = "add_tool"
+
+    tool_name: str = Field(
+        description="The name of the tool to add.",
+    )
+
+    tool_description: str = Field(
+        description="The description of the tool to add.",
+    )
+
+    tool_parameters: dict[str, Any] = Field(
+        description="The parameters of the tool to add.",
+    )
+
+
 MetaAgentToolCallType: TypeAlias = (
     ImprovePromptToolCall
     | EditSchemaToolCall
     | RunCurrentAgentOnModelsToolCall
     | GenerateAgentInputToolCall
     | UpdateVersionMessagesToolCall
+    | AddToolToolCall
 )
 
 
@@ -1301,10 +1320,19 @@ class MetaAgentService:
         self,
         agent: SerializableTaskVariant,
         agent_runs: list[AgentRun],
+        task_tuple: TaskTuple,
+        agent_schema_id: int,
     ) -> Integration:
         if agent.used_integration_kind:
             # If integration is registered for the agent, use it
             return get_integration_by_kind(agent.used_integration_kind)
+
+        if agent.task_schema_id > 1:
+            schema_id_to_explore = list(range(1, agent.task_schema_id))[::-1]  # reverse order
+            for schema_id in schema_id_to_explore:
+                agent_to_check = await self.storage.task_variant_latest_by_schema_id(task_tuple[0], schema_id)
+                if agent_to_check.used_integration_kind:
+                    return get_integration_by_kind(agent_to_check.used_integration_kind)
 
         # Else, pick the default integration for the programming language based on the user agent of the latest run
         user_agent = ""
@@ -1323,21 +1351,26 @@ class MetaAgentService:
         self,
         proxy_meta_agent_input: ProxyMetaAgentInput,
         agent_runs: list[AgentRun],
+        integration: Integration,
     ) -> ProxyMetaAgentAgentPayload:
         # "Migrate to input variables" use case
-        input_variables_extractor_agent_run = await input_variables_extractor_agent(
-            InputVariablesExtractorInput(
-                agent_inputs=[agent_run.task_input for agent_run in agent_runs],
-            ),
-        )
-        proxy_meta_agent_input.suggested_messages_with_input_variables = [
-            message.model_dump() for message in input_variables_extractor_agent_run.messages_with_input_variables
-        ]
-        proxy_meta_agent_input.suggested_input_variables_example = (
-            input_variables_extractor_agent_run.input_variables_example
-        )
-        instructions = PROPOSE_INPUT_VARIABLES_INSTRUCTIONS
-        message_kind = "setup_input_variables_assistant_proposal"
+        if integration.use_version_messages:
+            input_variables_extractor_agent_run = await input_variables_extractor_agent(
+                InputVariablesExtractorInput(
+                    agent_inputs=[agent_run.task_input for agent_run in agent_runs],
+                ),
+            )
+            proxy_meta_agent_input.suggested_messages_with_input_variables = [
+                message.model_dump() for message in input_variables_extractor_agent_run.messages_with_input_variables
+            ]
+            proxy_meta_agent_input.suggested_input_variables_example = (
+                input_variables_extractor_agent_run.input_variables_example
+            )
+            instructions = PROPOSE_INPUT_VARIABLES_INSTRUCTIONS
+            message_kind = "setup_input_variables_assistant_proposal"
+        else:
+            instructions = PROPOSE_INPUT_VARIABLES_INSTRUCTIONS_NO_VERSION_MESSAGES
+            message_kind = "setup_input_variables_assistant_proposal"
 
         return ProxyMetaAgentAgentPayload(
             input=proxy_meta_agent_input,
@@ -1448,7 +1481,7 @@ class MetaAgentService:
             playground_state,
         )
 
-        integration = await self._resolve_integration_for_agent(current_agent, agent_runs)
+        integration = await self._resolve_integration_for_agent(current_agent, agent_runs, task_tuple, agent_schema_id)
 
         # Fill the agent input with the right documentations
         proxy_meta_agent_input.integration_documentation = DocumentationService().get_documentation_by_path(
@@ -1468,6 +1501,12 @@ class MetaAgentService:
 
         tool_call: MetaAgentToolCallType | None = None
         fixed_messages: list[MetaAgentChatMessage] = []
+
+        completion_client = integration.completion_client
+
+        print(
+            f"is_user_triggered: {is_user_triggered} has_tried_other_models: {has_tried_other_models} is_using_instruction_variables: {is_using_instruction_variables} is_using_structured_generation: {is_using_structured_generation} agent_deployment: {agent_deployment} agent_runs: {agent_runs}",
+        )
 
         use_tools = False
         if messages[-1].kind == "user_deployed_agent_in_playground":
@@ -1512,11 +1551,16 @@ class MetaAgentService:
                     proxy_meta_agent_input,
                     instructions,
                     message_kind,
-                ) = await self._get_proxy_agent_input_variables_proposal_paylaod(proxy_meta_agent_input, agent_runs)
-                tool_call = UpdateVersionMessagesToolCall(
-                    updated_version_messages=proxy_meta_agent_input.suggested_messages_with_input_variables or [],
-                    input_variables=proxy_meta_agent_input.suggested_input_variables_example or {},
+                ) = await self._get_proxy_agent_input_variables_proposal_paylaod(
+                    proxy_meta_agent_input,
+                    agent_runs,
+                    integration,
                 )
+                if integration.use_version_messages:
+                    tool_call = UpdateVersionMessagesToolCall(
+                        updated_version_messages=proxy_meta_agent_input.suggested_messages_with_input_variables or [],
+                        input_variables=proxy_meta_agent_input.suggested_input_variables_example or {},
+                    )
             elif (
                 agent_runs
                 and has_tried_other_models
@@ -1529,7 +1573,7 @@ class MetaAgentService:
                     instructions,
                     message_kind,
                 ) = await self._get_structured_output_proposal_payload(proxy_meta_agent_input, agent_runs, integration)
-
+                completion_client = integration.completion_client_structured_output
             elif (
                 agent_runs
                 and has_tried_other_models
@@ -1550,6 +1594,7 @@ class MetaAgentService:
                 ]
                 return
             else:
+                print("NO OP!")
                 # This is a polling without required action, return.
                 yield []
                 return
@@ -1606,7 +1651,6 @@ Please double check:
                     ]
                     return
                 else:
-                    # User confirmed input variables
                     fixed_messages.append(
                         MetaAgentChatMessage(
                             role="ASSISTANT",
@@ -1620,11 +1664,17 @@ Please double check:
                         proxy_meta_agent_input,
                         instructions,
                         message_kind,
-                    ) = await self._get_proxy_agent_input_variables_proposal_paylaod(proxy_meta_agent_input, agent_runs)
-                    tool_call = UpdateVersionMessagesToolCall(
-                        updated_version_messages=proxy_meta_agent_input.suggested_messages_with_input_variables or [],
-                        input_variables=proxy_meta_agent_input.suggested_input_variables_example or {},
+                    ) = await self._get_proxy_agent_input_variables_proposal_paylaod(
+                        proxy_meta_agent_input,
+                        agent_runs,
+                        integration,
                     )
+                    if integration.use_version_messages:
+                        tool_call = UpdateVersionMessagesToolCall(
+                            updated_version_messages=proxy_meta_agent_input.suggested_messages_with_input_variables
+                            or [],
+                            input_variables=proxy_meta_agent_input.suggested_input_variables_example or {},
+                        )
             elif messages[-1].kind == "setup_input_variables_user_confirmation":
                 if not is_using_instruction_variables:
                     yield [
@@ -1660,6 +1710,8 @@ Please double check:
                         agent_runs,
                         integration,
                     )
+                    completion_client = integration.completion_client_structured_output
+
             elif messages[-1].kind == "setup_structured_output_user_confirmation":
                 if not is_using_structured_generation:
                     yield [
@@ -1737,10 +1789,14 @@ Please double check:
         accumulator = ""
         updated_version_messages: list[dict[str, Any]] | None = None
         example_input: dict[str, Any] | None = None
+        new_tool: ProxyMetaAgentOutput.NewTool | None = None
         async for chunk in proxy_meta_agent(
-            proxy_meta_agent_input,
-            instructions,
-            use_tools,
+            input=proxy_meta_agent_input,
+            instructions=instructions,
+            model_name_prefix=integration.model_name_prefix or "",
+            completion_client=completion_client,
+            is_using_version_messages=integration.use_version_messages,
+            use_tool_calls=use_tools,
         ):
             if chunk.assistant_answer:
                 accumulator = await self._sanitize_output_string(accumulator + chunk.assistant_answer, integration)
@@ -1765,6 +1821,8 @@ Please double check:
                 updated_version_messages = chunk.updated_version_messages
             if chunk.example_input:
                 example_input = chunk.example_input
+            if chunk.new_tool:
+                new_tool = chunk.new_tool
 
         if updated_version_messages and example_input:
             ret = fixed_messages + [
@@ -1776,6 +1834,23 @@ Please double check:
                     tool_call=UpdateVersionMessagesToolCall(
                         updated_version_messages=updated_version_messages,
                         input_variables=example_input,
+                    ),
+                    switch_to_schema_id=current_agent.task_schema_id,
+                ),
+            ]
+            yield ret
+
+        if new_tool:
+            ret = fixed_messages + [
+                MetaAgentChatMessage(
+                    role="ASSISTANT",
+                    content=accumulator,
+                    sent_at=now,
+                    kind=message_kind,
+                    tool_call=AddToolToolCall(
+                        tool_name=new_tool.name,
+                        tool_description=new_tool.description,
+                        tool_parameters=new_tool.parameters,
                     ),
                     switch_to_schema_id=current_agent.task_schema_id,
                 ),
