@@ -438,8 +438,8 @@ export function PlaygroundContent(props: PlaygroundContentBodyProps) {
             }
 
             if (exception instanceof RequestError) {
-              const msg = exception.humanReadableMessage();
-              reject(msg);
+              setModelError(model, exception);
+              reject(exception.rawResponse);
             } else {
               reject(exception);
             }
