@@ -1504,10 +1504,6 @@ class MetaAgentService:
 
         completion_client = integration.completion_client
 
-        print(
-            f"is_user_triggered: {is_user_triggered} has_tried_other_models: {has_tried_other_models} is_using_instruction_variables: {is_using_instruction_variables} is_using_structured_generation: {is_using_structured_generation} agent_deployment: {agent_deployment} agent_runs: {agent_runs}",
-        )
-
         use_tools = False
         if messages[-1].kind == "user_deployed_agent_in_playground":
             if (
@@ -1594,7 +1590,6 @@ class MetaAgentService:
                 ]
                 return
             else:
-                print("NO OP!")
                 # This is a polling without required action, return.
                 yield []
                 return
