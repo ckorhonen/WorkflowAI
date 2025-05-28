@@ -1297,6 +1297,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             custom_configs=self._custom_configs,
             factory=self.provider_factory,
             builder=self._build_provider_data,
+            typology=self._typology,
         )
 
         if pipeline.model_data.model != self._options.model:

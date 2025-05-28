@@ -4,11 +4,12 @@ from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from typing import Any, NoReturn, Protocol
 
-from core.domain.error_response import ProviderErrorCode
 from core.domain.errors import InternalError, NoProviderSupportingModelError
 from core.domain.models.model_data import FinalModelData, ModelData
+from core.domain.models.models import Model
 from core.domain.models.providers import Provider
 from core.domain.models.utils import get_model_data
+from core.domain.task_typology import TaskTypology
 from core.domain.tenant_data import ProviderSettings
 from core.providers.base.abstract_provider import AbstractProvider
 from core.providers.base.provider_error import ProviderError, StructuredGenerationError
@@ -16,6 +17,7 @@ from core.providers.base.provider_options import ProviderOptions
 from core.providers.factory.abstract_provider_factory import AbstractProviderFactory
 from core.runners.workflowai.templates import TemplateName
 from core.runners.workflowai.workflowai_options import WorkflowAIRunnerOptions
+from core.utils.models.dumps import safe_dump_pydantic_model
 
 PipelineProviderData = tuple[AbstractProvider[Any, Any], TemplateName, ProviderOptions, ModelData]
 
@@ -53,6 +55,7 @@ class ProviderPipeline:
         custom_configs: list[ProviderSettings] | None,
         factory: AbstractProviderFactory,
         builder: ProviderPipelineBuilder,
+        typology: TaskTypology,
     ):
         self._factory = factory
         self._options = options
@@ -62,12 +65,22 @@ class ProviderPipeline:
         self.builder = builder
         self._force_structured_generation = options.is_structured_generation_enabled
         self._last_error_was_structured_generation = False
+        self._typology = typology
+        self._has_used_model_fallback: bool = False
 
     @property
-    def last_error_code(self) -> ProviderErrorCode | None:
+    def _retry_on_same_provider(self) -> bool:
+        """Whether we should retry on the same provider"""
         if not self.errors:
-            return None
-        return self.errors[-1].code
+            return True
+        return self.errors[-1].code in {"rate_limit", "invalid_provider_config"}
+
+    @property
+    def _retry_on_different_provider(self) -> bool:
+        """Whether we should retry on a different provider and on the same model"""
+        if not self.errors:
+            return True
+        return self.errors[-1].should_try_next_provider
 
     def raise_on_end(self, task_id: str) -> NoReturn:
         # TODO: metric
@@ -79,6 +92,45 @@ class ProviderPipeline:
                 extras={"task_id": task_id, "options": self._options.model_dump()},
             )
         )
+
+    def _pick_fallback_model(self, e: ProviderError) -> FinalModelData | None:
+        """Selects the fallback model to use based on the error code"""
+        if not self.model_data.fallback:
+            return None
+
+        fallback_model: Model
+        match e.code:
+            case "content_moderation":
+                fallback_model = self.model_data.fallback.content_moderation
+            case "structured_generation_error" | "invalid_generation" | "failed_generation":
+                fallback_model = self.model_data.fallback.structured_output
+            case (
+                "max_tokens_exceeded"
+                | "invalid_file"
+                | "max_tool_call_iteration"
+                | "task_banned"
+                | "bad_request"
+                | "agent_run_failed"
+            ):
+                return None
+            case "rate_limit" | "provider_internal_error" | "provider_unavailable" | "read_timeout" | "timeout":
+                fallback_model = self.model_data.fallback.rate_limit
+            case _:
+                fallback_model = self.model_data.fallback.unkwown_error or self.model_data.fallback.rate_limit
+
+        fallback_model_data = get_model_data(fallback_model)
+        if fallback_model_data.is_not_supported_reason(self._typology):
+            _logger.warning(
+                "Fallback model is not supported for the task typology",
+                extra={
+                    "model": self._options.model,
+                    "fallback_model": fallback_model,
+                    "typology": safe_dump_pydantic_model(self._typology),
+                },
+            )
+            return None
+
+        return fallback_model_data
 
     @contextmanager
     def wrap_provider_call(self, provider: AbstractProvider[Any, Any]):
@@ -99,10 +151,12 @@ class ProviderPipeline:
                 # In case of custom configs, we always retry
                 return
 
-            if e.should_try_next_provider:
-                # Otherwise we retry only if the error should be retried
+            # Otherwise we retry only if the error should be retried on the next provider
+            # or if we haven't consumed the fallback to model
+            if e.should_try_next_provider or self._has_used_model_fallback is False:
                 return
 
+            # Or we just raise
             raise e
 
     def _should_retry_without_structured_generation(self):
@@ -150,7 +204,7 @@ class ProviderPipeline:
 
             # No point in retrying on the same provider if the last error code was not a rate limit
             # Or an invalid provider config
-            if self.last_error_code not in {"rate_limit", "invalid_provider_config"}:
+            if not self._retry_on_same_provider:
                 return
 
         # Then we shuffle the rest
@@ -166,8 +220,8 @@ class ProviderPipeline:
             # Without the structured gen will not happen
             yield from self._iter_with_structured_gen(provider, model_data)
 
-            # No point in retrying on the same provider if the last error code was not a rate limit
-            if self.last_error_code != "rate_limit":
+            # No point in retrying on the same provider if the last error code was not a rate limit or invalid config
+            if not self._retry_on_same_provider:
                 return
 
     def _build_custom_providers(self, configs: list[ProviderSettings]) -> Iterable[AbstractProvider[Any, Any]]:
@@ -204,6 +258,7 @@ class ProviderPipeline:
             )
             return
 
+        # Iterating over providers
         for provider, provider_data in self.model_data.providers:
             # We only use the override for the default pipeline
             # We assume that
@@ -214,3 +269,30 @@ class ProviderPipeline:
                 model_data=provider_model_data,
                 provider_type=provider,
             )
+            if not self._retry_on_different_provider:
+                # If we should not retry on a different provider, we just break the pipeline
+                break
+
+        if not self.errors:
+            _logger.warning(
+                "Reached the end of the provider iterator without errors",
+                extra={"model": self._options.model},
+            )
+            return
+
+        # Yielding the final model fallback
+        if fallback_model_data := self._pick_fallback_model(self.errors[-1]):
+            self._has_used_model_fallback = True
+
+            provider, provider_data = fallback_model_data.providers[0]
+            provider_model_data = provider_data.override(fallback_model_data)
+            yield from self._single_provider_iterator(
+                providers=self._factory.get_providers(provider),
+                model_data=provider_model_data,
+                provider_type=provider,
+            )
+
+        # If we have reached here we should just raise the last error since it would mean that there is no more
+        # provider to try
+
+        raise self.errors[-1]

@@ -97,7 +97,7 @@ class ModelFallback(BaseModel):
     rate_limit: Model = Field(
         description="The model to use when the requested model raises a rate limit error",
     )
-    unkwnown_error: Model | None = Field(
+    unkwown_error: Model | None = Field(
         default=None,
         description="The model to use when the requested model raises an unknown error. By default, "
         "it is the same as the model used for rate limit fallback",
