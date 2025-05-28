@@ -264,7 +264,6 @@ def test_compute_prompt_token_count_should_raise(
         amazon_provider._compute_prompt_token_count(messages, model)  # pyright: ignore [reportPrivateUsage]
 
 
-# TODO[pricing]: switch to get_model_data(model).provider_for_pricing
 def _get_model_price(model: Model) -> tuple[float, float]:
     data = get_model_provider_data(Provider.AMAZON_BEDROCK, model)
     return data.text_price.prompt_cost_per_token, data.text_price.completion_cost_per_token

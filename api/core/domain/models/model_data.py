@@ -146,8 +146,6 @@ class ModelData(ModelDataSupports):
 
     max_tokens_data: MaxTokensData
 
-    provider_for_pricing: Provider
-
     latest_model: Model | None = Field(
         default=None,
         description="The latest model for the family",
@@ -209,17 +207,6 @@ class FinalModelData(ModelData):
             if p == provider:
                 return provider_data
         raise ProviderDoesNotSupportModelError(self.model, provider)
-
-    def provider_data_for_pricing(self) -> ModelProviderData:
-        """Returns the provider data for the model for pricing purposes"""
-        # The for loop is not the best solution, but we will at most have 2 providers
-        # and usually the provider that is used is the first one in the array since they are
-        # ordered by priority
-        for provider, provider_data in self.providers:
-            if provider == self.provider_for_pricing:
-                return provider_data
-        # This should never happen, we have tests for that
-        raise ValueError(f"Provider {self.provider_for_pricing} not found for model {self.display_name}")
 
     def is_not_supported_reason(  # noqa: C901
         self,

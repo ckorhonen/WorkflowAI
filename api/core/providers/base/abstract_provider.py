@@ -4,7 +4,7 @@ import os
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Callable, Generic, Optional, Protocol, Sequence, TypeVar
+from typing import Any, AsyncGenerator, Callable, Generic, Optional, Protocol, TypeVar
 
 from pydantic import ValidationError
 
@@ -260,7 +260,7 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
         llm_usage: LLMUsage,
         completion: LLMCompletion,
     ):
-        if not completion.incur_cost():
+        if not completion.should_incur_cost():
             llm_usage.prompt_cost_usd = 0
             llm_usage.completion_cost_usd = 0
             return
@@ -440,17 +440,28 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
             usage.completion_image_count = output.number_of_images
 
     @classmethod
+    def error_incurs_cost(cls, error: ProviderError) -> bool | None:
+        if not error.status_code:
+            return None
+        # Usually providers return 200 for errors that incur cost
+        return error.status_code == 200
+
+    @classmethod
     def _assign_raw_completion(
         cls,
         raw_completion: RawCompletion,
         llm_completion: LLMCompletion,
         output: StructuredOutput | None = None,
+        error: ProviderError | None = None,
     ):
         llm_completion.duration_seconds = round((datetime_factory() - raw_completion.start_time).total_seconds(), 2)
-        llm_completion.tool_calls = output.tool_calls if output else None
         llm_completion.response = raw_completion.response
+        if error:
+            llm_completion.error = error.error_response().error
+            llm_completion.provider_request_incurs_cost = cls.error_incurs_cost(error)
 
         if output:
+            llm_completion.tool_calls = output.tool_calls
             cls._assign_usage_from_output(raw_completion.usage, output)
 
         raw_completion.apply_to(llm_completion)
@@ -545,13 +556,18 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
             ),
         ]
 
-    async def _set_llm_completion_usage(
+    async def finalize_completion(
         self,
         model: Model,
         llm_completion: LLMCompletion,
         timeout: float | None,  # noqa: ASYNC109
     ) -> None:
         # All exceptions must be handled in this method
+        if llm_completion.provider_request_incurs_cost is False:
+            # Nothing to do if the provider request does not incur cost
+            # We did not get a usage from the provider so we can assume that everything is 0
+            return
+
         try:
             async with asyncio.timeout(timeout):
                 llm_completion.usage = await self.compute_llm_completion_usage(model, llm_completion)
@@ -579,18 +595,9 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
                 extra={"run_id": self._run_id()},
             )
 
-    async def finalize_completions(
-        self,
-        model: Model,
-        llm_completions: Sequence[LLMCompletion],
-        timeout: float | None = None,  # noqa: ASYNC109
-    ) -> None:
-        async with asyncio.TaskGroup() as tg:
-            for completion in llm_completions:
-                tg.create_task(self._set_llm_completion_usage(model, completion, timeout))
-
-    # On the critical path, we timeout after 1 second
-    _FINALIZE_COMPLETIONS_TIMEOUT = 1
+    # On the critical path, we timeout after 0.1 second
+    # Does not really matter if it fails, we will compute the final cost when the run is stored
+    _FINALIZE_COMPLETIONS_TIMEOUT = 0.1
 
     # Method is called on critical path so it should handle all exceptions and timeout after a reasonable amount of time
     async def _finalize_completions_in_context(self, model: Model):
@@ -598,7 +605,9 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
         if builder is None:
             self.logger.error("No builder context while finalizing completions")
             return
-        await self.finalize_completions(model, builder.llm_completions, AbstractProvider._FINALIZE_COMPLETIONS_TIMEOUT)
+        async with asyncio.TaskGroup() as tg:
+            for completion in builder.llm_completions:
+                tg.create_task(self.finalize_completion(model, completion, self._FINALIZE_COMPLETIONS_TIMEOUT))
 
     # -------------------------------------------------
     # Completions without stream

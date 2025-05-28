@@ -1,7 +1,6 @@
 from datetime import date
 from typing import get_args
 
-from core.domain.models import Provider
 from core.domain.models.model_data import MaxTokensData, ModelData, ModelDataSupports, QualityData
 from core.domain.models.model_datas_mapping import MODEL_DATAS, DisplayedProvider
 from core.domain.models.model_provider_data import ModelDataSupportsOverride
@@ -42,7 +41,6 @@ class TestModelDataSupportsOverride:
                 max_output_tokens=100,
                 source="",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             release_date=date(2024, 12, 13),
             quality_data=QualityData(index=400),
             provider_name=DisplayedProvider.OPEN_AI.value,
@@ -66,7 +64,6 @@ class TestModelDataSupportsOverride:
                 max_output_tokens=100,
                 source="",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             release_date=date(2024, 12, 13),
             quality_data=QualityData(index=400),
             provider_name=DisplayedProvider.OPEN_AI.value,

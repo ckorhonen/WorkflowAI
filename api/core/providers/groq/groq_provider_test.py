@@ -358,7 +358,6 @@ class TestSanitizeModelData:
             display_name="test",
             icon_url="test",
             max_tokens_data=MaxTokensData(source="", max_tokens=100),
-            provider_for_pricing=Provider.GROQ,
             release_date=date(2024, 1, 1),
             quality_data=QualityData(index=100),
             provider_name=DisplayedProvider.GROQ.value,
