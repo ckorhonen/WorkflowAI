@@ -120,7 +120,7 @@ class OpenAIProviderBase(HTTPXProvider[_OpenAIConfigVar, CompletionResponse], Ge
             messages=message,
             model=model_name,
             temperature=temperature,
-            max_tokens=options.max_tokens,
+            max_completion_tokens=options.max_tokens,
             stream=stream,
             stream_options=StreamOptions(include_usage=True) if stream else None,
             # store=True,

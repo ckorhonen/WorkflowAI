@@ -349,3 +349,13 @@ class AmazonBedrockProvider(HTTPXProvider[AmazonBedrockConfig, CompletionRespons
         return True
 
     # Bedrock does not expose rate limits
+
+    @override
+    def default_model(self) -> Model:
+        default_model = Model.CLAUDE_3_7_SONNET_20250219
+        if default_model not in self._config.resource_id_x_model_map:
+            try:
+                return next(m for m in self._config.resource_id_x_model_map.keys())
+            except StopIteration:
+                return Model.CLAUDE_3_5_SONNET_20240620
+        return default_model

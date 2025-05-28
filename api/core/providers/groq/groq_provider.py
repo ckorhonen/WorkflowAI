@@ -344,3 +344,7 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
             for tool_call in choice.message.tool_calls or []
         ]
         return tool_calls
+
+    @override
+    def default_model(self) -> Model:
+        return Model.LLAMA_4_SCOUT_FAST

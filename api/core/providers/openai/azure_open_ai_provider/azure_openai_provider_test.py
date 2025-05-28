@@ -302,7 +302,7 @@ class TestStream:
         assert request.method == "POST"  # pyright: ignore reportUnknownMemberType
         body = json.loads(request.read().decode())
         assert body == {
-            "max_tokens": 10,
+            "max_completion_tokens": 10,
             "model": "gpt-4o-2024-11-20",
             "messages": [
                 {
@@ -362,7 +362,7 @@ class TestComplete:
         assert request.method == "POST"  # pyright: ignore reportUnknownMemberType
         body = json.loads(request.read().decode())
         assert body == {
-            "max_tokens": 10,
+            "max_completion_tokens": 10,
             "model": "gpt-4o-2024-11-20",
             "messages": [
                 {
@@ -439,7 +439,7 @@ class TestComplete:
         assert request.method == "POST"  # pyright: ignore reportUnknownMemberType
         body = json.loads(request.read().decode())
         assert body == {
-            "max_tokens": 10,
+            "max_completion_tokens": 10,
             "model": "gpt-4o-2024-11-20",
             "messages": [
                 {
