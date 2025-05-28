@@ -3,7 +3,7 @@ import re
 from typing import Any, Literal
 
 from httpx import Response
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError
 from typing_extensions import override
 
 from core.domain.fields.file import File
@@ -38,6 +38,7 @@ from core.providers.openai.openai_domain import parse_tool_call_or_raise
 
 
 class GroqConfig(BaseModel):
+    model_config = ConfigDict(extra="allow")
     provider: Literal[Provider.GROQ] = Provider.GROQ
     api_key: str
     url: str = "https://api.groq.com/openai/v1/chat/completions"
