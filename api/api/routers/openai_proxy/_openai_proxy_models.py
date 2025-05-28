@@ -18,6 +18,7 @@ from core.domain.message import (
     MessageContent,
     MessageRole,
 )
+from core.domain.models.model_datas_mapping import MODEL_ALIASES
 from core.domain.models.models import Model
 from core.domain.models.providers import Provider
 from core.domain.run_output import RunOutput
@@ -568,6 +569,20 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
             environment=environment,
         )
 
+    @classmethod
+    def _map_model_str(cls, model: str, reasoning_effort: str | None) -> Model | None:
+        if m := MODEL_ALIASES.get(model):
+            return m
+        if reasoning_effort:
+            try:
+                return Model(f"{model}-{reasoning_effort}")
+            except ValueError:
+                pass
+        try:
+            return Model(model)
+        except ValueError:
+            return None
+
     def extract_references(self) -> EnvironmentRef | ModelRef:
         """Extracts the model, agent_id, schema_id and environment from the model string
         and other body optional parameters.
@@ -583,7 +598,7 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
         agent_id = self.agent_id or (splits[0] if len(splits) > 1 else None)
         # Getting the model from the last component. This is to support cases like litellm that
         # prefix the model string with the provider
-        model = Model.from_permissive(splits[-1], reasoning_effort=self.reasoning_effort)
+        model = self._map_model_str(splits[-1], self.reasoning_effort)
 
         if env := self._env_from_fields(agent_id, model):
             return env

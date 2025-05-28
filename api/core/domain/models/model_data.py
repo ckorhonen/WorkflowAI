@@ -112,6 +112,8 @@ class ModelData(ModelDataSupports):
     # Use none for models to deactivate reasoning on thinking models
     reasoning_level: Literal["none", "low", "medium", "high"] | None = None
 
+    aliases: list[str] | None = None
+
     @property
     def modes(self) -> list[str]:
         out: list[str] = []
@@ -200,10 +202,12 @@ class LatestModel(BaseModel):
     display_name: str
     is_default: bool = False
     icon_url: str = ""  # Fixed at build time
+    aliases: list[str] | None = None
 
 
 class DeprecatedModel(BaseModel):
     replacement_model: Model
+    aliases: list[str] | None = None
 
 
 ModelDataMapping: TypeAlias = dict[Model, FinalModelData | LatestModel | DeprecatedModel]

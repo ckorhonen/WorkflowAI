@@ -364,3 +364,13 @@ class TestMaxTokens:
                 continue
 
             assert model_data.max_tokens_data.max_tokens > 0, f"Model {model} has no max tokens"
+
+
+def test_no_duplicate_aliases():
+    aliases: set[str] = set()
+    for model, model_data in MODEL_DATAS.items():
+        if isinstance(model_data, ModelData):
+            if model_data.aliases:
+                for alias in model_data.aliases:
+                    assert alias not in aliases, f"Alias {alias} is already defined for model {model}"
+                    aliases.add(alias)

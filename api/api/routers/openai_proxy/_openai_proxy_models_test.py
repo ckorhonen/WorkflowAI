@@ -1,3 +1,6 @@
+# pyright: reportPrivateUsage=false
+
+import os
 from typing import Any
 
 import pytest
@@ -524,3 +527,61 @@ class TestDomainTools:
         assert tools is not None
         assert len(tools) == 1
         assert tools[0] == ToolKind.WEB_SEARCH_GOOGLE
+
+
+class TestMapModelString:
+    @pytest.mark.parametrize(
+        "value, reasoning, expected",
+        [
+            pytest.param("gpt-4o-mini-latest", None, Model.GPT_4O_MINI_LATEST, id="exists"),
+            pytest.param("gpt-4o", None, Model.GPT_4O_LATEST, id="unversioned"),
+            pytest.param(
+                "o3-mini-2025-01-31",
+                "high",
+                Model.O3_MINI_2025_01_31_HIGH_REASONING_EFFORT,
+                id="reasoning effort versioned",
+            ),
+            pytest.param(
+                "o3-mini-2025-01-31",
+                "high",
+                Model.O3_MINI_2025_01_31_HIGH_REASONING_EFFORT,
+                id="reasoning effort versioned",
+            ),
+        ],
+    )
+    def test_with_reasoning(self, value: str, reasoning: str | None, expected: Model):
+        assert OpenAIProxyChatCompletionRequest._map_model_str(value, reasoning) == expected
+
+    @pytest.mark.real_openai
+    async def test_exhaustive_openai(self):
+        if os.environ["OPENAI_API_KEY"] == "sk-proj-123":
+            pytest.skip("OPENAI_API_KEY is set to a test key")
+
+        from openai import AsyncOpenAI
+
+        openai_client = AsyncOpenAI(base_url="https://api.openai.com/v1/", api_key=os.environ["OPENAI_API_KEY"])
+        models = await openai_client.models.list()
+        bypassed_keywords = [
+            "dall-e",
+            "whisper",
+            "babbage",
+            "text-embedding",
+            "gpt-4o-realtime",
+            "transcribe",
+            "computer-use",
+            "tts-",
+            "codex-",
+            "ft:",
+            "search-preview",
+            "davinci",
+            "-tts",
+            "chatgpt-",
+            "-realtime-",
+            "gpt-4o-mini-audio-preview",
+            "o1-pro",
+            "omni-",
+        ]
+        model_ids = [model.id for model in models.data if not any(keyword in model.id for keyword in bypassed_keywords)]
+
+        missing_models = [m for m in model_ids if not OpenAIProxyChatCompletionRequest._map_model_str(m, None)]
+        assert not missing_models
