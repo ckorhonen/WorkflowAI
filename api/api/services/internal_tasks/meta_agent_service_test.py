@@ -39,6 +39,7 @@ from core.agents.meta_agent import PlaygroundState as PlaygroundStateDomain
 from core.domain.agent_run import AgentRun
 from core.domain.documentation_section import DocumentationSection
 from core.domain.events import MetaAgentChatMessagesSent
+from core.domain.integration.integration_domain import IntegrationKind
 from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_variant import SerializableTaskVariant
 from core.storage.backend_storage import BackendStorage
@@ -1233,3 +1234,50 @@ class TestMetaAgentService:
     def test_remove_typescript_comments(self, content: str, expected: str) -> None:
         """Verify that _remove_typescript_comments correctly strips TypeScript style block comments."""
         assert remove_ts_comments(content) == expected
+
+    @pytest.mark.parametrize(
+        "used_integration_kind, expected_result",
+        [
+            # Test with None input
+            (None, None),
+            # Test with empty string
+            ("", None),
+            # Test with valid IntegrationKind values
+            ("instructor-python", IntegrationKind.INSTRUCTOR_PYTHON),
+            ("openai-sdk-python", IntegrationKind.OPENAI_SDK_PYTHON),
+            ("openai-sdk-ts", IntegrationKind.OPENAI_SDK_TS),
+            # Test with invalid integration kind
+            ("INVALID_KIND", None),
+            ("random_string", None),
+            ("123", None),
+            # Test with whitespace
+            ("  ", None),
+            ("\t", None),
+            ("\n", None),
+            # Test with similar but incorrect values
+            ("instructor_python", None),  # underscore instead of dash
+            ("INSTRUCTOR-PYTHON", None),  # uppercase
+            ("instructor-Python", None),  # mixed case
+        ],
+    )
+    def test_valid_integration_kind_or_none(
+        self,
+        used_integration_kind: str | None,
+        expected_result: IntegrationKind | None,
+    ) -> None:
+        """Test the _valid_integration_kind_or_none static method with various inputs."""
+        result = MetaAgentService(
+            storage=Mock(),
+            event_router=Mock(),
+            runs_service=Mock(),
+            versions_service=Mock(),
+            models_service=Mock(),
+            feedback_service=Mock(),
+            reviews_service=Mock(),
+        )._valid_integration_kind_or_none(used_integration_kind)  # pyright: ignore[reportPrivateUsage]
+
+        if expected_result is None:
+            assert result is None
+        else:
+            assert result == expected_result
+            assert isinstance(result, IntegrationKind)
