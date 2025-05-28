@@ -43,15 +43,6 @@ export class RequestError extends Error {
     this.rawResponse = await this.response.text();
     return this;
   }
-
-  async humanReadableMessage() {
-    try {
-      const parsed = await this.response.json();
-      return extractErrorMessage(parsed);
-    } catch (e) {
-      return this.message;
-    }
-  }
 }
 
 export enum Method {
@@ -285,7 +276,8 @@ function parseSSEEvent(eventData: string) {
 
   try {
     parsed = JSON.parse(eventData);
-  } catch (e) {
+  } catch (error) {
+    console.error(error);
     throw new StreamError('Failed to parse event source message', true, {
       eventData,
     });
