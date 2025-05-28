@@ -2104,7 +2104,7 @@ async def test_preserve_credits(test_client: IntegrationTestClient):
     test_client.mock_openai_call()
     await test_client.post(
         "/organization/settings/providers",
-        json={"provider": "openai", "api_key": "hello"},
+        json={"provider": "openai", "api_key": "hello", "preserve_credits": False},
     )
 
     await test_client.run_task_v1(task, model=Model.GPT_4O_2024_11_20)

@@ -96,7 +96,8 @@ async def get_organization_settings(tenant: RequiredUserOrganizationDep) -> Orga
 # We don't use the provider class directly because it is not extensible enough
 class CreateProviderRequest(BaseModel):
     provider: Provider
-    preserve_credits: bool = False
+    # By default credits are preserved
+    preserve_credits: bool = True
 
     model_config = ConfigDict(extra="allow")
 
