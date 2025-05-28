@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.models import Provider
+from core.domain.models.models import Model
 from core.domain.tool_call import ToolCallRequestWithID
 
 
@@ -20,6 +21,10 @@ class LLMCompletion(BaseModel):
 
     # The provider that was used to generate the completion
     provider: Provider
+
+    # None is for backwards compatibility
+    # When model is None, the model that was used is the same model as the requested model from the version
+    model: Model | None = None
 
     config_id: str | None = Field(
         default=None,

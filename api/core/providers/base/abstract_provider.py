@@ -496,6 +496,7 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
         The completion object can then be updated in place"""
 
         kwargs, raw = await self._prepare_completion(messages, options, stream)
+        raw.model = options.model
         raw.config_id = self._config_id
         raw.preserve_credits = self._preserve_credits
         builder = self._builder_context()
