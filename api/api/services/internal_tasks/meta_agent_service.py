@@ -66,6 +66,7 @@ from core.domain.fields.chat_message import ChatMessage
 from core.domain.fields.file import File
 from core.domain.integration.integration_domain import (
     Integration,
+    IntegrationKind,
     ProgrammingLanguage,
 )
 from core.domain.integration.integration_mapping import default_integration_for_language, get_integration_by_kind
@@ -1249,14 +1250,25 @@ class MetaAgentService:
                 return True
         return False
 
+    def _valid_integration_kind_or_none(self, used_integration_kind: str | None) -> IntegrationKind | None:
+        if not used_integration_kind:
+            return None
+
+        try:
+            return IntegrationKind(used_integration_kind)
+        except ValueError:
+            # Can happen if the frontend has registered an integration kind that is not yet know of the API.
+            self._logger.warning("Unknown integration kind", extra={"used_integration_kind": used_integration_kind})
+            return None
+
     async def _resolve_integration_for_agent(
         self,
         agent: SerializableTaskVariant,
         agent_runs: list[AgentRun],
     ) -> Integration:
-        if agent.used_integration_kind:
+        if integration_kind := self._valid_integration_kind_or_none(agent.used_integration_kind):
             # If integration is registered for the agent, use it
-            return get_integration_by_kind(agent.used_integration_kind)
+            return get_integration_by_kind(integration_kind)
 
         # Else, pick the default integration for the programming language based on the user agent of the latest run
         user_agent = ""
