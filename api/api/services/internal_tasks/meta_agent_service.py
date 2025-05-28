@@ -47,6 +47,8 @@ from core.agents.meta_agent_proxy import (
     PROPOSE_INPUT_VARIABLES_INSTRUCTIONS_NO_VERSION_MESSAGES,
     PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS,
     PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS,
+    EditSchemaDescriptionAndExamplesToolCallRequest,
+    EditSchemaStructureToolCallRequest,
     ProxyMetaAgentInput,
     ProxyMetaAgentOutput,
     proxy_meta_agent,
@@ -418,6 +420,8 @@ class MetaAgentChatMessage(BaseModel):
         return ProxyMetaAgentChatMessageDomain(
             role=self.role,
             content=self.content,
+            tool_call=self.tool_call.model_dump() if self.tool_call else None,
+            tool_call_status=self.tool_call.status if self.tool_call else None,
         )
 
     def to_chat_message(self) -> ChatMessage:
@@ -890,12 +894,11 @@ class MetaAgentService:
         # Schema description and examples tool call from the meta-agent is mapped to "Improve Prompt" feature in the frontend,
         # which can update the schema description and examples
         if meta_agent_output.edit_schema_description_and_examples_tool_call:
-            return ImprovePromptToolCall(
-                run_id=None,
-                run_feedback_message=meta_agent_output.edit_schema_description_and_examples_tool_call.description_and_examples_edition_request_message
+            return EditSchemaToolCall(
+                edition_request_message=meta_agent_output.edit_schema_description_and_examples_tool_call.description_and_examples_edition_request_message
                 or "",
                 auto_run=self._resolve_auto_run(
-                    tool_call_type=ImprovePromptToolCall,
+                    tool_call_type=EditSchemaToolCall,
                     initial_auto_run=_reverse_optional_bool(
                         meta_agent_output.edit_schema_description_and_examples_tool_call.ask_user_confirmation,
                     )
@@ -1268,7 +1271,6 @@ class MetaAgentService:
             playground_state=ProxyPlaygroundStateDomain(
                 agent_input=agent_input_copy,
                 agent_input_files=agent_input_files,
-                agent_instructions=playground_state.agent_instructions,
                 agent_temperature=playground_state.agent_temperature,
                 available_models=await self._proxy_build_model_list("", current_agent),  # TODO: add instructions
                 selected_models=playground_state.selected_models.to_domain(),
@@ -1473,6 +1475,64 @@ class MetaAgentService:
                 raw_completion = raw_completion.replace(kind, "")
                 return kind, raw_completion
         return None
+
+    def _extract_tool_call_to_return(
+        self,
+        updated_version_messages: list[dict[str, Any]] | None,
+        example_input: dict[str, Any] | None,
+        new_tool: ProxyMetaAgentOutput.NewTool | None,
+        run_trigger_config: ProxyMetaAgentOutput.RunTriggerConfig | None,
+        edit_schema_structure_request: EditSchemaStructureToolCallRequest | None,
+        edit_schema_description_and_examples_request: EditSchemaDescriptionAndExamplesToolCallRequest | None,
+    ) -> MetaAgentToolCallType | None:
+        tool_call_to_return = None
+        if updated_version_messages:
+            tool_call_to_return = UpdateVersionMessagesToolCall(
+                updated_version_messages=updated_version_messages,
+                input_variables=example_input,
+            )
+
+        if new_tool:
+            tool_call_to_return = AddToolToolCall(
+                tool_name=new_tool.name,
+                tool_description=new_tool.description,
+                tool_parameters=new_tool.parameters,
+            )
+
+        if run_trigger_config:
+            run_configs = [
+                RunCurrentAgentOnModelsToolCall.RunConfig(
+                    run_on_column="column_1",
+                    model=run_trigger_config.model_1,
+                ),
+            ]
+            if run_trigger_config.model_2:
+                run_configs.append(
+                    RunCurrentAgentOnModelsToolCall.RunConfig(
+                        run_on_column="column_2",
+                        model=run_trigger_config.model_2,
+                    ),
+                )
+            if run_trigger_config.model_3:
+                run_configs.append(
+                    RunCurrentAgentOnModelsToolCall.RunConfig(
+                        run_on_column="column_3",
+                        model=run_trigger_config.model_3,
+                    ),
+                )
+            tool_call_to_return = RunCurrentAgentOnModelsToolCall(run_configs=run_configs)
+
+        if edit_schema_structure_request:
+            tool_call_to_return = EditSchemaToolCall(
+                edition_request_message=edit_schema_structure_request.edition_request_message,
+            )
+
+        if edit_schema_description_and_examples_request:
+            tool_call_to_return = EditSchemaToolCall(
+                edition_request_message=edit_schema_description_and_examples_request.description_and_examples_edition_request_message,
+            )
+
+        return tool_call_to_return
 
     async def stream_proxy_meta_agent_response(  # noqa: C901
         self,
@@ -1816,6 +1876,10 @@ Please double check:
         example_input: dict[str, Any] | None = None
         new_tool: ProxyMetaAgentOutput.NewTool | None = None
         run_trigger_config: ProxyMetaAgentOutput.RunTriggerConfig | None = None
+        edit_schema_structure_request_chunk: EditSchemaStructureToolCallRequest | None = None
+        edit_schema_description_and_examples_request_chunk: EditSchemaDescriptionAndExamplesToolCallRequest | None = (
+            None
+        )
         tool_call_to_return: MetaAgentToolCallType | None = None
         async for chunk in proxy_meta_agent(
             input=proxy_meta_agent_input,
@@ -1824,6 +1888,7 @@ Please double check:
             completion_client=completion_client,
             is_using_version_messages=integration.use_version_messages,
             use_tool_calls=use_tools,
+            agent_has_output_schema=is_using_structured_generation,
         ):
             if chunk.assistant_answer:
                 accumulator = await self._sanitize_output_string(accumulator + chunk.assistant_answer, integration)
@@ -1852,42 +1917,18 @@ Please double check:
                 new_tool = chunk.new_tool
             if chunk.run_trigger_config:
                 run_trigger_config = chunk.run_trigger_config
+            # Capture the schema edit requests from the chunk
+            edit_schema_structure_request_chunk = chunk.edit_schema_structure_request
+            edit_schema_description_and_examples_request_chunk = chunk.edit_schema_description_and_examples_request
 
-        if updated_version_messages:
-            tool_call_to_return = UpdateVersionMessagesToolCall(
-                updated_version_messages=updated_version_messages,
-                input_variables=example_input,
-            )
-
-        if new_tool:
-            tool_call_to_return = AddToolToolCall(
-                tool_name=new_tool.name,
-                tool_description=new_tool.description,
-                tool_parameters=new_tool.parameters,
-            )
-
-        if run_trigger_config:
-            run_configs = [
-                RunCurrentAgentOnModelsToolCall.RunConfig(
-                    run_on_column="column_1",
-                    model=run_trigger_config.model_1,
-                ),
-            ]
-            if run_trigger_config.model_2:
-                run_configs.append(
-                    RunCurrentAgentOnModelsToolCall.RunConfig(
-                        run_on_column="column_2",
-                        model=run_trigger_config.model_2,
-                    ),
-                )
-            if run_trigger_config.model_3:
-                run_configs.append(
-                    RunCurrentAgentOnModelsToolCall.RunConfig(
-                        run_on_column="column_3",
-                        model=run_trigger_config.model_3,
-                    ),
-                )
-            tool_call_to_return = RunCurrentAgentOnModelsToolCall(run_configs=run_configs)
+        tool_call_to_return = self._extract_tool_call_to_return(
+            updated_version_messages,
+            example_input,
+            new_tool,
+            run_trigger_config,
+            edit_schema_structure_request_chunk,
+            edit_schema_description_and_examples_request_chunk,
+        )
 
         if tool_call_to_return:
             ret = fixed_messages + [

@@ -1,9 +1,10 @@
 import datetime
 import json
 import os
-from typing import Any, AsyncIterator, Literal, Self
+from typing import Any, AsyncIterator, Literal, NamedTuple, Self
 
 from openai import AsyncOpenAI
+from openai.types.chat import ChatCompletionToolParam
 from pydantic import BaseModel, Field
 
 from core.agents.meta_agent import InputFile, SelectedModels
@@ -140,10 +141,6 @@ class EditSchemaDescriptionAndExamplesToolCallRequest(BaseToolCallRequest):
     )
 
 
-class EditSchemaToolCallResult(BaseResult, EditSchemaStructureToolCallRequest):
-    pass
-
-
 class RunCurrentAgentOnModelsToolCallRequest(BaseToolCallRequest):
     class RunConfig(BaseModel):
         run_on_column: Literal["column_1", "column_2", "column_3"] | None = Field(
@@ -187,6 +184,10 @@ class ProxyMetaAgentChatMessage(BaseModel):
             "What is the weather forecast for tomorrow?",
         ],
     )
+
+    tool_call: dict[str, Any] | None
+
+    tool_call_status: Literal["assistant_proposed", "user_ignored", "completed", "failed"] | None
 
 
 class AgentRun(BaseModel):
@@ -241,11 +242,6 @@ class PlaygroundState(BaseModel):
     agent_input_files: list[InputFile] | None = Field(
         default=None,
         description="The files contained in the 'agent_input' object, if any",
-    )
-
-    agent_instructions: str | None = Field(
-        default=None,
-        description="The instructions for the agent",
     )
     agent_temperature: float | None = Field(
         default=None,
@@ -523,13 +519,102 @@ class ProxyMetaAgentOutput(BaseModel):
         description="The run trigger config to use for the agent, if any",
     )
 
+    edit_schema_structure_request: EditSchemaStructureToolCallRequest | None = Field(
+        default=None,
+        description="The schema structure editing request, if any",
+    )
+
+    edit_schema_description_and_examples_request: EditSchemaDescriptionAndExamplesToolCallRequest | None = Field(
+        default=None,
+        description="The schema description and examples editing request, if any",
+    )
+
+
+class ParsedToolCall(NamedTuple):
+    """Result of parsing a tool call from the OpenAI streaming response."""
+
+    updated_version_messages: list[dict[str, Any]] | None = None
+    example_input: dict[str, Any] | None = None
+    tool_name: str | None = None
+    tool_description: str | None = None
+    tool_parameters: dict[str, Any] | None = None
+    run_trigger_config: ProxyMetaAgentOutput.RunTriggerConfig | None = None
+    edit_schema_structure_request: EditSchemaStructureToolCallRequest | None = None
+    edit_schema_description_and_examples_request: EditSchemaDescriptionAndExamplesToolCallRequest | None = None
+
+
+def parse_tool_call(tool_call: Any) -> ParsedToolCall:
+    """Parse a tool call and return the extracted data.
+
+    Returns a ParsedToolCall with the parsed tool data. Fields are populated based on tool type:
+    - update_version_messages: updated_version_messages, example_input
+    - create_custom_tool: tool_name, tool_description, tool_parameters
+    - edit_schema_structure: edit_schema_structure_request
+    - edit_schema_description_and_examples: edit_schema_description_and_examples_request
+    - run_agent_on_model: run_trigger_config
+    """
+    if not tool_call.function or not tool_call.function.arguments:
+        return ParsedToolCall()
+
+    function_name = tool_call.function.name
+    arguments = json.loads(tool_call.function.arguments)
+
+    if function_name == "update_version_messages":
+        return ParsedToolCall(
+            updated_version_messages=arguments["updated_version_messages"],
+            example_input=arguments.get("example_input", {}),
+        )
+
+    if function_name == "create_custom_tool":
+        return ParsedToolCall(
+            tool_name=arguments["name"],
+            tool_description=arguments["description"],
+            tool_parameters=arguments["parameters"],
+        )
+
+    if function_name == "edit_output_schema_structure":
+        return ParsedToolCall(
+            edit_schema_structure_request=EditSchemaStructureToolCallRequest(
+                edition_request_message=arguments.get("edition_request_message"),
+                ask_user_confirmation=arguments.get("ask_user_confirmation"),
+            ),
+        )
+
+    if function_name == "edit_output_schema_description_and_examples":
+        return ParsedToolCall(
+            edit_schema_description_and_examples_request=EditSchemaDescriptionAndExamplesToolCallRequest(
+                description_and_examples_edition_request_message=arguments.get(
+                    "description_and_examples_edition_request_message",
+                ),
+                ask_user_confirmation=arguments.get("ask_user_confirmation"),
+            ),
+        )
+
+    if function_name == "run_agent_on_model":
+        return ParsedToolCall(
+            run_trigger_config=ProxyMetaAgentOutput.RunTriggerConfig(
+                model_1=arguments.get("model_1"),
+                model_2=arguments.get("model_2"),
+                model_3=arguments.get("model_3"),
+            ),
+        )
+
+    return ParsedToolCall()
+
 
 _PROXY_META_AGENT_COMMON_INSTRUCTIONS = """Your WorkflowAI proxy playground agent's role is to make the user succeed in the WorkflowAI platform, having performant and reliable agents.
 
+Agents can be run in the current playground, or directly from the code. The user can see the "Code" page to see how to run the agent.
 
 The discussion you are having with the user happens in the "Playground" section of the WorkflowAI platform, which is the main interface to build agents.
 
-It's very important that you check the 'latest_agent_run' to see the latest agent runs that the user has made.
+'playground state' represents the state of the playground, it includes:
+- the current agent parameters (instructions, temperature, etc.)
+- the current agent input
+- the 'agent_input_files', which containes the files contained in the 'agent_input' object. In the agent input, you will find a 'number' field that indicates the index of the file in the 'agent_input_files' array. In the 'agent_input_files' array, you will find a 'key_path' field that indicates the path to the file in the 'agent_input' object.
+- possibly some 'playground_agent_runs', which are actual invocations of the current agent with the current parameters.
+
+It's also very important that you check the 'latest_agent_run' to see the latest agent runs that the user has made, directly from the code.
 Pay attention to the temporality of those runs, with newer runs being at the beginning of the agent runs array.
 
 If the first run in the array use Claude models, and the second one is GPT, that means the user has switched to Claude. If there are back and forth between models, consider that the user has tried cloud but went back to GPT.
@@ -559,12 +644,14 @@ Your answer MUST include:
 - then you MUST only pass to the user the suggested models string in the code block, ex: model="MODEL_NAME_PREFIX_PLACEHOLDER<agent_name>/<suggested_model_name>". No other code block is needed. Ex: "To try out Claude 3.7 Sonnet, you can simply replace your existing model with: model="MODEL_NAME_PREFIX_PLACEHOLDERagent-name/claude-3-7-sonnet-20250219", (add a comma at the end of the line, to allow the user to copy paste it easily in his code).
 """
 
-PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS = f"""
-{_PROXY_META_AGENT_COMMON_INSTRUCTIONS}
+PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS = (
+    _PROXY_META_AGENT_COMMON_INSTRUCTIONS
+    + """
 
 # Goal
-{_PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS}
 """
+    + _PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS
+)
 
 _PROPOSE_INPUT_VARIABLES_INSTRUCTIONS = """Your goal here is to make the user migrate to input variables. You can check the documentation to see why it's a good idea to use input variables.
 
@@ -582,15 +669,18 @@ Your answer must NOT include:
 - any other content
 """
 
-PROPOSE_INPUT_VARIABLES_INSTRUCTIONS = f"""
-{_PROXY_META_AGENT_COMMON_INSTRUCTIONS}
+PROPOSE_INPUT_VARIABLES_INSTRUCTIONS = (
+    _PROXY_META_AGENT_COMMON_INSTRUCTIONS
+    + """
 
 # Goal
-{_PROPOSE_INPUT_VARIABLES_INSTRUCTIONS}
 """
+    + _PROPOSE_INPUT_VARIABLES_INSTRUCTIONS
+)
 
-PROPOSE_INPUT_VARIABLES_INSTRUCTIONS_NO_VERSION_MESSAGES = f"""
-{_PROXY_META_AGENT_COMMON_INSTRUCTIONS}
+PROPOSE_INPUT_VARIABLES_INSTRUCTIONS_NO_VERSION_MESSAGES = (
+    _PROXY_META_AGENT_COMMON_INSTRUCTIONS
+    + """
 
 # Goal
 Your goal here is to make the user migrate to input variables. You can check the documentation to see why it's a good idea to use input variables.
@@ -605,6 +695,7 @@ Your answer must NOT include:
 - do not talk about deployments at this stage
 - any other content
 """
+)
 
 _PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS = """
 Your goal where is to make tee user migrate to structured output. You can check the documentation to see why it's a good idea to use structured output.
@@ -623,12 +714,14 @@ Your answer must NOT include:
 - DO NOT REMOVED INPUT VARIABLES, neither from the 'messages' (in double curly braces), nor from from the completion request (ex: extra_body: {"input": "..."}, ,'input', ex.). Input variables are still needed for, even with the structured output.
 """
 
-PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS = f"""
-{_PROXY_META_AGENT_COMMON_INSTRUCTIONS}
+PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS = (
+    _PROXY_META_AGENT_COMMON_INSTRUCTIONS
+    + """
 
 # Goal
-{_PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS}
 """
+    + _PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS
+)
 
 _PROPOSE_DEPLOYMENT_INSTRUCTIONS = """
 Check in the 'agent_lifecycle_info.deployment_info.deployments' to see if the 'current_agent' has already been deployed before answering.
@@ -647,42 +740,84 @@ You answer MUST NOT INCLUDE:
 - A repetition of the whole code from previous answers. You ONLY need to show the "model=..." parameters and the "messages=[]".
 """
 
-PROPOSE_DEPLOYMENT_INSTRUCTIONS = f"""
-{_PROXY_META_AGENT_COMMON_INSTRUCTIONS}
+PROPOSE_DEPLOYMENT_INSTRUCTIONS = (
+    _PROXY_META_AGENT_COMMON_INSTRUCTIONS
+    + """
 
 # Goal
-{_PROPOSE_DEPLOYMENT_INSTRUCTIONS}
 """
+    + _PROPOSE_DEPLOYMENT_INSTRUCTIONS
+)
 
-GENERIC_INSTRUCTIONS = f"""
-{_PROXY_META_AGENT_COMMON_INSTRUCTIONS}
-
+GENERIC_INSTRUCTIONS = (
+    _PROXY_META_AGENT_COMMON_INSTRUCTIONS
+    + """
 <test_new_models>
 # In case the user enquires a about testing new models:
-{_PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS}
+"""
+    + _PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS
+    + """
 You MUST end your message with the 'try_other_models_assistant_proposal' in this cases with no quotes or any characters around it.
 </test_new_models>
 
 <setup_input_variables>
 # In case the user enquires a about input variables:
-{_PROPOSE_INPUT_VARIABLES_INSTRUCTIONS}
+
+"""
+    + _PROPOSE_INPUT_VARIABLES_INSTRUCTIONS
+    + """
 You MUST end your message with the 'setup_input_variables_assistant_proposal' in this cases with no quotes or any characters around it.
 </setup_input_variables>
 
 
 <setup_structured_output>
 # In case the user enquires a about structured output:
-{_PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS}
+"""
+    + _PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS
+    + """
 You MUST end your message with the 'setup_structured_output_assistant_proposal' in this cases
 </setup_structured_output>
 
 <setup_deployment>
 # In case the user enquires a about deployments:
-{_PROPOSE_DEPLOYMENT_INSTRUCTIONS}
+"""
+    + _PROPOSE_DEPLOYMENT_INSTRUCTIONS
+    + """
 You MUST end your message with the 'setup_deployment_assistant_proposal' in this cases
 </setup_deployment>
 
-<tools>
+
+<improving agent's results>
+
+Several factors impact an agent behaviour and performance, here are the most common ones (and how to enhance those factors):
+
+<updating agent's messages>
+The messages (especailly the system message and the first user message if any) explain the agent how to behave and how to generate its output, based on the input.
+Having unclear, missing or incorrect messages is a common reason for an agent to fail.
+Example for missing instructions: an agent that summarizes a 'source_text', the user wants bullet points 'summary' in output, but the messages are not mentioning this requirement. You need to run the 'update_version_messages' with the update messages.
+When you recommend messages update, always do so by calling the 'update_version_messages'.
+</updating_agent's_messages>
+
+<updating the agent's output schema>
+The output schema defines the structure of the agent output. Having an incomplete, malformed or unnecessarily complex schema is a common reason for an agent to fail.
+{% if agent_has_output_schema %}
+Example for missing field in output: the users wants to extracts more information than the agent is able to provide, ex: a summary of the transcript. You need to run the 'edit_output_schema_structure' tool to add new fields to the output of the agent, by submitting a simple 'edition_request_message' like "I want to add the 'summary' field to the output of the agent".
+Example for unnecessarily complex schema: the agent input schema includes a list of 'transcripts' but the processing can be done on a single transcript. You need to run the 'edit_output_schema_structure' tool to remove the list from the input schema, by submitting a simple 'edition_request_message' like "I want to make the 'transcripts' field from the input of the agent a single 'transcript'".
+{% else %}
+Example for missing field in output: the users wants to extracts more information than the agent is able to provide, ex: a summary of the transcript. You need to run the 'update_version_messages' tool to ask the model to generate the 'summary' field in the output of the agent.
+Example for unnecessarily complex schema: the agent input schema includes a list of 'transcripts' but the processing can be done on a single transcript. You need to run the 'update_version_messages' tool to generate a single 'transcript' in the output of the agent.
+{% endif %}
+</updating the agent's output schema>
+
+<running agent on different models>
+You can also run the agent on different models to see which one is the best for the task. You can do this by calling the 'run_agent_on_model' tool call with the models you want to run the agent on.
+Note that these changes only affect the playground, and the user will still need to update its code in order for its agent to use the new model.
+</running_agent_on_different_models>
+
+<using tools>
+The 'available_tools_description' field in input contains a description of the tools that can be used to improve the agent's output (web-browser, web search, etc.).
+Keep in mind that the LLMs that power the current_agent, can't access the internet on their own, they can't get real time data (weather, news, etc.). nor information that did not exist when the agent was trained (often months or years ago).
+
 <hosted_tools>
 You can enhance the agent capabilities by using hosted tools that will run inside the workflow AI platform when the user makes an agent run, those tools are detailled in 'available_hosted_tools_description'. Hosted tools can directly be added to the agent's message, so to add an hosted tool, you can call the 'update_version_messages' tool call with the new message containing the hosted tool (@....)
 </hosted_tools>
@@ -690,24 +825,135 @@ You can enhance the agent capabilities by using hosted tools that will run insid
 <custom_tools>
 In case the tools are not enough to endure the task the agent must do, you can propose the user to add a custom tool by making a 'create_custom_tool' tool call. In this case, the user will have to implement the actual tool in their codebase.
 </custom_tools>
-</tools>
+</using tools>
 
-<adjusting agent's results>
-<updating agent's messages>
-The main way to alter the agent's behavior is to alter on the version messages you pass to it. You can do this by calling the 'update_version_messages' tool call with the updated messages.
-When you recommend version message update, always do so by calling the 'update_version_messages'.
-</updating_agent's_messages>
-
-<running agent on different models>
-You can also run the agent on different models to see which one is the best for the task. You can do this by calling the 'run_agent_on_model' tool call with the models you want to run the agent on.
-Note that these changes only affect the playground, and the user will still need to update its code in order for its agent to use the new model.
-</running_agent_on_different_models>
-
-</adjusting_agent's_results>
+</improving_agent's_results>
 
 # All other cases:
 You must answer users' questions, but what you know from all the documentation in 'workflowai_documentation_sections' and 'integration_documentation' is not enough to answer the question.
+
+# Overall discussion flow
+Be mindful of subjects that are "over" in the messages, and those who are current. You do not need to answer messages that were already answered. Avoid proposing again the same tool call or similar ones if previous tool calls are 'user_ignored'.
+Be particularly mindful of the past tool calls that were made. Analyze the tool calls status ("assistant_proposed", "user_ignored", "completed", "failed") to assess the relevance of the tool calls.
+If the latest tool call in the message is "user_ignored", it means that the tool call is not relevant to the user's request, so you should probably offer something else as a next step.
+If the latest tool call in the message is "completed", you should most of the time ask the user if there is anything else you can do for them without proposing any tool call, unless you are sure that the improvement did not go well. Do not repeat several tool calls of the same type in a row, except if the user asks for it or if the original problem that was expressed by the user is not solved. Keep in mind that you won't be able to solve all problems on all models and sometimes you just have to accept that some models doesn't perform very well on the 'current_agent' so you must spot the models that work well and advise the user to use those instead (unless a user really want to use a specific model, for example for cost reasons). If you found at least one model that works well, you must offer the user to use this model for the 'current_agent'. Indeed, if none of the models among the three selected models works well, you can either make another round of improving the version messages / schema or offer to try different models with higher 'quality_index' using the 'run_agent_on_model' tool call.
 """
+)
+
+TOOL_DEFINITIONS: list[ChatCompletionToolParam] = [
+    {
+        "type": "function",
+        "function": {
+            "name": "update_version_messages",
+            "description": "Update the messages of the current agent version.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "updated_version_messages": {
+                        "type": "array",
+                        "description": "The new list of versions messages to use for the current agent, including unchanged messages. Message must ALWAYS ONLY contain a 'role' and a 'content' property.",
+                    },
+                    "example_input": {
+                        "type": "object",
+                        "description": "The example input to update the current agent version with, to fill only in case the version message contain {{input_variables}}",
+                    },
+                },
+                "required": [
+                    "updated_version_messages",
+                ],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_custom_tool",
+            "description": "Adds a custom tool to the current agent to enhance its capabilities. When proposing a tool, be mindful of what is the realistic needed parameters, for example for a translation tool, the parameters will be 'source_text' and 'target_language'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "The name of the tool to add."},
+                    "description": {
+                        "type": "string",
+                        "description": "The description of the tool to add.",
+                    },
+                    "parameters": {
+                        "type": "object",
+                        "description": "The parameters of the tool to add.",
+                    },
+                },
+                "required": ["name", "description", "parameters"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_agent_on_model",
+            "description": "A lot to run the agent on new models (for better performance, speed or cost). The runs will effectively replace the 'playground_agent_runs' must be existing models from 'available_models'",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "model_1": {
+                        "type": "string",
+                        "description": "The model to run the agent on, in the first column of the playground, ex: 'gpt-4o-mini-latest', etc",
+                    },
+                    "model_2": {
+                        "type": "string",
+                        "description": "The model to run the agent on, in the second column of the playground",
+                    },
+                    "model_3": {
+                        "type": "string",
+                        "description": "The model to run the agent on, in the third column of the playground",
+                    },
+                },
+                "required": ["model_1"],
+                "additionalProperties": False,
+            },
+        },
+    },
+]
+
+OUTPUT_SCHEMA_EDITION_TOOLS: list[ChatCompletionToolParam] = [
+    {
+        "type": "function",
+        "function": {
+            "name": "edit_output_schema_structure",
+            "description": "Edit the structural aspects of the agent's output schema including fields, fields names, fields types, etc.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "edition_request_message": {
+                        "type": "string",
+                        "description": "The message describing the structural changes to make to the agent schema (e.g., 'Add a new field called confidence with type number', 'Remove the optional field description', 'Make the field email required').",
+                    },
+                },
+                "required": ["edition_request_message"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "edit_output_schema_description_and_examples",
+            "description": "Edit the descriptions and examples of fields in the agent's output schema without changing the structure.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "description_and_examples_edition_request_message": {
+                        "type": "string",
+                        "description": "The message describing the description and example changes to make to the agent schema fields (e.g., 'Update the description of the name field to be more specific', 'Add examples to the email field', 'Improve the description of the confidence field').",
+                    },
+                },
+                "required": ["description_and_examples_edition_request_message"],
+                "additionalProperties": False,
+            },
+        },
+    },
+]
 
 
 async def proxy_meta_agent(
@@ -716,6 +962,7 @@ async def proxy_meta_agent(
     model_name_prefix: str,
     completion_client: str,
     is_using_version_messages: bool,
+    agent_has_output_schema: bool,
     use_tool_calls: bool = False,
 ) -> AsyncIterator[ProxyMetaAgentOutput]:
     client = AsyncOpenAI(
@@ -726,6 +973,10 @@ async def proxy_meta_agent(
     instructions = instructions.replace("MODEL_NAME_PREFIX_PLACEHOLDER", model_name_prefix)
     instructions = instructions.replace("COMPLETION_CLIENT_PLACEHOLDER", completion_client)
 
+    TOOLS = TOOL_DEFINITIONS if use_tool_calls else []
+    if agent_has_output_schema:
+        TOOLS.extend(OUTPUT_SCHEMA_EDITION_TOOLS)
+
     response = await client.chat.completions.create(
         model="proxy-meta-agent/claude-sonnet-4-20250514",
         messages=[
@@ -735,131 +986,33 @@ async def proxy_meta_agent(
         stream=True,
         temperature=0.0,
         extra_body={
-            "is_using_version_messages": is_using_version_messages,
+            "input": {
+                "is_using_version_messages": is_using_version_messages,
+                "has_output_schema": agent_has_output_schema,
+            },
         },
-        tools=[
-            {
-                "type": "function",
-                "function": {
-                    "name": "update_version_messages",
-                    "description": "Update the messages of the current agent version.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "updated_version_messages": {
-                                "type": "array",
-                                "description": "The new list of versions messages to use for the current agent, including unchanged messages.",
-                            },
-                            "example_input": {
-                                "type": "object",
-                                "description": "The example input to update the current agent version with, to fill only in case the version message contain {{input_variables}}",
-                            },
-                        },
-                        "required": [
-                            "updated_version_messages",
-                        ],
-                        "additionalProperties": False,
-                    },
-                },
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "create_custom_tool",
-                    "description": "Adds a custom tool to the current agent to enhance its capabilities. When proposing a tool, be mindful of what is the realistic needed parameters, for example for a translation tool, the parameters will be 'source_text' and 'target_language'.",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "name": {"type": "string", "description": "The name of the tool to add."},
-                            "description": {
-                                "type": "string",
-                                "description": "The description of the tool to add.",
-                            },
-                            "parameters": {
-                                "type": "object",
-                                "description": "The parameters of the tool to add.",
-                            },
-                        },
-                        "required": ["name", "description", "parameters"],
-                        "additionalProperties": False,
-                    },
-                },
-            },
-            {
-                "type": "function",
-                "function": {
-                    "name": "run_agent_on_model",
-                    "description": "A lot to run the agent on new models (for better performance, speed or cost). The runs will effectively replace the 'playground_agent_runs' must be existing models from 'available_models'",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "model_1": {
-                                "type": "string",
-                                "description": "The model to run the agent on, in the first column of the playground, ex: 'gpt-4o-mini-latest', etc",
-                            },
-                            "model_2": {
-                                "type": "string",
-                                "description": "The model to run the agent on, in the second column of the playground",
-                            },
-                            "model_3": {
-                                "type": "string",
-                                "description": "The model to run the agent on, in the third column of the playground",
-                            },
-                        },
-                        "required": ["model_1"],
-                        "additionalProperties": False,
-                    },
-                },
-            },
-        ]
-        if use_tool_calls
-        else [],
+        tools=TOOLS,
     )
 
     async for chunk in response:
-        updated_version_messages = None
-        example_input = None
-        tool_name = None
-        tool_description = None
-        tool_parameters = None
-        run_trigger_config: ProxyMetaAgentOutput.RunTriggerConfig | None = None
+        # Parse tool calls if present
+        parsed_tool_call = ParsedToolCall()
         if chunk.choices[0].delta.tool_calls:
             tool_call = chunk.choices[0].delta.tool_calls[0]
-            if (
-                tool_call.function
-                and tool_call.function.name == "update_version_messages"
-                and tool_call.function.arguments
-            ):
-                updated_version_messages = json.loads(tool_call.function.arguments)["updated_version_messages"]
-                example_input = json.loads(tool_call.function.arguments).get("example_input", {})
-            elif (
-                tool_call.function and tool_call.function.name == "create_custom_tool" and tool_call.function.arguments
-            ):
-                tool_name = json.loads(tool_call.function.arguments)["name"]
-                tool_description = json.loads(tool_call.function.arguments)["description"]
-                tool_parameters = json.loads(tool_call.function.arguments)["parameters"]
-            elif (
-                tool_call.function and tool_call.function.name == "run_agent_on_model" and tool_call.function.arguments
-            ):
-                model_1 = json.loads(tool_call.function.arguments).get("model_1")
-                model_2 = json.loads(tool_call.function.arguments).get("model_2")
-                model_3 = json.loads(tool_call.function.arguments).get("model_3")
-                run_trigger_config = ProxyMetaAgentOutput.RunTriggerConfig(
-                    model_1=model_1,
-                    model_2=model_2,
-                    model_3=model_3,
-                )
+            parsed_tool_call = parse_tool_call(tool_call)
 
         yield ProxyMetaAgentOutput(
             assistant_answer=chunk.choices[0].delta.content,
-            updated_version_messages=updated_version_messages,
-            example_input=example_input,
+            updated_version_messages=parsed_tool_call.updated_version_messages,
+            example_input=parsed_tool_call.example_input,
             new_tool=ProxyMetaAgentOutput.NewTool(
-                name=tool_name,
-                description=tool_description,
-                parameters=tool_parameters,
+                name=parsed_tool_call.tool_name,
+                description=parsed_tool_call.tool_description,
+                parameters=parsed_tool_call.tool_parameters,
             )
-            if tool_name and tool_description and tool_parameters
+            if parsed_tool_call.tool_name and parsed_tool_call.tool_description and parsed_tool_call.tool_parameters
             else None,
-            run_trigger_config=run_trigger_config,
+            run_trigger_config=parsed_tool_call.run_trigger_config,
+            edit_schema_structure_request=parsed_tool_call.edit_schema_structure_request,
+            edit_schema_description_and_examples_request=parsed_tool_call.edit_schema_description_and_examples_request,
         )
