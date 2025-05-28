@@ -11,7 +11,13 @@ from core.domain.task_typology import TaskTypology
 from core.domain.tenant_data import ProviderSettings
 from core.providers.base.abstract_provider import AbstractProvider
 from core.providers.base.config import ProviderConfig
-from core.providers.base.provider_error import ProviderRateLimitError
+from core.providers.base.provider_error import (
+    ContentModerationError,
+    FailedGenerationError,
+    ProviderError,
+    ProviderRateLimitError,
+    UnknownProviderError,
+)
 from core.providers.factory.abstract_provider_factory import AbstractProviderFactory
 from core.providers.factory.local_provider_factory import LocalProviderFactory
 from core.runners.workflowai.provider_pipeline import ProviderPipeline, ProviderPipelineBuilder
@@ -280,12 +286,14 @@ class TestProviderIterator:
         names = [p[0].name() for p in providers]
         assert names == [Provider.OPEN_AI, Provider.OPEN_AI, Provider.AZURE_OPEN_AI]
 
-    async def test_model_fallback_rate_limit(
+    @pytest.mark.parametrize("error_cls", [ProviderRateLimitError, UnknownProviderError])
+    async def test_model_fallback_provider_then_model(
         self,
         provider_builder: Mock,
         mock_provider_factory: Mock,
+        error_cls: type[ProviderError],
     ):
-        """Test model fallback the error that is raised allow a provider fallback"""
+        """Test model fallback when the error that is raised allow a provider fallback"""
         with patch(
             "core.runners.workflowai.provider_pipeline.get_model_data",
             return_value=_final_model_data(
@@ -313,9 +321,9 @@ class TestProviderIterator:
             )
 
         mock_provider1 = _mock_provider(Provider.AZURE_OPEN_AI)
-        mock_provider1.complete.side_effect = ProviderRateLimitError()
+        mock_provider1.complete.side_effect = error_cls()
         mock_provider2 = _mock_provider(Provider.OPEN_AI)
-        mock_provider2.complete.side_effect = ProviderRateLimitError()
+        mock_provider2.complete.side_effect = error_cls()
         mock_provider3 = _mock_provider(Provider.ANTHROPIC)
         mock_provider3.complete.return_value = "test"
 
@@ -349,3 +357,74 @@ class TestProviderIterator:
             (Provider.AZURE_OPEN_AI, Model.GPT_4O_MINI_2024_07_18),
             (Provider.ANTHROPIC, Model.CLAUDE_4_OPUS_20250514),
         ]
+
+    @pytest.mark.parametrize("error_cls", [ContentModerationError, FailedGenerationError])
+    async def test_model_fallback_failed_generation(
+        self,
+        provider_builder: Mock,
+        mock_provider_factory: Mock,
+        error_cls: type[ProviderError],
+    ):
+        """Test model fallback when the error that is raised does not allow a provider fallback"""
+        with patch(
+            "core.runners.workflowai.provider_pipeline.get_model_data",
+            return_value=_final_model_data(
+                model=Model.GPT_4O_MINI_2024_07_18,
+                providers=[Provider.OPEN_AI, Provider.AZURE_OPEN_AI],
+                # Anthropic fallback
+                fallback=ModelFallback(
+                    content_moderation=Model.CLAUDE_4_OPUS_20250514,
+                    structured_output=Model.CLAUDE_4_OPUS_20250514,
+                    rate_limit=Model.CLAUDE_4_OPUS_20250514,
+                ),
+            ),
+        ):
+            pipeline = ProviderPipeline(
+                options=WorkflowAIRunnerOptions(
+                    model=Model.GPT_4O_MINI_2024_07_18,
+                    provider=None,
+                    is_structured_generation_enabled=None,
+                    instructions="",
+                ),
+                custom_configs=None,
+                builder=provider_builder,
+                factory=mock_provider_factory,
+                typology=TaskTypology(),
+            )
+
+        mock_provider1 = _mock_provider(Provider.OPEN_AI)
+        mock_provider1.complete.side_effect = error_cls()
+        mock_provider2 = _mock_provider(Provider.OPEN_AI)
+        mock_provider2.complete.side_effect = error_cls()
+        mock_provider3 = _mock_provider(Provider.ANTHROPIC)
+        mock_provider3.complete.return_value = "test"
+
+        def _get_providers(provider_type: Provider) -> list[AbstractProvider[Any, Any]]:
+            match provider_type:
+                case Provider.OPEN_AI:
+                    # Only mock_provider2 will be called
+                    return [mock_provider2, mock_provider1]
+                case Provider.ANTHROPIC:
+                    return [mock_provider3]
+                case _:
+                    assert False, f"Unexpected provider type: {provider_type}"
+
+        mock_provider_factory.get_providers.side_effect = _get_providers
+
+        yielded: list[tuple[Provider, ModelData]] = []
+        for provider, _, _, model_data in pipeline.provider_iterator():
+            yielded.append((provider.name(), model_data.model))  # type: ignore
+
+            with pipeline.wrap_provider_call(provider):
+                # Re-raise if an exception or break the loop
+                try:
+                    await cast(Mock, provider).complete()
+                except Exception:
+                    raise
+                break
+
+        assert yielded == [
+            (Provider.OPEN_AI, Model.GPT_4O_MINI_2024_07_18),
+            (Provider.ANTHROPIC, Model.CLAUDE_4_OPUS_20250514),
+        ]
+        mock_provider1.complete.assert_not_called()
