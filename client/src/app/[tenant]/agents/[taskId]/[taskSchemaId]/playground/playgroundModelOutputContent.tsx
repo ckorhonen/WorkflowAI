@@ -225,6 +225,7 @@ export function PlaygroundModelOutputContent(props: ModelOutputContentProps) {
             input={taskRun.task_input}
             output={taskRun.task_output}
             updateInputAndRun={updateInputAndRun}
+            runId={taskRun.id}
           />
         )}
 
