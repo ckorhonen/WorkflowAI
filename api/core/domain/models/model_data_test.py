@@ -59,6 +59,7 @@ def _md(**kwargs: Any) -> FinalModelData:
                 ),
             ),
         ],
+        fallback=None,
     )
     return base.model_copy(deep=True, update=kwargs)
 
@@ -143,6 +144,7 @@ class TestFinalModelData:
             provider_name=DisplayedProvider.OPEN_AI.value,
             display_name="GPT-3.5 Turbo (1106)",
             supports_tool_calling=True,
+            fallback=None,
         )
 
         assert model_data.provider_data(Provider.OPEN_AI) == m1

@@ -94,7 +94,7 @@ GOOGLE_PROVIDER_DATA: ProviderDataByModel = {
     #             # Price per token > 128k
     #             ThresholdedTextPricePerToken(
     #                 threshold=128_000,
-    #                 prompt_cost_per_token_over_threshold=0.000_000_625 * GOOGLE_CHARS_PER_TOKEN,
+    #                 prompt_cost_per_token_over_threshold=0.6 * ONE_MILLION_TH25 * GOOGLE_CHARS_PER_TOKEN,
     #                 completion_cost_per_token_over_threshold=2.5 * ONE_MILLION_TH * GOOGLE_CHARS_PER_TOKEN,
     #             ),
     #         ],
@@ -127,7 +127,7 @@ GOOGLE_PROVIDER_DATA: ProviderDataByModel = {
                 # Price per token > 128k
                 ThresholdedTextPricePerToken(
                     threshold=128_000,
-                    prompt_cost_per_token_over_threshold=0.000_000_625 * GOOGLE_CHARS_PER_TOKEN,
+                    prompt_cost_per_token_over_threshold=0.625 * ONE_MILLION_TH * GOOGLE_CHARS_PER_TOKEN,
                     completion_cost_per_token_over_threshold=2.5 * ONE_MILLION_TH * GOOGLE_CHARS_PER_TOKEN,
                 ),
             ],
@@ -159,7 +159,7 @@ GOOGLE_PROVIDER_DATA: ProviderDataByModel = {
     #             ThresholdedTextPricePerToken(
     #                 threshold=128000,
     #                 prompt_cost_per_token_over_threshold=0.000_000_037_5 * GOOGLE_CHARS_PER_TOKEN,
-    #                 completion_cost_per_token_over_threshold=0.000_000_15 * GOOGLE_CHARS_PER_TOKEN,
+    #                 completion_cost_per_token_over_threshold=0.15 * ONE_MILLION_TH * GOOGLE_CHARS_PER_TOKEN,
     #             ),
     #         ],
     #         source="https://cloud.google.com/vertex-ai/generative-ai/pricing",
@@ -191,7 +191,7 @@ GOOGLE_PROVIDER_DATA: ProviderDataByModel = {
                 ThresholdedTextPricePerToken(
                     threshold=128000,
                     prompt_cost_per_token_over_threshold=0.000_000_037_5 * GOOGLE_CHARS_PER_TOKEN,
-                    completion_cost_per_token_over_threshold=0.000_000_15 * GOOGLE_CHARS_PER_TOKEN,
+                    completion_cost_per_token_over_threshold=0.15 * ONE_MILLION_TH * GOOGLE_CHARS_PER_TOKEN,
                 ),
             ],
             source="https://cloud.google.com/vertex-ai/generative-ai/pricing",
@@ -372,9 +372,9 @@ OPENAI_PROVIDER_DATA: ProviderDataByModel = {
     ),
     Model.GPT_4O_MINI_2024_07_18: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_000_15,
+            prompt_cost_per_token=0.15 * ONE_MILLION_TH,
             prompt_cached_tokens_discount=0.5,
-            completion_cost_per_token=0.000_000_6,
+            completion_cost_per_token=0.6 * ONE_MILLION_TH,
             source="https://openai.com/api/pricing/",
         ),
     ),
@@ -553,8 +553,8 @@ AMAZON_BEDROCK_PROVIDER_DATA: ProviderDataByModel = {
     # ),
     # Model.LLAMA_3_2_3B: ModelProviderData(
     #     text_price=TextPricePerToken(
-    #         prompt_cost_per_token=0.000_000_15,
-    #         completion_cost_per_token=0.000_000_15,
+    #         prompt_cost_per_token=0.15 * ONE_MILLION_TH,
+    #         completion_cost_per_token=0.15 * ONE_MILLION_TH,
     #         source="https://aws.amazon.com/bedrock/pricing/",
     #     ),
     # ),
@@ -903,9 +903,9 @@ AZURE_PROVIDER_DATA: ProviderDataByModel = {
     ),
     Model.GPT_4O_MINI_2024_07_18: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_000_15,
+            prompt_cost_per_token=0.15 * ONE_MILLION_TH,
             prompt_cached_tokens_discount=0.5,
-            completion_cost_per_token=0.000_000_6,
+            completion_cost_per_token=0.6 * ONE_MILLION_TH,
             source="https://openai.com/api/pricing/",
         ),
     ),

@@ -84,6 +84,10 @@ class MaxTokensData(SourcedBaseModel):
 
 
 class ModelFallback(BaseModel):
+    pricing_tier: PricingTier | None = Field(
+        default=None,
+        description="A pricing tier for the fallback, if provided",
+    )
     content_moderation: Model = Field(
         description="The model to use when the requested model raises a content moderation error",
     )
@@ -128,7 +132,12 @@ class ModelFallback(BaseModel):
                 structured_output = structured_output or Model.O3_LATEST_MEDIUM_REASONING_EFFORT
                 rate_limit = rate_limit or Model.O3_LATEST_MEDIUM_REASONING_EFFORT
 
-        return cls(content_moderation=content_moderation, structured_output=structured_output, rate_limit=rate_limit)
+        return cls(
+            pricing_tier=pricing_tier,
+            content_moderation=content_moderation,
+            structured_output=structured_output,
+            rate_limit=rate_limit,
+        )
 
 
 class ModelData(ModelDataSupports):

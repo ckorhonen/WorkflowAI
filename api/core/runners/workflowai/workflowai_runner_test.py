@@ -161,6 +161,7 @@ def model_data():
         quality_data=QualityData(index=100),
         provider_name=DisplayedProvider.OPEN_AI.value,
         supports_tool_calling=True,
+        fallback=None,
     )
 
 
@@ -1846,6 +1847,7 @@ class TestBuildProviderData:
             quality_data=QualityData(index=100),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
+            fallback=None,
         )
 
     def test_model_data_is_copied(

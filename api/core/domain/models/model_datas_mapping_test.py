@@ -7,7 +7,7 @@ from core.domain.errors import ProviderDoesNotSupportModelError
 from core.domain.models import Model, Provider
 from core.domain.models.model_data_supports import ModelDataSupports
 from core.domain.models.model_provider_data import ModelProviderData
-from core.domain.models.utils import get_model_provider_data
+from core.domain.models.utils import get_model_data, get_model_provider_data
 from core.domain.task_typology import SchemaTypology, TaskTypology
 from core.providers.amazon_bedrock.amazon_bedrock_provider import AmazonBedrockProvider
 from core.providers.fireworks.fireworks_provider import FireworksAIProvider
@@ -17,6 +17,11 @@ from core.providers.openai.openai_provider import OpenAIProvider
 from .model_data import DeprecatedModel, FinalModelData, LatestModel, ModelData
 from .model_datas_mapping import MODEL_DATAS
 from .model_provider_datas_mapping import MODEL_PROVIDER_DATAS
+
+_FILTERED_MODEL_DATA = sorted(
+    [pytest.param(m, id=m.model.value) for m in MODEL_DATAS.values() if isinstance(m, FinalModelData)],
+    key=lambda x: x.values[0].model,  # type:ignore
+)
 
 
 def test_MODEL_DATAS_is_exhaustive() -> None:
@@ -362,3 +367,78 @@ def test_no_duplicate_aliases():
                 for alias in model_data.aliases:
                     assert alias not in aliases, f"Alias {alias} is already defined for model {model}"
                     aliases.add(alias)
+
+
+class TestModelFallback:
+    _IGNORE_PRICE = {
+        # Model is way to cheap so we cannot find a model that is less than 3x cheaper
+        Model.GEMINI_1_5_FLASH_8B,
+        Model.GEMINI_2_5_FLASH_PREVIEW_0417,
+        Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417,
+        Model.LLAMA_3_1_8B,
+        Model.MINISTRAL_3B_2410,
+    }
+
+    _IGNORE_PROVIDERS = {
+        # LLama is supported by vertex but we use gemini for content moderation
+        Model.LLAMA_3_1_405B,
+    }
+
+    @pytest.mark.parametrize("model_data", _FILTERED_MODEL_DATA)
+    def test_fallback_models(self, model_data: FinalModelData):
+        """Check that the pricing of the fallback model is no more than twice the price of the model"""
+
+        if not model_data.fallback:
+            pytest.skip("Model has no fallback")
+
+        fallback_models: set[Model] = set(
+            model_data.fallback.model_dump(exclude_none=True, exclude={"pricing_tier"}).values(),
+        )
+
+        current_provider_data = model_data.providers[0][1]
+        current_providers = set(provider for provider, _ in model_data.providers)
+        current_text_price = current_provider_data.text_price
+
+        for fallback_model in fallback_models:
+            fallback_model_data = get_model_data(fallback_model)
+            assert isinstance(fallback_model_data, FinalModelData), "sanity"
+
+            # ------------------------------------------------------------
+            # Check providers
+
+            if model_data.model in self._IGNORE_PROVIDERS:
+                # We only check the primary provider
+                assert fallback_model_data.providers[0][0] != model_data.providers[0][0]
+            else:
+                # Check that the first provider is not in any of the current providers
+                assert fallback_model_data.providers[0][0] not in current_providers, (
+                    f"Fallback model {fallback_model} has the same provider as the current model {model_data.model}"
+                )
+
+            # ------------------------------------------------------------
+            # Check supports
+
+            # TODO: fix missing support for pdf and audio
+            missing_supports = fallback_model_data.missing_io_supports(
+                model_data,
+                # OpenAI does not support Audio :(
+                exclude={"supports_input_pdf", "supports_input_audio"},
+            )
+
+            assert not missing_supports, f"Model {fallback_model} is missing io supports: {missing_supports}"
+
+            # ------------------------------------------------------------
+            # Check price
+
+            fallback_text_price = fallback_model_data.providers[0][1].text_price
+
+            max_price = 2 * current_text_price.prompt_cost_per_token
+
+            if model_data.model not in self._IGNORE_PRICE:
+                assert fallback_text_price.prompt_cost_per_token <= max_price, (
+                    f"Fallback model {fallback_model} has a higher prompt cost per token than the current model {model_data.model}"
+                )
+            else:
+                assert model_data.fallback.pricing_tier == "cheapest", (
+                    "Fallback pricing tier should be cheapest when pricing is ignored"
+                )

@@ -47,6 +47,7 @@ class TestModelDataSupportsOverride:
             quality_data=QualityData(index=400),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
+            fallback=None,
         )
 
         assert override.override(data) == ModelData(
@@ -70,6 +71,7 @@ class TestModelDataSupportsOverride:
             quality_data=QualityData(index=400),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
+            fallback=None,
         )
 
 

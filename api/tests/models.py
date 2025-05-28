@@ -295,6 +295,7 @@ def model_data(**kwargs: Any) -> ModelData:
         quality_data=QualityData(mmlu=86, gpqa=48),
         provider_name=DisplayedProvider.FIREWORKS.value,
         supports_tool_calling=True,
+        fallback=None,
     ).model_copy(update=kwargs)
 
 

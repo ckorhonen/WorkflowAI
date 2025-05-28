@@ -363,6 +363,7 @@ class TestSanitizeModelData:
             quality_data=QualityData(index=100),
             provider_name=DisplayedProvider.GROQ.value,
             supports_tool_calling=True,
+            fallback=None,
         )
         groq_provider.sanitize_model_data(model_data)
         assert model_data.supports_structured_output is False

@@ -31,6 +31,7 @@ def _openai_fallback(pricing: PricingTier):
                 # should not happen since OpenAI has structured output
                 structured_output=Model.GEMINI_2_0_FLASH_LATEST,
                 rate_limit=Model.GEMINI_2_0_FLASH_LATEST,
+                pricing_tier=pricing,
             )
         case "medium":
             return ModelFallback(
@@ -38,12 +39,14 @@ def _openai_fallback(pricing: PricingTier):
                 # should not happen since OpenAI has structured output
                 structured_output=Model.CLAUDE_4_SONNET_LATEST,
                 rate_limit=Model.CLAUDE_4_SONNET_LATEST,
+                pricing_tier=pricing,
             )
         case "expensive":
             return ModelFallback(
                 content_moderation=Model.CLAUDE_4_OPUS_LATEST,
                 structured_output=Model.CLAUDE_4_OPUS_LATEST,
                 rate_limit=Model.CLAUDE_4_OPUS_LATEST,
+                pricing_tier=pricing,
             )
     return ModelFallback(
         content_moderation=Model.CLAUDE_4_SONNET_LATEST,
@@ -336,7 +339,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=85.20, gpqa=70.00),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=False,  # OpenAI returns 400 "model_does_not_support_mode"
-            fallback=_openai_fallback("medium"),
+            fallback=_openai_fallback("cheap"),
         ),
         Model.O3_MINI_LATEST_HIGH_REASONING_EFFORT: LatestModel(
             model=Model.O3_MINI_2025_01_31_HIGH_REASONING_EFFORT,
@@ -372,7 +375,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             supports_tool_calling=True,
             supports_parallel_tool_calls=False,
             aliases=["o3-mini-2025-01-31"],
-            fallback=_openai_fallback("medium"),
+            fallback=_openai_fallback("cheap"),
         ),
         Model.O3_MINI_2025_01_31_MEDIUM_REASONING_EFFORT: ModelData(
             display_name="o3-mini (2025-01-31) - Medium reasoning effort",
@@ -394,7 +397,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             latest_model=Model.O3_MINI_LATEST_MEDIUM_REASONING_EFFORT,
             supports_tool_calling=True,
             supports_parallel_tool_calls=False,
-            fallback=_openai_fallback("medium"),
+            fallback=_openai_fallback("cheap"),
         ),
         Model.O3_MINI_2025_01_31_LOW_REASONING_EFFORT: ModelData(
             display_name="o3-mini (2025-01-31) - Low reasoning effort",
@@ -416,7 +419,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             latest_model=Model.O3_MINI_LATEST_LOW_REASONING_EFFORT,
             supports_tool_calling=True,
             supports_parallel_tool_calls=False,
-            fallback=_openai_fallback("medium"),
+            fallback=_openai_fallback("cheap"),
         ),
         Model.O4_MINI_LATEST_HIGH_REASONING_EFFORT: LatestModel(
             model=Model.O4_MINI_2025_04_16_HIGH_REASONING_EFFORT,
@@ -453,7 +456,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             latest_model=Model.O4_MINI_LATEST_HIGH_REASONING_EFFORT,
             supports_tool_calling=True,
             supports_parallel_tool_calls=False,
-            fallback=_openai_fallback("medium"),
+            fallback=_openai_fallback("cheap"),
         ),
         Model.O4_MINI_2025_04_16_MEDIUM_REASONING_EFFORT: ModelData(
             display_name="o4-mini (2025-04-16) - Medium reasoning effort",
@@ -480,7 +483,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             supports_tool_calling=True,
             supports_parallel_tool_calls=False,
             aliases=["o4-mini-2025-04-16"],
-            fallback=_openai_fallback("medium"),
+            fallback=_openai_fallback("cheap"),
         ),
         Model.O4_MINI_2025_04_16_LOW_REASONING_EFFORT: ModelData(
             display_name="o4-mini (2025-04-16) - Low reasoning effort",
@@ -504,7 +507,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             latest_model=Model.O4_MINI_LATEST_LOW_REASONING_EFFORT,
             supports_tool_calling=True,
             supports_parallel_tool_calls=False,
-            fallback=_openai_fallback("medium"),
+            fallback=_openai_fallback("cheap"),
         ),
         Model.O3_LATEST_HIGH_REASONING_EFFORT: LatestModel(
             model=Model.O3_2025_04_16_HIGH_REASONING_EFFORT,
@@ -614,7 +617,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=83.5, gpqa=51.5),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
-            fallback=ModelFallback.default("cheap", content_moderation=Model.GPT_41_NANO_LATEST),
+            fallback=ModelFallback.default("cheapest", content_moderation=Model.GPT_41_NANO_LATEST),
         ),
         Model.GEMINI_2_0_FLASH_001: ModelData(
             display_name="Gemini 2.0 Flash (001)",
@@ -660,7 +663,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
             reasoning_level="none",
-            fallback=ModelFallback.default("cheap", content_moderation=Model.GPT_41_MINI_LATEST),
+            fallback=ModelFallback.default("cheapest", content_moderation=Model.GPT_41_MINI_LATEST),
         ),
         Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417: ModelData(
             display_name="Gemini 2.5 Flash Thinking Preview (0417)",
@@ -684,7 +687,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
             reasoning_level="medium",
-            fallback=ModelFallback.default("cheap", content_moderation=Model.GPT_41_MINI_LATEST),
+            fallback=ModelFallback.default("cheapest", content_moderation=Model.GPT_41_MINI_LATEST),
         ),
         Model.GEMINI_2_5_PRO_PREVIEW_0506: ModelData(
             display_name="Gemini 2.5 Pro Preview (0506)",
@@ -901,7 +904,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=78.9, gpqa=51),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
-            fallback=ModelFallback.default("cheap", content_moderation=Model.GPT_41_NANO_LATEST),
+            fallback=ModelFallback.default("cheapest", content_moderation=Model.GPT_41_NANO_LATEST),
         ),
         Model.GEMINI_1_5_FLASH_001: DeprecatedModel(replacement_model=Model.GEMINI_1_5_PRO_002),
         Model.GEMINI_1_0_PRO_VISION_001: DeprecatedModel(replacement_model=Model.GEMINI_1_5_PRO_002),
@@ -1115,7 +1118,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=86, gpqa=48),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=True,
-            fallback=ModelFallback.default("medium"),
+            fallback=ModelFallback.default("cheap"),
         ),
         # https://fireworks.ai/models/fireworks/llama-v3p1-8b-instruct
         Model.LLAMA_3_1_8B: ModelData(
@@ -1135,7 +1138,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=66.7, gpqa=33.8),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=False,
-            fallback=ModelFallback.default("cheap"),
+            fallback=ModelFallback.default("cheapest"),
         ),
         Model.LLAMA_3_2_90B: DeprecatedModel(replacement_model=Model.LLAMA_4_SCOUT_BASIC),
         Model.LLAMA_3_2_11B: DeprecatedModel(replacement_model=Model.LLAMA_4_SCOUT_BASIC),
@@ -1164,7 +1167,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=58.7, gpqa=38.4),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
-            fallback=ModelFallback.default("cheapest"),
+            fallback=ModelFallback.default("cheapest", content_moderation=Model.GPT_41_NANO_LATEST),
         ),
         Model.GEMINI_EXP_1206: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0506),
         Model.GEMINI_EXP_1121: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0506),
@@ -1185,7 +1188,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=83.3, gpqa=59.1),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=False,
-            fallback=ModelFallback.default("medium"),
+            fallback=ModelFallback.default("cheap"),
         ),
         Model.QWEN3_235B_A22B: ModelData(
             display_name="Qwen3 235B (22B active)",
@@ -1204,7 +1207,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=87.8, gpqa=70, source="https://qwenlm.github.io/blog/qwen3/"),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=True,
-            fallback=ModelFallback.default("cheap"),
+            fallback=ModelFallback.default("cheapest"),
         ),
         Model.QWEN3_30B_A3B: ModelData(
             display_name="Qwen3 30B (3B active)",
@@ -1223,7 +1226,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=80, gpqa=62, source="https://qwenlm.github.io/blog/qwen3/"),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=True,
-            fallback=ModelFallback.default("medium"),
+            fallback=ModelFallback.default("cheap"),
         ),
         Model.QWEN_QWQ_32B_PREVIEW: DeprecatedModel(replacement_model=Model.QWEN_QWQ_32B),
         Model.LLAMA_3_2_11B_VISION: DeprecatedModel(
@@ -1337,7 +1340,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             supports_tool_calling=True,
             supports_structured_output=True,
             latest_model=Model.DEEPSEEK_V3_LATEST,
-            fallback=ModelFallback.default("medium"),
+            fallback=ModelFallback.default("cheap"),
         ),
         # https://fireworks.ai/models/fireworks/deepseek-r1
         Model.DEEPSEEK_R1_2501: ModelData(
@@ -1377,7 +1380,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=90.8, gpqa=71.5),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=True,
-            fallback=ModelFallback.default("medium"),
+            fallback=ModelFallback.default("cheap"),
         ),
         # https://fireworks.ai/models/fireworks/deepseek-v3-0324
         Model.DEEPSEEK_V3_0324: ModelData(
