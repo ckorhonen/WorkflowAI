@@ -161,8 +161,12 @@ class MongoOrganizationStorage(PartialStorage[OrganizationDocument], Organizatio
         return await self._find_tenant(self._owner_id_filter(owner_id))
 
     @override
-    async def add_provider_config(self, config: ProviderConfig) -> ProviderSettings:
-        schema = ProviderSettingsSchema.from_domain(config, self.encryption)
+    async def add_provider_config(
+        self,
+        config: ProviderConfig,
+        preserve_credits: bool = False,
+    ) -> ProviderSettings:
+        schema = ProviderSettingsSchema.from_domain(config, self.encryption, preserve_credits)
 
         await self._update_one(
             {},

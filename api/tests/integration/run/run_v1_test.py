@@ -45,7 +45,7 @@ from tests.integration.common import (
     task_schema_url,
     wait_for_completed_tasks,
 )
-from tests.utils import fixture_bytes, fixtures_json, request_json_body
+from tests.utils import approx, fixture_bytes, fixtures_json, request_json_body
 
 
 async def test_run_with_metadata(test_client: IntegrationTestClient):
@@ -2065,3 +2065,56 @@ async def test_bad_request(test_client: IntegrationTestClient):
     assert run["status"] == "failure"
     assert "task_output" in run
     assert not run["task_output"]
+
+
+async def test_preserve_credits(test_client: IntegrationTestClient):
+    """Check that we indeed preserve credits when correctly configured"""
+
+    task = await test_client.create_agent_v1()
+
+    # First set up a provder that preserves credits
+    test_client.mock_openai_call()
+    created = await test_client.post(
+        "/organization/settings/providers",
+        json={"provider": "openai", "api_key": "hello", "preserve_credits": True},
+    )
+    config_id = created["id"]
+    await test_client.wait_for_completed_tasks()
+
+    org = await test_client.get_org()
+    assert org["current_credits_usd"] == 10
+
+    test_client.mock_openai_call(usage={"prompt_tokens": 10000, "completion_tokens": 10000})
+    run = await test_client.run_task_v1(task, model=Model.GPT_4O_2024_11_20)
+    run_cost = 10000 * 0.0000025 + 10000 * 0.000010
+    assert run["cost_usd"] == run_cost
+
+    await test_client.wait_for_completed_tasks()
+    org = await test_client.get_org()
+    assert org["current_credits_usd"] == 10  # credits should not have been touched
+
+    # Now delete the provider config
+    await test_client.delete(f"/organization/settings/providers/{config_id}")
+    await test_client.wait_for_completed_tasks()
+    org = await test_client.get_org()
+    assert org["current_credits_usd"] == 10
+    assert not org.get("providers")
+
+    # Add a new config that does not preserve credits
+    test_client.mock_openai_call()
+    await test_client.post(
+        "/organization/settings/providers",
+        json={"provider": "openai", "api_key": "hello"},
+    )
+
+    await test_client.run_task_v1(task, model=Model.GPT_4O_2024_11_20)
+    org = await test_client.get_org()
+    assert org["current_credits_usd"] == 10, "sanity"
+
+    test_client.mock_openai_call(usage={"prompt_tokens": 10000, "completion_tokens": 10000})
+    run1 = await test_client.run_task_v1(task, model=Model.GPT_4O_2024_11_20, use_cache="never")
+    assert run1["cost_usd"] == run_cost
+
+    await test_client.wait_for_completed_tasks()
+    org = await test_client.get_org()
+    assert org["current_credits_usd"] == approx(10 - run_cost)

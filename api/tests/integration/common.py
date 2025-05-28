@@ -1147,6 +1147,9 @@ class IntegrationTestClient:
     async def put(self, url: str, json: Any, **kwargs: Any) -> dict[str, Any]:
         return result_or_raise(await self.int_api_client.put(url, json=json, **kwargs))
 
+    async def delete(self, url: str, **kwargs: Any) -> dict[str, Any]:
+        return result_or_raise(await self.int_api_client.delete(url, **kwargs))
+
     ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 
     def mock_anthropic_call(

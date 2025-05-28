@@ -128,6 +128,8 @@ class TestAddProviderConfig:
         settings = await org_col.find_one({"tenant": TENANT})
         doc = OrganizationDocument.model_validate(settings)
         assert doc.providers and len(doc.providers) == 2
+        assert doc.providers[0].preserve_credits is False
+        assert doc.providers[1].preserve_credits is False
 
         org_settings = await organization_storage.get_organization()
         for provider in org_settings.providers:
@@ -135,6 +137,23 @@ class TestAddProviderConfig:
             decrypted = provider.decrypt()
             assert isinstance(decrypted, OpenAIConfig)
             assert decrypted.api_key == "h"
+
+    async def test_add_preserve_credits(
+        self,
+        organization_storage: MongoOrganizationStorage,
+        org_col: AsyncCollection,
+        mock_encryption: Encryption,
+    ) -> None:
+        # First, insert the organization document to ensure it exists
+        org_settings = OrganizationDocument(tenant=TENANT, slug="", providers=[])
+        await org_col.insert_one(dump_model(org_settings))
+
+        await organization_storage.add_provider_config(OpenAIConfig(api_key="h"), preserve_credits=True)
+
+        settings = await org_col.find_one({"tenant": TENANT})
+        doc = OrganizationDocument.model_validate(settings)
+        assert doc.providers and len(doc.providers) == 1
+        assert doc.providers[0].preserve_credits is True
 
 
 class TestDeleteProviderConfig:
