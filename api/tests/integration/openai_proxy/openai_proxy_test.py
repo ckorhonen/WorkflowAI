@@ -484,7 +484,7 @@ async def test_missing_model_error(test_client: IntegrationTestClient, openai_cl
     with pytest.raises(openai.BadRequestError) as e:
         await openai_client.chat.completions.create(
             # Not a valid model
-            model="gpt-4",
+            model="gpt-4n",
             messages=[],
         )
     assert "Did you mean gpt-4o-mini-latest" in e.value.message
