@@ -1249,10 +1249,6 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             latest_model=Model.DEEPSEEK_V3_LATEST,
         ),
         # https://fireworks.ai/models/fireworks/deepseek-r1
-        Model.DEEPSEEK_R1_LATEST: LatestModel(
-            model=Model.DEEPSEEK_R1_0528,
-            display_name="DeepSeek R1 (latest)",
-        ),
         Model.DEEPSEEK_R1_2501: ModelData(
             display_name="DeepSeek R1 (25-01) (US hosted)",
             supports_json_mode=True,
@@ -1266,7 +1262,6 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             ),
             provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/deepseek.svg",
-            latest_model=Model.DEEPSEEK_R1_LATEST,
             release_date=date(2025, 1, 20),
             quality_data=QualityData(mmlu=90.8, gpqa=71.5),
             provider_name=DisplayedProvider.FIREWORKS.value,
@@ -1305,7 +1300,6 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             ),
             provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/deepseek.svg",
-            latest_model=Model.DEEPSEEK_R1_LATEST,
             release_date=date(2025, 5, 28),
             quality_data=QualityData(
                 equivalent_to=(  # TODO: adjust later, could not find score for MMLU nor GPQA

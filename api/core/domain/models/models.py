@@ -185,7 +185,6 @@ class Model(StrEnum):
     DEEPSEEK_R1_2501 = "deepseek-r1-2501"
     DEEPSEEK_R1_2501_BASIC = "deepseek-r1-2501-basic"
     DEEPSEEK_R1_0528 = "deepseek-r1-0528"
-    DEEPSEEK_R1_LATEST = "deepseek-r1-latest"
 
     # --------------------------------------------------------------------------
     # XAI Models
