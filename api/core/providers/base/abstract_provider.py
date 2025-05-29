@@ -606,17 +606,6 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
     # Does not really matter if it fails, we will compute the final cost when the run is stored
     _FINALIZE_COMPLETIONS_TIMEOUT = 0.1
 
-    # Method is called on critical path so it should handle all exceptions and timeout after a reasonable amount of time
-    async def _finalize_completions_in_context(self, model: Model):
-        builder = self._builder_context()
-        if builder is None:
-            self.logger.error("No builder context while finalizing completions")
-            return
-        async with asyncio.TaskGroup() as tg:
-            for completion in builder.llm_completions:
-                # TODO: remove model here, all completions should now have a model
-                tg.create_task(self.finalize_completion(model, completion, self._FINALIZE_COMPLETIONS_TIMEOUT))
-
     # -------------------------------------------------
     # Completions without stream
 
@@ -637,10 +626,7 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
             TaskOutput: a task output
         """
 
-        try:
-            return await self._retryable_complete(messages, options, output_factory)
-        finally:
-            await self._finalize_completions_in_context(options.model)
+        return await self._retryable_complete(messages, options, output_factory)
 
     def _prepare_provider_error(self, e: ProviderError, options: ProviderOptions):
         if e.provider_options is None:
@@ -710,6 +696,8 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
             )
 
             return await self._retryable_complete(messages, options, output_factory, retries)
+        finally:
+            await self.finalize_completion(options.model, raw, self._FINALIZE_COMPLETIONS_TIMEOUT)
         # Any other error is a crash
 
     @abstractmethod
@@ -772,6 +760,8 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
                     break
                 max_attempts = max_attempts - 1 if max_attempts is not None else e.max_attempt_count - 1
                 messages = self._add_exception_to_messages(messages, raw_completion.response, e)
+            finally:
+                await self.finalize_completion(options.model, raw, self._FINALIZE_COMPLETIONS_TIMEOUT)
 
         if not stream_exc:
             # This should never happen
@@ -804,8 +794,6 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
             if o is not None:
                 e.partial_output = o.output
             raise e
-        finally:
-            await self._finalize_completions_in_context(options.model)
 
     @classmethod
     def sanitize_config(cls, config: ProviderConfigVar) -> ProviderConfigVar:

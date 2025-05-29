@@ -314,8 +314,8 @@ async def test_openai_usage_with_usage_and_cached_tokens(
     assert usage["completion_token_count"] == 11
     assert usage["prompt_token_count_cached"] == 5
     # 5 * 0.0000025 + 5 * 0.00000125 (50% price for cached tokens)
-    assert usage["prompt_cost_usd"] == pytest.approx(0.00001875, abs=1e-10)  # pyright: ignore [reportUnknownMemberType]
-    assert usage["completion_cost_usd"] == 0.00011  # 11 * 0.000010
+    assert usage["prompt_cost_usd"] == approx(0.00001875, abs=1e-10)  # pyright: ignore [reportUnknownMemberType]
+    assert usage["completion_cost_usd"] == approx(0.00011)  # 11 * 0.000010
     assert usage["model_context_window_size"] == 128000  # from model
 
 
@@ -357,7 +357,7 @@ async def test_openai_stream(
         assert chunk.get("id") == chunks[0]["id"]
 
     assert chunks[-1]["task_output"] == {"greeting": "Hello James!"}
-    assert chunks[-1]["cost_usd"] == 35 * 0.0000025 + 109 * 0.000010
+    assert chunks[-1]["cost_usd"] == approx(35 * 0.0000025 + 109 * 0.000010)
     assert chunks[-1]["duration_seconds"] > 0
 
 

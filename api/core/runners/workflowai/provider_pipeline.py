@@ -170,8 +170,8 @@ class ProviderPipeline:
             if e.should_try_next_provider or self._has_used_model_fallback is False or self._fallback_models:
                 return
 
-            # Or we just raise
-            raise e
+            # Or we just raise the first error to be consistent with the other errors
+            raise self.errors[0]
 
     def _should_retry_without_structured_generation(self):
         # We pop the flag and set the force structured generation to false to
