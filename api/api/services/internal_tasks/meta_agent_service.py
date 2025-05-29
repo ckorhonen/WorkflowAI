@@ -72,7 +72,10 @@ from core.domain.integration.integration_domain import (
     Integration,
     ProgrammingLanguage,
 )
-from core.domain.integration.integration_mapping import default_integration_for_language, get_integration_by_kind
+from core.domain.integration.integration_mapping import (
+    default_integration_for_language,
+    safe_get_integration_by_kind,
+)
 from core.domain.models.model_data import LatestModel
 from core.domain.models.model_datas_mapping import MODEL_DATAS
 from core.domain.models.model_provider_datas_mapping import AZURE_PROVIDER_DATA, OPENAI_PROVIDER_DATA
@@ -1353,16 +1356,16 @@ class MetaAgentService:
         task_tuple: TaskTuple,
         agent_schema_id: int,
     ) -> Integration:
-        if agent.used_integration_kind:
+        if integration := safe_get_integration_by_kind(agent.used_integration_kind):
             # If integration is registered for the agent, use it
-            return get_integration_by_kind(agent.used_integration_kind)
+            return integration
 
         if agent.task_schema_id > 1:
             schema_id_to_explore = list(range(1, agent.task_schema_id))[::-1]  # reverse order
             for schema_id in schema_id_to_explore:
                 agent_to_check = await self.storage.task_variant_latest_by_schema_id(task_tuple[0], schema_id)
-                if agent_to_check.used_integration_kind:
-                    return get_integration_by_kind(agent_to_check.used_integration_kind)
+                if integration := safe_get_integration_by_kind(agent_to_check.used_integration_kind):
+                    return integration
 
         # Else, pick the default integration for the programming language based on the user agent of the latest run
         user_agent = ""

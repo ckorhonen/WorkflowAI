@@ -4,7 +4,6 @@ from typing import Self
 from pydantic import Field
 
 from core.domain.fields.chat_message import ChatMessage
-from core.domain.integration.integration_domain import IntegrationKind
 from core.domain.task_variant import SerializableTaskVariant
 from core.storage.mongo.models.pyobjectid import PyObjectID
 from core.utils.fields import datetime_factory
@@ -28,7 +27,7 @@ class TaskVariantDocument(BaseDocumentWithStrID):
     # TODO: remove, should be at task info level
     is_public: bool | None = None
     creation_chat_messages: list[ChatMessage] | None = None
-    used_integration_kind: IntegrationKind | None = None
+    used_integration_kind: str | None = None
 
     @classmethod
     def from_resource(cls, tenant: str, task: SerializableTaskVariant) -> Self:

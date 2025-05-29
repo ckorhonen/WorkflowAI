@@ -163,3 +163,7 @@ class GoogleProvider(GoogleProviderBase[GoogleProviderConfig]):
             return
 
         llm_usage.completion_token_count = len(response.replace(" ", "")) / GOOGLE_CHARS_PER_TOKEN if response else 0
+
+    @override
+    def default_model(self) -> Model:
+        return Model.GEMINI_2_0_FLASH_001

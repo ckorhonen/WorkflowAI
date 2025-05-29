@@ -1,3 +1,5 @@
+import logging
+
 from core.domain.integration.integration_domain import (
     Integration,
     IntegrationKind,
@@ -207,3 +209,16 @@ def get_integration_by_kind(kind: IntegrationKind) -> Integration:
         return INTEGRATIONS_BY_KIND[kind]
     except KeyError as exc:
         raise ValueError(f"No integration found for kind: {kind}") from exc
+
+
+def safe_get_integration_by_kind(kind: IntegrationKind | str | None) -> Integration | None:
+    if not kind:
+        return None
+    try:
+        return get_integration_by_kind(IntegrationKind(kind))
+    except (KeyError, ValueError):
+        logging.getLogger(__name__).warning(
+            "Unknown integration kind",
+            extra={"used_integration_kind": kind},
+        )
+        return None

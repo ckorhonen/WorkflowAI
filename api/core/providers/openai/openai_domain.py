@@ -396,7 +396,7 @@ class OAIToolFunctionChoice(BaseModel):
 
 class CompletionRequest(BaseModel):
     temperature: float
-    max_tokens: int | None
+    max_completion_tokens: int | None
     model: str
     messages: list[OpenAIMessage | OpenAIToolMessage]
     response_format: ResponseFormat = JSONResponseFormat()

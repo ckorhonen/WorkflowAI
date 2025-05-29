@@ -81,7 +81,7 @@ class TestBuildRequest:
             },
         ]
         assert request.temperature == 0
-        assert request.max_tokens == 10
+        assert request.max_completion_tokens == 10
 
     def test_build_request_without_max_tokens(self, openai_provider: OpenAIProvider):
         request = openai_provider._build_request(  # pyright: ignore [reportPrivateUsage]
@@ -105,7 +105,7 @@ class TestBuildRequest:
             },
         ]
         assert request.temperature == 0
-        assert request.max_tokens is None
+        assert request.max_completion_tokens is None
         # model_data = get_model_data(Model.GPT_4O_2024_11_20)
         # if model_data.max_tokens_data.max_output_tokens:
         #     assert request.max_tokens == model_data.max_tokens_data.max_output_tokens
@@ -402,7 +402,7 @@ class TestStream:
         assert request.method == "POST"  # pyright: ignore reportUnknownMemberType
         body = json.loads(request.read().decode())
         assert body == {
-            "max_tokens": 10,
+            "max_completion_tokens": 10,
             "model": "gpt-3.5-turbo-1106",
             "messages": [
                 {
@@ -488,7 +488,7 @@ class TestComplete:
         assert request.method == "POST"  # pyright: ignore reportUnknownMemberType
         body = json.loads(request.read().decode())
         assert body == {
-            "max_tokens": 10,
+            "max_completion_tokens": 10,
             "model": "gpt-3.5-turbo-1106",
             "messages": [
                 {
@@ -543,7 +543,7 @@ class TestComplete:
         assert request.method == "POST"  # pyright: ignore reportUnknownMemberType
         body = json.loads(request.read().decode())
         assert body == {
-            "max_tokens": 10,
+            "max_completion_tokens": 10,
             "model": "gpt-3.5-turbo-1106",
             "messages": [
                 {
@@ -625,7 +625,7 @@ class TestComplete:
         assert request.method == "POST"  # pyright: ignore reportUnknownMemberType
         body = json.loads(request.read().decode())
         assert body == {
-            "max_tokens": 10,
+            "max_completion_tokens": 10,
             "model": "gpt-4o-mini-2024-07-18",
             "messages": [
                 {

@@ -45,7 +45,7 @@ from tests.integration.common import (
     task_schema_url,
     wait_for_completed_tasks,
 )
-from tests.utils import fixture_bytes, fixtures_json, request_json_body
+from tests.utils import approx, fixture_bytes, fixtures_json, request_json_body
 
 
 async def test_run_with_metadata(test_client: IntegrationTestClient):
@@ -314,8 +314,8 @@ async def test_openai_usage_with_usage_and_cached_tokens(
     assert usage["completion_token_count"] == 11
     assert usage["prompt_token_count_cached"] == 5
     # 5 * 0.0000025 + 5 * 0.00000125 (50% price for cached tokens)
-    assert usage["prompt_cost_usd"] == pytest.approx(0.00001875, abs=1e-10)  # pyright: ignore [reportUnknownMemberType]
-    assert usage["completion_cost_usd"] == 0.00011  # 11 * 0.000010
+    assert usage["prompt_cost_usd"] == approx(0.00001875, abs=1e-10)  # pyright: ignore [reportUnknownMemberType]
+    assert usage["completion_cost_usd"] == approx(0.00011)  # 11 * 0.000010
     assert usage["model_context_window_size"] == 128000  # from model
 
 
@@ -357,7 +357,7 @@ async def test_openai_stream(
         assert chunk.get("id") == chunks[0]["id"]
 
     assert chunks[-1]["task_output"] == {"greeting": "Hello James!"}
-    assert chunks[-1]["cost_usd"] == 35 * 0.0000025 + 109 * 0.000010
+    assert chunks[-1]["cost_usd"] == approx(35 * 0.0000025 + 109 * 0.000010)
     assert chunks[-1]["duration_seconds"] > 0
 
 
@@ -2065,3 +2065,113 @@ async def test_bad_request(test_client: IntegrationTestClient):
     assert run["status"] == "failure"
     assert "task_output" in run
     assert not run["task_output"]
+
+
+@pytest.mark.parametrize("use_deployment", [True, False])
+async def test_with_model_fallback_on_rate_limit(test_client: IntegrationTestClient, use_deployment: bool):
+    task = await test_client.create_agent_v1()
+    run_kwargs: dict[str, Any] = (
+        {"model": Model.CLAUDE_3_5_SONNET_20241022} if not use_deployment else {"version": "production"}
+    )
+
+    if use_deployment:
+        version = await test_client.create_version_v1(task, {"model": Model.CLAUDE_3_5_SONNET_20241022})
+        await test_client.post(
+            f"/v1/_/agents/{task['id']}/versions/{version['id']}/deploy",
+            json={"environment": "production"},
+        )
+
+    # Anthropic and bedrock always return a 429 so we will proceed with model fallback
+    test_client.mock_anthropic_call(status_code=429)
+    test_client.mock_bedrock_call(model=Model.CLAUDE_3_5_SONNET_20241022, status_code=429)
+
+    # OpenAI returns a 200
+    test_client.mock_openai_call()
+
+    # Disable fallback -> we will raise
+    with pytest.raises(HTTPStatusError) as e:
+        await test_client.run_task_v1(task, use_fallback="never", **run_kwargs)
+    assert e.value.response.status_code == 429
+
+    # Auto fallback will use openai
+    run1 = await test_client.run_task_v1(task, use_fallback=None, **run_kwargs)
+    completions1 = (await test_client.fetch_completions(task, run_id=run1["id"]))["completions"]
+    assert len(completions1) == 3
+    assert [(c["model"], c["provider"], len(c["messages"]), c.get("cost_usd")) for c in completions1] == [
+        (Model.CLAUDE_3_5_SONNET_20241022, Provider.ANTHROPIC, 2, None),
+        (Model.CLAUDE_3_5_SONNET_20241022, Provider.AMAZON_BEDROCK, 2, None),
+        (Model.GPT_41_2025_04_14, Provider.OPEN_AI, 2, approx((10 * 2 + 11 * 8) / 1_000_000)),
+    ]
+
+    # And manual fallback can be used to switch to a different model
+    run2 = await test_client.run_task_v1(
+        task,
+        use_fallback=[Model.O3_2025_04_16_LOW_REASONING_EFFORT],
+        use_cache="never",
+        **run_kwargs,
+    )
+    completions2 = (await test_client.fetch_completions(task, run_id=run2["id"]))["completions"]
+    assert len(completions2) == 3
+    assert [(c["model"], c["provider"], len(c["messages"]), c.get("cost_usd")) for c in completions2] == [
+        (Model.CLAUDE_3_5_SONNET_20241022, Provider.ANTHROPIC, 2, None),
+        (Model.CLAUDE_3_5_SONNET_20241022, Provider.AMAZON_BEDROCK, 2, None),
+        (Model.O3_2025_04_16_LOW_REASONING_EFFORT, Provider.OPEN_AI, 2, approx((10 * 10 + 11 * 40) / 1_000_000)),
+    ]
+
+
+@pytest.mark.parametrize("use_deployment", [True, False])
+async def test_with_model_fallback_on_failed_generation(test_client: IntegrationTestClient, use_deployment: bool):
+    task = await test_client.create_agent_v1()
+    run_kwargs: dict[str, Any] = (
+        {"model": Model.CLAUDE_3_5_SONNET_20241022} if not use_deployment else {"version": "production"}
+    )
+
+    if use_deployment:
+        version = await test_client.create_version_v1(task, {"model": Model.CLAUDE_3_5_SONNET_20241022})
+        await test_client.post(
+            f"/v1/_/agents/{task['id']}/versions/{version['id']}/deploy",
+            json={"environment": "production"},
+        )
+
+    # Anthropic returns an invalid JSON
+    test_client.mock_anthropic_call(
+        status_code=200,
+        # Not a JSON
+        raw_content="hello",
+        usage={"input_tokens": 10, "output_tokens": 10},
+    )
+
+    # OpenAI returns a 200
+    test_client.mock_openai_call()
+
+    # Disable fallback -> we will raise the failed error
+    with pytest.raises(HTTPStatusError) as e:
+        await test_client.run_task_v1(task, use_fallback="never", **run_kwargs)
+    assert e.value.response.status_code == 400
+
+    # Auto fallback will use openai
+    run1 = await test_client.run_task_v1(task, use_fallback=None, **run_kwargs)
+    completions1 = (await test_client.fetch_completions(task, run_id=run1["id"]))["completions"]
+    assert len(completions1) == 3
+    assert [(c["model"], c["provider"], len(c["messages"]), c.get("cost_usd")) for c in completions1] == [
+        (Model.CLAUDE_3_5_SONNET_20241022, Provider.ANTHROPIC, 2, approx(10 * (3 + 15) / 1_000_000)),
+        # Second time we retry with different messages
+        (Model.CLAUDE_3_5_SONNET_20241022, Provider.ANTHROPIC, 4, approx(10 * (3 + 15) / 1_000_000)),
+        (Model.GPT_41_2025_04_14, Provider.OPEN_AI, 2, approx((10 * 2 + 11 * 8) / 1_000_000)),
+    ]
+
+    # And manual fallback can be used to switch to a different model
+    run2 = await test_client.run_task_v1(
+        task,
+        use_fallback=[Model.O3_2025_04_16_LOW_REASONING_EFFORT],
+        use_cache="never",
+        **run_kwargs,
+    )
+    completions2 = (await test_client.fetch_completions(task, run_id=run2["id"]))["completions"]
+    assert len(completions2) == 3
+    assert [(c["model"], c["provider"], len(c["messages"]), c.get("cost_usd")) for c in completions2] == [
+        (Model.CLAUDE_3_5_SONNET_20241022, Provider.ANTHROPIC, 2, approx(10 * (3 + 15) / 1_000_000)),
+        # Second time we retry with different messages
+        (Model.CLAUDE_3_5_SONNET_20241022, Provider.ANTHROPIC, 4, approx(10 * (3 + 15) / 1_000_000)),  # 2 + 2
+        (Model.O3_2025_04_16_LOW_REASONING_EFFORT, Provider.OPEN_AI, 2, approx((10 * 10 + 11 * 40) / 1_000_000)),
+    ]

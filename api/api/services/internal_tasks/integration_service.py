@@ -38,6 +38,7 @@ from core.domain.integration.integration_mapping import (
     PROPOSED_AGENT_NAME_AND_MODEL_PLACEHOLDER,
     WORKFLOWAI_API_KEY_PLACEHOLDER,
     get_integration_by_kind,
+    safe_get_integration_by_kind,
 )
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.users import User
@@ -449,9 +450,9 @@ well organized (by agent) on WorkflowAI (trust me, makes everything easier).
 
         agent = version.variant
 
-        integration = get_integration_by_kind(
-            forced_integration_kind or agent.used_integration_kind or IntegrationKind.OPENAI_SDK_PYTHON,
-        )
+        integration = safe_get_integration_by_kind(
+            forced_integration_kind or agent.used_integration_kind,
+        ) or get_integration_by_kind(IntegrationKind.OPENAI_SDK_PYTHON)
 
         version_messages = await self._get_messages_payload_for_code_snippet(version, task_tuple, agent.task_schema_id)
         doc_gen_input = IntegrationCodeSnippetAgentInput(

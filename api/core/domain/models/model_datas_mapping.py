@@ -11,6 +11,8 @@ from .model_data import (
     MaxTokensData,
     ModelData,
     ModelDataMapping,
+    ModelFallback,
+    PricingTier,
     QualityData,
 )
 
@@ -20,12 +22,47 @@ def _char_to_token(char_count: int) -> int:
     return int(round(char_count / 4))
 
 
+def _openai_fallback(pricing: PricingTier):
+    """Alternative fallback for OpenAI models. Can't use the default since it uses mostly OpenAI models"""
+    match pricing:
+        case "cheap" | "cheapest":
+            return ModelFallback(
+                content_moderation=Model.GEMINI_2_0_FLASH_LATEST,
+                # should not happen since OpenAI has structured output
+                structured_output=Model.GEMINI_2_0_FLASH_LATEST,
+                rate_limit=Model.GEMINI_2_0_FLASH_LATEST,
+                pricing_tier=pricing,
+            )
+        case "medium":
+            return ModelFallback(
+                content_moderation=Model.CLAUDE_4_SONNET_LATEST,
+                # should not happen since OpenAI has structured output
+                structured_output=Model.CLAUDE_4_SONNET_LATEST,
+                rate_limit=Model.CLAUDE_4_SONNET_LATEST,
+                pricing_tier=pricing,
+            )
+        case "expensive":
+            return ModelFallback(
+                content_moderation=Model.CLAUDE_4_OPUS_LATEST,
+                structured_output=Model.CLAUDE_4_OPUS_LATEST,
+                rate_limit=Model.CLAUDE_4_OPUS_LATEST,
+                pricing_tier=pricing,
+            )
+    return ModelFallback(
+        content_moderation=Model.CLAUDE_4_SONNET_LATEST,
+        # should not happen since OpenAI has structured output
+        structured_output=Model.CLAUDE_4_SONNET_LATEST,
+        rate_limit=Model.CLAUDE_4_SONNET_LATEST,
+    )
+
+
 def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
     return {
         Model.GPT_4O_LATEST: LatestModel(
             model=Model.GPT_4O_2024_11_20,
             display_name="GPT-4o (latest)",
             is_default=False,
+            aliases=["gpt-4o"],
         ),
         Model.GPT_4O_2024_11_20: ModelData(
             display_name="GPT-4o (2024-11-20)",
@@ -39,13 +76,13 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=16_384,
                 source="https://platform.openai.com/docs/models",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             latest_model=Model.GPT_4O_LATEST,
             release_date=date(2024, 11, 20),
             quality_data=QualityData(mmlu=85.70, gpqa=46.00),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
+            fallback=_openai_fallback("medium"),
         ),
         Model.GPT_4O_2024_08_06: ModelData(
             display_name="GPT-4o (2024-08-06)",
@@ -59,13 +96,13 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=16_384,
                 source="https://platform.openai.com/docs/models",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             release_date=date(2024, 8, 6),
             quality_data=QualityData(mmlu=88.70, gpqa=53.10),
             latest_model=Model.GPT_4O_LATEST,
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
+            fallback=_openai_fallback("medium"),
         ),
         Model.GPT_41_LATEST: LatestModel(
             model=Model.GPT_41_2025_04_14,
@@ -84,13 +121,13 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=32_768,
                 source="https://platform.openai.com/docs/models",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             latest_model=Model.GPT_41_LATEST,
             release_date=date(2025, 4, 14),
             quality_data=QualityData(mmlu=90.2, gpqa=66.3),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
+            fallback=_openai_fallback("medium"),
         ),
         Model.GPT_41_MINI_LATEST: LatestModel(
             model=Model.GPT_41_MINI_2025_04_14,
@@ -109,13 +146,13 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=32_768,
                 source="https://platform.openai.com/docs/models",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             latest_model=Model.GPT_41_MINI_LATEST,
             release_date=date(2025, 4, 14),
             quality_data=QualityData(mmlu=87.5, gpqa=65),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
+            fallback=_openai_fallback("cheapest"),
         ),
         Model.GPT_41_NANO_LATEST: LatestModel(
             model=Model.GPT_41_NANO_2025_04_14,
@@ -134,13 +171,13 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=32_768,
                 source="https://platform.openai.com/docs/models",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             release_date=date(2025, 4, 14),
             quality_data=QualityData(mmlu=80, gpqa=50),
             latest_model=Model.GPT_41_NANO_LATEST,
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
+            fallback=_openai_fallback("cheapest"),
         ),
         Model.GPT_45_PREVIEW_2025_02_27: ModelData(
             display_name="GPT-4.5-preview (2025-02-27)",
@@ -154,16 +191,20 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=16_384,
                 source="https://platform.openai.com/docs/models",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             release_date=date(2025, 2, 27),
             quality_data=QualityData(mmlu=85.10, gpqa=71.40),
             latest_model=Model.GPT_4O_LATEST,
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
+            aliases=["gpt-4.5-preview"],
+            fallback=_openai_fallback("expensive"),
         ),
         Model.GPT_4O_2024_05_13: DeprecatedModel(replacement_model=Model.GPT_4O_2024_11_20),
-        Model.GPT_4_TURBO_2024_04_09: DeprecatedModel(replacement_model=Model.GPT_4O_2024_11_20),
+        Model.GPT_4_TURBO_2024_04_09: DeprecatedModel(
+            replacement_model=Model.GPT_4O_2024_11_20,
+            aliases=["gpt-4-turbo", "gpt-4", "gpt-4-0613", "gpt-4-turbo-preview"],
+        ),
         Model.GPT_4_0125_PREVIEW: DeprecatedModel(replacement_model=Model.GPT_4O_2024_11_20),
         Model.GPT_4_1106_PREVIEW: DeprecatedModel(replacement_model=Model.GPT_4O_2024_11_20),
         Model.GPT_4O_MINI_LATEST: LatestModel(
@@ -182,13 +223,13 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=16000,
                 source="https://platform.openai.com/docs/models",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             latest_model=Model.GPT_4O_MINI_LATEST,
             release_date=date(2024, 7, 18),
             quality_data=QualityData(mmlu=82.00, gpqa=40.20),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
+            fallback=_openai_fallback("cheapest"),
         ),
         Model.GPT_IMAGE_1: ModelData(
             display_name="GPT Image 1",
@@ -205,16 +246,22 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=_char_to_token(32_000),
                 source="https://platform.openai.com/docs/models",
             ),
-            provider_for_pricing=Provider.OPEN_AI_IMAGE,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             release_date=date(2025, 4, 23),
             quality_data=QualityData(index=611),  # TODO: a bit difficult to estimate here
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=False,
             is_default=True,
+            # No fallback for image generation
+            fallback=None,
         ),
-        Model.GPT_3_5_TURBO_0125: DeprecatedModel(replacement_model=Model.GPT_4O_MINI_2024_07_18),
-        Model.GPT_3_5_TURBO_1106: DeprecatedModel(replacement_model=Model.GPT_4O_MINI_2024_07_18),
+        Model.GPT_3_5_TURBO_0125: DeprecatedModel(
+            replacement_model=Model.GPT_4O_MINI_2024_07_18,
+            aliases=["gpt-3.5-turbo-16k", "gpt-3.5-turbo", "gpt-3.5-turbo-instruct-0914", "gpt-3.5-turbo-instruct"],
+        ),
+        Model.GPT_3_5_TURBO_1106: DeprecatedModel(
+            replacement_model=Model.GPT_4O_MINI_2024_07_18,
+        ),
         Model.GPT_4_1106_VISION_PREVIEW: DeprecatedModel(replacement_model=Model.GPT_4O_2024_11_20),
         Model.GPT_4O_AUDIO_PREVIEW_2024_12_17: ModelData(
             display_name="GPT-4o (Audio Preview 2024-12-17)",
@@ -229,13 +276,19 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=16384,
                 source="https://platform.openai.com/docs/models",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             is_default=True,
             release_date=date(2024, 12, 17),
             provider_name=DisplayedProvider.OPEN_AI.value,
             quality_data=QualityData(mmlu=88.70, gpqa=53.60),
             supports_tool_calling=False,
+            aliases=["gpt-4o-audio-preview"],
+            fallback=ModelFallback(
+                # Falling back to Gemini 1.5 Pro to support audio
+                content_moderation=Model.GEMINI_1_5_PRO_002,
+                structured_output=Model.GEMINI_1_5_PRO_002,
+                rate_limit=Model.GEMINI_1_5_PRO_002,
+            ),
         ),
         Model.GPT_40_AUDIO_PREVIEW_2024_10_01: DeprecatedModel(replacement_model=Model.GPT_4O_AUDIO_PREVIEW_2024_12_17),
         Model.O1_PREVIEW_2024_09_12: ModelData(
@@ -249,12 +302,13 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=32768,
                 source="https://platform.openai.com/docs/models",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             release_date=date(2024, 9, 12),
             quality_data=QualityData(mmlu=90.80, gpqa=78.30),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=False,  # OpenAI returns 400 "model_does_not_support_mode"
+            aliases=["o1-preview"],
+            fallback=_openai_fallback("expensive"),
         ),
         Model.O1_MINI_LATEST: LatestModel(model=Model.O1_MINI_2024_09_12, display_name="o1-mini (latest)"),
         Model.O1_MINI_2024_09_12: ModelData(
@@ -268,13 +322,13 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=65536,
                 source="https://platform.openai.com/docs/models",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             latest_model=Model.O1_MINI_LATEST,
             release_date=date(2024, 9, 12),
             quality_data=QualityData(mmlu=85.20, gpqa=70.00),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=False,  # OpenAI returns 400 "model_does_not_support_mode"
+            fallback=_openai_fallback("cheap"),
         ),
         Model.O3_MINI_LATEST_HIGH_REASONING_EFFORT: LatestModel(
             model=Model.O3_MINI_2025_01_31_HIGH_REASONING_EFFORT,
@@ -283,6 +337,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
         Model.O3_MINI_LATEST_MEDIUM_REASONING_EFFORT: LatestModel(
             model=Model.O3_MINI_2025_01_31_MEDIUM_REASONING_EFFORT,
             display_name="o3-mini (latest) - Medium reasoning effort",
+            aliases=["o3-mini"],
         ),
         Model.O3_MINI_LATEST_LOW_REASONING_EFFORT: LatestModel(
             model=Model.O3_MINI_2025_01_31_LOW_REASONING_EFFORT,
@@ -304,10 +359,11 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=100_000,
                 source="https://platform.openai.com/docs/models",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O3_MINI_LATEST_HIGH_REASONING_EFFORT,
             supports_tool_calling=True,
             supports_parallel_tool_calls=False,
+            aliases=["o3-mini-2025-01-31"],
+            fallback=_openai_fallback("cheap"),
         ),
         Model.O3_MINI_2025_01_31_MEDIUM_REASONING_EFFORT: ModelData(
             display_name="o3-mini (2025-01-31) - Medium reasoning effort",
@@ -325,10 +381,10 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=100_000,
                 source="https://platform.openai.com/docs/models",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O3_MINI_LATEST_MEDIUM_REASONING_EFFORT,
             supports_tool_calling=True,
             supports_parallel_tool_calls=False,
+            fallback=_openai_fallback("cheap"),
         ),
         Model.O3_MINI_2025_01_31_LOW_REASONING_EFFORT: ModelData(
             display_name="o3-mini (2025-01-31) - Low reasoning effort",
@@ -346,10 +402,10 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=100_000,
                 source="https://platform.openai.com/docs/models",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O3_MINI_LATEST_LOW_REASONING_EFFORT,
             supports_tool_calling=True,
             supports_parallel_tool_calls=False,
+            fallback=_openai_fallback("cheap"),
         ),
         Model.O4_MINI_LATEST_HIGH_REASONING_EFFORT: LatestModel(
             model=Model.O4_MINI_2025_04_16_HIGH_REASONING_EFFORT,
@@ -358,6 +414,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
         Model.O4_MINI_LATEST_MEDIUM_REASONING_EFFORT: LatestModel(
             model=Model.O4_MINI_2025_04_16_MEDIUM_REASONING_EFFORT,
             display_name="o4-mini (latest) - Medium reasoning effort",
+            aliases=["o4-mini"],
         ),
         Model.O4_MINI_LATEST_LOW_REASONING_EFFORT: LatestModel(
             model=Model.O4_MINI_2025_04_16_LOW_REASONING_EFFORT,
@@ -381,10 +438,10 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=100_000,
                 source="https://platform.openai.com/docs/models",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O4_MINI_LATEST_HIGH_REASONING_EFFORT,
             supports_tool_calling=True,
             supports_parallel_tool_calls=False,
+            fallback=_openai_fallback("cheap"),
         ),
         Model.O4_MINI_2025_04_16_MEDIUM_REASONING_EFFORT: ModelData(
             display_name="o4-mini (2025-04-16) - Medium reasoning effort",
@@ -406,10 +463,11 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=100_000,
                 source="https://platform.openai.com/docs/models",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O4_MINI_LATEST_MEDIUM_REASONING_EFFORT,
             supports_tool_calling=True,
             supports_parallel_tool_calls=False,
+            aliases=["o4-mini-2025-04-16"],
+            fallback=_openai_fallback("cheap"),
         ),
         Model.O4_MINI_2025_04_16_LOW_REASONING_EFFORT: ModelData(
             display_name="o4-mini (2025-04-16) - Low reasoning effort",
@@ -429,10 +487,10 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=100_000,
                 source="https://platform.openai.com/docs/models",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O4_MINI_LATEST_LOW_REASONING_EFFORT,
             supports_tool_calling=True,
             supports_parallel_tool_calls=False,
+            fallback=_openai_fallback("cheap"),
         ),
         Model.O3_LATEST_HIGH_REASONING_EFFORT: LatestModel(
             model=Model.O3_2025_04_16_HIGH_REASONING_EFFORT,
@@ -441,6 +499,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
         Model.O3_LATEST_MEDIUM_REASONING_EFFORT: LatestModel(
             model=Model.O3_2025_04_16_MEDIUM_REASONING_EFFORT,
             display_name="o3 (latest) - Medium reasoning effort",
+            aliases=["o3"],
         ),
         Model.O3_LATEST_LOW_REASONING_EFFORT: LatestModel(
             model=Model.O3_2025_04_16_LOW_REASONING_EFFORT,
@@ -464,10 +523,10 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=100_000,
                 source="https://platform.openai.com/docs/models",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O3_LATEST_HIGH_REASONING_EFFORT,
             supports_tool_calling=True,
             supports_parallel_tool_calls=False,
+            fallback=_openai_fallback("expensive"),
         ),
         Model.O3_2025_04_16_MEDIUM_REASONING_EFFORT: ModelData(
             display_name="o3 (2025-04-16) - Medium reasoning effort",
@@ -489,10 +548,11 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=100_000,
                 source="https://platform.openai.com/docs/models",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O3_LATEST_MEDIUM_REASONING_EFFORT,
             supports_tool_calling=True,
             supports_parallel_tool_calls=False,
+            aliases=["o3-2025-04-16"],
+            fallback=_openai_fallback("expensive"),
         ),
         Model.O3_2025_04_16_LOW_REASONING_EFFORT: ModelData(
             display_name="o3 (2025-04-16) - Low reasoning effort",
@@ -512,10 +572,10 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=100_000,
                 source="https://platform.openai.com/docs/models",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             latest_model=Model.O3_LATEST_LOW_REASONING_EFFORT,
             supports_tool_calling=True,
             supports_parallel_tool_calls=False,
+            fallback=_openai_fallback("expensive"),
         ),
         Model.GEMINI_1_5_PRO_PREVIEW_0514: DeprecatedModel(replacement_model=Model.GEMINI_1_5_PRO_002),
         Model.GEMINI_2_0_FLASH_LITE_PREVIEW_2502: DeprecatedModel(replacement_model=Model.GEMINI_2_0_FLASH_LITE_001),
@@ -531,12 +591,12 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=8_192,
                 source="https://ai.google.dev/gemini-api/docs/models/gemini#gemini-2.0-flash-lite",
             ),
-            provider_for_pricing=Provider.GOOGLE,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2025, 2, 5),
             quality_data=QualityData(mmlu=83.5, gpqa=51.5),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("cheapest", content_moderation=Model.GPT_41_NANO_LATEST),
         ),
         Model.GEMINI_2_0_FLASH_001: ModelData(
             display_name="Gemini 2.0 Flash (001)",
@@ -550,13 +610,13 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=8_192,
                 source="https://ai.google.dev/gemini-api/docs/models/gemini#gemini-2.0-flash",
             ),
-            provider_for_pricing=Provider.GOOGLE,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2025, 2, 5),
             latest_model=Model.GEMINI_2_0_FLASH_LATEST,
             quality_data=QualityData(mmlu=76.4, gpqa=74.2),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("cheapest", content_moderation=Model.GPT_41_NANO_LATEST),
         ),
         Model.GEMINI_2_5_FLASH_PREVIEW_0417: ModelData(
             display_name="Gemini 2.5 Flash Preview (0417)",
@@ -570,7 +630,6 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=65_536,
                 source="https://ai.google.dev/gemini-api/docs/models#gemini-2.5-flash-preview",
             ),
-            provider_for_pricing=Provider.GOOGLE_GEMINI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2025, 4, 17),
             # https://www.vals.ai/benchmarks/gpqa-04-04-2025
@@ -581,6 +640,11 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
             reasoning_level="none",
+            fallback=ModelFallback.default(
+                "cheapest",
+                content_moderation=Model.GPT_41_NANO_LATEST,
+                rate_limit=Model.GEMINI_2_0_FLASH_001,
+            ),
         ),
         Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417: ModelData(
             display_name="Gemini 2.5 Flash Thinking Preview (0417)",
@@ -594,7 +658,6 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=65_536,
                 source="https://ai.google.dev/gemini-api/docs/models#gemini-2.5-flash-preview",
             ),
-            provider_for_pricing=Provider.GOOGLE_GEMINI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2025, 4, 17),
             # https://www.vals.ai/benchmarks/gpqa-04-04-2025
@@ -604,6 +667,11 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
             reasoning_level="medium",
+            fallback=ModelFallback.default(
+                "cheapest",
+                content_moderation=Model.GPT_41_NANO_LATEST,
+                rate_limit=Model.GEMINI_2_0_FLASH_001,
+            ),
         ),
         Model.GEMINI_2_5_PRO_PREVIEW_0506: ModelData(
             display_name="Gemini 2.5 Pro Preview (0506)",
@@ -617,7 +685,6 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=65_536,
                 source="https://ai.google.dev/gemini-api/docs/models#gemini-2.5-pro-preview-03-25",
             ),
-            provider_for_pricing=Provider.GOOGLE_GEMINI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2025, 5, 8),
             quality_data=QualityData(
@@ -626,6 +693,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             ),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("medium", content_moderation=Model.GPT_41_LATEST),
         ),
         Model.GEMINI_2_5_PRO_PREVIEW_0325: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0506),
         Model.GEMINI_2_5_PRO_EXP_0325: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0506),
@@ -644,13 +712,13 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=8_192,
                 source="https://ai.google.dev/gemini-api/docs/models/gemini#gemini-2.0-flash",
             ),
-            provider_for_pricing=Provider.GOOGLE_GEMINI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2025, 2, 5),
             quality_data=QualityData(equivalent_to=(Model.GEMINI_2_0_FLASH_001, 0)),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
             is_default=True,
+            fallback=None,  # No fallback for exp models
         ),
         Model.GEMINI_2_0_FLASH_LATEST: LatestModel(
             model=Model.GEMINI_2_0_FLASH_001,
@@ -680,13 +748,13 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=8_192,
                 source="https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#gemini-1.5-pro",
             ),
-            provider_for_pricing=Provider.GOOGLE,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             latest_model=Model.GEMINI_1_5_PRO_LATEST,
             release_date=date(2024, 9, 24),
             quality_data=QualityData(mmlu=85.14, gpqa=59.10),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("medium", content_moderation=Model.GPT_41_LATEST),
         ),
         Model.GEMINI_1_5_PRO_001: DeprecatedModel(replacement_model=Model.GEMINI_1_5_PRO_002),
         Model.GEMINI_1_5_PRO_PREVIEW_0409: DeprecatedModel(replacement_model=Model.GEMINI_1_5_PRO_002),
@@ -712,7 +780,6 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=64_000,
                 source="https://docs.anthropic.com/en/docs/about-claude/models",
             ),
-            provider_for_pricing=Provider.AMAZON_BEDROCK,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/anthropic.svg",
             release_date=date(2025, 5, 22),
             # https://www.anthropic.com/news/claude-4
@@ -721,6 +788,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             latest_model=Model.CLAUDE_4_SONNET_LATEST,
             provider_name=DisplayedProvider.ANTHROPIC.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("medium"),
         ),
         Model.CLAUDE_4_OPUS_LATEST: LatestModel(
             model=Model.CLAUDE_4_OPUS_20250514,
@@ -739,7 +807,6 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=32_000,
                 source="https://docs.anthropic.com/en/docs/about-claude/models",
             ),
-            provider_for_pricing=Provider.AMAZON_BEDROCK,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/anthropic.svg",
             release_date=date(2025, 5, 22),
             # https://www.anthropic.com/news/claude-4
@@ -748,6 +815,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             latest_model=Model.CLAUDE_4_OPUS_LATEST,
             provider_name=DisplayedProvider.ANTHROPIC.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("expensive"),
         ),
         Model.CLAUDE_3_7_SONNET_LATEST: LatestModel(
             model=Model.CLAUDE_3_7_SONNET_20250219,
@@ -766,7 +834,6 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=64_000,
                 source="https://docs.anthropic.com/en/docs/about-claude/models",
             ),
-            provider_for_pricing=Provider.AMAZON_BEDROCK,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/anthropic.svg",
             release_date=date(2025, 2, 19),
             # TODO: quality index, for now quality index of CLAUDE_3_5_SONNET_20241022 + 1
@@ -774,6 +841,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             latest_model=Model.CLAUDE_3_7_SONNET_LATEST,
             provider_name=DisplayedProvider.ANTHROPIC.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("medium"),
         ),
         Model.CLAUDE_3_5_SONNET_20241022: ModelData(
             display_name="Claude 3.5 Sonnet (2024-10-22)",
@@ -786,13 +854,13 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=8192,
                 source="https://docs.anthropic.com/en/docs/about-claude/models",
             ),
-            provider_for_pricing=Provider.AMAZON_BEDROCK,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/anthropic.svg",
             release_date=date(2024, 10, 22),
             quality_data=QualityData(mmlu=86, gpqa=68),
             latest_model=Model.CLAUDE_3_5_SONNET_LATEST,
             provider_name=DisplayedProvider.ANTHROPIC.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("medium"),
         ),
         Model.GEMINI_1_5_FLASH_002: ModelData(
             display_name="Gemini 1.5 Flash (002)",
@@ -806,13 +874,13 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=8192,
                 source="https://cloud.google.com/vertex-ai/generative-ai/docs/learn/models#gemini-1.5-flash",
             ),
-            provider_for_pricing=Provider.GOOGLE,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             latest_model=Model.GEMINI_1_5_FLASH_LATEST,
             release_date=date(2024, 9, 24),
             quality_data=QualityData(mmlu=78.9, gpqa=51),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("cheapest", content_moderation=Model.GPT_41_NANO_LATEST),
         ),
         Model.GEMINI_1_5_FLASH_001: DeprecatedModel(replacement_model=Model.GEMINI_1_5_PRO_002),
         Model.GEMINI_1_0_PRO_VISION_001: DeprecatedModel(replacement_model=Model.GEMINI_1_5_PRO_002),
@@ -834,13 +902,14 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=100_000,
                 source="https://platform.openai.com/docs/models/gp#o1",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             release_date=date(2024, 12, 17),
             quality_data=QualityData(mmlu=90.8, gpqa=78.3),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
             supports_parallel_tool_calls=False,
+            aliases=["o1"],
+            fallback=_openai_fallback("expensive"),
         ),
         Model.O1_2024_12_17_HIGH_REASONING_EFFORT: ModelData(
             display_name="o1 (2024-12-17) - High reasoning effort",
@@ -854,13 +923,13 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=100_000,
                 source="https://platform.openai.com/docs/models/gp#o1",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             release_date=date(2024, 12, 17),
             quality_data=QualityData(mmlu=87, gpqa=91.6),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
             supports_parallel_tool_calls=False,
+            fallback=_openai_fallback("expensive"),
         ),
         Model.O1_2024_12_17_LOW_REASONING_EFFORT: ModelData(
             display_name="o1 (2024-12-17) - Low reasoning effort",
@@ -874,13 +943,13 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=100_000,
                 source="https://platform.openai.com/docs/models/gp#o1",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             release_date=date(2024, 12, 17),
             quality_data=QualityData(mmlu=84.1, gpqa=78),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
             supports_parallel_tool_calls=False,
+            fallback=_openai_fallback("expensive"),
         ),
         Model.CLAUDE_3_5_SONNET_20240620: ModelData(
             display_name="Claude 3.5 Sonnet (2024-06-20)",
@@ -893,13 +962,13 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=4096,
                 source="https://docs.anthropic.com/en/docs/about-claude/models",
             ),
-            provider_for_pricing=Provider.AMAZON_BEDROCK,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/anthropic.svg",
             latest_model=Model.CLAUDE_3_5_SONNET_LATEST,
             release_date=date(2024, 6, 20),
             quality_data=QualityData(mmlu=88.3, gpqa=59.4),
             provider_name=DisplayedProvider.ANTHROPIC.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("medium"),
         ),
         Model.CLAUDE_3_OPUS_20240229: ModelData(
             display_name="Claude 3 Opus (2024-02-29)",
@@ -912,12 +981,12 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=4096,
                 source="https://docs.anthropic.com/en/docs/about-claude/models",
             ),
-            provider_for_pricing=Provider.AMAZON_BEDROCK,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/anthropic.svg",
             release_date=date(2024, 2, 29),
             quality_data=QualityData(mmlu=88.2, gpqa=50.4),
             provider_name=DisplayedProvider.ANTHROPIC.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("medium"),
         ),
         Model.CLAUDE_3_SONNET_20240229: DeprecatedModel(replacement_model=Model.CLAUDE_3_5_SONNET_20241022),
         Model.CLAUDE_3_HAIKU_20240307: ModelData(
@@ -931,12 +1000,12 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=4096,
                 source="https://docs.anthropic.com/en/docs/about-claude/models",
             ),
-            provider_for_pricing=Provider.AMAZON_BEDROCK,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/anthropic.svg",
             release_date=date(2024, 3, 7),
             quality_data=QualityData(mmlu=76.7, gpqa=33.3),
             provider_name=DisplayedProvider.ANTHROPIC.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("cheap"),
         ),
         Model.CLAUDE_3_5_HAIKU_LATEST: LatestModel(
             model=Model.CLAUDE_3_5_HAIKU_20241022,
@@ -953,13 +1022,13 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_output_tokens=8192,
                 source="https://docs.anthropic.com/en/docs/about-claude/models",
             ),
-            provider_for_pricing=Provider.AMAZON_BEDROCK,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/anthropic.svg",
             latest_model=Model.CLAUDE_3_5_HAIKU_LATEST,
             release_date=date(2024, 10, 22),
             quality_data=QualityData(mmlu=76.7, gpqa=41.6),
             provider_name=DisplayedProvider.ANTHROPIC.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("cheap"),
         ),
         Model.LLAMA3_70B_8192: DeprecatedModel(replacement_model=Model.LLAMA_4_SCOUT_BASIC),
         Model.LLAMA3_8B_8192: DeprecatedModel(replacement_model=Model.LLAMA_4_SCOUT_BASIC),
@@ -973,12 +1042,12 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=128000,
                 source="https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/MODEL_CARD.md",
             ),
-            provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
             release_date=date(2024, 7, 23),
             quality_data=QualityData(mmlu=88.6, gpqa=73.9),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("medium"),
         ),
         # https://fireworks.ai/models/fireworks/llama-v3p3-70b-instruct
         Model.LLAMA_3_3_70B: ModelData(
@@ -992,12 +1061,12 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=131072,
                 source="https://api.fireworks.ai/v1/accounts/fireworks/models/llama-v3p3-70b-instruct",
             ),
-            provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
             release_date=date(2024, 12, 6),
             quality_data=QualityData(mmlu=86, gpqa=50.5),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=False,
+            fallback=ModelFallback.default("cheap"),
         ),
         # https://fireworks.ai/models/fireworks/llama-v3p1-70b-instruct
         Model.LLAMA_3_1_70B: ModelData(
@@ -1010,12 +1079,12 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=128000,
                 source="https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/MODEL_CARD.md",
             ),
-            provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
             release_date=date(2024, 7, 23),
             quality_data=QualityData(mmlu=86, gpqa=48),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("cheap"),
         ),
         # https://fireworks.ai/models/fireworks/llama-v3p1-8b-instruct
         Model.LLAMA_3_1_8B: ModelData(
@@ -1029,12 +1098,12 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=131072,
                 source="https://api.fireworks.ai/v1/accounts/fireworks/models/llama-v3p1-8b-instruct",
             ),
-            provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
             release_date=date(2024, 7, 23),
             quality_data=QualityData(mmlu=66.7, gpqa=33.8),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=False,
+            fallback=ModelFallback.only_model(Model.GEMINI_2_0_FLASH_LITE_001, "cheapest"),
         ),
         Model.LLAMA_3_2_90B: DeprecatedModel(replacement_model=Model.LLAMA_4_SCOUT_BASIC),
         Model.LLAMA_3_2_11B: DeprecatedModel(replacement_model=Model.LLAMA_4_SCOUT_BASIC),
@@ -1057,12 +1126,16 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=128000,
                 source="https://ai.google.dev/gemini-api/docs/models/gemini",
             ),
-            provider_for_pricing=Provider.GOOGLE_GEMINI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2024, 10, 3),
             quality_data=QualityData(mmlu=58.7, gpqa=38.4),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default(
+                "cheapest",
+                rate_limit=Model.GEMINI_2_0_FLASH_EXP,
+                content_moderation=Model.GPT_41_NANO_LATEST,
+            ),
         ),
         Model.GEMINI_EXP_1206: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0506),
         Model.GEMINI_EXP_1121: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0506),
@@ -1077,12 +1150,12 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=131_072,
                 source="https://fireworks.ai/models/fireworks/qwq-32b",
             ),
-            provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/qwen.svg",
             release_date=date(2025, 3, 6),
             quality_data=QualityData(mmlu=83.3, gpqa=59.1),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=False,
+            fallback=ModelFallback.default("cheap"),
         ),
         Model.QWEN3_235B_A22B: ModelData(
             display_name="Qwen3 235B (22B active)",
@@ -1095,12 +1168,12 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=32_768,
                 source="https://huggingface.co/Qwen/Qwen3-235B-A22B",
             ),
-            provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/qwen.svg",
             release_date=date(2025, 4, 29),
             quality_data=QualityData(mmlu=87.8, gpqa=70, source="https://qwenlm.github.io/blog/qwen3/"),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("cheapest"),
         ),
         Model.QWEN3_30B_A3B: ModelData(
             display_name="Qwen3 30B (3B active)",
@@ -1113,12 +1186,12 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=128_000,
                 source="https://huggingface.co/Qwen/Qwen3-30B-A3B",
             ),
-            provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/qwen.svg",
             release_date=date(2025, 4, 29),
             quality_data=QualityData(mmlu=80, gpqa=62, source="https://qwenlm.github.io/blog/qwen3/"),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("cheap"),
         ),
         Model.QWEN_QWQ_32B_PREVIEW: DeprecatedModel(replacement_model=Model.QWEN_QWQ_32B),
         Model.LLAMA_3_2_11B_VISION: DeprecatedModel(
@@ -1134,13 +1207,13 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=1_000_000,  # not sure about the exact number
                 source="https://fireworks.ai/models/fireworks/llama4-maverick-instruct-basic",
             ),
-            provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
             release_date=date(2025, 4, 5),
             quality_data=QualityData(equivalent_to=(Model.LLAMA_4_MAVERICK_FAST, 0)),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=False,
             supports_structured_output=True,
+            fallback=ModelFallback.default("cheap"),
         ),
         # https://fireworks.ai/models/fireworks/llama4-scout-instruct-basic
         Model.LLAMA_4_SCOUT_BASIC: ModelData(
@@ -1154,13 +1227,13 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=128_000,
                 source="https://fireworks.ai/models/fireworks/llama4-scout-instruct-basic",
             ),
-            provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
             release_date=date(2025, 4, 5),
             quality_data=QualityData(equivalent_to=(Model.LLAMA_4_SCOUT_FAST, 0)),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=False,
             supports_structured_output=True,
+            fallback=ModelFallback.default("cheapest"),
         ),
         Model.LLAMA_4_MAVERICK_FAST: ModelData(
             display_name="Llama 4 Maverick ⚡",
@@ -1172,7 +1245,6 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=128_000,
                 source="https://console.groq.com/docs/model/llama-4-maverick-17b-128e-instruct",
             ),
-            provider_for_pricing=Provider.GROQ,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
             release_date=date(2025, 4, 5),
             quality_data=QualityData(
@@ -1184,6 +1256,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_name=DisplayedProvider.GROQ.value,
             supports_tool_calling=True,
             supports_structured_output=True,
+            fallback=ModelFallback.default("cheap"),
         ),
         # https://fireworks.ai/models/fireworks/llama4-scout-instruct-basic
         Model.LLAMA_4_SCOUT_FAST: ModelData(
@@ -1196,7 +1269,6 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=128_000,
                 source="https://console.groq.com/docs/model/llama-4-scout-17b-16e-instruct",
             ),
-            provider_for_pricing=Provider.GROQ,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
             release_date=date(2025, 4, 5),
             # https://ai.meta.com/blog/llama-4-multimodal-intelligence/
@@ -1208,6 +1280,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_name=DisplayedProvider.GROQ.value,
             supports_tool_calling=True,
             supports_structured_output=True,
+            fallback=ModelFallback.default("cheapest"),
         ),
         # https://fireworks.ai/models/fireworks/deepseek-v3
         Model.DEEPSEEK_V3_2412: ModelData(
@@ -1220,7 +1293,6 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=128000,
                 source="https://github.com/deepseek-ai/DeepSeek-V3",
             ),
-            provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/deepseek.svg",
             release_date=date(2024, 12, 30),
             quality_data=QualityData(mmlu=88.5, gpqa=59.1),
@@ -1228,6 +1300,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             supports_tool_calling=True,
             supports_structured_output=True,
             latest_model=Model.DEEPSEEK_V3_LATEST,
+            fallback=ModelFallback.default("cheap"),
         ),
         # https://fireworks.ai/models/fireworks/deepseek-r1
         Model.DEEPSEEK_R1_2501: ModelData(
@@ -1241,12 +1314,12 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=128000,
                 source="https://github.com/deepseek-ai/DeepSeek-R1",
             ),
-            provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/deepseek.svg",
             release_date=date(2025, 1, 20),
             quality_data=QualityData(mmlu=90.8, gpqa=71.5),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("expensive"),
         ),
         # https://fireworks.ai/models/fireworks/deepseek-r1-basic
         Model.DEEPSEEK_R1_2501_BASIC: ModelData(
@@ -1260,12 +1333,36 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=128000,
                 source="https://github.com/deepseek-ai/DeepSeek-R1",
             ),
-            provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/deepseek.svg",
             release_date=date(2025, 3, 18),
             quality_data=QualityData(mmlu=90.8, gpqa=71.5),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=True,
+            fallback=ModelFallback.default("cheap"),
+        ),
+        # https://fireworks.ai/models/fireworks/deepseek-r1-0528
+        Model.DEEPSEEK_R1_0528: ModelData(
+            display_name="DeepSeek R1 (05-28) (US hosted)",
+            supports_json_mode=True,
+            supports_input_image=False,
+            supports_input_pdf=False,
+            supports_input_audio=False,
+            supports_structured_output=False,  # To access the thinking, we have to disable the structured output
+            max_tokens_data=MaxTokensData(
+                max_tokens=160_000,
+                source="https://app.fireworks.ai/models/fireworks/deepseek-r1-0528",
+            ),
+            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/deepseek.svg",
+            release_date=date(2025, 5, 28),
+            quality_data=QualityData(
+                equivalent_to=(  # TODO: adjust later, could not find score for MMLU nor GPQA
+                    Model.O4_MINI_2025_04_16_MEDIUM_REASONING_EFFORT,
+                    -10,
+                ),
+            ),
+            provider_name=DisplayedProvider.FIREWORKS.value,
+            supports_tool_calling=False,  # Function calling not supported according to the spec
+            fallback=ModelFallback.default("medium"),
         ),
         # https://fireworks.ai/models/fireworks/deepseek-v3-0324
         Model.DEEPSEEK_V3_0324: ModelData(
@@ -1278,7 +1375,6 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=128000,
                 source="https://github.com/deepseek-ai/DeepSeek-V3",
             ),
-            provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/deepseek.svg",
             release_date=date(2025, 3, 24),
             quality_data=QualityData(mmlu=88.5, gpqa=59.1),
@@ -1286,6 +1382,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             supports_tool_calling=True,
             latest_model=Model.DEEPSEEK_V3_LATEST,
             supports_structured_output=True,
+            fallback=ModelFallback.default("medium"),
         ),
         Model.DEEPSEEK_V3_LATEST: LatestModel(
             model=Model.DEEPSEEK_V3_0324,
@@ -1301,7 +1398,6 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=131_072,
                 source="https://docs.x.ai/docs/models#models-and-pricing",
             ),
-            provider_for_pricing=Provider.X_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/xai.svg",
             release_date=date(2025, 4, 10),
             quality_data=QualityData(
@@ -1312,6 +1408,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_name=DisplayedProvider.X_AI.value,
             supports_tool_calling=True,
             supports_structured_output=True,
+            fallback=ModelFallback.default("medium"),
         ),
         Model.GROK_3_FAST_BETA: ModelData(
             display_name="Grok 3 Fast (beta)",
@@ -1323,7 +1420,6 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=131_072,
                 source="https://docs.x.ai/docs/models#models-and-pricing",
             ),
-            provider_for_pricing=Provider.X_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/xai.svg",
             release_date=date(2025, 4, 10),
             quality_data=QualityData(
@@ -1334,6 +1430,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_name=DisplayedProvider.X_AI.value,
             supports_tool_calling=True,
             supports_structured_output=True,
+            fallback=ModelFallback.default("medium"),
         ),
         Model.GROK_3_MINI_BETA_HIGH_REASONING_EFFORT: ModelData(
             display_name="Grok 3 Mini (beta) - High reasoning effort",
@@ -1345,7 +1442,6 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=131_072,
                 source="https://docs.x.ai/docs/models#models-and-pricing",
             ),
-            provider_for_pricing=Provider.X_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/xai.svg",
             release_date=date(2025, 4, 10),
             quality_data=QualityData(
@@ -1356,6 +1452,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_name=DisplayedProvider.X_AI.value,
             supports_tool_calling=True,
             supports_structured_output=True,
+            fallback=ModelFallback.default("cheap"),
         ),
         Model.GROK_3_MINI_BETA_LOW_REASONING_EFFORT: ModelData(
             display_name="Grok 3 Mini (beta) - Low reasoning effort",
@@ -1367,7 +1464,6 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=131_072,
                 source="https://docs.x.ai/docs/models#models-and-pricing",
             ),
-            provider_for_pricing=Provider.X_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/xai.svg",
             release_date=date(2025, 4, 10),
             # TODO: Update the quality index
@@ -1379,6 +1475,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_name=DisplayedProvider.X_AI.value,
             supports_tool_calling=True,
             supports_structured_output=True,
+            fallback=ModelFallback.default("cheap"),
         ),
         Model.GROK_3_MINI_FAST_BETA_HIGH_REASONING_EFFORT: ModelData(
             display_name="Grok 3 Mini Fast (beta) - High reasoning effort",
@@ -1390,7 +1487,6 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=131_072,
                 source="https://docs.x.ai/docs/models#models-and-pricing",
             ),
-            provider_for_pricing=Provider.X_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/xai.svg",
             release_date=date(2025, 4, 10),
             # TODO: Update the quality index
@@ -1402,6 +1498,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_name=DisplayedProvider.X_AI.value,
             supports_tool_calling=True,
             supports_structured_output=True,
+            fallback=ModelFallback.default("cheap"),
         ),
         Model.GROK_3_MINI_FAST_BETA_LOW_REASONING_EFFORT: ModelData(
             display_name="Grok 3 Mini Fast (beta) - Low reasoning effort",
@@ -1413,7 +1510,6 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=131_072,
                 source="https://docs.x.ai/docs/models#models-and-pricing",
             ),
-            provider_for_pricing=Provider.X_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/xai.svg",
             release_date=date(2025, 4, 10),
             # TODO: Update the quality index
@@ -1425,6 +1521,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_name=DisplayedProvider.X_AI.value,
             supports_tool_calling=True,
             supports_structured_output=True,
+            fallback=ModelFallback.default("cheap"),
         ),
         Model.IMAGEN_3_0_LATEST: LatestModel(
             model=Model.IMAGEN_3_0_002,
@@ -1443,13 +1540,14 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=480,
                 source="https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/imagen-api",
             ),
-            provider_for_pricing=Provider.GOOGLE_IMAGEN,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2025, 1, 23),
             quality_data=QualityData(index=50),  # TODO: Update the quality index
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=False,
             latest_model=Model.IMAGEN_3_0_LATEST,
+            # No fallback for image generation
+            fallback=None,
         ),
         Model.IMAGEN_3_0_001: ModelData(
             display_name="Imagen 3.0 (001)",
@@ -1463,13 +1561,14 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=480,
                 source="https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/imagen-api",
             ),
-            provider_for_pricing=Provider.GOOGLE_IMAGEN,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2024, 7, 31),
             quality_data=QualityData(index=500),  # TODO: Update the quality index
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=False,
             latest_model=Model.IMAGEN_3_0_LATEST,
+            # No fallback for image generation
+            fallback=None,
         ),
         Model.IMAGEN_3_0_FAST_001: ModelData(
             display_name="Imagen 3.0 ⚡ (001)",
@@ -1483,12 +1582,12 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 max_tokens=480,
                 source="https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/imagen-api",
             ),
-            provider_for_pricing=Provider.GOOGLE_IMAGEN,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/google.svg",
             release_date=date(2024, 7, 31),
             quality_data=QualityData(index=500),  # TODO: Update the quality index
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=False,
+            fallback=None,  # No fallback for image generation
         ),
         **mistral_models(),
     }
@@ -1530,5 +1629,20 @@ def _build_model_datas() -> ModelDataMapping:
 
 
 MODEL_DATAS = _build_model_datas()
+
+
+def _build_aliases() -> dict[str, Model]:
+    out: dict[str, Model] = {}
+    for k, m in MODEL_DATAS.items():
+        if isinstance(m, LatestModel):
+            out[k.value.removesuffix("-latest")] = k
+        if m.aliases:
+            for alias in m.aliases:
+                out[alias] = k
+    return out
+
+
+MODEL_ALIASES = _build_aliases()
+
 
 MODEL_COUNT = len([model for model in MODEL_DATAS.values() if isinstance(model, FinalModelData)])

@@ -3,20 +3,21 @@ import datetime
 import pytest
 from pydantic import BaseModel
 
-from core.domain.errors import ProviderDoesNotSupportModelError
 from core.domain.models import Model, Provider
 from core.domain.models.model_data_supports import ModelDataSupports
 from core.domain.models.model_provider_data import ModelProviderData
-from core.domain.models.utils import get_model_provider_data
+from core.domain.models.utils import get_model_data
 from core.domain.task_typology import SchemaTypology, TaskTypology
-from core.providers.amazon_bedrock.amazon_bedrock_provider import AmazonBedrockProvider
-from core.providers.fireworks.fireworks_provider import FireworksAIProvider
-from core.providers.google.google_provider import GoogleProvider
 from core.providers.openai.openai_provider import OpenAIProvider
 
 from .model_data import DeprecatedModel, FinalModelData, LatestModel, ModelData
 from .model_datas_mapping import MODEL_DATAS
 from .model_provider_datas_mapping import MODEL_PROVIDER_DATAS
+
+_FILTERED_MODEL_DATA = sorted(
+    [pytest.param(m, id=m.model.value) for m in MODEL_DATAS.values() if isinstance(m, FinalModelData)],
+    key=lambda x: x.values[0].model,  # type:ignore
+)
 
 
 def test_MODEL_DATAS_is_exhaustive() -> None:
@@ -50,18 +51,6 @@ def test_assert_model_data_has_all_fields_defined_should_not_raise() -> None:
         assert_model_data_has_all_fields_defined(
             Model(display_name="test"),
         )
-
-
-# Test that all models MODEL_DATAS have all fields defined, even if optional
-# TODO: remove, this test is a duplicate of pydantic model validation
-def test_MODEL_DATAS_has_all_fields_defined() -> None:
-    for model in Model:
-        model_data = MODEL_DATAS[model]
-        if isinstance(model_data, ModelData):
-            assert_model_data_has_all_fields_defined(
-                model_data,
-                exclude={"latest_model", "quality_index", "reasoning_level"},
-            )
 
 
 @pytest.fixture
@@ -124,64 +113,15 @@ def _versioned_models():
             yield model, model_data
 
 
-class TestProviderForPricing:
-    def test_provider_for_pricing_exists(self, today: datetime.date):
-        for model, model_data in _versioned_models():
-            try:
-                get_model_provider_data(model_data.provider_for_pricing, model)
-            except ProviderDoesNotSupportModelError:
-                raise AssertionError(f"Provider {model_data.provider_for_pricing} does not support model {model}")
-
-    def test_openai_supported_models_use_openai_as_primary(self):
-        found = False
-        for model in OpenAIProvider.all_supported_models():
-            model_data = MODEL_DATAS[model]
-            if not isinstance(model_data, FinalModelData):
-                continue
-            found = True
-            assert model_data.providers[0][0] == Provider.OPEN_AI, (
-                f"Model {model} should use OpenAI as primary provider"
-            )
-        assert found
-
-    # TODO: we should just remove the provider for pricing since it's inconsistent
-    @pytest.mark.skip(reason="That's not true depending on the model")
-    def test_fireworks_supported_models_use_fireworks_for_pricing(self):
-        for model in FireworksAIProvider.all_supported_models():
-            model_data = MODEL_DATAS[model]
-            if not isinstance(model_data, ModelData):
-                continue
-            assert model_data.provider_for_pricing == Provider.FIREWORKS, (
-                f"Model {model} should use Fireworks for pricing"
-            )
-
-    def test_amazon_supported_models_use_amazon_for_pricing(self):
-        # Check that we use amazon for pricing for all models that are supported by amazon
-        for model in AmazonBedrockProvider.all_supported_models():
-            model_data = MODEL_DATAS[model]
-            if not isinstance(model_data, ModelData):
-                continue
-            if model_data.provider_for_pricing == Provider.FIREWORKS:
-                # Fireworks has priority
-                continue
-            assert model_data.provider_for_pricing == Provider.AMAZON_BEDROCK, (
-                f"Model {model} should use Amazon Bedrock for pricing"
-            )
-
-    @pytest.mark.skip(reason="We will remove provider for pricing")
-    def test_google_supported_models_use_google_for_pricing(self):
-        # Check that we use google for pricing for all models that are supported by google
-        for model in GoogleProvider.all_supported_models():
-            model_data = MODEL_DATAS[model]
-            if not isinstance(model_data, ModelData):
-                continue
-            if model_data.provider_for_pricing == Provider.AMAZON_BEDROCK:
-                # Bedrock has priority
-                continue
-            if model_data.provider_for_pricing == Provider.FIREWORKS:
-                # Fireworks has priority
-                continue
-            assert model_data.provider_for_pricing == Provider.GOOGLE, f"Model {model} should use Google for pricing"
+def test_openai_supported_models_use_openai_as_primary():
+    found = False
+    for model in OpenAIProvider.all_supported_models():
+        model_data = MODEL_DATAS[model]
+        if not isinstance(model_data, FinalModelData):
+            continue
+        found = True
+        assert model_data.providers[0][0] == Provider.OPEN_AI, f"Model {model} should use OpenAI as primary provider"
+    assert found
 
 
 class TestProviders:
@@ -201,12 +141,6 @@ class TestProviders:
 
             for f in found:
                 assert f in model_data.providers, f"Provider {f} is not in model {model} providers"
-
-
-class TestProviderDataForPricing:
-    def test_provider_data_for_pricing(self):
-        for model, model_data in _versioned_models():
-            assert model_data.provider_data_for_pricing() is not None, f"Provider data for model {model} is not set"
 
 
 class TestImageURL:
@@ -364,3 +298,90 @@ class TestMaxTokens:
                 continue
 
             assert model_data.max_tokens_data.max_tokens > 0, f"Model {model} has no max tokens"
+
+
+def test_no_duplicate_aliases():
+    aliases: set[str] = set()
+    for model, model_data in MODEL_DATAS.items():
+        if isinstance(model_data, ModelData):
+            if model_data.aliases:
+                for alias in model_data.aliases:
+                    assert alias not in aliases, f"Alias {alias} is already defined for model {model}"
+                    aliases.add(alias)
+
+
+class TestModelFallback:
+    _IGNORE_PRICE = {
+        # Model is way to cheap so we cannot find a model that is less than 3x cheaper
+        Model.GEMINI_1_5_FLASH_8B,
+        Model.GEMINI_2_5_FLASH_PREVIEW_0417,
+        Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417,
+    }
+
+    _IGNORE_PROVIDERS = {
+        # LLama is supported by vertex but we use gemini for content moderation
+        Model.LLAMA_3_1_405B,
+        # These models are super cheap so they fallback to a Gemini Flash lite which is alqo on google
+        Model.GEMINI_1_5_FLASH_8B,
+        Model.GEMINI_2_5_FLASH_PREVIEW_0417,
+        Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417,
+    }
+
+    @pytest.mark.parametrize("model_data", _FILTERED_MODEL_DATA)
+    def test_fallback_models(self, model_data: FinalModelData):
+        """Check that the pricing of the fallback model is no more than twice the price of the model"""
+
+        if not model_data.fallback:
+            pytest.skip("Model has no fallback")
+
+        fallback_models: dict[str, Model] = model_data.fallback.model_dump(exclude_none=True, exclude={"pricing_tier"})
+
+        current_provider_data = model_data.providers[0][1]
+        current_providers = set(provider for provider, _ in model_data.providers)
+        current_text_price = current_provider_data.text_price
+
+        for fallback_type, fallback_model in fallback_models.items():
+            fallback_model_data = get_model_data(fallback_model)
+            assert isinstance(fallback_model_data, FinalModelData), "sanity"
+
+            assert fallback_model_data.model != model_data.model, (
+                "Fallback model should be different from the current model"
+            )
+
+            # ------------------------------------------------------------
+            # Check providers
+
+            if model_data.model not in self._IGNORE_PROVIDERS:
+                # Check that the first provider is not in any of the current providers
+                assert fallback_model_data.providers[0][0] not in current_providers, (
+                    f"Fallback model {fallback_model} has the same provider as the current model {model_data.model}"
+                )
+
+            # ------------------------------------------------------------
+            # Check supports
+
+            # TODO: fix missing support for pdf and audio
+            missing_supports = fallback_model_data.missing_io_supports(
+                model_data,
+                # OpenAI does not support Audio :(
+                exclude={"supports_input_pdf", "supports_input_audio"},
+            )
+
+            assert not missing_supports, f"Model {fallback_model} is missing io supports: {missing_supports}"
+
+            # ------------------------------------------------------------
+            # Check price
+
+            fallback_text_price = fallback_model_data.providers[0][1].text_price
+
+            max_price = 2 * current_text_price.prompt_cost_per_token
+
+            # We never ignore the price for rate limit
+            if model_data.model in self._IGNORE_PRICE and fallback_type not in {"rate_limit", "default"}:
+                assert model_data.fallback.pricing_tier == "cheapest", (
+                    "Fallback pricing tier should be cheapest when pricing is ignored"
+                )
+            else:
+                assert fallback_text_price.prompt_cost_per_token <= max_price, (
+                    f"Fallback model {fallback_model} has a higher prompt cost per token than the current model {model_data.model}"
+                )
