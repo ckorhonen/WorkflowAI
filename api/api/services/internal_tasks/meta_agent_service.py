@@ -896,11 +896,12 @@ class MetaAgentService:
         # Schema description and examples tool call from the meta-agent is mapped to "Improve Prompt" feature in the frontend,
         # which can update the schema description and examples
         if meta_agent_output.edit_schema_description_and_examples_tool_call:
-            return EditSchemaToolCall(
-                edition_request_message=meta_agent_output.edit_schema_description_and_examples_tool_call.description_and_examples_edition_request_message
+            return ImprovePromptToolCall(
+                run_id=None,
+                run_feedback_message=meta_agent_output.edit_schema_description_and_examples_tool_call.description_and_examples_edition_request_message
                 or "",
                 auto_run=self._resolve_auto_run(
-                    tool_call_type=EditSchemaToolCall,
+                    tool_call_type=ImprovePromptToolCall,
                     initial_auto_run=_reverse_optional_bool(
                         meta_agent_output.edit_schema_description_and_examples_tool_call.ask_user_confirmation,
                     )
