@@ -338,6 +338,7 @@ async def test_stream_raw_json(test_client: IntegrationTestClient, openai_client
 
     chunks = [c async for c in streamer]
     assert len(chunks) == 2
+    assert chunks[0].id.startswith("default/")
 
     await test_client.wait_for_completed_tasks()
 
@@ -706,3 +707,37 @@ async def test_with_model_fallback_on_rate_limit(
         (Model.CLAUDE_3_5_SONNET_20241022, Provider.AMAZON_BEDROCK, anthropic_message_count, None),
         (Model.O3_2025_04_16_LOW_REASONING_EFFORT, Provider.OPEN_AI, 1, approx((10 * 10 + 11 * 40) / 1_000_000)),
     ]
+
+
+async def test_with_cache(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+    test_client.mock_openai_call(raw_content="Hello, world!")
+
+    # Create a first completion
+    res = await openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "Hello, world!"}],
+    )
+
+    await test_client.wait_for_completed_tasks()
+
+    # Now create a second completion with the same input and use the cache
+    res = await openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "Hello, world!"}],
+        extra_body={"use_cache": "always"},
+    )
+    assert res.choices[0].message.content == "Hello, world!"
+
+    # Check that we did not make any new calls
+    assert len(test_client.httpx_mock.get_requests(url="https://api.openai.com/v1/chat/completions")) == 1
+
+    # Same with streaming
+    streamer = await openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "Hello, world!"}],
+        extra_body={"use_cache": "always"},
+        stream=True,
+    )
+    chunks = [c async for c in streamer]
+    assert len(chunks) == 1
+    assert chunks[0].choices[0].delta.content == "Hello, world!"

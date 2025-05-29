@@ -3,6 +3,7 @@ import logging
 from typing import Any, NamedTuple
 
 from fastapi import Request
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from api.services.feedback_svc import FeedbackTokenGenerator
 from api.services.groups import GroupService
@@ -11,7 +12,7 @@ from api.services.models import ModelsService
 from api.services.run import RunService
 from api.utils import get_start_time
 from core.domain.analytics_events.analytics_events import SourceType, TaskProperties
-from core.domain.consts import INPUT_KEY_MESSAGES, WORKFLOWAI_APP_URL
+from core.domain.consts import INPUT_KEY_MESSAGES, METADATA_KEY_DEPLOYMENT_ENVIRONMENT, WORKFLOWAI_APP_URL
 from core.domain.errors import BadRequestError
 from core.domain.events import EventRouter, ProxyAgentCreatedEvent
 from core.domain.message import Message, Messages
@@ -20,7 +21,7 @@ from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_io import RawJSONMessageSchema, RawMessagesSchema, RawStringMessageSchema, SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.tenant_data import PublicOrganizationData
-from core.domain.types import AgentOutput
+from core.domain.types import AgentOutput, CacheUsage
 from core.domain.version_reference import VersionReference
 from core.providers.base.provider_error import MissingModelError
 from core.storage import ObjectNotFoundException
@@ -339,6 +340,9 @@ class OpenAIProxyHandler:
                 input=body.input,
                 response_format=body.response_format,
             )
+            # Keep track the run was made from a deployment
+            # TODO: Adding to the body is not great. We should add metadata to the prepared run and even remove the 'full_metadata'
+            body.register_metadata({METADATA_KEY_DEPLOYMENT_ENVIRONMENT: agent_ref.environment})
         else:
             prepared_run = await self._prepare_for_model(
                 agent_ref=agent_ref,
@@ -390,31 +394,61 @@ class OpenAIProxyHandler:
             else self._output_json_mapper
         )
 
-        return await self._run_service.run(
+        builder = await self._run_service.prepare_builder(
             runner=runner,
             task_input=prepared_run.final_input,
             task_run_id=None,
-            cache=body.use_cache or "auto",
             metadata=body.full_metadata(request.headers),
-            trigger="user",
-            source=SourceType.PROXY,
-            serializer=OpenAIProxyChatCompletionResponse.serializer(
+            start_time=get_start_time(request),
+            is_different_version=False,
+            author_tenant=None,
+            private_fields=set(),
+        )
+        cache: CacheUsage = body.use_cache or "auto"
+        trigger = "user"
+        source = SourceType.PROXY
+
+        if not body.stream:
+            task_run = await self._run_service.run_from_builder(
+                builder=builder,
+                runner=runner,
+                cache=cache,
+                trigger=trigger,
+                source=source,
+                store_inline=False,
+            )
+            response_object = OpenAIProxyChatCompletionResponse.from_domain(
+                task_run,
+                output_mapper=output_mapper,
                 model=body.model,
                 deprecated_function=body.uses_deprecated_functions,
-                output_mapper=output_mapper,
                 feedback_generator=lambda run_id: self._feedback_generator.generate_token(
                     prepared_run.variant.task_uid,
                     prepared_run.variant.task_schema_id,
                     run_id,
                 ),
-            ),
-            start_time=get_start_time(request),
-            stream_serializer=OpenAIProxyChatCompletionChunk.stream_serializer(
-                model=body.model,
-                deprecated_function=body.uses_deprecated_functions,
             )
-            if body.stream is True
-            else None,
+            return JSONResponse(content=response_object.model_dump(mode="json", exclude_none=True))
+
+        return StreamingResponse(
+            self._run_service.stream_run(
+                builder=builder,
+                runner=runner,
+                cache=cache,
+                trigger=trigger,
+                chunk_serializer=OpenAIProxyChatCompletionChunk.stream_serializer(
+                    agent_id=prepared_run.variant.task_id,
+                    model=body.model,
+                    deprecated_function=body.uses_deprecated_functions,
+                ),
+                serializer=OpenAIProxyChatCompletionChunk.serializer(
+                    model=body.model,
+                    deprecated_function=body.uses_deprecated_functions,
+                    output_mapper=output_mapper,
+                ),
+                source=source,
+            ),
+            media_type="text/event-stream",
         )
 
     @classmethod
