@@ -20,7 +20,7 @@ from core.providers.base.abstract_provider import (
     ProviderConfigInterface,
 )
 from core.providers.base.models import RawCompletion, StandardMessage
-from core.providers.base.provider_error import ProviderError
+from core.providers.base.provider_error import FailedGenerationError, ProviderError
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.factory.local_provider_factory import LocalProviderFactory
 from core.providers.openai.openai_provider import OpenAIProvider
@@ -50,7 +50,7 @@ async def test_exception_messages_are_correctly_added_to_messages():
     options = ProviderOptions(model=Model.GPT_4O_2024_08_06)
 
     with patch.object(provider, "_single_complete", wraps=provider._single_complete) as mock_single_complete:  # pyright: ignore [reportPrivateUsage]
-        mock_single_complete.side_effect = ProviderError("Test exception", retry=True)
+        mock_single_complete.side_effect = FailedGenerationError("Test exception", retry=True)
 
         with pytest.raises(ProviderError):
             await provider._retryable_complete(messages, options, _output_factory, max_attempts=2)  # pyright: ignore [reportPrivateUsage]

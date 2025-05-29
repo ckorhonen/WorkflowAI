@@ -4,7 +4,7 @@ import os
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Callable, Generic, Optional, Protocol, Sequence, TypeVar
+from typing import Any, AsyncGenerator, Callable, Generic, Optional, Protocol, TypeVar
 
 from pydantic import ValidationError
 
@@ -260,7 +260,7 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
         llm_usage: LLMUsage,
         completion: LLMCompletion,
     ):
-        if not completion.incur_cost():
+        if not completion.should_incur_cost():
             llm_usage.prompt_cost_usd = 0
             llm_usage.completion_cost_usd = 0
             return
@@ -440,17 +440,28 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
             usage.completion_image_count = output.number_of_images
 
     @classmethod
+    def error_incurs_cost(cls, error: ProviderError) -> bool | None:
+        if not error.status_code:
+            return None
+        # Usually providers return 200 for errors that incur cost
+        return error.status_code == 200
+
+    @classmethod
     def _assign_raw_completion(
         cls,
         raw_completion: RawCompletion,
         llm_completion: LLMCompletion,
         output: StructuredOutput | None = None,
+        error: ProviderError | None = None,
     ):
         llm_completion.duration_seconds = round((datetime_factory() - raw_completion.start_time).total_seconds(), 2)
-        llm_completion.tool_calls = output.tool_calls if output else None
         llm_completion.response = raw_completion.response
+        if error:
+            llm_completion.error = error.error_response().error
+            llm_completion.provider_request_incurs_cost = cls.error_incurs_cost(error)
 
         if output:
+            llm_completion.tool_calls = output.tool_calls
             cls._assign_usage_from_output(raw_completion.usage, output)
 
         raw_completion.apply_to(llm_completion)
@@ -496,6 +507,7 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
         The completion object can then be updated in place"""
 
         kwargs, raw = await self._prepare_completion(messages, options, stream)
+        raw.model = options.model
         raw.config_id = self._config_id
         raw.preserve_credits = self._preserve_credits
         builder = self._builder_context()
@@ -544,13 +556,25 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
             ),
         ]
 
-    async def _set_llm_completion_usage(
+    async def finalize_completion(
         self,
-        model: Model,
+        default_model: Model,
         llm_completion: LLMCompletion,
         timeout: float | None,  # noqa: ASYNC109
     ) -> None:
+        model = llm_completion.model
+        if not model:
+            self.logger.warning(
+                "No model found in LLM completion",
+                extra={"run_id": self._run_id()},
+            )
+            model = default_model
         # All exceptions must be handled in this method
+        if llm_completion.provider_request_incurs_cost is False:
+            # Nothing to do if the provider request does not incur cost
+            # We did not get a usage from the provider so we can assume that everything is 0
+            return
+
         try:
             async with asyncio.timeout(timeout):
                 llm_completion.usage = await self.compute_llm_completion_usage(model, llm_completion)
@@ -578,26 +602,9 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
                 extra={"run_id": self._run_id()},
             )
 
-    async def finalize_completions(
-        self,
-        model: Model,
-        llm_completions: Sequence[LLMCompletion],
-        timeout: float | None = None,  # noqa: ASYNC109
-    ) -> None:
-        async with asyncio.TaskGroup() as tg:
-            for completion in llm_completions:
-                tg.create_task(self._set_llm_completion_usage(model, completion, timeout))
-
-    # On the critical path, we timeout after 1 second
-    _FINALIZE_COMPLETIONS_TIMEOUT = 1
-
-    # Method is called on critical path so it should handle all exceptions and timeout after a reasonable amount of time
-    async def _finalize_completions_in_context(self, model: Model):
-        builder = self._builder_context()
-        if builder is None:
-            self.logger.error("No builder context while finalizing completions")
-            return
-        await self.finalize_completions(model, builder.llm_completions, AbstractProvider._FINALIZE_COMPLETIONS_TIMEOUT)
+    # On the critical path, we timeout after 0.1 second
+    # Does not really matter if it fails, we will compute the final cost when the run is stored
+    _FINALIZE_COMPLETIONS_TIMEOUT = 0.1
 
     # -------------------------------------------------
     # Completions without stream
@@ -619,10 +626,7 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
             TaskOutput: a task output
         """
 
-        try:
-            return await self._retryable_complete(messages, options, output_factory)
-        finally:
-            await self._finalize_completions_in_context(options.model)
+        return await self._retryable_complete(messages, options, output_factory)
 
     def _prepare_provider_error(self, e: ProviderError, options: ProviderOptions):
         if e.provider_options is None:
@@ -685,12 +689,15 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
             if not e.retry or retries <= 0:
                 raise e
 
-            return await self._retryable_complete(
-                self._add_exception_to_messages(messages, raw_completion.response, e),
-                options,
-                output_factory,
-                retries,
+            messages = (
+                self._add_exception_to_messages(messages, raw_completion.response, e)
+                if e.add_exception_to_messages
+                else messages
             )
+
+            return await self._retryable_complete(messages, options, output_factory, retries)
+        finally:
+            await self.finalize_completion(options.model, raw, self._FINALIZE_COMPLETIONS_TIMEOUT)
         # Any other error is a crash
 
     @abstractmethod
@@ -753,6 +760,8 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
                     break
                 max_attempts = max_attempts - 1 if max_attempts is not None else e.max_attempt_count - 1
                 messages = self._add_exception_to_messages(messages, raw_completion.response, e)
+            finally:
+                await self.finalize_completion(options.model, raw, self._FINALIZE_COMPLETIONS_TIMEOUT)
 
         if not stream_exc:
             # This should never happen
@@ -785,8 +794,6 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
             if o is not None:
                 e.partial_output = o.output
             raise e
-        finally:
-            await self._finalize_completions_in_context(options.model)
 
     @classmethod
     def sanitize_config(cls, config: ProviderConfigVar) -> ProviderConfigVar:

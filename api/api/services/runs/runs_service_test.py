@@ -1,5 +1,5 @@
 from base64 import b64encode
-from typing import Any, Sequence
+from typing import Any
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -34,12 +34,12 @@ def mock_provider(mock_provider_factory: AsyncMock):
     provider = AsyncMock(spec=AbstractProvider)
     mock_provider_factory.get_provider.return_value = provider
 
-    def finalize_completions(model: Model, llm_completions: Sequence[LLMCompletion]):
-        for completion in llm_completions:
-            completion.usage.prompt_cost_usd = 1
-            completion.usage.completion_cost_usd = 2
+    def _finalize_completion(model: Model, completion: LLMCompletion, timeout: float | None):
+        completion.usage.prompt_cost_usd = 1
+        completion.usage.completion_cost_usd = 2
+        return completion
 
-    provider.finalize_completions.side_effect = finalize_completions
+    provider.finalize_completion.side_effect = _finalize_completion
     return provider
 
 
@@ -63,6 +63,7 @@ def runs_service(
 def _llm_completion(
     messages: list[dict[str, Any]] | None = None,
     usage: LLMUsage | None = None,
+    model: Model | None = None,
     response: str | None = None,
     tool_calls: list[ToolCallRequestWithID] | None = None,
     provider: Provider = Provider.AMAZON_BEDROCK,
@@ -70,6 +71,7 @@ def _llm_completion(
 ):
     return LLMCompletion(
         messages=messages or [],
+        model=model,
         usage=usage or LLMUsage(),
         response=response,
         tool_calls=tool_calls,
@@ -186,11 +188,13 @@ class TestStoreTaskRun:
         )
 
         # Verify
+        assert non_legacy_task_run.llm_completions
         assert mock_file_storage.store_file.call_count == 1
         mock_provider_factory.get_provider.assert_called_once_with(Provider.AMAZON_BEDROCK)
-        mock_provider.finalize_completions.assert_awaited_once_with(
+        mock_provider.finalize_completion.assert_awaited_once_with(
             Model.CLAUDE_3_5_SONNET_20240620,
-            non_legacy_task_run.llm_completions,
+            non_legacy_task_run.llm_completions[0],
+            timeout=None,
         )
         mock_storage.store_task_run_resource.assert_awaited_once()
 
@@ -310,10 +314,12 @@ class TestStoreTaskRun:
 
         # Verify
         assert mock_file_storage.store_file.call_count == 1
+        assert non_legacy_task_run.llm_completions
         mock_provider_factory.get_provider.assert_called_once_with(Provider.AMAZON_BEDROCK)
-        mock_provider.finalize_completions.assert_awaited_once_with(
+        mock_provider.finalize_completion.assert_awaited_once_with(
             Model.CLAUDE_3_5_SONNET_20240620,
-            non_legacy_task_run.llm_completions,
+            non_legacy_task_run.llm_completions[0],
+            timeout=None,
         )
         mock_storage.store_task_run_resource.assert_awaited_once()
 
@@ -366,11 +372,13 @@ class TestStoreTaskRun:
         )
 
         # Verify
+        assert non_legacy_task_run.llm_completions
         assert mock_file_storage.store_file.call_count == 1
         mock_provider_factory.get_provider.assert_called_once_with(Provider.AMAZON_BEDROCK)
-        mock_provider.finalize_completions.assert_awaited_once_with(
+        mock_provider.finalize_completion.assert_awaited_once_with(
             Model.CLAUDE_3_5_SONNET_20240620,
-            non_legacy_task_run.llm_completions,
+            non_legacy_task_run.llm_completions[0],
+            timeout=None,
         )
         mock_storage.store_task_run_resource.assert_awaited_once()
 
@@ -477,25 +485,29 @@ class TestComputeCost:
         task_run.group.properties.provider = None
         task_run.llm_completions = [
             _llm_completion(provider=Provider.AMAZON_BEDROCK),
-            _llm_completion(provider=Provider.AMAZON_BEDROCK),
+            # Add a message to be able to distinguish between the two completions
+            _llm_completion(provider=Provider.AMAZON_BEDROCK, messages=[{"role": "user"}]),
         ]
         task_run.cost_usd = 0.0
 
-        def _finalize_completions(model: Model, completions: list[LLMCompletion]):
+        def _finalize_completion(model: Model, completion: LLMCompletion, timeout: float | None):
             assert model == Model.CLAUDE_3_5_SONNET_20240620
-            completions[0].usage.prompt_cost_usd = 1.0
-            completions[0].usage.completion_cost_usd = 2.0
-            completions[1].usage.prompt_cost_usd = 3.0
-            completions[1].usage.completion_cost_usd = 4.0
+            if completion.messages:
+                completion.usage.prompt_cost_usd = 3.0
+                completion.usage.completion_cost_usd = 4.0
+            else:
+                completion.usage.prompt_cost_usd = 1.0
+                completion.usage.completion_cost_usd = 2.0
 
-        mock_provider.finalize_completions.side_effect = _finalize_completions
+        mock_provider.finalize_completion.side_effect = _finalize_completion
 
         await runs_service._compute_cost(task_run, mock_provider_factory)  # pyright: ignore [reportPrivateUsage]
         assert task_run.cost_usd == 10.0
 
-        mock_provider.finalize_completions.assert_called_once()
+        assert mock_provider.finalize_completion.call_count == 2
         # Bedrock is the provider used for pricing here
-        mock_provider_factory.get_provider.assert_called_once_with(Provider.AMAZON_BEDROCK)
+        assert mock_provider_factory.get_provider.call_count == 2
+        assert all(c[0][0] == Provider.AMAZON_BEDROCK for c in mock_provider_factory.get_provider.call_args_list)
 
     async def test_compute_cost_with_provider(
         self,
@@ -509,25 +521,56 @@ class TestComputeCost:
         task_run.group.properties.provider = Provider.ANTHROPIC.value
         task_run.llm_completions = [
             _llm_completion(provider=Provider.ANTHROPIC),
-            _llm_completion(provider=Provider.ANTHROPIC),
+            _llm_completion(provider=Provider.ANTHROPIC, messages=[{"role": "user"}]),
         ]
         task_run.cost_usd = 0.0
 
-        def _finalize_completions(model: Model, completions: list[LLMCompletion]):
+        def _finalize_completion(model: Model, completion: LLMCompletion, timeout: float | None):
             assert model == Model.CLAUDE_3_5_SONNET_20240620
-            completions[0].usage.prompt_cost_usd = 1.1
-            completions[0].usage.completion_cost_usd = 2.1
-            completions[1].usage.prompt_cost_usd = 3.1
-            completions[1].usage.completion_cost_usd = 4.1
+            if completion.messages:
+                completion.usage.prompt_cost_usd = 3.1
+                completion.usage.completion_cost_usd = 4.1
+            else:
+                completion.usage.prompt_cost_usd = 1.1
+                completion.usage.completion_cost_usd = 2.1
 
-        mock_provider.finalize_completions.side_effect = _finalize_completions
+        mock_provider.finalize_completion.side_effect = _finalize_completion
 
         await runs_service._compute_cost(task_run, mock_provider_factory)  # pyright: ignore [reportPrivateUsage]
         assert task_run.cost_usd == pytest.approx(10.4)  # pyright: ignore [reportUnknownMemberType]
 
-        mock_provider.finalize_completions.assert_called_once()
+        assert mock_provider.finalize_completion.call_count == 2
         # Bedrock is the provider used for pricing here
-        mock_provider_factory.get_provider.assert_called_once_with(Provider.ANTHROPIC)
+        assert mock_provider_factory.get_provider.call_count == 2
+        assert all(c[0][0] == Provider.ANTHROPIC for c in mock_provider_factory.get_provider.call_args_list)
+
+    async def test_compute_cost_different_provider_and_model(
+        self,
+        runs_service: RunsService,
+        mock_provider_factory: Mock,
+        mock_provider: Mock,
+    ):
+        task_run = task_run_ser()
+        task_run.group.properties.model = Model.CLAUDE_3_5_SONNET_20240620.value
+        task_run.llm_completions = [
+            _llm_completion(provider=Provider.ANTHROPIC),
+            _llm_completion(provider=Provider.AMAZON_BEDROCK, messages=[{"role": "user"}]),
+            _llm_completion(
+                provider=Provider.OPEN_AI,
+                model=Model.GPT_3_5_TURBO_0125,
+                messages=[{"role": "user"}],
+            ),
+        ]
+        task_run.cost_usd = 0.0
+
+        await runs_service._compute_cost(task_run, mock_provider_factory)  # pyright: ignore [reportPrivateUsage]
+
+        assert mock_provider.finalize_completion.call_count == 3
+        assert [c[0][0] for c in mock_provider_factory.get_provider.call_args_list] == [
+            Provider.ANTHROPIC,
+            Provider.AMAZON_BEDROCK,
+            Provider.OPEN_AI,
+        ]
 
 
 class TestLLMCompletions:

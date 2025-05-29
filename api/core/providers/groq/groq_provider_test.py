@@ -358,11 +358,11 @@ class TestSanitizeModelData:
             display_name="test",
             icon_url="test",
             max_tokens_data=MaxTokensData(source="", max_tokens=100),
-            provider_for_pricing=Provider.GROQ,
             release_date=date(2024, 1, 1),
             quality_data=QualityData(index=100),
             provider_name=DisplayedProvider.GROQ.value,
             supports_tool_calling=True,
+            fallback=None,
         )
         groq_provider.sanitize_model_data(model_data)
         assert model_data.supports_structured_output is False

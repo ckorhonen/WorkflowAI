@@ -426,6 +426,11 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
         "When not provided, we attempt to detect tools in the system message.",
     )
 
+    use_fallback: Literal["auto", "never"] | list[str] | None = Field(
+        default=None,
+        description="A way to configure the fallback behavior",
+    )
+
     model_config = ConfigDict(extra="allow")
 
     @property
@@ -582,6 +587,17 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
             return Model(model)
         except ValueError:
             return None
+
+    def parsed_use_fallback(self) -> Literal["auto", "never"] | list[Model] | None:
+        if isinstance(self.use_fallback, list):
+            out: list[Model] = []
+            for model in self.use_fallback:
+                if parsed := self._map_model_str(model, None):
+                    out.append(parsed)
+                else:
+                    raise MissingModelError(model=model)
+            return out
+        return self.use_fallback
 
     def extract_references(self) -> EnvironmentRef | ModelRef:
         """Extracts the model, agent_id, schema_id and environment from the model string

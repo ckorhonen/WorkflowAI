@@ -45,15 +45,15 @@ GOOGLE_PROVIDER_DATA: ProviderDataByModel = {
     ),
     Model.GEMINI_2_5_PRO_PREVIEW_0506: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=1.25 / 1_000_000,
-            completion_cost_per_token=10 / 1_000_000,
+            prompt_cost_per_token=1.25 * ONE_MILLION_TH,
+            completion_cost_per_token=10 * ONE_MILLION_TH,
             prompt_cached_tokens_discount=0.75,
             source="https://ai.google.dev/pricing",
             thresholded_prices=[
                 ThresholdedTextPricePerToken(
                     threshold=200_000,
-                    prompt_cost_per_token_over_threshold=2.5 / 1_000_000,
-                    completion_cost_per_token_over_threshold=15 / 1_000_000,
+                    prompt_cost_per_token_over_threshold=2.5 * ONE_MILLION_TH,
+                    completion_cost_per_token_over_threshold=15 * ONE_MILLION_TH,
                 ),
             ],
         ),
@@ -94,8 +94,8 @@ GOOGLE_PROVIDER_DATA: ProviderDataByModel = {
     #             # Price per token > 128k
     #             ThresholdedTextPricePerToken(
     #                 threshold=128_000,
-    #                 prompt_cost_per_token_over_threshold=0.000_000_625 * GOOGLE_CHARS_PER_TOKEN,
-    #                 completion_cost_per_token_over_threshold=0.000_002_5 * GOOGLE_CHARS_PER_TOKEN,
+    #                 prompt_cost_per_token_over_threshold=0.6 * ONE_MILLION_TH25 * GOOGLE_CHARS_PER_TOKEN,
+    #                 completion_cost_per_token_over_threshold=2.5 * ONE_MILLION_TH * GOOGLE_CHARS_PER_TOKEN,
     #             ),
     #         ],
     #         source="https://cloud.google.com/vertex-ai/generative-ai/pricing",
@@ -127,8 +127,8 @@ GOOGLE_PROVIDER_DATA: ProviderDataByModel = {
                 # Price per token > 128k
                 ThresholdedTextPricePerToken(
                     threshold=128_000,
-                    prompt_cost_per_token_over_threshold=0.000_000_625 * GOOGLE_CHARS_PER_TOKEN,
-                    completion_cost_per_token_over_threshold=0.000_002_5 * GOOGLE_CHARS_PER_TOKEN,
+                    prompt_cost_per_token_over_threshold=0.625 * ONE_MILLION_TH * GOOGLE_CHARS_PER_TOKEN,
+                    completion_cost_per_token_over_threshold=2.5 * ONE_MILLION_TH * GOOGLE_CHARS_PER_TOKEN,
                 ),
             ],
             source="https://cloud.google.com/vertex-ai/generative-ai/pricing",
@@ -159,7 +159,7 @@ GOOGLE_PROVIDER_DATA: ProviderDataByModel = {
     #             ThresholdedTextPricePerToken(
     #                 threshold=128000,
     #                 prompt_cost_per_token_over_threshold=0.000_000_037_5 * GOOGLE_CHARS_PER_TOKEN,
-    #                 completion_cost_per_token_over_threshold=0.000_000_15 * GOOGLE_CHARS_PER_TOKEN,
+    #                 completion_cost_per_token_over_threshold=0.15 * ONE_MILLION_TH * GOOGLE_CHARS_PER_TOKEN,
     #             ),
     #         ],
     #         source="https://cloud.google.com/vertex-ai/generative-ai/pricing",
@@ -191,7 +191,7 @@ GOOGLE_PROVIDER_DATA: ProviderDataByModel = {
                 ThresholdedTextPricePerToken(
                     threshold=128000,
                     prompt_cost_per_token_over_threshold=0.000_000_037_5 * GOOGLE_CHARS_PER_TOKEN,
-                    completion_cost_per_token_over_threshold=0.000_000_15 * GOOGLE_CHARS_PER_TOKEN,
+                    completion_cost_per_token_over_threshold=0.15 * ONE_MILLION_TH * GOOGLE_CHARS_PER_TOKEN,
                 ),
             ],
             source="https://cloud.google.com/vertex-ai/generative-ai/pricing",
@@ -324,17 +324,17 @@ OPENAI_PROVIDER_DATA: ProviderDataByModel = {
     ),
     Model.GPT_4O_2024_11_20: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_002_5,
+            prompt_cost_per_token=2.5 * ONE_MILLION_TH,
             prompt_cached_tokens_discount=0.5,
-            completion_cost_per_token=0.000_010,
+            completion_cost_per_token=10 * ONE_MILLION_TH,
             source="https://openai.com/api/pricing/",
         ),
     ),
     Model.GPT_4O_2024_08_06: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_002_5,
+            prompt_cost_per_token=2.5 * ONE_MILLION_TH,
             prompt_cached_tokens_discount=0.5,
-            completion_cost_per_token=0.000_010,
+            completion_cost_per_token=10 * ONE_MILLION_TH,
             source="https://openai.com/api/pricing/",
         ),
     ),
@@ -372,15 +372,15 @@ OPENAI_PROVIDER_DATA: ProviderDataByModel = {
     ),
     Model.GPT_4O_MINI_2024_07_18: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_000_15,
+            prompt_cost_per_token=0.15 * ONE_MILLION_TH,
             prompt_cached_tokens_discount=0.5,
-            completion_cost_per_token=0.000_000_6,
+            completion_cost_per_token=0.6 * ONE_MILLION_TH,
             source="https://openai.com/api/pricing/",
         ),
     ),
     Model.O1_PREVIEW_2024_09_12: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_015,
+            prompt_cost_per_token=15 * ONE_MILLION_TH,
             prompt_cached_tokens_discount=0.5,
             completion_cost_per_token=0.000_060,
             source="https://openai.com/api/pricing/",
@@ -431,8 +431,8 @@ OPENAI_IMAGE_PROVIDER_DATA: ProviderDataByModel = {
 AMAZON_BEDROCK_PROVIDER_DATA: ProviderDataByModel = {
     Model.CLAUDE_4_OPUS_20250514: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_015,
-            completion_cost_per_token=0.000_075,
+            prompt_cost_per_token=15 * ONE_MILLION_TH,
+            completion_cost_per_token=75 * ONE_MILLION_TH,
             source="https://aws.amazon.com/bedrock/pricing/",
         ),
         supports_override=ModelDataSupportsOverride(
@@ -441,8 +441,8 @@ AMAZON_BEDROCK_PROVIDER_DATA: ProviderDataByModel = {
     ),
     Model.CLAUDE_4_SONNET_20250514: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_003,
-            completion_cost_per_token=0.000_015,
+            prompt_cost_per_token=3 * ONE_MILLION_TH,
+            completion_cost_per_token=15 * ONE_MILLION_TH,
             source="https://aws.amazon.com/bedrock/pricing/",
         ),
         supports_override=ModelDataSupportsOverride(
@@ -451,8 +451,8 @@ AMAZON_BEDROCK_PROVIDER_DATA: ProviderDataByModel = {
     ),
     Model.CLAUDE_3_7_SONNET_20250219: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_003,
-            completion_cost_per_token=0.000_015,
+            prompt_cost_per_token=3 * ONE_MILLION_TH,
+            completion_cost_per_token=15 * ONE_MILLION_TH,
             source="https://aws.amazon.com/bedrock/pricing/",
         ),
         supports_override=ModelDataSupportsOverride(
@@ -461,8 +461,8 @@ AMAZON_BEDROCK_PROVIDER_DATA: ProviderDataByModel = {
     ),
     Model.CLAUDE_3_5_SONNET_20241022: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_003,
-            completion_cost_per_token=0.000_015,
+            prompt_cost_per_token=3 * ONE_MILLION_TH,
+            completion_cost_per_token=15 * ONE_MILLION_TH,
             source="https://aws.amazon.com/bedrock/pricing/",
         ),
         supports_override=ModelDataSupportsOverride(
@@ -471,22 +471,22 @@ AMAZON_BEDROCK_PROVIDER_DATA: ProviderDataByModel = {
     ),
     Model.CLAUDE_3_5_SONNET_20240620: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_003,
-            completion_cost_per_token=0.000_015,
+            prompt_cost_per_token=3 * ONE_MILLION_TH,
+            completion_cost_per_token=15 * ONE_MILLION_TH,
             source="https://aws.amazon.com/bedrock/pricing/",
         ),
     ),
     Model.CLAUDE_3_OPUS_20240229: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_015,
-            completion_cost_per_token=0.000_075,
+            prompt_cost_per_token=15 * ONE_MILLION_TH,
+            completion_cost_per_token=75 * ONE_MILLION_TH,
             source="https://aws.amazon.com/bedrock/pricing/",
         ),
     ),
     # Model.CLAUDE_3_SONNET_20240229: ModelProviderData(
     #     text_price=TextPricePerToken(
-    #         prompt_cost_per_token=0.000_003,
-    #         completion_cost_per_token=0.000_015,
+    #         prompt_cost_per_token=3 * ONE_MILLION_TH,
+    #         completion_cost_per_token=15 * ONE_MILLION_TH,
     #         source="https://aws.amazon.com/bedrock/pricing/",
     #     ),
     #     lifecycle_data=LifecycleData(
@@ -497,43 +497,43 @@ AMAZON_BEDROCK_PROVIDER_DATA: ProviderDataByModel = {
     # ),
     Model.CLAUDE_3_HAIKU_20240307: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_000_25,
-            completion_cost_per_token=0.000_00125,
+            prompt_cost_per_token=0.25 * ONE_MILLION_TH,
+            completion_cost_per_token=1.25 * ONE_MILLION_TH,
             source="https://aws.amazon.com/bedrock/pricing/",
         ),
     ),
     Model.CLAUDE_3_5_HAIKU_20241022: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_000_8,
-            completion_cost_per_token=0.000_004,
+            prompt_cost_per_token=0.8 * ONE_MILLION_TH,
+            completion_cost_per_token=4 * ONE_MILLION_TH,
             source="https://aws.amazon.com/bedrock/pricing/",
         ),
     ),
     Model.LLAMA_3_1_405B: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_002_40,
-            completion_cost_per_token=0.000_002_40,
+            prompt_cost_per_token=2.4 * ONE_MILLION_TH,
+            completion_cost_per_token=2.4 * ONE_MILLION_TH,
             source="https://aws.amazon.com/bedrock/pricing/",
         ),
     ),
     Model.LLAMA_3_1_70B: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_000_72,
-            completion_cost_per_token=0.000_000_72,
+            prompt_cost_per_token=0.72 * ONE_MILLION_TH,
+            completion_cost_per_token=0.72 * ONE_MILLION_TH,
             source="https://aws.amazon.com/bedrock/pricing/",
         ),
     ),
     Model.LLAMA_3_1_8B: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_000_22,
-            completion_cost_per_token=0.000_000_22,
+            prompt_cost_per_token=0.22 * ONE_MILLION_TH,
+            completion_cost_per_token=0.22 * ONE_MILLION_TH,
             source="https://aws.amazon.com/bedrock/pricing/",
         ),
     ),
     Model.MISTRAL_LARGE_2_2407: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_002,
-            completion_cost_per_token=0.000_006,
+            prompt_cost_per_token=2 * ONE_MILLION_TH,
+            completion_cost_per_token=6 * ONE_MILLION_TH,
             source="https://aws.amazon.com/bedrock/pricing/",
         ),
     ),
@@ -553,15 +553,15 @@ AMAZON_BEDROCK_PROVIDER_DATA: ProviderDataByModel = {
     # ),
     # Model.LLAMA_3_2_3B: ModelProviderData(
     #     text_price=TextPricePerToken(
-    #         prompt_cost_per_token=0.000_000_15,
-    #         completion_cost_per_token=0.000_000_15,
+    #         prompt_cost_per_token=0.15 * ONE_MILLION_TH,
+    #         completion_cost_per_token=0.15 * ONE_MILLION_TH,
     #         source="https://aws.amazon.com/bedrock/pricing/",
     #     ),
     # ),
     Model.LLAMA_3_3_70B: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_000_72,
-            completion_cost_per_token=0.000_000_72,
+            prompt_cost_per_token=0.72 * ONE_MILLION_TH,
+            completion_cost_per_token=0.72 * ONE_MILLION_TH,
             source="https://aws.amazon.com/bedrock/pricing/",
         ),
     ),
@@ -604,8 +604,8 @@ GROQ_PROVIDER_DATA: ProviderDataByModel = {
     # ),
     Model.LLAMA_3_1_8B: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_000_05,
-            completion_cost_per_token=0.000_000_08,
+            prompt_cost_per_token=0.05 * ONE_MILLION_TH,
+            completion_cost_per_token=0.08 * ONE_MILLION_TH,
             source="https://console.groq.com/settings/billing",
         ),
         # native tools calls are not implemented on Groq for now as we will decommssion the provider for now.
@@ -613,8 +613,8 @@ GROQ_PROVIDER_DATA: ProviderDataByModel = {
     ),
     Model.LLAMA_3_3_70B: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_000_59,
-            completion_cost_per_token=0.000_000_79,
+            prompt_cost_per_token=0.59 * ONE_MILLION_TH,
+            completion_cost_per_token=0.79 * ONE_MILLION_TH,
             source="https://console.groq.com/settings/billing",
         ),
         # native tools calls are not implemented on Groq for now as we will decommssion the provider for now.
@@ -662,8 +662,8 @@ GROQ_PROVIDER_DATA: ProviderDataByModel = {
     # ),
     # Model.LLAMA_4_SCOUT_BASIC: ModelProviderData(
     #     text_price=TextPricePerToken(
-    #         prompt_cost_per_token=0.11 / 1_000_000,
-    #         completion_cost_per_token=0.34 / 1_000_000,
+    #         prompt_cost_per_token=0.11 * ONE_MILLION_TH,
+    #         completion_cost_per_token=0.34 * ONE_MILLION_TH,
     #         source="https://groq.com/pricing/",
     #     ),
     # ),
@@ -676,8 +676,8 @@ GROQ_PROVIDER_DATA: ProviderDataByModel = {
     ),
     Model.LLAMA_4_SCOUT_FAST: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.11 / 1_000_000,
-            completion_cost_per_token=0.34 / 1_000_000,
+            prompt_cost_per_token=0.11 * ONE_MILLION_TH,
+            completion_cost_per_token=0.34 * ONE_MILLION_TH,
             source="https://groq.com/pricing/",
         ),
     ),
@@ -693,92 +693,92 @@ GROQ_PROVIDER_DATA: ProviderDataByModel = {
 MISTRAL_PROVIDER_DATA: ProviderDataByModel = {
     Model.PIXTRAL_12B_2409: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.15 / 1_000_000,
-            completion_cost_per_token=0.15 / 1_000_000,
+            prompt_cost_per_token=0.15 * ONE_MILLION_TH,
+            completion_cost_per_token=0.15 * ONE_MILLION_TH,
             source="https://mistral.ai/products/la-plateforme#pricing",
         ),
     ),
     Model.MINISTRAL_3B_2410: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.04 / 1_000_000,
-            completion_cost_per_token=0.04 / 1_000_000,
+            prompt_cost_per_token=0.04 * ONE_MILLION_TH,
+            completion_cost_per_token=0.04 * ONE_MILLION_TH,
             source="https://mistral.ai/products/la-plateforme#pricing",
         ),
     ),
     Model.MINISTRAL_8B_2410: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.1 / 1_000_000,
-            completion_cost_per_token=0.1 / 1_000_000,
+            prompt_cost_per_token=0.1 * ONE_MILLION_TH,
+            completion_cost_per_token=0.1 * ONE_MILLION_TH,
             source="https://mistral.ai/products/la-plateforme#pricing",
         ),
     ),
     Model.MISTRAL_SMALL_2409: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.1 / 1_000_000,
-            completion_cost_per_token=0.3 / 1_000_000,
+            prompt_cost_per_token=0.1 * ONE_MILLION_TH,
+            completion_cost_per_token=0.3 * ONE_MILLION_TH,
             source="https://mistral.ai/products/la-plateforme#pricing",
         ),
     ),
     Model.MISTRAL_SMALL_2501: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.1 / 1_000_000,
-            completion_cost_per_token=0.3 / 1_000_000,
+            prompt_cost_per_token=0.1 * ONE_MILLION_TH,
+            completion_cost_per_token=0.3 * ONE_MILLION_TH,
             source="https://mistral.ai/products/la-plateforme#pricing",
         ),
     ),
     Model.MISTRAL_SMALL_2503: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.1 / 1_000_000,
-            completion_cost_per_token=0.3 / 1_000_000,
+            prompt_cost_per_token=0.1 * ONE_MILLION_TH,
+            completion_cost_per_token=0.3 * ONE_MILLION_TH,
             source="https://mistral.ai/products/la-plateforme#pricing",
         ),
     ),
     Model.MISTRAL_LARGE_2_2407: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=2.0 / 1_000_000,
-            completion_cost_per_token=6.0 / 1_000_000,
+            prompt_cost_per_token=2.0 * ONE_MILLION_TH,
+            completion_cost_per_token=6.0 * ONE_MILLION_TH,
             source="https://mistral.ai/products/la-plateforme#pricing",
         ),
     ),
     Model.CODESTRAL_MAMBA_2407: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.2 / 1_000_000,
-            completion_cost_per_token=0.6 / 1_000_000,
+            prompt_cost_per_token=0.2 * ONE_MILLION_TH,
+            completion_cost_per_token=0.6 * ONE_MILLION_TH,
             source="https://mistral.ai/products/la-plateforme#pricing",
         ),
     ),
     Model.PIXTRAL_LARGE_2411: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=2.0 / 1_000_000,
-            completion_cost_per_token=6.0 / 1_000_000,
+            prompt_cost_per_token=2.0 * ONE_MILLION_TH,
+            completion_cost_per_token=6.0 * ONE_MILLION_TH,
             source="https://mistral.ai/products/la-plateforme#pricing",
         ),
     ),
     Model.MISTRAL_LARGE_2411: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=2.0 / 1_000_000,
-            completion_cost_per_token=6.0 / 1_000_000,
+            prompt_cost_per_token=2.0 * ONE_MILLION_TH,
+            completion_cost_per_token=6.0 * ONE_MILLION_TH,
             source="https://mistral.ai/products/la-plateforme#pricing",
         ),
     ),
     Model.MISTRAL_SABA_2502: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.2 / 1_000_000,
-            completion_cost_per_token=0.6 / 1_000_000,
+            prompt_cost_per_token=0.2 * ONE_MILLION_TH,
+            completion_cost_per_token=0.6 * ONE_MILLION_TH,
             source="https://mistral.ai/products/la-plateforme#pricing",
         ),
     ),
     Model.CODESTRAL_2501: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.3 / 1_000_000,
-            completion_cost_per_token=0.9 / 1_000_000,
+            prompt_cost_per_token=0.3 * ONE_MILLION_TH,
+            completion_cost_per_token=0.9 * ONE_MILLION_TH,
             source="https://mistral.ai/products/la-plateforme#pricing",
         ),
     ),
     Model.MISTRAL_MEDIUM_2505: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.4 / 1_000_000,
-            completion_cost_per_token=2 / 1_000_000,
+            prompt_cost_per_token=0.4 * ONE_MILLION_TH,
+            completion_cost_per_token=2 * ONE_MILLION_TH,
             source="https://mistral.ai/products/la-plateforme#pricing",
         ),
     ),
@@ -815,22 +815,22 @@ ANTHROPIC_PROVIDER_DATA: ProviderDataByModel = {
     ),
     Model.CLAUDE_4_OPUS_20250514: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_015,
-            completion_cost_per_token=0.000_075,
+            prompt_cost_per_token=15 * ONE_MILLION_TH,
+            completion_cost_per_token=75 * ONE_MILLION_TH,
             source="https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table",
         ),
     ),
     Model.CLAUDE_4_SONNET_20250514: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_003,
-            completion_cost_per_token=0.000_015,
+            prompt_cost_per_token=3 * ONE_MILLION_TH,
+            completion_cost_per_token=15 * ONE_MILLION_TH,
             source="https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table",
         ),
     ),
     Model.CLAUDE_3_OPUS_20240229: ModelProviderData(
         text_price=TextPricePerToken(
             prompt_cost_per_token=15 * ONE_MILLION_TH,
-            completion_cost_per_token=0.000_015,
+            completion_cost_per_token=15 * ONE_MILLION_TH,
             source="https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table",
         ),
     ),
@@ -847,25 +847,25 @@ AZURE_PROVIDER_DATA: ProviderDataByModel = {
     # TODO: correct/update pricing for Azure OpenAI
     Model.GPT_4O_2024_11_20: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_002_5,
+            prompt_cost_per_token=2.5 * ONE_MILLION_TH,
             prompt_cached_tokens_discount=0.5,
-            completion_cost_per_token=0.000_010,
+            completion_cost_per_token=10 * ONE_MILLION_TH,
             source="https://openai.com/api/pricing/",
         ),
     ),
     Model.GPT_4O_2024_08_06: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_002_5,
+            prompt_cost_per_token=2.5 * ONE_MILLION_TH,
             prompt_cached_tokens_discount=0.5,
-            completion_cost_per_token=0.000_010,
+            completion_cost_per_token=10 * ONE_MILLION_TH,
             source="https://openai.com/api/pricing/",
         ),
     ),
     Model.O1_PREVIEW_2024_09_12: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_015,
+            prompt_cost_per_token=15 * ONE_MILLION_TH,
             prompt_cached_tokens_discount=0.5,
-            completion_cost_per_token=0.000_060,
+            completion_cost_per_token=60 * ONE_MILLION_TH,
             source="https://openai.com/api/pricing/",
         ),
     ),
@@ -903,9 +903,9 @@ AZURE_PROVIDER_DATA: ProviderDataByModel = {
     ),
     Model.GPT_4O_MINI_2024_07_18: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.000_000_15,
+            prompt_cost_per_token=0.15 * ONE_MILLION_TH,
             prompt_cached_tokens_discount=0.5,
-            completion_cost_per_token=0.000_000_6,
+            completion_cost_per_token=0.6 * ONE_MILLION_TH,
             source="https://openai.com/api/pricing/",
         ),
     ),
@@ -991,28 +991,28 @@ GOOGLE_GEMINI_API_PROVIDER_DATA: ProviderDataByModel = {
     ),
     Model.GEMINI_2_5_PRO_PREVIEW_0506: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=1.25 / 1_000_000,
-            completion_cost_per_token=10 / 1_000_000,
+            prompt_cost_per_token=1.25 * ONE_MILLION_TH,
+            completion_cost_per_token=10 * ONE_MILLION_TH,
             prompt_cached_tokens_discount=0.75,
             source="https://ai.google.dev/pricing",
             thresholded_prices=[
                 ThresholdedTextPricePerToken(
                     threshold=200_000,
-                    prompt_cost_per_token_over_threshold=2.5 / 1_000_000,
-                    completion_cost_per_token_over_threshold=15 / 1_000_000,
+                    prompt_cost_per_token_over_threshold=2.5 * ONE_MILLION_TH,
+                    completion_cost_per_token_over_threshold=15 * ONE_MILLION_TH,
                 ),
             ],
         ),
     ),
     Model.GEMINI_1_5_FLASH_8B: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.0375 / 1_000_000,
-            completion_cost_per_token=0.15 / 1_000_000,
+            prompt_cost_per_token=0.0375 * ONE_MILLION_TH,
+            completion_cost_per_token=0.15 * ONE_MILLION_TH,
             thresholded_prices=[
                 ThresholdedTextPricePerToken(
                     threshold=128000,
-                    prompt_cost_per_token_over_threshold=0.075 / 1_000_000,
-                    completion_cost_per_token_over_threshold=0.3 / 1_000_000,
+                    prompt_cost_per_token_over_threshold=0.075 * ONE_MILLION_TH,
+                    completion_cost_per_token_over_threshold=0.3 * ONE_MILLION_TH,
                 ),
             ],
             source="https://ai.google.dev/pricing#1_5flash-8B",
@@ -1020,14 +1020,14 @@ GOOGLE_GEMINI_API_PROVIDER_DATA: ProviderDataByModel = {
     ),
     # Model.GEMINI_1_5_PRO_001: ModelProviderData(
     #     text_price=TextPricePerToken(
-    #         prompt_cost_per_token=1.25 / 1_000_000,
-    #         completion_cost_per_token=5 / 1_000_000,
+    #         prompt_cost_per_token=1.25 * ONE_MILLION_TH,
+    #         completion_cost_per_token=5 * ONE_MILLION_TH,
     #         thresholded_prices=[
     #             # Price per token > 128k
     #             ThresholdedTextPricePerToken(
     #                 threshold=128_000,
-    #                 prompt_cost_per_token_over_threshold=2.5 / 1_000_000,
-    #                 completion_cost_per_token_over_threshold=10 / 1_000_000,
+    #                 prompt_cost_per_token_over_threshold=2.5 * ONE_MILLION_TH,
+    #                 completion_cost_per_token_over_threshold=10 * ONE_MILLION_TH,
     #             ),
     #         ],
     #         source="https://ai.google.dev/pricing#1_5pro",
@@ -1035,14 +1035,14 @@ GOOGLE_GEMINI_API_PROVIDER_DATA: ProviderDataByModel = {
     # ),
     Model.GEMINI_1_5_PRO_002: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=1.25 / 1_000_000,
-            completion_cost_per_token=5 / 1_000_000,
+            prompt_cost_per_token=1.25 * ONE_MILLION_TH,
+            completion_cost_per_token=5 * ONE_MILLION_TH,
             thresholded_prices=[
                 # Price per token > 128k
                 ThresholdedTextPricePerToken(
                     threshold=128_000,
-                    prompt_cost_per_token_over_threshold=2.5 / 1_000_000,
-                    completion_cost_per_token_over_threshold=10 / 1_000_000,
+                    prompt_cost_per_token_over_threshold=2.5 * ONE_MILLION_TH,
+                    completion_cost_per_token_over_threshold=10 * ONE_MILLION_TH,
                 ),
             ],
             source="https://ai.google.dev/pricing#1_5pro",
@@ -1050,13 +1050,13 @@ GOOGLE_GEMINI_API_PROVIDER_DATA: ProviderDataByModel = {
     ),
     # Model.GEMINI_1_5_FLASH_001: ModelProviderData(
     #     text_price=TextPricePerToken(
-    #         prompt_cost_per_token=0.075 / 1_000_000,
-    #         completion_cost_per_token=0.30 / 1_000_000,
+    #         prompt_cost_per_token=0.075 * ONE_MILLION_TH,
+    #         completion_cost_per_token=0.30 * ONE_MILLION_TH,
     #         thresholded_prices=[
     #             ThresholdedTextPricePerToken(
     #                 threshold=128000,
-    #                 prompt_cost_per_token_over_threshold=0.15 / 1_000_000,
-    #                 completion_cost_per_token_over_threshold=0.60 / 1_000_000,
+    #                 prompt_cost_per_token_over_threshold=0.15 * ONE_MILLION_TH,
+    #                 completion_cost_per_token_over_threshold=0.60 * ONE_MILLION_TH,
     #             ),
     #         ],
     #         source="https://ai.google.dev/pricing#1_5flash",
@@ -1064,13 +1064,13 @@ GOOGLE_GEMINI_API_PROVIDER_DATA: ProviderDataByModel = {
     # ),
     Model.GEMINI_1_5_FLASH_002: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.075 / 1_000_000,
-            completion_cost_per_token=0.30 / 1_000_000,
+            prompt_cost_per_token=0.075 * ONE_MILLION_TH,
+            completion_cost_per_token=0.30 * ONE_MILLION_TH,
             thresholded_prices=[
                 ThresholdedTextPricePerToken(
                     threshold=128000,
-                    prompt_cost_per_token_over_threshold=0.15 / 1_000_000,
-                    completion_cost_per_token_over_threshold=0.60 / 1_000_000,
+                    prompt_cost_per_token_over_threshold=0.15 * ONE_MILLION_TH,
+                    completion_cost_per_token_over_threshold=0.60 * ONE_MILLION_TH,
                 ),
             ],
             source="https://ai.google.dev/pricing#1_5flash",
@@ -1081,46 +1081,46 @@ GOOGLE_GEMINI_API_PROVIDER_DATA: ProviderDataByModel = {
 FIREWORKS_PROVIDER_DATA: ProviderDataByModel = {
     # Model.LLAMA3_70B_8192: ModelProviderData(
     #     text_price=TextPricePerToken(
-    #         prompt_cost_per_token=0.90 / 1_000_000,
-    #         completion_cost_per_token=0.90 / 1_000_000,
+    #         prompt_cost_per_token=0.90 * ONE_MILLION_TH,
+    #         completion_cost_per_token=0.90 * ONE_MILLION_TH,
     #         source="https://fireworks.ai/pricing",
     #     ),
     #     # see: https://docs.fireworks.ai/guides/function-calling#supported-models
     # ),
     # Model.LLAMA3_8B_8192: ModelProviderData(
     #     text_price=TextPricePerToken(
-    #         prompt_cost_per_token=0.20 / 1_000_000,
-    #         completion_cost_per_token=0.20 / 1_000_000,
+    #         prompt_cost_per_token=0.20 * ONE_MILLION_TH,
+    #         completion_cost_per_token=0.20 * ONE_MILLION_TH,
     #         source="https://fireworks.ai/pricing",
     #     ),
     #     # see: https://docs.fireworks.ai/guides/function-calling#supported-models
     # ),
     Model.LLAMA_3_1_8B: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.20 / 1_000_000,
-            completion_cost_per_token=0.20 / 1_000_000,
+            prompt_cost_per_token=0.20 * ONE_MILLION_TH,
+            completion_cost_per_token=0.20 * ONE_MILLION_TH,
             source="https://fireworks.ai/pricing",
         ),
         # see: https://docs.fireworks.ai/guides/function-calling#supported-models
     ),
     Model.LLAMA_3_1_70B: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.90 / 1_000_000,
-            completion_cost_per_token=0.90 / 1_000_000,
+            prompt_cost_per_token=0.90 * ONE_MILLION_TH,
+            completion_cost_per_token=0.90 * ONE_MILLION_TH,
             source="https://fireworks.ai/pricing",
         ),
     ),
     Model.LLAMA_3_1_405B: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=3.0 / 1_000_000,
-            completion_cost_per_token=3.0 / 1_000_000,
+            prompt_cost_per_token=3.0 * ONE_MILLION_TH,
+            completion_cost_per_token=3.0 * ONE_MILLION_TH,
             source="https://fireworks.ai/pricing",
         ),
     ),
     Model.LLAMA_3_3_70B: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.90 / 1_000_000,
-            completion_cost_per_token=0.90 / 1_000_000,
+            prompt_cost_per_token=0.90 * ONE_MILLION_TH,
+            completion_cost_per_token=0.90 * ONE_MILLION_TH,
             source="https://fireworks.ai/pricing",
             # LLAMA_3_3_70B is not a MoE model, so in 16.1B+ category
         ),
@@ -1128,32 +1128,32 @@ FIREWORKS_PROVIDER_DATA: ProviderDataByModel = {
     ),
     # Model.LLAMA_3_2_3B: ModelProviderData(
     #     text_price=TextPricePerToken(
-    #         prompt_cost_per_token=0.10 / 1_000_000,
-    #         completion_cost_per_token=0.10 / 1_000_000,
+    #         prompt_cost_per_token=0.10 * ONE_MILLION_TH,
+    #         completion_cost_per_token=0.10 * ONE_MILLION_TH,
     #         source="https://fireworks.ai/pricing",
     #     ),
     #     # see: https://docs.fireworks.ai/guides/function-calling#supported-models
     # ),
     # Model.LLAMA_3_2_3B_PREVIEW: ModelProviderData(
     #     text_price=TextPricePerToken(
-    #         prompt_cost_per_token=0.10 / 1_000_000,
-    #         completion_cost_per_token=0.10 / 1_000_000,
+    #         prompt_cost_per_token=0.10 * ONE_MILLION_TH,
+    #         completion_cost_per_token=0.10 * ONE_MILLION_TH,
     #         source="https://fireworks.ai/pricing",
     #     ),
     #     # see: https://docs.fireworks.ai/guides/function-calling#supported-models
     # ),
     # Model.LLAMA_3_2_11B_VISION: ModelProviderData(
     #     text_price=TextPricePerToken(
-    #         prompt_cost_per_token=0.20 / 1_000_000,
-    #         completion_cost_per_token=0.20 / 1_000_000,
+    #         prompt_cost_per_token=0.20 * ONE_MILLION_TH,
+    #         completion_cost_per_token=0.20 * ONE_MILLION_TH,
     #         source="https://fireworks.ai/pricing",
     #     ),
     #     # see: https://docs.fireworks.ai/guides/function-calling#supported-models
     # ),
     # Model.LLAMA_3_2_90B_VISION_PREVIEW: ModelProviderData(
     #     text_price=TextPricePerToken(
-    #         prompt_cost_per_token=0.90 / 1_000_000,
-    #         completion_cost_per_token=0.90 / 1_000_000,
+    #         prompt_cost_per_token=0.90 * ONE_MILLION_TH,
+    #         completion_cost_per_token=0.90 * ONE_MILLION_TH,
     #         source="https://fireworks.ai/pricing",
     #         # LLAMA_3_2_90B_VISION_PREVIEW is not a MoE model, so in 16.1B+ category
     #     ),
@@ -1161,75 +1161,75 @@ FIREWORKS_PROVIDER_DATA: ProviderDataByModel = {
     # ),
     Model.QWEN_QWQ_32B: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.90 / 1_000_000,
-            completion_cost_per_token=0.90 / 1_000_000,
+            prompt_cost_per_token=0.90 * ONE_MILLION_TH,
+            completion_cost_per_token=0.90 * ONE_MILLION_TH,
             source="https://fireworks.ai/pricing",
         ),
         # see: https://docs.fireworks.ai/guides/function-calling#supported-models
     ),
     Model.DEEPSEEK_V3_2412: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.90 / 1_000_000,
-            completion_cost_per_token=0.90 / 1_000_000,
+            prompt_cost_per_token=0.90 * ONE_MILLION_TH,
+            completion_cost_per_token=0.90 * ONE_MILLION_TH,
             source="https://fireworks.ai/pricing",
         ),
         # see: https://docs.fireworks.ai/guides/function-calling#supported-models
     ),
     Model.DEEPSEEK_R1_2501: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=8.0 / 1_000_000,
-            completion_cost_per_token=8.0 / 1_000_000,
+            prompt_cost_per_token=8.0 * ONE_MILLION_TH,
+            completion_cost_per_token=8.0 * ONE_MILLION_TH,
             source="https://fireworks.ai/pricing",
         ),
         # see: https://docs.fireworks.ai/guides/function-calling#supported-models
     ),
     Model.DEEPSEEK_R1_2501_BASIC: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.55 / 1_000_000,
-            completion_cost_per_token=2.19 / 1_000_000,
+            prompt_cost_per_token=0.55 * ONE_MILLION_TH,
+            completion_cost_per_token=2.19 * ONE_MILLION_TH,
             source="https://fireworks.ai/pricing",
         ),
     ),
     Model.DEEPSEEK_R1_0528: ModelProviderData(
         text_price=TextPricePerToken(
             prompt_cost_per_token=3.0 * ONE_MILLION_TH,
-            completion_cost_per_token=3.0 / 1_000_000,
+            completion_cost_per_token=3.0 * ONE_MILLION_TH,
             source="https://app.fireworks.ai/models/fireworks/deepseek-r1-0528",
         ),
     ),
     Model.DEEPSEEK_V3_0324: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=1.20 / 1_000_000,
-            completion_cost_per_token=1.20 / 1_000_000,
+            prompt_cost_per_token=1.20 * ONE_MILLION_TH,
+            completion_cost_per_token=1.20 * ONE_MILLION_TH,
             source="https://fireworks.ai/pricing",
         ),
     ),
     Model.LLAMA_4_MAVERICK_BASIC: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.22 / 1_000_000,
-            completion_cost_per_token=0.88 / 1_000_000,
+            prompt_cost_per_token=0.22 * ONE_MILLION_TH,
+            completion_cost_per_token=0.88 * ONE_MILLION_TH,
             source="https://fireworks.ai/pricing",
         ),
     ),
     Model.LLAMA_4_SCOUT_BASIC: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.15 / 1_000_000,
-            completion_cost_per_token=0.60 / 1_000_000,
+            prompt_cost_per_token=0.15 * ONE_MILLION_TH,
+            completion_cost_per_token=0.60 * ONE_MILLION_TH,
             source="https://fireworks.ai/pricing",
         ),
     ),
     # Fall back for the fast groq version
     Model.LLAMA_4_MAVERICK_FAST: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.22 / 1_000_000,
-            completion_cost_per_token=0.88 / 1_000_000,
+            prompt_cost_per_token=0.22 * ONE_MILLION_TH,
+            completion_cost_per_token=0.88 * ONE_MILLION_TH,
             source="https://fireworks.ai/pricing",
         ),
     ),
     Model.LLAMA_4_SCOUT_FAST: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.15 / 1_000_000,
-            completion_cost_per_token=0.60 / 1_000_000,
+            prompt_cost_per_token=0.15 * ONE_MILLION_TH,
+            completion_cost_per_token=0.60 * ONE_MILLION_TH,
             source="https://fireworks.ai/pricing",
         ),
     ),
@@ -1256,43 +1256,43 @@ FIREWORKS_PROVIDER_DATA: ProviderDataByModel = {
 XAI_PROVIDER_DATA: ProviderDataByModel = {
     Model.GROK_3_BETA: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=3 / 1_000_000,
-            completion_cost_per_token=15 / 1_000_000,
+            prompt_cost_per_token=3 * ONE_MILLION_TH,
+            completion_cost_per_token=15 * ONE_MILLION_TH,
             source="https://docs.x.ai/docs/models#models-and-pricing",
         ),
     ),
     Model.GROK_3_FAST_BETA: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=5 / 1_000_000,
-            completion_cost_per_token=25 / 1_000_000,
+            prompt_cost_per_token=5 * ONE_MILLION_TH,
+            completion_cost_per_token=25 * ONE_MILLION_TH,
             source="https://docs.x.ai/docs/models#models-and-pricing",
         ),
     ),
     Model.GROK_3_MINI_BETA_HIGH_REASONING_EFFORT: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.3 / 1_000_000,
-            completion_cost_per_token=0.5 / 1_000_000,
+            prompt_cost_per_token=0.3 * ONE_MILLION_TH,
+            completion_cost_per_token=0.5 * ONE_MILLION_TH,
             source="https://docs.x.ai/docs/models#models-and-pricing",
         ),
     ),
     Model.GROK_3_MINI_BETA_LOW_REASONING_EFFORT: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.3 / 1_000_000,
-            completion_cost_per_token=0.5 / 1_000_000,
+            prompt_cost_per_token=0.3 * ONE_MILLION_TH,
+            completion_cost_per_token=0.5 * ONE_MILLION_TH,
             source="https://docs.x.ai/docs/models#models-and-pricing",
         ),
     ),
     Model.GROK_3_MINI_FAST_BETA_HIGH_REASONING_EFFORT: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.6 / 1_000_000,
-            completion_cost_per_token=4 / 1_000_000,
+            prompt_cost_per_token=0.6 * ONE_MILLION_TH,
+            completion_cost_per_token=4 * ONE_MILLION_TH,
             source="https://docs.x.ai/docs/models#models-and-pricing",
         ),
     ),
     Model.GROK_3_MINI_FAST_BETA_LOW_REASONING_EFFORT: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.6 / 1_000_000,
-            completion_cost_per_token=4 / 1_000_000,
+            prompt_cost_per_token=0.6 * ONE_MILLION_TH,
+            completion_cost_per_token=4 * ONE_MILLION_TH,
             source="https://docs.x.ai/docs/models#models-and-pricing",
         ),
     ),
