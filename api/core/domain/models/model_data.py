@@ -139,6 +139,15 @@ class ModelFallback(BaseModel):
             rate_limit=rate_limit,
         )
 
+    @classmethod
+    def only_model(cls, model: Model, pricing_tier: PricingTier):
+        return cls(
+            pricing_tier=pricing_tier,
+            content_moderation=model,
+            structured_output=model,
+            rate_limit=model,
+        )
+
 
 class ModelData(ModelDataSupports):
     display_name: str = Field(description="The display name of the model, that will be used in the UIs, etc.")

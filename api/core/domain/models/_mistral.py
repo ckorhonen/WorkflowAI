@@ -115,7 +115,7 @@ def mistral_models() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=33.9, gpqa=33.59),
             provider_name=DisplayedProvider.MISTRAL_AI.value,
             supports_tool_calling=True,
-            fallback=ModelFallback.default("cheapest"),
+            fallback=ModelFallback.only_model(Model.GEMINI_2_0_FLASH_LITE_001, "cheapest"),
         ),
         Model.MINISTRAL_8B_2410: ModelData(
             display_name="MiniStral (8B-2410)",

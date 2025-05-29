@@ -640,7 +640,11 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
             reasoning_level="none",
-            fallback=ModelFallback.default("cheapest", content_moderation=Model.GPT_41_MINI_LATEST),
+            fallback=ModelFallback.default(
+                "cheapest",
+                content_moderation=Model.GPT_41_NANO_LATEST,
+                rate_limit=Model.GEMINI_2_0_FLASH_001,
+            ),
         ),
         Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417: ModelData(
             display_name="Gemini 2.5 Flash Thinking Preview (0417)",
@@ -663,7 +667,11 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
             reasoning_level="medium",
-            fallback=ModelFallback.default("cheapest", content_moderation=Model.GPT_41_MINI_LATEST),
+            fallback=ModelFallback.default(
+                "cheapest",
+                content_moderation=Model.GPT_41_NANO_LATEST,
+                rate_limit=Model.GEMINI_2_0_FLASH_001,
+            ),
         ),
         Model.GEMINI_2_5_PRO_PREVIEW_0506: ModelData(
             display_name="Gemini 2.5 Pro Preview (0506)",
@@ -1095,7 +1103,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=66.7, gpqa=33.8),
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=False,
-            fallback=ModelFallback.default("cheapest"),
+            fallback=ModelFallback.only_model(Model.GEMINI_2_0_FLASH_LITE_001, "cheapest"),
         ),
         Model.LLAMA_3_2_90B: DeprecatedModel(replacement_model=Model.LLAMA_4_SCOUT_BASIC),
         Model.LLAMA_3_2_11B: DeprecatedModel(replacement_model=Model.LLAMA_4_SCOUT_BASIC),
@@ -1123,7 +1131,11 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=58.7, gpqa=38.4),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
-            fallback=ModelFallback.default("cheapest", content_moderation=Model.GPT_41_NANO_LATEST),
+            fallback=ModelFallback.default(
+                "cheapest",
+                rate_limit=Model.GEMINI_2_0_FLASH_EXP,
+                content_moderation=Model.GPT_41_NANO_LATEST,
+            ),
         ),
         Model.GEMINI_EXP_1206: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0506),
         Model.GEMINI_EXP_1121: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0506),

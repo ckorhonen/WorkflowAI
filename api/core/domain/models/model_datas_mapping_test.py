@@ -316,13 +316,15 @@ class TestModelFallback:
         Model.GEMINI_1_5_FLASH_8B,
         Model.GEMINI_2_5_FLASH_PREVIEW_0417,
         Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417,
-        Model.LLAMA_3_1_8B,
-        Model.MINISTRAL_3B_2410,
     }
 
     _IGNORE_PROVIDERS = {
         # LLama is supported by vertex but we use gemini for content moderation
         Model.LLAMA_3_1_405B,
+        # These models are super cheap so they fallback to a Gemini Flash lite which is alqo on google
+        Model.GEMINI_1_5_FLASH_8B,
+        Model.GEMINI_2_5_FLASH_PREVIEW_0417,
+        Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417,
     }
 
     @pytest.mark.parametrize("model_data", _FILTERED_MODEL_DATA)
@@ -332,25 +334,24 @@ class TestModelFallback:
         if not model_data.fallback:
             pytest.skip("Model has no fallback")
 
-        fallback_models: set[Model] = set(
-            model_data.fallback.model_dump(exclude_none=True, exclude={"pricing_tier"}).values(),
-        )
+        fallback_models: dict[str, Model] = model_data.fallback.model_dump(exclude_none=True, exclude={"pricing_tier"})
 
         current_provider_data = model_data.providers[0][1]
         current_providers = set(provider for provider, _ in model_data.providers)
         current_text_price = current_provider_data.text_price
 
-        for fallback_model in fallback_models:
+        for fallback_type, fallback_model in fallback_models.items():
             fallback_model_data = get_model_data(fallback_model)
             assert isinstance(fallback_model_data, FinalModelData), "sanity"
+
+            assert fallback_model_data.model != model_data.model, (
+                "Fallback model should be different from the current model"
+            )
 
             # ------------------------------------------------------------
             # Check providers
 
-            if model_data.model in self._IGNORE_PROVIDERS:
-                # We only check the primary provider
-                assert fallback_model_data.providers[0][0] != model_data.providers[0][0]
-            else:
+            if model_data.model not in self._IGNORE_PROVIDERS:
                 # Check that the first provider is not in any of the current providers
                 assert fallback_model_data.providers[0][0] not in current_providers, (
                     f"Fallback model {fallback_model} has the same provider as the current model {model_data.model}"
@@ -375,11 +376,12 @@ class TestModelFallback:
 
             max_price = 2 * current_text_price.prompt_cost_per_token
 
-            if model_data.model not in self._IGNORE_PRICE:
-                assert fallback_text_price.prompt_cost_per_token <= max_price, (
-                    f"Fallback model {fallback_model} has a higher prompt cost per token than the current model {model_data.model}"
-                )
-            else:
+            # We never ignore the price for rate limit
+            if model_data.model in self._IGNORE_PRICE and fallback_type not in {"rate_limit", "default"}:
                 assert model_data.fallback.pricing_tier == "cheapest", (
                     "Fallback pricing tier should be cheapest when pricing is ignored"
+                )
+            else:
+                assert fallback_text_price.prompt_cost_per_token <= max_price, (
+                    f"Fallback model {fallback_model} has a higher prompt cost per token than the current model {model_data.model}"
                 )
