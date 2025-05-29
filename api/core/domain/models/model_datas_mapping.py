@@ -1340,6 +1340,30 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             supports_tool_calling=True,
             fallback=ModelFallback.default("cheap"),
         ),
+        # https://fireworks.ai/models/fireworks/deepseek-r1-0528
+        Model.DEEPSEEK_R1_0528: ModelData(
+            display_name="DeepSeek R1 (05-28) (US hosted)",
+            supports_json_mode=True,
+            supports_input_image=False,
+            supports_input_pdf=False,
+            supports_input_audio=False,
+            supports_structured_output=False,  # To access the thinking, we have to disable the structured output
+            max_tokens_data=MaxTokensData(
+                max_tokens=160_000,
+                source="https://app.fireworks.ai/models/fireworks/deepseek-r1-0528",
+            ),
+            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/deepseek.svg",
+            release_date=date(2025, 5, 28),
+            quality_data=QualityData(
+                equivalent_to=(  # TODO: adjust later, could not find score for MMLU nor GPQA
+                    Model.O4_MINI_2025_04_16_MEDIUM_REASONING_EFFORT,
+                    -10,
+                ),
+            ),
+            provider_name=DisplayedProvider.FIREWORKS.value,
+            supports_tool_calling=False,  # Function calling not supported according to the spec
+            fallback=ModelFallback.default("medium"),
+        ),
         # https://fireworks.ai/models/fireworks/deepseek-v3-0324
         Model.DEEPSEEK_V3_0324: ModelData(
             display_name="DeepSeek V3 (03-24) (US hosted)",

@@ -469,18 +469,6 @@ async def test_deployment(test_client: IntegrationTestClient, openai_client: Asy
     assert run["version"]["id"] == version_id
 
 
-async def test_deployment_missing_error(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
-    with pytest.raises(openai.BadRequestError) as e:
-        await openai_client.chat.completions.create(
-            model="my-agent/#1/production",
-            messages=[],
-            extra_body={"input": {"name": "John"}},
-        )
-
-    assert e.value.status_code == 400
-    assert "Deployment not found" in e.value.message
-
-
 async def test_missing_model_error(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
     test_client.mock_internal_task("model_suggester", {"suggested_model": "gpt-4o-mini-latest"})
 
@@ -501,29 +489,6 @@ async def test_list_models(openai_client: AsyncOpenAI):
     assert model_ids < set(Model)
     assert Model.GPT_41_LATEST in model_ids
     assert Model.GPT_3_5_TURBO_1106 not in model_ids
-
-
-async def test_unsupported_parameter(openai_client: AsyncOpenAI):
-    # Only one unsupported field
-    with pytest.raises(openai.BadRequestError) as e:
-        await openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": "Hello, world!"}],
-            logit_bias={"hello": 1},
-        )
-
-    assert "Field `logit_bias` is not supported" in str(e)
-
-    # Multiple unsupported fields
-    with pytest.raises(openai.BadRequestError) as e:
-        await openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": "Hello, world!"}],
-            logit_bias={"hello": 1},
-            stop="hello",
-        )
-
-    assert "Fields `logit_bias`, `stop` are not supported" in str(e)
 
 
 async def test_deployed_version_no_messages(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):

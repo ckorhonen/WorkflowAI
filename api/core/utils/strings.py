@@ -15,9 +15,9 @@ def split_words(input_str: str) -> list[str]:
     return re.split(r"\s|-|_", name)
 
 
-def to_pascal_case(input_str: str) -> str:
+def to_pascal_case(input_str: str, separator: str = "") -> str:
     components = split_words(input_str)
-    return "".join(x.title() for x in components)
+    return separator.join(x.title() for x in components)
 
 
 def to_snake_case(input_str: str) -> str:
