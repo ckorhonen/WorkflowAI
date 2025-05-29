@@ -20,7 +20,7 @@ from core.domain.errors import BadRequestError
 from core.domain.message import Message, MessageRole, Messages
 from core.domain.models.models import Model
 from core.domain.task_group_properties import TaskGroupProperties
-from core.domain.task_io import RawMessagesSchema
+from core.domain.task_io import RawMessagesSchema, RawStringMessageSchema
 from core.domain.tenant_data import PublicOrganizationData
 from core.domain.tool import Tool
 from core.domain.version_environment import VersionEnvironment
@@ -87,6 +87,109 @@ class TestPrepareRun:
         assert result.properties.enabled_tools == [
             Tool(name="my_function", input_schema={}, output_schema={}, strict=True),
         ]
+
+    async def test_deployment_with_extra_input(
+        self,
+        proxy_handler: OpenAIProxyHandler,
+        mock_storage: Mock,
+        completion_request: OpenAIProxyChatCompletionRequest,
+    ):
+        """Check the error message when an input is sent to a deployment that does not expect an input"""
+        completion_request.model = "my agent/#1/production"
+        completion_request.messages = [
+            OpenAIProxyMessage(role="user", content="Hello, world!"),
+        ]
+        completion_request.input = {"name": "John"}
+
+        mock_storage.task_deployments.get_task_deployment.return_value = test_models.task_deployment(
+            properties=TaskGroupProperties(
+                model="gpt-4o",
+                task_variant_id="my-variant",  # type: ignore
+                enabled_tools=["hello"],
+            ),
+        )
+        mock_storage.task_version_resource_by_id.return_value = test_models.task_variant(
+            input_io=RawMessagesSchema,
+        )
+        with pytest.raises(BadRequestError) as e:
+            await proxy_handler._prepare_run(completion_request, PublicOrganizationData())
+        assert "You send input variables but the deployment you are trying to use does not expect any" in str(e.value)
+
+    async def test_deployment_with_missing_input(
+        self,
+        proxy_handler: OpenAIProxyHandler,
+        mock_storage: Mock,
+        completion_request: OpenAIProxyChatCompletionRequest,
+    ):
+        completion_request.model = "my agent/#1/production"
+        completion_request.messages = []
+        completion_request.input = None
+
+        mock_storage.task_deployments.get_task_deployment.return_value = test_models.task_deployment(
+            properties=TaskGroupProperties(
+                model="gpt-4o",
+                task_variant_id="my-variant",  # type: ignore
+                enabled_tools=["hello"],
+                messages=[Message.with_text("Hello {{name}}!", role="user")],
+            ),
+        )
+        mock_storage.task_version_resource_by_id.return_value = test_models.task_variant(
+            input_schema={"type": "object", "properties": {"name": {"type": "string"}}},
+        )
+
+        with pytest.raises(BadRequestError) as e:
+            await proxy_handler._prepare_run(completion_request, PublicOrganizationData())
+        assert "Your deployment on schema #1 expects input variables" in str(e.value)
+
+    async def test_with_deployment_and_non_slug_agent_id(
+        self,
+        proxy_handler: OpenAIProxyHandler,
+        mock_storage: Mock,
+        completion_request: OpenAIProxyChatCompletionRequest,
+    ):
+        """Check that we slugify the agent id if it's not a slug"""
+        completion_request.model = "my agent/#1/production"
+        completion_request.messages = [
+            OpenAIProxyMessage(role="user", content="Hello, world!"),
+        ]
+        completion_request.input = None
+        mock_storage.task_deployments.get_task_deployment.return_value = test_models.task_deployment(
+            properties=TaskGroupProperties(
+                model="gpt-4o",
+                task_variant_id="my-variant",  # type: ignore
+                enabled_tools=["hello"],
+            ),
+        )
+        mock_storage.task_version_resource_by_id.return_value = test_models.task_variant(input_io=RawMessagesSchema)
+        await proxy_handler._prepare_run(completion_request, PublicOrganizationData())
+
+        mock_storage.task_deployments.get_task_deployment.assert_called_once_with(
+            "my-agent",
+            1,
+            "production",
+        )
+        mock_storage.task_version_resource_by_id.assert_called_once_with(
+            "my-agent",
+            "my-variant",
+        )
+
+    async def test_with_model_and_non_slug_agent_id(
+        self,
+        proxy_handler: OpenAIProxyHandler,
+        mock_storage: Mock,
+        completion_request: OpenAIProxyChatCompletionRequest,
+    ):
+        """Check that we slugify the agent id if it's not a slug"""
+        completion_request.model = "my agent/gpt-4"
+        completion_request.messages = [
+            OpenAIProxyMessage(role="user", content="Hello, world!"),
+        ]
+        completion_request.input = None
+        mock_storage.store_task_resource.side_effect = lambda x: (x, True)  # type: ignore
+
+        prepared = await proxy_handler._prepare_run(completion_request, PublicOrganizationData())
+        assert prepared.variant.task_id == "my-agent"
+        assert prepared.variant.name == "my agent"
 
 
 class TestCheckForDuplicateMessages:
@@ -224,3 +327,33 @@ class TestPrepareRunForModel:
             },
             "type": "object",
         }
+
+
+class TestBuildVariant:
+    def test_build_variant_no_template(self):
+        result, idx = OpenAIProxyHandler._build_variant(
+            messages=Messages(messages=[Message.with_text("Hello, world!", role="user")]),
+            agent_slug="slug-agent",
+            input=None,
+            response_format=None,
+        )
+        assert idx == -1
+        assert result.input_schema == RawMessagesSchema
+        assert result.output_schema == RawStringMessageSchema
+
+        assert result.task_id == "slug-agent"
+        assert result.name == "Slug Agent"
+
+    def test_build_variant_weird_agent_id(self):
+        result, idx = OpenAIProxyHandler._build_variant(
+            messages=Messages(messages=[Message.with_text("Hello, world!", role="user")]),
+            agent_slug="L'agent de la mère",
+            input=None,
+            response_format=None,
+        )
+        assert idx == -1
+        assert result.input_schema == RawMessagesSchema
+        assert result.output_schema == RawStringMessageSchema
+
+        assert result.task_id == "lagent-de-la-mere"
+        assert result.name == "L'agent de la mère"

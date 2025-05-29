@@ -26,7 +26,7 @@ from core.providers.base.provider_error import MissingModelError
 from core.storage import ObjectNotFoundException
 from core.storage.backend_storage import BackendStorage
 from core.utils.schemas import schema_from_data
-from core.utils.strings import to_pascal_case
+from core.utils.strings import slugify, to_pascal_case
 from core.utils.templates import InvalidTemplateError
 
 from ._openai_proxy_models import (
@@ -132,13 +132,16 @@ class OpenAIProxyHandler:
         if not agent_slug:
             agent_slug = "default"
 
+        slugified_agent_slug = slugify(agent_slug)
+
         return SerializableTaskVariant(
             id="",
             task_schema_id=0,
-            task_id=agent_slug,
+            task_id=slugified_agent_slug,
             input_schema=input_schema,
             output_schema=output_schema,
-            name=to_pascal_case(agent_slug),
+            # If the agent_id was already a slug, then we convert to pascal case, or we use as is.
+            name=to_pascal_case(agent_slug, separator=" ") if slugified_agent_slug == agent_slug else agent_slug,
         ), last_templated_index
 
     class PreparedRun(NamedTuple):
@@ -172,22 +175,23 @@ class OpenAIProxyHandler:
         input: dict[str, Any] | None,
         response_format: OpenAIProxyResponseFormat | None,
     ) -> PreparedRun:
+        agent_id = slugify(agent_ref.agent_id)
         try:
             deployment = await self._storage.task_deployments.get_task_deployment(
-                agent_ref.agent_id,
+                agent_id,
                 agent_ref.schema_id,
                 agent_ref.environment,
             )
         except ObjectNotFoundException:
             raise BadRequestError(
-                f"Deployment not found for agent {agent_ref.agent_id}/{agent_ref.schema_id} in "
+                f"Deployment not found for agent {agent_id}/{agent_ref.schema_id} in "
                 f"environment {agent_ref.environment}. Check your deployments "
-                f"at {tenant_data.app_deployments_url(agent_ref.agent_id, agent_ref.schema_id)}",
+                f"at {tenant_data.app_deployments_url(agent_id, agent_ref.schema_id)}",
             )
         properties = deployment.properties
         if variant_id := deployment.properties.task_variant_id:
             variant = await self._storage.task_version_resource_by_id(
-                agent_ref.agent_id,
+                agent_id,
                 variant_id,
             )
         else:
@@ -204,8 +208,8 @@ class OpenAIProxyHandler:
             final_input: Messages | dict[str, Any] = messages
             if input:
                 raise BadRequestError(
-                    "The deployment you are trying to use does not contain any messages but you "
-                    "sent input variables. Check the deployment at "
+                    "You send input variables but the deployment you are trying to use does not expect any."
+                    "You likely have a typo in your schema id. Check the deployment at "
                     f"{tenant_data.app_deployments_url(agent_ref.agent_id, agent_ref.schema_id)}",
                 )
         else:
@@ -284,10 +288,24 @@ class OpenAIProxyHandler:
         agent_ref: EnvironmentRef | ModelRef,
         tenant_data: PublicOrganizationData,
     ):
-        if isinstance(final_input, Messages):
+        if isinstance(final_input, Messages) or not final_input:
+            # That can happen if the user passed a None input
             if input_io.version == RawMessagesSchema.version:
-                # Everything is ok here
+                # Everything is ok here, we received messages with no input and expected no input
                 return
+
+            # We are not good here
+            # We should have a proper input dict
+            raise (
+                BadRequestError(
+                    f"Your deployment on schema #{agent_ref.schema_id} expects input variables but you did not send any."
+                    f"Please check your schema at {tenant_data.app_schema_url(agent_ref.agent_id, agent_ref.schema_id)}",
+                )
+                if isinstance(agent_ref, EnvironmentRef)
+                else BadRequestError("It seems that your messages expect templated variables but you did not send any.")
+            )
+
+        if input_io.version == RawMessagesSchema.version:
             raise (
                 BadRequestError(
                     f"You passed input variables to a deployment on schema #{agent_ref.schema_id} but schema "
@@ -297,7 +315,7 @@ class OpenAIProxyHandler:
                 )
                 if isinstance(agent_ref, EnvironmentRef)
                 else BadRequestError(
-                    "It looks like you are using input variables but there are no input variables in your messages.",
+                    "It looks like you sent input variables but there are no input variables in your messages.",
                 )
             )
 
