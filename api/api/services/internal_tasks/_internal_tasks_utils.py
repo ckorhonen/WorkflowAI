@@ -2,6 +2,7 @@ from collections.abc import Callable
 
 from workflowai.fields import Image
 
+from core.domain.tool import Tool
 from core.runners.workflowai.utils import FileWithKeyPath
 from core.runners.workflowai.workflowai_runner import WorkflowAIRunner
 from core.tools import ToolKind
@@ -15,7 +16,11 @@ def file_to_image(file: FileWithKeyPath) -> Image:
     return Image(data=file.data, content_type=file.content_type, url=file.storage_url or file.url)
 
 
-def internal_tools_description(all: bool = False, include: set[ToolKind] | None = None) -> str:
+def internal_tools_description(
+    all: bool = False,
+    include: set[ToolKind] | None = None,
+    formatting_func: Callable[[list[Tool]], str] = get_tools_description,
+) -> str:
     if all is True:
         if include is not None:
             raise ValueError("include cannot be used with all=True")
@@ -38,7 +43,7 @@ def internal_tools_description(all: bool = False, include: set[ToolKind] | None 
     if len(tools_to_describe) == 0:
         return ""
 
-    return get_tools_description(tools_to_describe)
+    return formatting_func(tools_to_describe)
 
 
 def officially_suggested_tools() -> str:

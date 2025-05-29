@@ -210,6 +210,9 @@ class AgentRun(BaseModel):
         default=None,
         description="The error that occurred during the agent run, if any.",
     )
+    raw_response: str | None = Field(
+        description="The raw LLM completions that were made by the agent to produce the output",
+    )
 
     class ToolCall(BaseModel):
         name: str
@@ -529,6 +532,11 @@ class ProxyMetaAgentOutput(BaseModel):
         description="The schema description and examples editing request, if any",
     )
 
+    generate_input_request: GenerateAgentInputToolCallRequest | None = Field(
+        default=None,
+        description="The generate input request, if any",
+    )
+
 
 class ParsedToolCall(NamedTuple):
     """Result of parsing a tool call from the OpenAI streaming response."""
@@ -541,6 +549,7 @@ class ParsedToolCall(NamedTuple):
     run_trigger_config: ProxyMetaAgentOutput.RunTriggerConfig | None = None
     edit_schema_structure_request: EditSchemaStructureToolCallRequest | None = None
     edit_schema_description_and_examples_request: EditSchemaDescriptionAndExamplesToolCallRequest | None = None
+    generate_input_request: GenerateAgentInputToolCallRequest | None = None
 
 
 def parse_tool_call(tool_call: Any) -> ParsedToolCall:
@@ -552,6 +561,7 @@ def parse_tool_call(tool_call: Any) -> ParsedToolCall:
     - edit_schema_structure: edit_schema_structure_request
     - edit_schema_description_and_examples: edit_schema_description_and_examples_request
     - run_agent_on_model: run_trigger_config
+    - generate_agent_input: generate_input_request
     """
     if not tool_call.function or not tool_call.function.arguments:
         return ParsedToolCall()
@@ -599,6 +609,13 @@ def parse_tool_call(tool_call: Any) -> ParsedToolCall:
             ),
         )
 
+    if function_name == "generate_agent_input":
+        return ParsedToolCall(
+            generate_input_request=GenerateAgentInputToolCallRequest(
+                instructions=arguments.get("instructions"),
+            ),
+        )
+
     return ParsedToolCall()
 
 
@@ -632,6 +649,16 @@ When returning code blocks, always return the smallest chunk possible that reall
 I repeat, you need to consider the code updates the user has made in the previous "messages" and return the smallest chunk possible that really highlight what needs to be changed. Do not repeat code that has not changed from previous messages.
 Please be VERY careful NOT including comments in another language format ex: DO NOT USE '/* */' if 'current_agent.used_integration.programming_language==python' and DO NOT USE '#' if 'current_agent.used_integration.programming_language==typescript'.
 Do NOT provider example for other languages / integration other that the one defined in 'current_agent.used_integration' and 'integration_documentation'.
+
+# Current agent state
+{% if is_using_version_messages %}
+.
+{% endif %}
+{% if agent_has_output_schema %}
+- Agent is using structured output
+{% else %}
+- Agent is NOT using structured output yet so if the user is asking to update to update the output structure you must use the 'update_version_messages' tool and also suggest the user to switch to structured output.
+{% endif %}
 """
 
 _PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS = """
@@ -652,6 +679,7 @@ PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS = (
 """
     + _PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS
 )
+
 
 _PROPOSE_INPUT_VARIABLES_INSTRUCTIONS = """Your goal here is to make the user migrate to input variables. You can check the documentation to see why it's a good idea to use input variables.
 
@@ -787,18 +815,17 @@ You MUST end your message with the 'setup_deployment_assistant_proposal' in this
 </setup_deployment>
 
 
-<improving agent's results>
+# Improving agent's results
 
 Several factors impact an agent behaviour and performance, here are the most common ones (and how to enhance those factors):
 
-<updating agent's messages>
+# Updating agent's messages
 The messages (especailly the system message and the first user message if any) explain the agent how to behave and how to generate its output, based on the input.
 Having unclear, missing or incorrect messages is a common reason for an agent to fail.
 Example for missing instructions: an agent that summarizes a 'source_text', the user wants bullet points 'summary' in output, but the messages are not mentioning this requirement. You need to run the 'update_version_messages' with the update messages.
 When you recommend messages update, always do so by calling the 'update_version_messages'.
-</updating_agent's_messages>
 
-<updating the agent's output schema>
+# Updating the agent's output format
 The output schema defines the structure of the agent output. Having an incomplete, malformed or unnecessarily complex schema is a common reason for an agent to fail.
 {% if agent_has_output_schema %}
 Example for missing field in output: the users wants to extracts more information than the agent is able to provide, ex: a summary of the transcript. You need to run the 'edit_output_schema_structure' tool to add new fields to the output of the agent, by submitting a simple 'edition_request_message' like "I want to add the 'summary' field to the output of the agent".
@@ -807,27 +834,23 @@ Example for unnecessarily complex schema: the agent input schema includes a list
 Example for missing field in output: the users wants to extracts more information than the agent is able to provide, ex: a summary of the transcript. You need to run the 'update_version_messages' tool to ask the model to generate the 'summary' field in the output of the agent.
 Example for unnecessarily complex schema: the agent input schema includes a list of 'transcripts' but the processing can be done on a single transcript. You need to run the 'update_version_messages' tool to generate a single 'transcript' in the output of the agent.
 {% endif %}
-</updating the agent's output schema>
 
-<running agent on different models>
+# Running agent on different models
 You can also run the agent on different models to see which one is the best for the task. You can do this by calling the 'run_agent_on_model' tool call with the models you want to run the agent on.
 Note that these changes only affect the playground, and the user will still need to update its code in order for its agent to use the new model.
+You must provide both the updated code for the user and make a 'run_agent_on_model' tool call to run the agent on the new model in the playground.
 </running_agent_on_different_models>
 
-<using tools>
+# Using tools
 The 'available_tools_description' field in input contains a description of the tools that can be used to improve the agent's output (web-browser, web search, etc.).
 Keep in mind that the LLMs that power the current_agent, can't access the internet on their own, they can't get real time data (weather, news, etc.). nor information that did not exist when the agent was trained (often months or years ago).
 
-<hosted_tools>
+## Hosted tools
 You can enhance the agent capabilities by using hosted tools that will run inside the workflow AI platform when the user makes an agent run, those tools are detailled in 'available_hosted_tools_description'. Hosted tools can directly be added to the agent's message, so to add an hosted tool, you can call the 'update_version_messages' tool call with the new message containing the hosted tool (@....)
-</hosted_tools>
 
-<custom_tools>
+## Custom tools
 In case the tools are not enough to endure the task the agent must do, you can propose the user to add a custom tool by making a 'create_custom_tool' tool call. In this case, the user will have to implement the actual tool in their codebase.
-</custom_tools>
-</using tools>
 
-</improving_agent's_results>
 
 # All other cases:
 You must answer users' questions, but what you know from all the documentation in 'workflowai_documentation_sections' and 'integration_documentation' is not enough to answer the question.
@@ -837,6 +860,17 @@ Be mindful of subjects that are "over" in the messages, and those who are curren
 Be particularly mindful of the past tool calls that were made. Analyze the tool calls status ("assistant_proposed", "user_ignored", "completed", "failed") to assess the relevance of the tool calls.
 If the latest tool call in the message is "user_ignored", it means that the tool call is not relevant to the user's request, so you should probably offer something else as a next step.
 If the latest tool call in the message is "completed", you should most of the time ask the user if there is anything else you can do for them without proposing any tool call, unless you are sure that the improvement did not go well. Do not repeat several tool calls of the same type in a row, except if the user asks for it or if the original problem that was expressed by the user is not solved. Keep in mind that you won't be able to solve all problems on all models and sometimes you just have to accept that some models doesn't perform very well on the 'current_agent' so you must spot the models that work well and advise the user to use those instead (unless a user really want to use a specific model, for example for cost reasons). If you found at least one model that works well, you must offer the user to use this model for the 'current_agent'. Indeed, if none of the models among the three selected models works well, you can either make another round of improving the version messages / schema or offer to try different models with higher 'quality_index' using the 'run_agent_on_model' tool call.
+
+# Input generation
+In order to help the user generate a relevant agent input, based on their direct or indirect request, you can use the 'generate_agent_input' tool call.
+The 'generate_agent_input' tool call is strictly to generate example agent input (that will replace the current 'playground_state.agent_input'), not to generate code snippets, or anything else.
+The 'instructions' field of the 'generate_agent_input' object will be passed to an agent specialized in input generation, "instructions" must be succinct.
+After running the 'generate_agent_input' tool, the new agent input will effectively replace the 'playground_state.agent_input' object in the UI.
+You MUST always make an actual 'generate_agent_input' tool call to generate the agent input, and NOT <function_call>...</function_call>
+
+# Error analysis
+When a run as an 'error', that means the output could not have been parsed. You can analyse the 'raw_response' of the run to understand why generation has failed. A typical error is the models outputing "properties": ... (similar to a JSON schema) instead of the expected JSON object.
+This is a common issue with small and low quality index models.
 """
 )
 
@@ -855,7 +889,7 @@ TOOL_DEFINITIONS: list[ChatCompletionToolParam] = [
                     },
                     "example_input": {
                         "type": "object",
-                        "description": "The example input to update the current agent version with, to fill only in case the version message contain {{input_variables}}",
+                        "description": "The example input to update the current agent version with, to fill only in case the version message contain input_variables (double curly braces)",
                     },
                 },
                 "required": [
@@ -914,6 +948,24 @@ TOOL_DEFINITIONS: list[ChatCompletionToolParam] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_agent_input",
+            "description": "Generate example input for the current agent to help users understand how to use the agent effectively.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "instructions": {
+                        "type": "string",
+                        "description": "Instructions on how to generate the agent input, this message will be passed to the input generation agent.",
+                    },
+                },
+                "required": ["instructions"],
+                "additionalProperties": False,
+            },
+        },
+    },
 ]
 
 OUTPUT_SCHEMA_EDITION_TOOLS: list[ChatCompletionToolParam] = [
@@ -956,6 +1008,14 @@ OUTPUT_SCHEMA_EDITION_TOOLS: list[ChatCompletionToolParam] = [
 ]
 
 
+def _pick_tools_to_use(use_tool_calls: bool, agent_has_output_schema: bool) -> list[ChatCompletionToolParam]:
+    if not use_tool_calls:
+        return []
+    if agent_has_output_schema:
+        return TOOL_DEFINITIONS + OUTPUT_SCHEMA_EDITION_TOOLS
+    return TOOL_DEFINITIONS
+
+
 async def proxy_meta_agent(
     input: ProxyMetaAgentInput,
     instructions: str,
@@ -973,9 +1033,7 @@ async def proxy_meta_agent(
     instructions = instructions.replace("MODEL_NAME_PREFIX_PLACEHOLDER", model_name_prefix)
     instructions = instructions.replace("COMPLETION_CLIENT_PLACEHOLDER", completion_client)
 
-    TOOLS = TOOL_DEFINITIONS if use_tool_calls else []
-    if agent_has_output_schema:
-        TOOLS.extend(OUTPUT_SCHEMA_EDITION_TOOLS)
+    tools_to_use = _pick_tools_to_use(agent_has_output_schema, use_tool_calls)
 
     response = await client.chat.completions.create(
         model="proxy-meta-agent/claude-sonnet-4-20250514",
@@ -988,10 +1046,10 @@ async def proxy_meta_agent(
         extra_body={
             "input": {
                 "is_using_version_messages": is_using_version_messages,
-                "has_output_schema": agent_has_output_schema,
+                "agent_has_output_schema": agent_has_output_schema,
             },
         },
-        tools=TOOLS,
+        tools=tools_to_use,
     )
 
     async for chunk in response:
@@ -1015,4 +1073,5 @@ async def proxy_meta_agent(
             run_trigger_config=parsed_tool_call.run_trigger_config,
             edit_schema_structure_request=parsed_tool_call.edit_schema_structure_request,
             edit_schema_description_and_examples_request=parsed_tool_call.edit_schema_description_and_examples_request,
+            generate_input_request=parsed_tool_call.generate_input_request,
         )

@@ -49,6 +49,7 @@ from core.agents.meta_agent_proxy import (
     PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS,
     EditSchemaDescriptionAndExamplesToolCallRequest,
     EditSchemaStructureToolCallRequest,
+    GenerateAgentInputToolCallRequest,
     ProxyMetaAgentInput,
     ProxyMetaAgentOutput,
     proxy_meta_agent,
@@ -87,6 +88,7 @@ from core.storage import ObjectNotFoundException, TaskTuple
 from core.storage.backend_storage import BackendStorage
 from core.tools import ToolKind
 from core.utils.hash import compute_obj_hash
+from core.utils.tool_utils.tool_utils import get_tools_description_openai_format_str
 from core.utils.url_utils import extract_and_fetch_urls
 
 FIRST_MESSAGE_CONTENT = "Hi, I'm WorkflowAI's agent. How can I help you?"
@@ -1189,6 +1191,7 @@ class MetaAgentService:
             input=str(agent_run.task_input),
             output=str(agent_run.task_output),  # Handle both dict output and str
             error=agent_run.error.model_dump() if agent_run.error else None,
+            raw_response=agent_run.llm_completions[-1].response if agent_run.llm_completions else None,
             cost_usd=agent_run.cost_usd,
             duration_seconds=agent_run.duration_seconds,
             user_evaluation=agent_run.user_review,
@@ -1264,9 +1267,10 @@ class MetaAgentService:
                 chat_messages=[message.to_chat_message() for message in messages],
                 agent_instructions=GENERIC_INSTRUCTIONS or "",
             ),
-            integration_documentation=[],  # Will be filled in later
+            integration_documentation=[],  # Will be filled in later in 'stream_meta_agent_chat'
             available_hosted_tools_description=internal_tools_description(
                 include={ToolKind.WEB_BROWSER_TEXT, ToolKind.WEB_SEARCH_PERPLEXITY_SONAR_PRO},
+                formatting_func=get_tools_description_openai_format_str,
             ),
             playground_state=ProxyPlaygroundStateDomain(
                 agent_input=agent_input_copy,
@@ -1484,6 +1488,7 @@ class MetaAgentService:
         run_trigger_config: ProxyMetaAgentOutput.RunTriggerConfig | None,
         edit_schema_structure_request: EditSchemaStructureToolCallRequest | None,
         edit_schema_description_and_examples_request: EditSchemaDescriptionAndExamplesToolCallRequest | None,
+        generate_input_request: GenerateAgentInputToolCallRequest | None,
     ) -> MetaAgentToolCallType | None:
         tool_call_to_return = None
         if updated_version_messages:
@@ -1530,6 +1535,11 @@ class MetaAgentService:
         if edit_schema_description_and_examples_request:
             tool_call_to_return = EditSchemaToolCall(
                 edition_request_message=edit_schema_description_and_examples_request.description_and_examples_edition_request_message,
+            )
+
+        if generate_input_request:
+            tool_call_to_return = GenerateAgentInputToolCall(
+                instructions=generate_input_request.instructions,
             )
 
         return tool_call_to_return
@@ -1880,6 +1890,7 @@ Please double check:
         edit_schema_description_and_examples_request_chunk: EditSchemaDescriptionAndExamplesToolCallRequest | None = (
             None
         )
+        generate_input_request_chunk: GenerateAgentInputToolCallRequest | None = None
         tool_call_to_return: MetaAgentToolCallType | None = None
         async for chunk in proxy_meta_agent(
             input=proxy_meta_agent_input,
@@ -1920,6 +1931,8 @@ Please double check:
             # Capture the schema edit requests from the chunk
             edit_schema_structure_request_chunk = chunk.edit_schema_structure_request
             edit_schema_description_and_examples_request_chunk = chunk.edit_schema_description_and_examples_request
+            if chunk.generate_input_request:
+                generate_input_request_chunk = chunk.generate_input_request
 
         tool_call_to_return = self._extract_tool_call_to_return(
             updated_version_messages,
@@ -1928,6 +1941,7 @@ Please double check:
             run_trigger_config,
             edit_schema_structure_request_chunk,
             edit_schema_description_and_examples_request_chunk,
+            generate_input_request_chunk,
         )
 
         if tool_call_to_return:
