@@ -1192,7 +1192,7 @@ FIREWORKS_PROVIDER_DATA: ProviderDataByModel = {
     ),
     Model.DEEPSEEK_R1_0528: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=3.0 / 1_000_000,
+            prompt_cost_per_token=3.0 * ONE_MILLIONTH,
             completion_cost_per_token=3.0 / 1_000_000,
             source="https://app.fireworks.ai/models/fireworks/deepseek-r1-0528",
         ),
