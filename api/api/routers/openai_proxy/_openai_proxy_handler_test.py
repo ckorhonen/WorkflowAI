@@ -14,6 +14,7 @@ from api.routers.openai_proxy._openai_proxy_models import (
     OpenAIProxyTool,
     OpenAIProxyToolFunction,
 )
+from api.services.feedback_svc import FeedbackTokenGenerator
 from core.domain.consts import INPUT_KEY_MESSAGES
 from core.domain.errors import BadRequestError
 from core.domain.message import Message, MessageRole, Messages
@@ -38,6 +39,7 @@ def proxy_handler(
         storage=mock_storage,
         run_service=mock_run_service,
         event_router=mock_event_router,
+        feedback_generator=Mock(spec=FeedbackTokenGenerator),
     )
 
 

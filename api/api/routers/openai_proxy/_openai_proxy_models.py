@@ -678,8 +678,20 @@ class OpenAIProxyChatCompletionChoice(BaseModel):
     index: int
     message: OpenAIProxyMessage
 
+    cost_usd: float | None = Field(description="The cost of the completion in USD, WorkflowAI specific")
+    duration_seconds: float | None = Field(description="The duration of the completion in seconds, WorkflowAI specific")
+    feedback_token: str = Field(
+        description="WorkflowAI Specific, a token to send feedback from client side without authentication",
+    )
+
     @classmethod
-    def from_domain(cls, run: AgentRun, output_mapper: Callable[[AgentOutput], str], deprecated_function: bool):
+    def from_domain(
+        cls,
+        run: AgentRun,
+        output_mapper: Callable[[AgentOutput], str],
+        deprecated_function: bool,
+        feedback_generator: Callable[[str], str],
+    ):
         msg = OpenAIProxyMessage.from_run(run, output_mapper, deprecated_function)
         if run.tool_call_requests:
             finish_reason = "function_call" if deprecated_function else "tool_calls"
@@ -690,6 +702,9 @@ class OpenAIProxyChatCompletionChoice(BaseModel):
             finish_reason=finish_reason,
             index=0,
             message=msg,
+            duration_seconds=run.duration_seconds,
+            feedback_token=feedback_generator(run.id),
+            cost_usd=run.cost_usd,
         )
 
 
@@ -702,8 +717,6 @@ class OpenAIProxyChatCompletionResponse(BaseModel):
     object: Literal["chat.completion"] = "chat.completion"
     usage: OpenAIProxyCompletionUsage | None = None
 
-    cost_usd: float | None = Field(description="The cost of the completion in USD, WorkflowAI specific")
-    duration_seconds: float | None = Field(description="The duration of the completion in seconds, WorkflowAI specific")
     metadata: dict[str, Any] | None = Field(description="Metadata about the completion, WorkflowAI specific")
 
     @classmethod
@@ -713,22 +726,35 @@ class OpenAIProxyChatCompletionResponse(BaseModel):
         output_mapper: Callable[[AgentOutput], str],
         model: str,
         deprecated_function: bool,
+        # feedback_generator should take a run id and return a feedback token
+        feedback_generator: Callable[[str], str],
     ):
         return cls(
             id=f"{run.task_id}/{run.id}",
-            choices=[OpenAIProxyChatCompletionChoice.from_domain(run, output_mapper, deprecated_function)],
+            choices=[
+                OpenAIProxyChatCompletionChoice.from_domain(
+                    run,
+                    output_mapper,
+                    deprecated_function,
+                    feedback_generator,
+                ),
+            ],
             created=int(run.created_at.timestamp()),
             model=model,
-            cost_usd=run.cost_usd,
             usage=OpenAIProxyCompletionUsage.from_domain(run.llm_completions[-1]) if run.llm_completions else None,
-            duration_seconds=run.duration_seconds,
             metadata=run.metadata,
         )
 
     @classmethod
-    def serializer(cls, model: str, deprecated_function: bool, output_mapper: Callable[[Any], str]):
+    def serializer(
+        cls,
+        model: str,
+        deprecated_function: bool,
+        output_mapper: Callable[[Any], str],
+        feedback_generator: Callable[[str], str],
+    ):
         def _serializer(run: AgentRun):
-            return cls.from_domain(run, output_mapper, model, deprecated_function)
+            return cls.from_domain(run, output_mapper, model, deprecated_function, feedback_generator)
 
         return _serializer
 

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, Response
 
 from api.dependencies.event_router import EventRouterDep
 from api.dependencies.security import RequiredUserOrganizationDep
-from api.dependencies.services import GroupServiceDep, RunServiceDep
+from api.dependencies.services import FeedbackTokenGeneratorDep, GroupServiceDep, RunServiceDep
 from api.dependencies.storage import StorageDep
 from api.routers.openai_proxy._openai_proxy_handler import OpenAIProxyHandler
 
@@ -38,6 +38,13 @@ async def chat_completions(
     event_router: EventRouterDep,
     request: Request,
     user_org: RequiredUserOrganizationDep,
+    feedback_generator: FeedbackTokenGeneratorDep,
 ) -> Response:
-    handler = OpenAIProxyHandler(group_service, storage, run_service, event_router)
+    handler = OpenAIProxyHandler(
+        group_service=group_service,
+        storage=storage,
+        run_service=run_service,
+        event_router=event_router,
+        feedback_generator=feedback_generator,
+    )
     return await handler.handle(body, request, user_org)
