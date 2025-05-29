@@ -208,7 +208,7 @@ class OpenAIProxyHandler:
             final_input: Messages | dict[str, Any] = messages
             if input:
                 raise BadRequestError(
-                    "You send input variables but the deployment you are trying to use does not expect any."
+                    "You send input variables but the deployment you are trying to use does not expect any. "
                     "You likely have a typo in your schema id. Check the deployment at "
                     f"{tenant_data.app_deployments_url(agent_ref.agent_id, agent_ref.schema_id)}",
                 )
@@ -288,7 +288,7 @@ class OpenAIProxyHandler:
         agent_ref: EnvironmentRef | ModelRef,
         tenant_data: PublicOrganizationData,
     ):
-        if isinstance(final_input, Messages) or not final_input:
+        if isinstance(final_input, Messages):
             # That can happen if the user passed a None input
             if input_io.version == RawMessagesSchema.version:
                 # Everything is ok here, we received messages with no input and expected no input

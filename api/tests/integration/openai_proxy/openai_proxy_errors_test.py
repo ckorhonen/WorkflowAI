@@ -40,7 +40,7 @@ async def test_deployment_with_no_input_variables(
             messages=[{"role": "user", "content": "Hello, world!"}],
             extra_body={"input": {"name": "John"}},
         )
-    assert "The deployment you are trying to use does not contain any messages" in str(e.value)
+    assert "You send input variables but the deployment you are trying to use does not expect any" in str(e.value)
 
 
 async def test_unfulfilled_tool_call_request(
