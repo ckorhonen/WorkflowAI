@@ -261,7 +261,7 @@ class ProviderPipeline:
                 continue
             yield from self._single_provider_iterator(self._build_custom_providers(configs), self.model_data, provider)
 
-    def provider_iterator(self) -> Iterator[PipelineProviderData]:
+    def provider_iterator(self, raise_at_end: bool = True) -> Iterator[PipelineProviderData]:
         yield from self._custom_configs_iterator()
 
         if self._options.provider:
@@ -295,7 +295,7 @@ class ProviderPipeline:
             return
 
         # Yielding the final model fallback
-        if fallback_model_data := self._pick_fallback_model(self.errors[-1]):
+        while fallback_model_data := self._pick_fallback_model(self.errors[-1]):
             self._has_used_model_fallback = True
 
             provider, provider_data = fallback_model_data.providers[0]
@@ -308,5 +308,5 @@ class ProviderPipeline:
 
         # If we have reached here we should just raise the first error since it would mean that there is no more
         # provider to try
-
-        raise self.errors[0]
+        if raise_at_end:
+            raise self.errors[0]

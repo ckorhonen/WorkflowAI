@@ -1,5 +1,6 @@
+import copy
 from datetime import datetime
-from typing import Any, cast
+from typing import Any, Literal, cast
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -33,10 +34,12 @@ def provider_builder():
     return builder
 
 
-def _mock_provider(name: Provider) -> Mock:
+def _mock_provider(name: Provider, complete_side_effect: Any | None = None) -> Mock:
     mock = Mock(spec=AbstractProvider)
     mock.name.return_value = name
     mock.completion = AsyncMock()
+    if complete_side_effect is not None:
+        mock.complete.side_effect = complete_side_effect
     return mock
 
 
@@ -286,12 +289,39 @@ class TestProviderIterator:
         names = [p[0].name() for p in providers]
         assert names == [Provider.OPEN_AI, Provider.OPEN_AI, Provider.AZURE_OPEN_AI]
 
+    @pytest.mark.parametrize(
+        "use_fallback, extra_yield",
+        [
+            pytest.param("never", [], id="never"),
+            pytest.param("auto", [(Provider.ANTHROPIC, Model.CLAUDE_4_OPUS_20250514)], id="auto"),
+            pytest.param(None, [(Provider.ANTHROPIC, Model.CLAUDE_4_OPUS_20250514)], id="None"),
+            pytest.param(
+                # Deepseek will raise
+                [Model.DEEPSEEK_R1_2501, Model.GEMINI_2_0_FLASH_001],
+                [
+                    (Provider.FIREWORKS, Model.DEEPSEEK_R1_2501),
+                    (Provider.GOOGLE, Model.GEMINI_2_0_FLASH_001),
+                ],
+                id="list with first model raising",
+            ),
+            pytest.param(
+                # Haiku will not raise
+                [Model.CLAUDE_3_5_HAIKU_20241022, Model.GEMINI_2_0_FLASH_001],
+                [
+                    (Provider.ANTHROPIC, Model.CLAUDE_3_5_HAIKU_20241022),
+                ],
+                id="list with first model success",
+            ),
+        ],
+    )
     @pytest.mark.parametrize("error_cls", [ProviderRateLimitError, UnknownProviderError])
     async def test_model_fallback_provider_then_model(
         self,
         provider_builder: Mock,
         mock_provider_factory: Mock,
         error_cls: type[ProviderError],
+        use_fallback: Literal["never", "auto"] | list[Model] | None,
+        extra_yield: list[tuple[Provider, Model]],
     ):
         """Test model fallback when the error that is raised allow a provider fallback"""
         with patch(
@@ -318,30 +348,22 @@ class TestProviderIterator:
                 builder=provider_builder,
                 factory=mock_provider_factory,
                 typology=TaskTypology(),
+                use_fallback=copy.deepcopy(use_fallback),
             )
-
-        mock_provider1 = _mock_provider(Provider.AZURE_OPEN_AI)
-        mock_provider1.complete.side_effect = error_cls()
-        mock_provider2 = _mock_provider(Provider.OPEN_AI)
-        mock_provider2.complete.side_effect = error_cls()
-        mock_provider3 = _mock_provider(Provider.ANTHROPIC)
-        mock_provider3.complete.return_value = "test"
 
         def _get_providers(provider_type: Provider) -> list[AbstractProvider[Any, Any]]:
             match provider_type:
-                case Provider.AZURE_OPEN_AI:
-                    return [mock_provider1]
-                case Provider.OPEN_AI:
-                    return [mock_provider2]
-                case Provider.ANTHROPIC:
-                    return [mock_provider3]
+                case Provider.AZURE_OPEN_AI | Provider.OPEN_AI | Provider.FIREWORKS:
+                    return [_mock_provider(provider_type, complete_side_effect=error_cls())]
+                case Provider.ANTHROPIC | Provider.GOOGLE:
+                    return [_mock_provider(provider_type, complete_side_effect=lambda: "test")]
                 case _:
                     assert False, f"Unexpected provider type: {provider_type}"
 
         mock_provider_factory.get_providers.side_effect = _get_providers
 
         yielded: list[tuple[Provider, ModelData]] = []
-        for provider, _, _, model_data in pipeline.provider_iterator():
+        for provider, _, _, model_data in pipeline.provider_iterator(raise_at_end=False):
             yielded.append((provider.name(), model_data.model))  # type: ignore
 
             with pipeline.wrap_provider_call(provider):
@@ -355,7 +377,7 @@ class TestProviderIterator:
         assert yielded == [
             (Provider.OPEN_AI, Model.GPT_4O_MINI_2024_07_18),
             (Provider.AZURE_OPEN_AI, Model.GPT_4O_MINI_2024_07_18),
-            (Provider.ANTHROPIC, Model.CLAUDE_4_OPUS_20250514),
+            *extra_yield,
         ]
 
     @pytest.mark.parametrize("error_cls", [ContentModerationError, FailedGenerationError])
