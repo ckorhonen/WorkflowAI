@@ -1266,6 +1266,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             ),
             provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/deepseek.svg",
+            latest_model=Model.DEEPSEEK_R1_LATEST,
             release_date=date(2025, 1, 20),
             quality_data=QualityData(mmlu=90.8, gpqa=71.5),
             provider_name=DisplayedProvider.FIREWORKS.value,
@@ -1304,6 +1305,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             ),
             provider_for_pricing=Provider.FIREWORKS,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/deepseek.svg",
+            latest_model=Model.DEEPSEEK_R1_LATEST,
             release_date=date(2025, 5, 28),
             quality_data=QualityData(
                 equivalent_to=(  # TODO: adjust later, could not find score for MMLU nor GPQA
