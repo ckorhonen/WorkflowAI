@@ -184,6 +184,7 @@ async def run_task_v1(
     use_cache: CacheUsage = "auto",
     headers: dict[str, Any] | None = None,
     private_fields: list[str] | None = None,
+    use_fallback: Literal["never", "always"] | list[str] | None = "never",
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "version": version or {"model": model},
@@ -196,6 +197,9 @@ async def run_task_v1(
     if private_fields is not None:
         payload["private_fields"] = private_fields
     payload["use_cache"] = use_cache
+
+    if use_fallback is not None:
+        payload["use_fallback"] = use_fallback
 
     res = await int_api_client.post(
         f"/v1/{tenant}/agents/{task_id}/schemas/{task_schema_id}/run",

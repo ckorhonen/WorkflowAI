@@ -2,7 +2,7 @@ import logging
 import random
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
-from typing import Any, NoReturn, Protocol
+from typing import Any, Literal, NoReturn, Protocol
 
 from core.domain.errors import InternalError, NoProviderSupportingModelError
 from core.domain.models.model_data import FinalModelData, ModelData
@@ -56,6 +56,7 @@ class ProviderPipeline:
         factory: AbstractProviderFactory,
         builder: ProviderPipelineBuilder,
         typology: TaskTypology,
+        use_fallback: Literal["auto", "never"] | list[Model] | None = None,
     ):
         self._factory = factory
         self._options = options
@@ -67,6 +68,8 @@ class ProviderPipeline:
         self._last_error_was_structured_generation = False
         self._typology = typology
         self._has_used_model_fallback: bool = False
+        self._model_fallback_disabled = use_fallback == "never"
+        self._fallback_models = use_fallback if isinstance(use_fallback, list) else None
 
     @property
     def _retry_on_same_provider(self) -> bool:
@@ -95,10 +98,21 @@ class ProviderPipeline:
 
     def _pick_fallback_model(self, e: ProviderError) -> FinalModelData | None:
         """Selects the fallback model to use based on the error code"""
+        if self._model_fallback_disabled:
+            return None
+
+        if self._fallback_models is not None:
+            # User provided fallback models
+            if not self._fallback_models:
+                # We have already all the provided fallback models
+                return None
+
+            fallback_model = self._fallback_models.pop(0)
+            return get_model_data(fallback_model)
+
         if not self.model_data.fallback:
             return None
 
-        fallback_model: Model
         match e.code:
             case "content_moderation":
                 fallback_model = self.model_data.fallback.content_moderation
@@ -152,8 +166,8 @@ class ProviderPipeline:
                 return
 
             # Otherwise we retry only if the error should be retried on the next provider
-            # or if we haven't consumed the fallback to model
-            if e.should_try_next_provider or self._has_used_model_fallback is False:
+            # or if we haven't consumed the fallback to model or if we have some leftover fallback models
+            if e.should_try_next_provider or self._has_used_model_fallback is False or self._fallback_models:
                 return
 
             # Or we just raise

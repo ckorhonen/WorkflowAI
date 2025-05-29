@@ -349,6 +349,11 @@ class OpenAIProxyHandler:
 
         prepared_run = await self._prepare_run(body, tenant_data)
 
+        try:
+            parsed_fallback = body.parsed_use_fallback()
+        except MissingModelError as e:
+            raise await self.missing_model_error(e.extras.get("model"), prefix="fallback ")
+
         runner, _ = await self._group_service.sanitize_groups_for_internal_runner(
             task_id=prepared_run.variant.task_id,
             task_schema_id=prepared_run.variant.task_schema_id,
@@ -356,6 +361,7 @@ class OpenAIProxyHandler:
             provider_settings=None,
             variant=prepared_run.variant,
             stream_deltas=body.stream is True,
+            use_fallback=parsed_fallback,
         )
 
         output_mapper = (
@@ -392,7 +398,7 @@ class OpenAIProxyHandler:
         )
 
     @classmethod
-    async def missing_model_error(cls, model: str | None):
+    async def missing_model_error(cls, model: str | None, prefix: str = ""):
         _check_lineup = f"Check the lineup 👉 {WORKFLOWAI_APP_URL}/models ({MODEL_COUNT} models)"
         if not model:
             return BadRequestError(
@@ -401,7 +407,7 @@ class OpenAIProxyHandler:
             )
 
         components = [
-            f"Unknown model: {model}",
+            f"Unknown {prefix}model: {model}",
             _check_lineup,
         ]
         if suggested := await ModelsService.suggest_model(model):

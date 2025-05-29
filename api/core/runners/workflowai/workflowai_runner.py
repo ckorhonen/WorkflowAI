@@ -5,7 +5,7 @@ import re
 import time
 from collections.abc import Sequence
 from copy import deepcopy
-from typing import Any, Callable, Iterable, NamedTuple, Optional, cast
+from typing import Any, Callable, Iterable, Literal, NamedTuple, Optional, cast
 
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import override
@@ -29,6 +29,7 @@ from core.domain.message import Message, MessageContent, MessageDeprecated, Mess
 from core.domain.metrics import send_gauge
 from core.domain.models.model_data import FinalModelData, ModelData
 from core.domain.models.model_datas_mapping import MODEL_DATAS
+from core.domain.models.models import Model
 from core.domain.models.utils import get_model_data, get_model_provider_data
 from core.domain.reasoning_step import INTERNAL_REASONING_STEPS_SCHEMA_KEY
 from core.domain.run_output import RunOutput
@@ -140,6 +141,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         stream_deltas: bool = False,
         # TODO: this is not set anywhere for now
         timeout: float | None = None,
+        use_fallback: Literal["auto", "never"] | list[Model] | None = None,
     ):
         super().__init__(
             task=task,
@@ -175,6 +177,8 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             self._typology,
         )
         self._timeout = timeout
+        # Not sure why pyright looses the literal if not specified here
+        self._use_fallback: Literal["auto", "never"] | list[Model] | None = use_fallback
 
     @override
     def version(self) -> str:
@@ -1298,6 +1302,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             factory=self.provider_factory,
             builder=self._build_provider_data,
             typology=self._typology,
+            use_fallback=self._use_fallback,
         )
 
         if pipeline.model_data.model != self._options.model:
