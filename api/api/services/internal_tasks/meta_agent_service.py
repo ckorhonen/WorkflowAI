@@ -1048,18 +1048,41 @@ class MetaAgentService:
             instructions=instructions,
             requires_tools=None,
         )
+
+        # Pre-calculate costs for ranking
+        model_costs: list[tuple[Any, float]] = []
+        for model in models:
+            cost = (
+                round(model.average_cost_per_run_usd * 1000, 3)
+                if model.average_cost_per_run_usd is not None
+                else float("inf")  # Models with no cost data get worst ranking
+            )
+            model_costs.append((model, cost))
+
+        # Sort by quality (descending - higher quality gets better rank)
+        models_by_quality = sorted(models, key=lambda m: m.quality_index, reverse=True)
+        quality_rankings = {model.id: rank + 1 for rank, model in enumerate(models_by_quality)}
+
+        # Sort by cost (ascending - lower cost gets better rank)
+        models_by_cost = sorted(model_costs, key=lambda x: x[1])
+        cost_rankings = {model.id: rank + 1 for rank, (model, _) in enumerate(models_by_cost)}
+
         return [
             ProxyPlaygroundStateDomain.PlaygroundModel(
                 id=model.id,
                 name=model.name,
                 quality_index=model.quality_index,
+                quality_index_ranking=quality_rankings[model.id],
                 context_window_tokens=model.context_window_tokens,
+                is_supported_for_agent=not bool(model.is_not_supported_reason),
                 is_not_supported_reason=model.is_not_supported_reason or "",
                 estimate_cost_per_thousand_runs_usd=round(model.average_cost_per_run_usd * 1000, 3)
-                if model.average_cost_per_run_usd
+                if model.average_cost_per_run_usd is not None
                 else None,
+                cost_ranking=cost_rankings[model.id],
                 is_default=model.is_default,
                 is_latest=model.is_latest,
+                supports_structured_output=model.supports_structured_output,
             )
             for model in models
         ]
@@ -1243,7 +1266,7 @@ class MetaAgentService:
 
         return ProxyMetaAgentInput(
             current_datetime=datetime.datetime.now(tz=datetime.timezone.utc),
-            messages=[message.to_proxy_domain() for message in messages],
+            chat_messages=[message.to_proxy_domain() for message in messages],
             current_agent=ProxyMetaAgentInput.Agent(
                 name=current_agent.name,
                 slug=current_agent.task_id,
@@ -1900,6 +1923,8 @@ Please double check:
             is_using_version_messages=integration.use_version_messages,
             use_tool_calls=use_tools,
             agent_has_output_schema=is_using_structured_generation,
+            is_using_input_variables=is_using_instruction_variables,
+            is_agent_deployed=agent_deployment is not None,
         ):
             if chunk.assistant_answer:
                 accumulator = await self._sanitize_output_string(accumulator + chunk.assistant_answer, integration)
