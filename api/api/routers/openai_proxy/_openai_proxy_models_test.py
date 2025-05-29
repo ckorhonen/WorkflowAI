@@ -1,3 +1,5 @@
+# pyright: reportPrivateUsage=false
+
 from typing import Any
 
 import pytest
@@ -524,3 +526,27 @@ class TestDomainTools:
         assert tools is not None
         assert len(tools) == 1
         assert tools[0] == ToolKind.WEB_SEARCH_GOOGLE
+
+
+class TestMapModelString:
+    @pytest.mark.parametrize(
+        "value, reasoning, expected",
+        [
+            pytest.param("gpt-4o-mini-latest", None, Model.GPT_4O_MINI_LATEST, id="exists"),
+            pytest.param("gpt-4o", None, Model.GPT_4O_LATEST, id="unversioned"),
+            pytest.param(
+                "o3-mini-2025-01-31",
+                "high",
+                Model.O3_MINI_2025_01_31_HIGH_REASONING_EFFORT,
+                id="reasoning effort versioned",
+            ),
+            pytest.param(
+                "o3-mini-2025-01-31",
+                "high",
+                Model.O3_MINI_2025_01_31_HIGH_REASONING_EFFORT,
+                id="reasoning effort versioned",
+            ),
+        ],
+    )
+    def test_with_reasoning(self, value: str, reasoning: str | None, expected: Model):
+        assert OpenAIProxyChatCompletionRequest._map_model_str(value, reasoning) == expected

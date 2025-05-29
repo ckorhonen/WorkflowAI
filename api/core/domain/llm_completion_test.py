@@ -129,7 +129,7 @@ class TestIncurCost:
                 completion_image_count=completion_image_count,
             ),
         )
-        assert completion.incur_cost()
+        assert completion.should_incur_cost()
 
     @pytest.mark.parametrize(
         ("response", "completion_token_count", "completion_image_count"),
@@ -151,4 +151,4 @@ class TestIncurCost:
                 completion_image_count=completion_image_count,
             ),
         )
-        assert not completion.incur_cost()
+        assert not completion.should_incur_cost()

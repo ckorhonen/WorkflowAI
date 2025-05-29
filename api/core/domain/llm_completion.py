@@ -2,9 +2,11 @@ from typing import Any, Optional, cast
 
 from pydantic import BaseModel, Field
 
+from core.domain.error_response import ErrorResponse
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
 from core.domain.models import Provider
+from core.domain.models.models import Model
 from core.domain.tool_call import ToolCallRequestWithID
 
 
@@ -21,6 +23,10 @@ class LLMCompletion(BaseModel):
     # The provider that was used to generate the completion
     provider: Provider
 
+    # None is for backwards compatibility
+    # When model is None, the model that was used is the same model as the requested model from the version
+    model: Model | None = None
+
     config_id: str | None = Field(
         default=None,
         description="An id of the config that was used to generate the completion. If None, the default config was used.",
@@ -31,7 +37,20 @@ class LLMCompletion(BaseModel):
         description="Whether the completion should not decrement the credits of the user.",
     )
 
-    def incur_cost(self) -> bool:
+    provider_request_incurs_cost: bool | None = Field(
+        default=None,
+        description="Whether the provider request incurs cost. This is different than whether or not the completion"
+        " was  a success or not. A MaxTokenExceeded can for example fail but still incur cost. Usually "
+        "provider request cost money if the status that is returned is a 200",
+    )
+
+    error: ErrorResponse.Error | None = Field(
+        default=None,
+        description="A parsed provider error. Note that a provider request could succeed, but the completion "
+        "could fail. For example, in structured generation errors",
+    )
+
+    def should_incur_cost(self) -> bool:
         if self.usage.completion_image_count:
             return True
         return not (self.response is None and self.usage.completion_token_count == 0)

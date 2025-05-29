@@ -160,7 +160,7 @@ class ModelsService:
                 providers=[p for p, _ in data.providers],
             )
 
-        provider_data = data.provider_data_for_pricing()
+        provider_data = data.providers[0][1]
 
         if (
             requires_tools or len(get_tools_in_instructions(instructions or "")) > 0
@@ -344,7 +344,7 @@ class ModelsService:
                 )
                 return None
             return price_calculator(
-                data.provider_data_for_pricing(),
+                data.providers[0][1],
                 model,
             )
 

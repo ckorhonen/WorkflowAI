@@ -5,7 +5,6 @@ import hmac
 import logging
 import os
 from collections.abc import Callable
-from datetime import timedelta
 
 from pydantic import BaseModel, Field
 
@@ -26,11 +25,10 @@ class FeedbackToken(BaseModel):
 
 
 class FeedbackTokenGenerator:
-    def __init__(self, key: bytes | None, lifetime: timedelta = timedelta(days=30)):
+    def __init__(self, key: bytes | None):
         if not key:
             _logger.warning("No key provided for feedback token generation, feedback tokens will not be signed")
         self._key = key
-        self.lifetime = lifetime
 
     def _hmac(self, bs: bytes):
         if not self._key:

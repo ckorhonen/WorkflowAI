@@ -18,7 +18,7 @@ from core.domain.structured_output import StructuredOutput
 from core.domain.tool import Tool
 from core.providers.base.httpx_provider_base import HTTPXProviderBase
 from core.providers.base.models import RawCompletion, StandardMessage
-from core.providers.base.provider_error import ContentModerationError, ProviderError
+from core.providers.base.provider_error import ContentModerationError, ProviderError, UnknownProviderError
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.utils import get_provider_config_env
 from core.providers.openai_image.openai_image_config import OpenAIImageConfig
@@ -201,7 +201,7 @@ class OpenAIImageProvider(HTTPXProviderBase[OpenAIImageConfig, OpenAIImageReques
             return ContentModerationError(
                 error.error.message or "The image was blocked by OpenAI's moderation system.",
             )
-        return ProviderError(
+        return UnknownProviderError(
             error.error.message or "An unknown error occurred while generating the image.",
         )
 

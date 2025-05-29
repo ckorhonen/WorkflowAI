@@ -36,6 +36,7 @@ from api.utils import get_start_time
 from core.domain.agent_run import AgentRun
 from core.domain.major_minor import MajorMinor
 from core.domain.metrics import send_gauge
+from core.domain.models.models import Model
 from core.domain.run_output import RunOutput
 from core.domain.task_group import TaskGroupIdentifier
 from core.domain.task_group_properties import TaskGroupProperties
@@ -108,6 +109,11 @@ class RunRequest(BaseModel):
     private_fields: set[Literal["task_input", "task_input"] | str] | None = Field(
         default=None,
         description="Fields marked as private will not be saved, none by default.",
+    )
+
+    use_fallback: Literal["auto", "never"] | list[Model] | None = Field(
+        default=None,
+        description="A way to configure the fallback behavior. Defaults to auto",
     )
 
     @field_validator("id")
@@ -373,6 +379,7 @@ async def run_task(
             task_schema_id=task_schema_id,
             reference=reference,
             provider_settings=provider_settings,
+            use_fallback=body.use_fallback,
         )
     runner.metric_tags = {"tenant": task_org.slug if task_org else None, "task_id": task_id}
     add_background_task(
@@ -563,6 +570,7 @@ async def run_schema(
             task_schema_id=task_schema_id,
             reference=version_ref,
             provider_settings=provider_settings,
+            use_fallback="never",
         )
 
     return await run_service.run(

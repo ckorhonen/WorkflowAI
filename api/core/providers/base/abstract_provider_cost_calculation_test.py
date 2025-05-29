@@ -38,7 +38,7 @@ def active_models_with_price(providers: set[Provider] | None = None):
         model_data = get_model_data(model)
         if not isinstance(model_data, FinalModelData):  # pyright: ignore [reportUnnecessaryIsInstance]
             raise ValueError(f"Model {model} is not a FinalModelData")
-        pricing_data = model_data.provider_data_for_pricing()
+        pricing_data = model_data.providers[0][1]
         if pricing_data.text_price.prompt_cost_per_token == 0:
             continue
         for provider, _ in model_data.providers:

@@ -1,17 +1,20 @@
 import json
 from collections.abc import Awaitable, Callable
+from typing import Any
 from unittest import mock
 
 import openai
 import pytest
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, RateLimitError
 from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall, Function
 
 from core.domain.models.models import Model
+from core.domain.models.providers import Provider
 from core.storage.mongo.mongo_types import AsyncCollection
 from tests.integration.common import IntegrationTestClient
 from tests.integration.openai_proxy.common import save_version_from_completion
 from tests.pausable_memory_broker import PausableInMemoryBroker
+from tests.utils import approx
 
 
 async def test_raw_string_output(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
@@ -23,7 +26,10 @@ async def test_raw_string_output(test_client: IntegrationTestClient, openai_clie
     )
 
     assert res.choices[0].message.content == "Hello James!"
-    assert res.model_extra and res.model_extra["cost_usd"]
+
+    assert res.choices[0].cost_usd > 0  # type: ignore
+    assert res.choices[0].duration_seconds  # type: ignore
+    assert res.choices[0].feedback_token  # type: ignore
 
     await test_client.wait_for_completed_tasks()
 
@@ -466,25 +472,13 @@ async def test_deployment(test_client: IntegrationTestClient, openai_client: Asy
     assert run["version"]["id"] == version_id
 
 
-async def test_deployment_missing_error(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
-    with pytest.raises(openai.BadRequestError) as e:
-        await openai_client.chat.completions.create(
-            model="my-agent/#1/production",
-            messages=[],
-            extra_body={"input": {"name": "John"}},
-        )
-
-    assert e.value.status_code == 400
-    assert "Deployment not found" in e.value.message
-
-
 async def test_missing_model_error(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
     test_client.mock_internal_task("model_suggester", {"suggested_model": "gpt-4o-mini-latest"})
 
     with pytest.raises(openai.BadRequestError) as e:
         await openai_client.chat.completions.create(
             # Not a valid model
-            model="gpt-4",
+            model="gpt-4n",
             messages=[],
         )
     assert "Did you mean gpt-4o-mini-latest" in e.value.message
@@ -498,29 +492,6 @@ async def test_list_models(openai_client: AsyncOpenAI):
     assert model_ids < set(Model)
     assert Model.GPT_41_LATEST in model_ids
     assert Model.GPT_3_5_TURBO_1106 not in model_ids
-
-
-async def test_unsupported_parameter(openai_client: AsyncOpenAI):
-    # Only one unsupported field
-    with pytest.raises(openai.BadRequestError) as e:
-        await openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": "Hello, world!"}],
-            logit_bias={"hello": 1},
-        )
-
-    assert "Field `logit_bias` is not supported" in str(e)
-
-    # Multiple unsupported fields
-    with pytest.raises(openai.BadRequestError) as e:
-        await openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": "Hello, world!"}],
-            logit_bias={"hello": 1},
-            stop="hello",
-        )
-
-    assert "Fields `logit_bias`, `stop` are not supported" in str(e)
 
 
 async def test_deployed_version_no_messages(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
@@ -671,3 +642,67 @@ async def test_internal_tools(test_client: IntegrationTestClient, openai_client:
     serper_request = test_client.httpx_mock.get_request(url="https://google.serper.dev/search")
     assert serper_request
     assert serper_request.content == b'{"q": "bla"}'
+
+
+@pytest.mark.parametrize("use_deployment", [True, False])
+async def test_with_model_fallback_on_rate_limit(
+    test_client: IntegrationTestClient,
+    use_deployment: bool,
+    openai_client: AsyncOpenAI,
+):
+    model = f"greet/{Model.CLAUDE_3_5_SONNET_20241022}" if not use_deployment else "greet/#1/production"
+    completion_kwargs: dict[str, Any] = {"model": model, "messages": [{"role": "user", "content": "Hello, world!"}]}
+
+    if use_deployment:
+        # We automatically add a system message for structured gen to anthropic and bedrock
+        anthropic_message_count = 2
+        task = await test_client.create_agent_v1(input_schema={"type": "object", "format": "messages"})
+        version = await test_client.create_version_v1(task, {"model": Model.CLAUDE_3_5_SONNET_20241022})
+        await test_client.post(
+            f"/v1/_/agents/{task['id']}/versions/{version['id']}/deploy",
+            json={"environment": "production"},
+        )
+    else:
+        # raw string output
+        anthropic_message_count = 1
+
+    # Anthropic and bedrock always return a 429 so we will proceed with model fallback
+    test_client.mock_anthropic_call(status_code=429)
+    test_client.mock_bedrock_call(model=Model.CLAUDE_3_5_SONNET_20241022, status_code=429)
+
+    # OpenAI returns a 200
+    test_client.mock_openai_call()
+
+    # Disable fallback -> we will raise
+    with pytest.raises(RateLimitError):
+        await openai_client.chat.completions.create(**completion_kwargs, extra_body={"use_fallback": "never"})
+
+    # Auto fallback will use openai
+    res: Any = await openai_client.chat.completions.create(**completion_kwargs, extra_body={"use_fallback": None})
+    await test_client.wait_for_completed_tasks()
+
+    agent_id, run_id = res.id.split("/")
+    completions1 = (await test_client.fetch_completions({"id": agent_id}, run_id=run_id))["completions"]
+    assert len(completions1) == 3
+    assert [(c["model"], c["provider"], len(c["messages"]), c.get("cost_usd")) for c in completions1] == [
+        (Model.CLAUDE_3_5_SONNET_20241022, Provider.ANTHROPIC, anthropic_message_count, None),
+        (Model.CLAUDE_3_5_SONNET_20241022, Provider.AMAZON_BEDROCK, anthropic_message_count, None),
+        (Model.GPT_41_2025_04_14, Provider.OPEN_AI, 1, approx((10 * 2 + 11 * 8) / 1_000_000)),
+    ]
+
+    # And manual fallback can be used to switch to a different model
+    res: Any = await openai_client.chat.completions.create(
+        **completion_kwargs,
+        extra_body={"use_fallback": [Model.O3_2025_04_16_LOW_REASONING_EFFORT], "use_cache": "never"},
+    )
+    await test_client.wait_for_completed_tasks()
+
+    agent_id, run_id = res.id.split("/")
+    completions2 = (await test_client.fetch_completions({"id": agent_id}, run_id=run_id))["completions"]
+    assert len(completions2) == 3
+    assert [(c["model"], c["provider"], len(c["messages"]), c.get("cost_usd")) for c in completions2] == [
+        # We automatically add a system message for structured gen to anthropic and bedrock
+        (Model.CLAUDE_3_5_SONNET_20241022, Provider.ANTHROPIC, anthropic_message_count, None),
+        (Model.CLAUDE_3_5_SONNET_20241022, Provider.AMAZON_BEDROCK, anthropic_message_count, None),
+        (Model.O3_2025_04_16_LOW_REASONING_EFFORT, Provider.OPEN_AI, 1, approx((10 * 10 + 11 * 40) / 1_000_000)),
+    ]

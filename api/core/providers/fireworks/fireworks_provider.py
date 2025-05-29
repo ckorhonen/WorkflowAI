@@ -67,6 +67,7 @@ _NAME_OVERRIDE_MAP = {
     Model.DEEPSEEK_V3_2412: "accounts/fireworks/models/deepseek-v3",
     Model.DEEPSEEK_V3_0324: "accounts/fireworks/models/deepseek-v3-0324",
     Model.DEEPSEEK_R1_2501: "accounts/fireworks/models/deepseek-r1",
+    Model.DEEPSEEK_R1_0528: "accounts/fireworks/models/deepseek-r1-0528",
     Model.DEEPSEEK_R1_2501_BASIC: "accounts/fireworks/models/deepseek-r1-basic",
     Model.LLAMA_4_MAVERICK_BASIC: "accounts/fireworks/models/llama4-maverick-instruct-basic",
     Model.LLAMA_4_SCOUT_BASIC: "accounts/fireworks/models/llama4-scout-instruct-basic",

@@ -176,6 +176,7 @@ class HTTPXProvider(HTTPXProviderBase[ProviderConfigVar, dict[str, Any]], Generi
             messages=self._raw_prompt(body),
             usage=self._initial_usage(messages),
             provider=self.name(),
+            model=options.model,
         )
 
         return body, raw

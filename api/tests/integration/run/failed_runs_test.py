@@ -96,6 +96,7 @@ async def test_failed_run_invalid_output_is_stored_for_openai(
         json={
             "version": {"model": "gpt-4o-2024-11-20"},
             "task_input": {"name": "John", "age": 30},
+            "use_fallback": "never",
         },
     )
     await wait_for_completed_tasks(patched_broker)
@@ -157,6 +158,7 @@ async def test_failed_run_invalid_output_is_stored_for_openai_stream(
             "version": {"model": "gpt-4o-2024-11-20"},
             "task_input": {"name": "John", "age": 30},
             "stream": True,
+            "use_fallback": "never",
         },
     ) as response:
         response.raise_for_status()  # response should still return a 200
@@ -290,6 +292,7 @@ async def test_failed_run_azure_content_moderation(test_client: IntegrationTestC
         json={
             "version": {"model": "gpt-4o-2024-11-20"},
             "task_input": {"name": "John", "age": 30},
+            "use_fallback": "never",
         },
     )
 

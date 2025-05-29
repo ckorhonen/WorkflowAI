@@ -1,17 +1,29 @@
+import copy
 from datetime import datetime
-from unittest.mock import Mock, patch
+from typing import Any, Literal, cast
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
 from core.domain.models import Model, Provider
+from core.domain.models.model_data import FinalModelData, ModelData, ModelFallback
+from core.domain.models.model_provider_data import ModelProviderData
+from core.domain.task_typology import TaskTypology
 from core.domain.tenant_data import ProviderSettings
 from core.providers.base.abstract_provider import AbstractProvider
 from core.providers.base.config import ProviderConfig
-from core.providers.base.provider_error import ProviderRateLimitError
+from core.providers.base.provider_error import (
+    ContentModerationError,
+    FailedGenerationError,
+    ProviderError,
+    ProviderRateLimitError,
+    UnknownProviderError,
+)
 from core.providers.factory.abstract_provider_factory import AbstractProviderFactory
 from core.providers.factory.local_provider_factory import LocalProviderFactory
 from core.runners.workflowai.provider_pipeline import ProviderPipeline, ProviderPipelineBuilder
 from core.runners.workflowai.workflowai_options import WorkflowAIRunnerOptions
+from tests import models as test_models
 
 
 @pytest.fixture
@@ -22,10 +34,35 @@ def provider_builder():
     return builder
 
 
-def _mock_provider(name: Provider) -> Mock:
+def _mock_provider(name: Provider, complete_side_effect: Any | None = None) -> Mock:
     mock = Mock(spec=AbstractProvider)
     mock.name.return_value = name
+    mock.completion = AsyncMock()
+    if complete_side_effect is not None:
+        mock.complete.side_effect = complete_side_effect
     return mock
+
+
+def _final_model_data(
+    providers: list[Provider],
+    model: Model = Model.DEEPSEEK_R1_2501,
+    fallback: ModelFallback | None = None,
+):
+    model_data = test_models.model_data()
+    final = FinalModelData.model_validate(
+        {
+            **model_data.model_dump(),
+            "model": model,
+            "quality_index": model_data.quality_data.quality_index({}),
+            "fallback": fallback,
+            "providers": [],
+        },
+    )
+    # Setting to bypass validation
+    provider_model_data = Mock(spec=ModelProviderData)
+    provider_model_data.override.side_effect = lambda data: data  # type: ignore
+    final.providers = [(p, provider_model_data) for p in providers]
+    return final
 
 
 def _provider_settings(provider: Provider) -> ProviderSettings:
@@ -56,6 +93,7 @@ class TestProviderIterator:
             custom_configs=None,
             builder=provider_builder,
             factory=LocalProviderFactory(),
+            typology=TaskTypology(),
         )
 
         # List all providers
@@ -92,6 +130,7 @@ class TestProviderIterator:
             custom_configs=None,
             builder=provider_builder,
             factory=mock_provider_factory,
+            typology=TaskTypology(),
         )
 
         # List all providers
@@ -111,7 +150,11 @@ class TestProviderIterator:
         assert provider_2 == mock_provider2
 
     @patch("random.shuffle")
-    def test_round_robin_providers(self, mock_shuffle: Mock, provider_builder: Mock):
+    def test_round_robin_providers(
+        self,
+        mock_shuffle: Mock,
+        provider_builder: Mock,
+    ):
         """Test that providers with a full round robin are shuffled"""
         # Mock multiple providers of the same type
         mock_provider_factory = Mock(spec=AbstractProviderFactory)
@@ -123,44 +166,61 @@ class TestProviderIterator:
         mock_shuffle.side_effect = lambda providers: providers.reverse()  # type: ignore
 
         # Create a model that has multiple providers of the same type
-        pipeline = ProviderPipeline(
-            options=WorkflowAIRunnerOptions(
-                model=Model.DEEPSEEK_R1_2501,
-                provider=None,
-                is_structured_generation_enabled=None,
-                instructions="",
-            ),
-            custom_configs=None,
-            builder=provider_builder,
-            factory=mock_provider_factory,
-        )
+        with patch(
+            "core.runners.workflowai.provider_pipeline.get_model_data",
+            return_value=_final_model_data(providers=[Provider.FIREWORKS]),
+        ):
+            pipeline = ProviderPipeline(
+                options=WorkflowAIRunnerOptions(
+                    model=Model.DEEPSEEK_R1_2501,
+                    provider=None,
+                    is_structured_generation_enabled=None,
+                    instructions="",
+                ),
+                custom_configs=None,
+                builder=provider_builder,
+                factory=mock_provider_factory,
+                typology=TaskTypology(),
+            )
 
         # List all providers
         # By setting the errors we force the pipeline to try all providers
         pipeline.errors = [ProviderRateLimitError()]
-        providers = list(pipeline.provider_iterator())
-        assert len(providers) == 3
+        # Can't use list comprehension since it will raise at the end
+        providers: list[Any] = []
+        with pytest.raises(ProviderRateLimitError):
+            for provider, _, _, _ in pipeline.provider_iterator():
+                providers.append(provider)
+
+        # For round-robin providers, all providers should be shuffled
+        assert providers == [mock_provider3, mock_provider2, mock_provider1]
         mock_provider_factory.get_providers.assert_called_once_with(Provider.FIREWORKS)
         mock_shuffle.assert_called_once()
 
         assert provider_builder.call_count == 3
 
-        # For round-robin providers, all providers should be shuffled
-        assert [p[0] for p in providers] == [mock_provider3, mock_provider2, mock_provider1]
-
-    def test_mixed_provider_types(self, provider_builder: Mock, mock_provider_factory: Mock):
+    def test_mixed_provider_types(
+        self,
+        provider_builder: Mock,
+        mock_provider_factory: Mock,
+    ):
         # Create a model that has multiple providers of different types
-        pipeline = ProviderPipeline(
-            options=WorkflowAIRunnerOptions(
-                model=Model.GPT_4O_MINI_2024_07_18,
-                provider=None,  # So we will be using Azure and OpenAI
-                is_structured_generation_enabled=None,
-                instructions="",
-            ),
-            custom_configs=None,
-            builder=provider_builder,
-            factory=mock_provider_factory,
-        )
+        with patch(
+            "core.runners.workflowai.provider_pipeline.get_model_data",
+            return_value=_final_model_data(providers=[Provider.OPEN_AI, Provider.AZURE_OPEN_AI]),
+        ):
+            pipeline = ProviderPipeline(
+                options=WorkflowAIRunnerOptions(
+                    model=Model.GPT_4O_MINI_2024_07_18,
+                    provider=None,  # So we will be using Azure and OpenAI
+                    is_structured_generation_enabled=None,
+                    instructions="",
+                ),
+                custom_configs=None,
+                builder=provider_builder,
+                factory=mock_provider_factory,
+                typology=TaskTypology(),
+            )
 
         # Mock multiple providers of different types
         mock_provider1 = _mock_provider(Provider.OPEN_AI)
@@ -181,8 +241,12 @@ class TestProviderIterator:
         # List all providers
         # By setting the errors we force the pipeline to try all providers
         pipeline.errors = [ProviderRateLimitError()]
-        providers = list(pipeline.provider_iterator())
-        assert len(providers) == 4
+        provider_names: list[Provider] = []
+        with pytest.raises(ProviderRateLimitError):
+            for provider, _, _, _ in pipeline.provider_iterator():
+                provider_names.append(provider.name())
+
+        assert provider_names == [Provider.OPEN_AI, Provider.OPEN_AI, Provider.AZURE_OPEN_AI, Provider.AZURE_OPEN_AI]
 
         assert provider_builder.call_count == 4
 
@@ -217,9 +281,172 @@ class TestProviderIterator:
             ],
             builder=provider_builder,
             factory=mock_provider_factory,
+            typology=TaskTypology(),
         )
 
         providers = list(pipeline.provider_iterator())
         assert len(providers) == 3
         names = [p[0].name() for p in providers]
         assert names == [Provider.OPEN_AI, Provider.OPEN_AI, Provider.AZURE_OPEN_AI]
+
+    @pytest.mark.parametrize(
+        "use_fallback, extra_yield",
+        [
+            pytest.param("never", [], id="never"),
+            pytest.param("auto", [(Provider.ANTHROPIC, Model.CLAUDE_4_OPUS_20250514)], id="auto"),
+            pytest.param(None, [(Provider.ANTHROPIC, Model.CLAUDE_4_OPUS_20250514)], id="None"),
+            pytest.param(
+                # Deepseek will raise
+                [Model.DEEPSEEK_R1_2501, Model.GEMINI_2_0_FLASH_001],
+                [
+                    (Provider.FIREWORKS, Model.DEEPSEEK_R1_2501),
+                    (Provider.GOOGLE, Model.GEMINI_2_0_FLASH_001),
+                ],
+                id="list with first model raising",
+            ),
+            pytest.param(
+                # Haiku will not raise
+                [Model.CLAUDE_3_5_HAIKU_20241022, Model.GEMINI_2_0_FLASH_001],
+                [
+                    (Provider.ANTHROPIC, Model.CLAUDE_3_5_HAIKU_20241022),
+                ],
+                id="list with first model success",
+            ),
+        ],
+    )
+    @pytest.mark.parametrize("error_cls", [ProviderRateLimitError, UnknownProviderError])
+    async def test_model_fallback_provider_then_model(
+        self,
+        provider_builder: Mock,
+        mock_provider_factory: Mock,
+        error_cls: type[ProviderError],
+        use_fallback: Literal["never", "auto"] | list[Model] | None,
+        extra_yield: list[tuple[Provider, Model]],
+    ):
+        """Test model fallback when the error that is raised allow a provider fallback"""
+        with patch(
+            "core.runners.workflowai.provider_pipeline.get_model_data",
+            return_value=_final_model_data(
+                model=Model.GPT_4O_MINI_2024_07_18,
+                providers=[Provider.OPEN_AI, Provider.AZURE_OPEN_AI],
+                # Anthropic fallback
+                fallback=ModelFallback(
+                    content_moderation=Model.CLAUDE_4_OPUS_20250514,
+                    structured_output=Model.CLAUDE_4_OPUS_20250514,
+                    rate_limit=Model.CLAUDE_4_OPUS_20250514,
+                ),
+            ),
+        ):
+            pipeline = ProviderPipeline(
+                options=WorkflowAIRunnerOptions(
+                    model=Model.GPT_4O_MINI_2024_07_18,
+                    provider=None,
+                    is_structured_generation_enabled=None,
+                    instructions="",
+                ),
+                custom_configs=None,
+                builder=provider_builder,
+                factory=mock_provider_factory,
+                typology=TaskTypology(),
+                use_fallback=copy.deepcopy(use_fallback),
+            )
+
+        def _get_providers(provider_type: Provider) -> list[AbstractProvider[Any, Any]]:
+            match provider_type:
+                case Provider.AZURE_OPEN_AI | Provider.OPEN_AI | Provider.FIREWORKS:
+                    return [_mock_provider(provider_type, complete_side_effect=error_cls())]
+                case Provider.ANTHROPIC | Provider.GOOGLE:
+                    return [_mock_provider(provider_type, complete_side_effect=lambda: "test")]
+                case _:
+                    assert False, f"Unexpected provider type: {provider_type}"
+
+        mock_provider_factory.get_providers.side_effect = _get_providers
+
+        yielded: list[tuple[Provider, ModelData]] = []
+        for provider, _, _, model_data in pipeline.provider_iterator(raise_at_end=False):
+            yielded.append((provider.name(), model_data.model))  # type: ignore
+
+            with pipeline.wrap_provider_call(provider):
+                # Re-raise if an exception or break the loop
+                try:
+                    await cast(Mock, provider).complete()
+                except Exception:
+                    raise
+                break
+
+        assert yielded == [
+            (Provider.OPEN_AI, Model.GPT_4O_MINI_2024_07_18),
+            (Provider.AZURE_OPEN_AI, Model.GPT_4O_MINI_2024_07_18),
+            *extra_yield,
+        ]
+
+    @pytest.mark.parametrize("error_cls", [ContentModerationError, FailedGenerationError])
+    async def test_model_fallback_failed_generation(
+        self,
+        provider_builder: Mock,
+        mock_provider_factory: Mock,
+        error_cls: type[ProviderError],
+    ):
+        """Test model fallback when the error that is raised does not allow a provider fallback"""
+        with patch(
+            "core.runners.workflowai.provider_pipeline.get_model_data",
+            return_value=_final_model_data(
+                model=Model.GPT_4O_MINI_2024_07_18,
+                providers=[Provider.OPEN_AI, Provider.AZURE_OPEN_AI],
+                # Anthropic fallback
+                fallback=ModelFallback(
+                    content_moderation=Model.CLAUDE_4_OPUS_20250514,
+                    structured_output=Model.CLAUDE_4_OPUS_20250514,
+                    rate_limit=Model.CLAUDE_4_OPUS_20250514,
+                ),
+            ),
+        ):
+            pipeline = ProviderPipeline(
+                options=WorkflowAIRunnerOptions(
+                    model=Model.GPT_4O_MINI_2024_07_18,
+                    provider=None,
+                    is_structured_generation_enabled=None,
+                    instructions="",
+                ),
+                custom_configs=None,
+                builder=provider_builder,
+                factory=mock_provider_factory,
+                typology=TaskTypology(),
+            )
+
+        mock_provider1 = _mock_provider(Provider.OPEN_AI)
+        mock_provider1.complete.side_effect = error_cls()
+        mock_provider2 = _mock_provider(Provider.OPEN_AI)
+        mock_provider2.complete.side_effect = error_cls()
+        mock_provider3 = _mock_provider(Provider.ANTHROPIC)
+        mock_provider3.complete.return_value = "test"
+
+        def _get_providers(provider_type: Provider) -> list[AbstractProvider[Any, Any]]:
+            match provider_type:
+                case Provider.OPEN_AI:
+                    # Only mock_provider2 will be called
+                    return [mock_provider2, mock_provider1]
+                case Provider.ANTHROPIC:
+                    return [mock_provider3]
+                case _:
+                    assert False, f"Unexpected provider type: {provider_type}"
+
+        mock_provider_factory.get_providers.side_effect = _get_providers
+
+        yielded: list[tuple[Provider, ModelData]] = []
+        for provider, _, _, model_data in pipeline.provider_iterator():
+            yielded.append((provider.name(), model_data.model))  # type: ignore
+
+            with pipeline.wrap_provider_call(provider):
+                # Re-raise if an exception or break the loop
+                try:
+                    await cast(Mock, provider).complete()
+                except Exception:
+                    raise
+                break
+
+        assert yielded == [
+            (Provider.OPEN_AI, Model.GPT_4O_MINI_2024_07_18),
+            (Provider.ANTHROPIC, Model.CLAUDE_4_OPUS_20250514),
+        ]
+        mock_provider1.complete.assert_not_called()
