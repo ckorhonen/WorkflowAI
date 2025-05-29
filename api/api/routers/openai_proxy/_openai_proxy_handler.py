@@ -4,16 +4,16 @@ from typing import Any, NamedTuple
 
 from fastapi import Request
 
-from api.dependencies.event_router import EventRouterDep
-from api.dependencies.services import GroupServiceDep, RunServiceDep
-from api.dependencies.storage import StorageDep
+from api.services.feedback_svc import FeedbackTokenGenerator
+from api.services.groups import GroupService
 from api.services.messages.messages_utils import json_schema_for_template
 from api.services.models import ModelsService
+from api.services.run import RunService
 from api.utils import get_start_time
 from core.domain.analytics_events.analytics_events import SourceType, TaskProperties
 from core.domain.consts import INPUT_KEY_MESSAGES, WORKFLOWAI_APP_URL
 from core.domain.errors import BadRequestError
-from core.domain.events import ProxyAgentCreatedEvent
+from core.domain.events import EventRouter, ProxyAgentCreatedEvent
 from core.domain.message import Message, Messages
 from core.domain.models.model_datas_mapping import MODEL_COUNT
 from core.domain.task_group_properties import TaskGroupProperties
@@ -24,6 +24,7 @@ from core.domain.types import AgentOutput
 from core.domain.version_reference import VersionReference
 from core.providers.base.provider_error import MissingModelError
 from core.storage import ObjectNotFoundException
+from core.storage.backend_storage import BackendStorage
 from core.utils.schemas import schema_from_data
 from core.utils.strings import to_pascal_case
 from core.utils.templates import InvalidTemplateError
@@ -43,15 +44,17 @@ _logger = logging.getLogger("OpenAIProxy")
 class OpenAIProxyHandler:
     def __init__(
         self,
-        group_service: GroupServiceDep,
-        storage: StorageDep,
-        run_service: RunServiceDep,
-        event_router: EventRouterDep,
+        group_service: GroupService,
+        storage: BackendStorage,
+        run_service: RunService,
+        event_router: EventRouter,
+        feedback_generator: FeedbackTokenGenerator,
     ):
         self._group_service = group_service
         self._storage = storage
         self._run_service = run_service
         self._event_router = event_router
+        self._feedback_generator = feedback_generator
 
     @classmethod
     def _raw_string_mapper(cls, output: Any) -> str:
@@ -373,6 +376,11 @@ class OpenAIProxyHandler:
                 model=body.model,
                 deprecated_function=body.uses_deprecated_functions,
                 output_mapper=output_mapper,
+                feedback_generator=lambda run_id: self._feedback_generator.generate_token(
+                    prepared_run.variant.task_uid,
+                    prepared_run.variant.task_schema_id,
+                    run_id,
+                ),
             ),
             start_time=get_start_time(request),
             stream_serializer=OpenAIProxyChatCompletionChunk.stream_serializer(
