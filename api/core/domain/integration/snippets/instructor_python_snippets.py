@@ -48,5 +48,5 @@ response = client.chat.completions.create(
 
 INSTRUCTOR_PYTHON_INTEGRATION_CHAT_AGENT_NAMING_SNIPPET = """response = client.chat.completions.create(
     model="<PROPOSED_AGENT_NAME_PLACEHOLDER>",
-    messages=[{"role": "user", "content": "Hello!"}]
+    ...,
 )"""
