@@ -18,6 +18,11 @@ const MODELS_TO_ADVERTISE: ModelToAdvertise[] = [
     date: '2025-05-22',
     modelId: 'claude-opus-4-20250514',
   },
+  {
+    name: 'DeepSeek R1 (05-28) (US hosted)',
+    date: '2025-05-28',
+    modelId: 'deepseek-r1-0528',
+  },
 ];
 
 const STORAGE_KEY = 'dismissedModels';
