@@ -1167,14 +1167,6 @@ FIREWORKS_PROVIDER_DATA: ProviderDataByModel = {
         ),
         # see: https://docs.fireworks.ai/guides/function-calling#supported-models
     ),
-    # Model.MIXTRAL_8X7B_32768: ModelProviderData(
-    #     text_price=TextPricePerToken(
-    #         prompt_cost_per_token=0.50 / 1_000_000,
-    #         completion_cost_per_token=0.50 / 1_000_000,
-    #         source="https://fireworks.ai/pricing",
-    #     ),
-    #     # see: https://docs.fireworks.ai/guides/function-calling#supported-models
-    # ),
     Model.DEEPSEEK_V3_2412: ModelProviderData(
         text_price=TextPricePerToken(
             prompt_cost_per_token=0.90 / 1_000_000,
@@ -1196,6 +1188,13 @@ FIREWORKS_PROVIDER_DATA: ProviderDataByModel = {
             prompt_cost_per_token=0.55 / 1_000_000,
             completion_cost_per_token=2.19 / 1_000_000,
             source="https://fireworks.ai/pricing",
+        ),
+    ),
+    Model.DEEPSEEK_R1_0528: ModelProviderData(
+        text_price=TextPricePerToken(
+            prompt_cost_per_token=3.0 * ONE_MILLION_TH,
+            completion_cost_per_token=3.0 / 1_000_000,
+            source="https://app.fireworks.ai/models/fireworks/deepseek-r1-0528",
         ),
     ),
     Model.DEEPSEEK_V3_0324: ModelProviderData(
