@@ -2197,7 +2197,7 @@ async def test_preserve_credits(test_client: IntegrationTestClient):
     test_client.mock_openai_call(usage={"prompt_tokens": 10000, "completion_tokens": 10000})
     run = await test_client.run_task_v1(task, model=Model.GPT_4O_2024_11_20)
     run_cost = 10000 * 0.0000025 + 10000 * 0.000010
-    assert run["cost_usd"] == run_cost
+    assert run["cost_usd"] == approx(run_cost)
 
     await test_client.wait_for_completed_tasks()
     org = await test_client.get_org()
@@ -2223,7 +2223,7 @@ async def test_preserve_credits(test_client: IntegrationTestClient):
 
     test_client.mock_openai_call(usage={"prompt_tokens": 10000, "completion_tokens": 10000})
     run1 = await test_client.run_task_v1(task, model=Model.GPT_4O_2024_11_20, use_cache="never")
-    assert run1["cost_usd"] == run_cost
+    assert run1["cost_usd"] == approx(run_cost)
 
     await test_client.wait_for_completed_tasks()
     org = await test_client.get_org()
