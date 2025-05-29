@@ -664,6 +664,16 @@ def mock_gemini_call(
 
 
 def bedrock_endpoint(model: str, region: str = "us-west-2"):
+    from core.providers.amazon_bedrock.amazon_bedrock_config import (
+        _default_resource_ids,  # pyright: ignore[reportPrivateUsage]
+    )
+
+    try:
+        if res := _default_resource_ids().get(Model(model)):
+            model = res
+    except ValueError:
+        pass
+
     return f"https://bedrock-runtime.{region}.amazonaws.com/model/{model}/converse"
 
 
@@ -842,6 +852,7 @@ class IntegrationTestClient:
         autowait: bool = True,
         tenant: str = "_",
         provider: str | None = None,
+        use_fallback: Literal["never", "always"] | list[str] | None = "never",
     ) -> dict[str, Any]:
         try:
             return await run_task_v1(
@@ -857,6 +868,7 @@ class IntegrationTestClient:
                 use_cache,
                 headers,
                 private_fields,
+                use_fallback,
             )
         finally:
             if autowait:
@@ -1159,6 +1171,7 @@ class IntegrationTestClient:
         content_json: dict[str, Any] | None = None,
         raw_content: str | None = None,
         model: Model = Model.CLAUDE_3_5_SONNET_20241022,
+        usage: dict[str, Any] | None = None,
     ):
         self.httpx_mock.add_response(
             url=self.ANTHROPIC_URL,
@@ -1182,7 +1195,9 @@ class IntegrationTestClient:
                 "usage": {
                     "input_tokens": 1596,
                     "output_tokens": 79,
-                },
+                }
+                if usage is None
+                else usage,
             },
         )
 

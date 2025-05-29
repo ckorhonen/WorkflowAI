@@ -18,6 +18,7 @@ from core.domain.analytics_events.analytics_events import (
 )
 from core.domain.errors import InternalError
 from core.domain.events import Event, EventRouter, RunCreatedEvent
+from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
 from core.domain.models import Model, Provider
 from core.domain.page import Page
@@ -44,6 +45,21 @@ class LLMCompletionTypedMessages(BaseModel):
     duration_seconds: float | None = None
     provider_config_id: str | None = None
     provider: Provider | None = None
+    model: Model | None = None
+    cost_usd: float | None = None
+
+    @classmethod
+    def from_domain(cls, messages: list[StandardMessage], c: LLMCompletion):
+        return cls(
+            messages=messages,
+            response=c.response,
+            usage=c.usage,
+            duration_seconds=c.duration_seconds,
+            provider_config_id=c.config_id,
+            provider=c.provider,
+            model=c.model,
+            cost_usd=c.usage.cost_usd,
+        )
 
 
 class LLMCompletionsResponse(BaseModel):
@@ -176,18 +192,11 @@ class RunsService:
         if not run.llm_completions:
             return LLMCompletionsResponse(completions=[])
 
-        llm_completions_typed: list[LLMCompletionTypedMessages] = []
+        llm_completions_typed = [
+            LLMCompletionTypedMessages.from_domain(self._sanitize_llm_messages_typed(c.provider, c.messages), c)
+            for c in run.llm_completions
+        ]
 
-        for c in run.llm_completions:
-            t: LLMCompletionTypedMessages = LLMCompletionTypedMessages(
-                messages=self._sanitize_llm_messages_typed(c.provider, c.messages),
-                response=c.response,
-                usage=c.usage,
-                duration_seconds=c.duration_seconds,
-                provider_config_id=c.config_id,
-                provider=c.provider,
-            )
-            llm_completions_typed.append(t)
         return LLMCompletionsResponse(completions=llm_completions_typed)
 
     @classmethod

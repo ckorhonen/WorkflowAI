@@ -703,12 +703,13 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
             if not e.retry or retries <= 0:
                 raise e
 
-            return await self._retryable_complete(
-                self._add_exception_to_messages(messages, raw_completion.response, e),
-                options,
-                output_factory,
-                retries,
+            messages = (
+                self._add_exception_to_messages(messages, raw_completion.response, e)
+                if e.add_exception_to_messages
+                else messages
             )
+
+            return await self._retryable_complete(messages, options, output_factory, retries)
         # Any other error is a crash
 
     @abstractmethod
