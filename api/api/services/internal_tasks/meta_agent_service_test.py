@@ -1234,7 +1234,7 @@ class TestMetaAgentService:
         """Verify that _remove_typescript_comments correctly strips TypeScript style block comments."""
         assert remove_ts_comments(content) == expected
 
-    async def test_build_model_list_with_rankings(self) -> None:
+    async def test_proxy_build_model_list_with_rankings(self) -> None:
         """Test that _build_model_list correctly calculates quality_index_ranking and cost_ranking."""
         # Create mock models with different quality indexes and costs
         mock_model_1 = Mock()
@@ -1291,7 +1291,7 @@ class TestMetaAgentService:
         mock_agent = Mock(spec=SerializableTaskVariant)
 
         # Call the method
-        result = await service._build_model_list(  # pyright: ignore[reportPrivateUsage]
+        result = await service._proxy_build_model_list(  # pyright: ignore[reportPrivateUsage]
             instructions="test instructions",
             current_agent=mock_agent,
         )
@@ -1330,7 +1330,7 @@ class TestMetaAgentService:
             requires_tools=None,
         )
 
-    async def test_build_model_list_with_none_costs(self) -> None:
+    async def test_proxy_build_model_list_with_none_costs(self) -> None:
         """Test that _build_model_list handles models with no cost data correctly."""
         # Create mock models where some have no cost data
         mock_model_1 = Mock()
@@ -1376,7 +1376,7 @@ class TestMetaAgentService:
         mock_agent = Mock(spec=SerializableTaskVariant)
 
         # Call the method
-        result = await service._build_model_list(  # pyright: ignore[reportPrivateUsage]
+        result = await service._proxy_build_model_list(  # pyright: ignore[reportPrivateUsage]
             instructions=None,
             current_agent=mock_agent,
         )
@@ -1394,7 +1394,7 @@ class TestMetaAgentService:
         # Verify model2 has None for cost estimate
         assert result_by_id["model2"].estimate_cost_per_thousand_runs_usd is None
 
-    async def test_build_model_list_with_zero_values(self) -> None:
+    async def test_proxy_build_model_list_with_zero_values(self) -> None:
         """Test that _build_model_list handles zero values correctly."""
         # Create mock models with zero values
         mock_model_1 = Mock()
@@ -1451,7 +1451,7 @@ class TestMetaAgentService:
         mock_agent = Mock(spec=SerializableTaskVariant)
 
         # Call the method
-        result = await service._build_model_list(  # pyright: ignore[reportPrivateUsage]
+        result = await service._proxy_build_model_list(  # pyright: ignore[reportPrivateUsage]
             instructions="test instructions",
             current_agent=mock_agent,
         )
@@ -1472,7 +1472,7 @@ class TestMetaAgentService:
         # Verify zero cost is handled correctly
         assert result_by_id["model2"].estimate_cost_per_thousand_runs_usd == 0.0
 
-    async def test_build_model_list_empty_list(self) -> None:
+    async def test_proxy_build_model_list_empty_list(self) -> None:
         """Test that _build_model_list handles empty model list correctly."""
         mock_models = []
 
@@ -1503,7 +1503,7 @@ class TestMetaAgentService:
         # Verify empty result
         assert result == []
 
-    async def test_build_model_list_identical_values(self) -> None:
+    async def test_proxy_build_model_list_identical_values(self) -> None:
         """Test that _build_model_list handles identical quality indexes and costs correctly."""
         # Create mock models with identical values
         mock_model_1 = Mock()
@@ -1560,7 +1560,7 @@ class TestMetaAgentService:
         mock_agent = Mock(spec=SerializableTaskVariant)
 
         # Call the method
-        result = await service._build_model_list(  # pyright: ignore[reportPrivateUsage]
+        result = await service._proxy_build_model_list(  # pyright: ignore[reportPrivateUsage]
             instructions="test instructions",
             current_agent=mock_agent,
         )
@@ -1581,7 +1581,7 @@ class TestMetaAgentService:
         model2_cost_rank = result_by_id["model2"].cost_ranking
         assert {model1_cost_rank, model2_cost_rank} == {1, 2}  # Should be 1 and 2 in some order
 
-    async def test_build_model_list_mixed_none_and_zero(self) -> None:
+    async def test_proxy_build_model_list_mixed_none_and_zero(self) -> None:
         """Test that _build_model_list handles mix of None and zero values correctly."""
         # Create mock models with mix of None and zero values
         mock_model_1 = Mock()
@@ -1627,7 +1627,7 @@ class TestMetaAgentService:
         mock_agent = Mock(spec=SerializableTaskVariant)
 
         # Call the method
-        result = await service._build_model_list(  # pyright: ignore[reportPrivateUsage]
+        result = await service._proxy_build_model_list(  # pyright: ignore[reportPrivateUsage]
             instructions=None,
             current_agent=mock_agent,
         )

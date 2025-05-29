@@ -763,6 +763,7 @@ _PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS = """
 Your answer MUST include, different code blocks that show the following:
 - a brief explanation (50 words max.) of why you are stuctured output is useful, based on the documentation in 'workflowai_documentation_sections' and 'integration_documentation' and the user context
 - 'suggested_output_class_code' that shows the output class to use, including eventual description and examples.
+- the messages MUST still contain input variables {% raw %} {{example_variable}} {% endraw %}
 - pass the right response_format in the completion request
 - completion client MUST ALWAYS be: COMPLETION_CLIENT_PLACEHOLDER
 - the "messages" without the parts that are not needed anymore for structured generation (see: 'suggested_instructions_parts_to_remove') but DO NOT REMOVED INPUT VARIABLES if they were present before in the messages, since those are also needed for the structured output
