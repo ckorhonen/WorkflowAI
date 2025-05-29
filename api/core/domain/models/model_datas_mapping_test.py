@@ -52,18 +52,6 @@ def test_assert_model_data_has_all_fields_defined_should_not_raise() -> None:
         )
 
 
-# Test that all models MODEL_DATAS have all fields defined, even if optional
-# TODO: remove, this test is a duplicate of pydantic model validation
-def test_MODEL_DATAS_has_all_fields_defined() -> None:
-    for model in Model:
-        model_data = MODEL_DATAS[model]
-        if isinstance(model_data, ModelData):
-            assert_model_data_has_all_fields_defined(
-                model_data,
-                exclude={"latest_model", "quality_index", "reasoning_level"},
-            )
-
-
 @pytest.fixture
 def today():
     return datetime.date.today()
@@ -364,3 +352,13 @@ class TestMaxTokens:
                 continue
 
             assert model_data.max_tokens_data.max_tokens > 0, f"Model {model} has no max tokens"
+
+
+def test_no_duplicate_aliases():
+    aliases: set[str] = set()
+    for model, model_data in MODEL_DATAS.items():
+        if isinstance(model_data, ModelData):
+            if model_data.aliases:
+                for alias in model_data.aliases:
+                    assert alias not in aliases, f"Alias {alias} is already defined for model {model}"
+                    aliases.add(alias)

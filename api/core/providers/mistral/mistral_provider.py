@@ -351,3 +351,7 @@ class MistralAIProvider(HTTPXProvider[MistralAIConfig, CompletionResponse]):
             total=response.headers.get("x-ratelimitbysize-limit-month"),
             options=options,
         )
+
+    @override
+    def default_model(self) -> Model:
+        return Model.MISTRAL_SMALL_2503

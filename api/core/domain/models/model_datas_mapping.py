@@ -26,6 +26,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             model=Model.GPT_4O_2024_11_20,
             display_name="GPT-4o (latest)",
             is_default=False,
+            aliases=["gpt-4o"],
         ),
         Model.GPT_4O_2024_11_20: ModelData(
             display_name="GPT-4o (2024-11-20)",
@@ -161,9 +162,13 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             latest_model=Model.GPT_4O_LATEST,
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
+            aliases=["gpt-4.5-preview"],
         ),
         Model.GPT_4O_2024_05_13: DeprecatedModel(replacement_model=Model.GPT_4O_2024_11_20),
-        Model.GPT_4_TURBO_2024_04_09: DeprecatedModel(replacement_model=Model.GPT_4O_2024_11_20),
+        Model.GPT_4_TURBO_2024_04_09: DeprecatedModel(
+            replacement_model=Model.GPT_4O_2024_11_20,
+            aliases=["gpt-4-turbo", "gpt-4", "gpt-4-0613", "gpt-4-turbo-preview"],
+        ),
         Model.GPT_4_0125_PREVIEW: DeprecatedModel(replacement_model=Model.GPT_4O_2024_11_20),
         Model.GPT_4_1106_PREVIEW: DeprecatedModel(replacement_model=Model.GPT_4O_2024_11_20),
         Model.GPT_4O_MINI_LATEST: LatestModel(
@@ -213,8 +218,13 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             supports_tool_calling=False,
             is_default=True,
         ),
-        Model.GPT_3_5_TURBO_0125: DeprecatedModel(replacement_model=Model.GPT_4O_MINI_2024_07_18),
-        Model.GPT_3_5_TURBO_1106: DeprecatedModel(replacement_model=Model.GPT_4O_MINI_2024_07_18),
+        Model.GPT_3_5_TURBO_0125: DeprecatedModel(
+            replacement_model=Model.GPT_4O_MINI_2024_07_18,
+            aliases=["gpt-3.5-turbo-16k", "gpt-3.5-turbo", "gpt-3.5-turbo-instruct-0914", "gpt-3.5-turbo-instruct"],
+        ),
+        Model.GPT_3_5_TURBO_1106: DeprecatedModel(
+            replacement_model=Model.GPT_4O_MINI_2024_07_18,
+        ),
         Model.GPT_4_1106_VISION_PREVIEW: DeprecatedModel(replacement_model=Model.GPT_4O_2024_11_20),
         Model.GPT_4O_AUDIO_PREVIEW_2024_12_17: ModelData(
             display_name="GPT-4o (Audio Preview 2024-12-17)",
@@ -236,6 +246,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_name=DisplayedProvider.OPEN_AI.value,
             quality_data=QualityData(mmlu=88.70, gpqa=53.60),
             supports_tool_calling=False,
+            aliases=["gpt-4o-audio-preview"],
         ),
         Model.GPT_40_AUDIO_PREVIEW_2024_10_01: DeprecatedModel(replacement_model=Model.GPT_4O_AUDIO_PREVIEW_2024_12_17),
         Model.O1_PREVIEW_2024_09_12: ModelData(
@@ -255,6 +266,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=90.80, gpqa=78.30),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=False,  # OpenAI returns 400 "model_does_not_support_mode"
+            aliases=["o1-preview"],
         ),
         Model.O1_MINI_LATEST: LatestModel(model=Model.O1_MINI_2024_09_12, display_name="o1-mini (latest)"),
         Model.O1_MINI_2024_09_12: ModelData(
@@ -283,6 +295,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
         Model.O3_MINI_LATEST_MEDIUM_REASONING_EFFORT: LatestModel(
             model=Model.O3_MINI_2025_01_31_MEDIUM_REASONING_EFFORT,
             display_name="o3-mini (latest) - Medium reasoning effort",
+            aliases=["o3-mini"],
         ),
         Model.O3_MINI_LATEST_LOW_REASONING_EFFORT: LatestModel(
             model=Model.O3_MINI_2025_01_31_LOW_REASONING_EFFORT,
@@ -308,6 +321,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             latest_model=Model.O3_MINI_LATEST_HIGH_REASONING_EFFORT,
             supports_tool_calling=True,
             supports_parallel_tool_calls=False,
+            aliases=["o3-mini-2025-01-31"],
         ),
         Model.O3_MINI_2025_01_31_MEDIUM_REASONING_EFFORT: ModelData(
             display_name="o3-mini (2025-01-31) - Medium reasoning effort",
@@ -358,6 +372,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
         Model.O4_MINI_LATEST_MEDIUM_REASONING_EFFORT: LatestModel(
             model=Model.O4_MINI_2025_04_16_MEDIUM_REASONING_EFFORT,
             display_name="o4-mini (latest) - Medium reasoning effort",
+            aliases=["o4-mini"],
         ),
         Model.O4_MINI_LATEST_LOW_REASONING_EFFORT: LatestModel(
             model=Model.O4_MINI_2025_04_16_LOW_REASONING_EFFORT,
@@ -410,6 +425,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             latest_model=Model.O4_MINI_LATEST_MEDIUM_REASONING_EFFORT,
             supports_tool_calling=True,
             supports_parallel_tool_calls=False,
+            aliases=["o4-mini-2025-04-16"],
         ),
         Model.O4_MINI_2025_04_16_LOW_REASONING_EFFORT: ModelData(
             display_name="o4-mini (2025-04-16) - Low reasoning effort",
@@ -441,6 +457,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
         Model.O3_LATEST_MEDIUM_REASONING_EFFORT: LatestModel(
             model=Model.O3_2025_04_16_MEDIUM_REASONING_EFFORT,
             display_name="o3 (latest) - Medium reasoning effort",
+            aliases=["o3"],
         ),
         Model.O3_LATEST_LOW_REASONING_EFFORT: LatestModel(
             model=Model.O3_2025_04_16_LOW_REASONING_EFFORT,
@@ -493,6 +510,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             latest_model=Model.O3_LATEST_MEDIUM_REASONING_EFFORT,
             supports_tool_calling=True,
             supports_parallel_tool_calls=False,
+            aliases=["o3-2025-04-16"],
         ),
         Model.O3_2025_04_16_LOW_REASONING_EFFORT: ModelData(
             display_name="o3 (2025-04-16) - Low reasoning effort",
@@ -841,6 +859,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
             supports_parallel_tool_calls=False,
+            aliases=["o1"],
         ),
         Model.O1_2024_12_17_HIGH_REASONING_EFFORT: ModelData(
             display_name="o1 (2024-12-17) - High reasoning effort",
@@ -1530,5 +1549,20 @@ def _build_model_datas() -> ModelDataMapping:
 
 
 MODEL_DATAS = _build_model_datas()
+
+
+def _build_aliases() -> dict[str, Model]:
+    out: dict[str, Model] = {}
+    for k, m in MODEL_DATAS.items():
+        if isinstance(m, LatestModel):
+            out[k.value.removesuffix("-latest")] = k
+        if m.aliases:
+            for alias in m.aliases:
+                out[alias] = k
+    return out
+
+
+MODEL_ALIASES = _build_aliases()
+
 
 MODEL_COUNT = len([model for model in MODEL_DATAS.values() if isinstance(model, FinalModelData)])

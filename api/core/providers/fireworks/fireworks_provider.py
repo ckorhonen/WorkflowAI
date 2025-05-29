@@ -598,3 +598,7 @@ class FireworksAIProvider(HTTPXProvider[FireworksConfig, CompletionResponse]):
             total=response.headers.get("x-ratelimit-limit-tokens-generated"),
             options=options,
         )
+
+    @override
+    def default_model(self) -> Model:
+        return Model.LLAMA_4_SCOUT_BASIC
