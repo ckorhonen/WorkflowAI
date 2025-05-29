@@ -558,10 +558,17 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
 
     async def finalize_completion(
         self,
-        model: Model,
+        default_model: Model,
         llm_completion: LLMCompletion,
         timeout: float | None,  # noqa: ASYNC109
     ) -> None:
+        model = llm_completion.model
+        if not model:
+            self.logger.warning(
+                "No model found in LLM completion",
+                extra={"run_id": self._run_id()},
+            )
+            model = default_model
         # All exceptions must be handled in this method
         if llm_completion.provider_request_incurs_cost is False:
             # Nothing to do if the provider request does not incur cost
@@ -607,6 +614,7 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
             return
         async with asyncio.TaskGroup() as tg:
             for completion in builder.llm_completions:
+                # TODO: remove model here, all completions should now have a model
                 tg.create_task(self.finalize_completion(model, completion, self._FINALIZE_COMPLETIONS_TIMEOUT))
 
     # -------------------------------------------------

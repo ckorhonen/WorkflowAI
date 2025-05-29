@@ -2116,6 +2116,8 @@ class TestStreamTaskOutput:
 
         patched_provider_factory.google.stream.side_effect = ProviderUnavailableError()
         patched_provider_factory.gemini.stream.side_effect = ProviderInternalError()
+        # Model will fallback to OpenAI
+        patched_provider_factory.openai.stream.side_effect = ProviderInternalError()
 
         with pytest.raises(ProviderUnavailableError):
             await stream_fn()

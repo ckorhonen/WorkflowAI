@@ -292,7 +292,7 @@ class ProviderPipeline:
                 provider_type=provider,
             )
 
-        # If we have reached here we should just raise the last error since it would mean that there is no more
+        # If we have reached here we should just raise the first error since it would mean that there is no more
         # provider to try
 
-        raise self.errors[-1]
+        raise self.errors[0]
