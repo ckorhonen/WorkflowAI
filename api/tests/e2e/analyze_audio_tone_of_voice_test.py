@@ -4,6 +4,7 @@ from httpx import HTTPStatusError
 from tests.e2e.conftest import ApiRunFn
 
 
+@pytest.mark.requires_deployed
 @pytest.mark.parametrize(
     "version,model",
     [(11, "gemini-1.5-pro-002"), (10, "gemini-1.5-flash-002")],
@@ -26,6 +27,7 @@ async def test_sassy_image_description(run_fn: ApiRunFn, version: int, model: st
     assert "tone_of_voice" in output["task_output"]
 
 
+@pytest.mark.requires_deployed
 @pytest.mark.parametrize(
     "version,model",
     [(12, "gpt-4o-audio-preview-2024-10-01")],
