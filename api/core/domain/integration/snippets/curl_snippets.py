@@ -55,11 +55,7 @@ curl -X POST https://run.workflowai.com/v1/chat/completions \\
   -H "Authorization: Bearer <WORKFLOWAI_API_KEY_PLACEHOLDER> \\
   -H "Content-Type: application/json" \\
   -d '{
-    "model": "gpt-4o",
-    "messages": [
-      {"role": "system", "content": "You are a helpful assistant."},
-      {"role": "user", "content": "Hello, how are you?"}
-    ]
+  ...
   }'
 ```"""
 

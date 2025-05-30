@@ -73,6 +73,5 @@ response = openai.chat.completions.create(
 OPENAI_SDK_PYTHON_INTEGRATION_CHAT_AGENT_NAMING_SNIPPET = """```python
 response = openai.chat.completions.create(
     model="<PROPOSED_AGENT_NAME_PLACEHOLDER>",
-    messages=[{"role": "user", "content": "Hello!"}]
-)
+    ...
 ```"""

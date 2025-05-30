@@ -91,6 +91,6 @@ const response = await client.chat.completions.create({
 OPENAI_SDK_TS_INTEGRATION_CHAT_AGENT_NAMING_SNIPPET = """```typescript
 const response = await client.chat.completions.create({
   model: '<PROPOSED_AGENT_NAME_PLACEHOLDER>',
-  messages: [{ role: 'user', content: 'Hello!' }],
+  ...
 });
 ```"""
