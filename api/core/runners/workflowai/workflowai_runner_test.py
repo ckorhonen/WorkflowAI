@@ -154,13 +154,13 @@ def model_data():
             max_output_tokens=16_384,
             source="https://platform.openai.com/docs/models",
         ),
-        provider_for_pricing=Provider.OPEN_AI,
         icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
         latest_model=Model.GPT_4O_LATEST,
         release_date=date(2024, 11, 20),
         quality_data=QualityData(index=100),
         provider_name=DisplayedProvider.OPEN_AI.value,
         supports_tool_calling=True,
+        fallback=None,
     )
 
 
@@ -1839,13 +1839,13 @@ class TestBuildProviderData:
             display_name="Test GPT-4O Mini",
             icon_url="http://test.icon",
             max_tokens_data=MaxTokensData(source="test", max_tokens=1000),
-            provider_for_pricing=Provider.OPEN_AI,
             providers=[],
             release_date=date(2024, 1, 1),
             quality_index=100,
             quality_data=QualityData(index=100),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
+            fallback=None,
         )
 
     def test_model_data_is_copied(
@@ -2116,6 +2116,8 @@ class TestStreamTaskOutput:
 
         patched_provider_factory.google.stream.side_effect = ProviderUnavailableError()
         patched_provider_factory.gemini.stream.side_effect = ProviderInternalError()
+        # Model will fallback to OpenAI
+        patched_provider_factory.openai.stream.side_effect = ProviderInternalError()
 
         with pytest.raises(ProviderUnavailableError):
             await stream_fn()

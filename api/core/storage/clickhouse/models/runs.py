@@ -15,6 +15,7 @@ from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
 from core.domain.models import Provider
+from core.domain.models.models import Model
 from core.domain.search_query import (
     SearchField,
     SearchOperation,
@@ -401,6 +402,7 @@ class ClickhouseRun(BaseModel):
         tool_calls: list["ClickhouseRun._ToolCall"] | None = None
 
         provider: str
+        model: str | None = None
 
         config_id: str | None = None
         preserve_credits: bool | None = None
@@ -459,6 +461,7 @@ class ClickhouseRun(BaseModel):
                 provider=Provider(self.provider),
                 config_id=self.config_id,
                 preserve_credits=self.preserve_credits,
+                model=Model(self.model) if self.model else None,
             )
 
         @classmethod
@@ -476,6 +479,7 @@ class ClickhouseRun(BaseModel):
                 provider=llm_completion.provider.value,
                 config_id=llm_completion.config_id,
                 preserve_credits=llm_completion.preserve_credits,
+                model=llm_completion.model,
             )
 
     llm_completions: list[_LLMCompletion] | None = None

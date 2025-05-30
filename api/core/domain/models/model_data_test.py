@@ -39,7 +39,6 @@ def _md(**kwargs: Any) -> FinalModelData:
             max_output_tokens=4096,
             source="https://platform.openai.com/docs/models",
         ),
-        provider_for_pricing=Provider.OPEN_AI,
         icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
         release_date=date(2024, 11, 6),
         quality_index=100,
@@ -59,6 +58,7 @@ def _md(**kwargs: Any) -> FinalModelData:
                 ),
             ),
         ],
+        fallback=None,
     )
     return base.model_copy(deep=True, update=kwargs)
 
@@ -135,7 +135,6 @@ class TestFinalModelData:
                 max_output_tokens=4096,
                 source="https://platform.openai.com/docs/models",
             ),
-            provider_for_pricing=Provider.OPEN_AI,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
             release_date=date(2024, 11, 6),
             quality_data=QualityData(index=100),
@@ -143,6 +142,7 @@ class TestFinalModelData:
             provider_name=DisplayedProvider.OPEN_AI.value,
             display_name="GPT-3.5 Turbo (1106)",
             supports_tool_calling=True,
+            fallback=None,
         )
 
         assert model_data.provider_data(Provider.OPEN_AI) == m1

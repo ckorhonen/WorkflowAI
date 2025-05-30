@@ -18,9 +18,9 @@ from core.domain.analytics_events.analytics_events import (
 )
 from core.domain.errors import InternalError
 from core.domain.events import Event, EventRouter, RunCreatedEvent
+from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
 from core.domain.models import Model, Provider
-from core.domain.models.utils import get_model_data
 from core.domain.page import Page
 from core.domain.task_run_query import SerializableTaskRunField, SerializableTaskRunQuery
 from core.domain.task_variant import SerializableTaskVariant
@@ -32,7 +32,6 @@ from core.storage.abstract_storage import AbstractStorage
 from core.storage.azure.azure_blob_file_storage import FileStorage
 from core.storage.backend_storage import BackendStorage
 from core.utils.dicts import delete_at_keypath
-from core.utils.models.dumps import safe_dump_pydantic_model
 
 from ._run_previews import assign_run_previews
 
@@ -46,6 +45,21 @@ class LLMCompletionTypedMessages(BaseModel):
     duration_seconds: float | None = None
     provider_config_id: str | None = None
     provider: Provider | None = None
+    model: Model | None = None
+    cost_usd: float | None = None
+
+    @classmethod
+    def from_domain(cls, messages: list[StandardMessage], c: LLMCompletion):
+        return cls(
+            messages=messages,
+            response=c.response,
+            usage=c.usage,
+            duration_seconds=c.duration_seconds,
+            provider_config_id=c.config_id,
+            provider=c.provider,
+            model=c.model,
+            cost_usd=c.usage.cost_usd,
+        )
 
 
 class LLMCompletionsResponse(BaseModel):
@@ -179,32 +193,12 @@ class RunsService:
         if not run.llm_completions:
             return LLMCompletionsResponse(completions=[])
 
-        llm_completions_typed: list[LLMCompletionTypedMessages] = []
+        llm_completions_typed = [
+            LLMCompletionTypedMessages.from_domain(self._sanitize_llm_messages_typed(c.provider, c.messages), c)
+            for c in run.llm_completions
+        ]
 
-        for c in run.llm_completions:
-            t: LLMCompletionTypedMessages = LLMCompletionTypedMessages(
-                messages=self._sanitize_llm_messages_typed(c.provider, c.messages),
-                response=c.response,
-                usage=c.usage,
-                duration_seconds=c.duration_seconds,
-                provider_config_id=c.config_id,
-                provider=c.provider,
-            )
-            llm_completions_typed.append(t)
         return LLMCompletionsResponse(completions=llm_completions_typed)
-
-    @classmethod
-    def _provider_for_pricing_task_run(cls, task_run: AgentRun, model: Model):
-        if task_run.group.properties.provider:
-            try:
-                return Provider(task_run.group.properties.provider)
-            except ValueError:
-                _logger.warning(
-                    "invalid provider in task run",
-                    extra={"task_run_id": task_run.id, "task_run": safe_dump_pydantic_model(task_run)},
-                )
-                # Skipping will use the fallback provider
-        return get_model_data(model).provider_for_pricing
 
     @classmethod
     async def _compute_cost(cls, task_run: AgentRun, provider_factory: AbstractProviderFactory):
@@ -224,10 +218,10 @@ class RunsService:
             )
             return
 
-        # TODO: remove concept of provider for pricing
-        provider = provider_factory.get_provider(cls._provider_for_pricing_task_run(task_run, model))
-
-        await provider.finalize_completions(model, task_run.llm_completions)
+        async with asyncio.TaskGroup() as tg:
+            for completion in task_run.llm_completions:
+                provider = provider_factory.get_provider(completion.provider)
+                tg.create_task(provider.finalize_completion(model, completion, timeout=None))
 
         task_run.cost_usd = sum(c.usage.cost_usd for c in task_run.llm_completions if c.usage and c.usage.cost_usd)
 

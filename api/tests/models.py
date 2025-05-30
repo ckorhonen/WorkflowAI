@@ -7,7 +7,6 @@ from core.domain.agent_run import AgentRun
 from core.domain.fields.file import File
 from core.domain.models._displayed_provider import DisplayedProvider
 from core.domain.models.model_data import MaxTokensData, ModelData, QualityData
-from core.domain.models.providers import Provider
 from core.domain.review import Review
 from core.domain.task_deployment import TaskDeployment
 from core.domain.task_evaluation import TaskEvaluation
@@ -289,12 +288,12 @@ def model_data(**kwargs: Any) -> ModelData:
             max_tokens=128000,
             source="https://github.com/meta-llama/llama-models/blob/main/models/llama3_1/MODEL_CARD.md",
         ),
-        provider_for_pricing=Provider.FIREWORKS,
         icon_url="https://workflowai.blob.core.windows.net/workflowai-public/meta.svg",
         release_date=date(2024, 7, 23),
         quality_data=QualityData(mmlu=86, gpqa=48),
         provider_name=DisplayedProvider.FIREWORKS.value,
         supports_tool_calling=True,
+        fallback=None,
     ).model_copy(update=kwargs)
 
 

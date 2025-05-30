@@ -22,6 +22,7 @@ class ProviderError(ScopeConfigurableError):
     default_capture = True
     default_message = "An error occurred"
     default_retry = False
+    default_add_exception_to_messages = False
     default_store_task_run = True
     should_try_next_provider = False
 
@@ -46,6 +47,7 @@ class ProviderError(ScopeConfigurableError):
         partial_output: AgentOutput | None = None,
         # To customize the grouping of Sentry errors
         fingerprint: list[str] | None = None,
+        add_exception_to_messages: bool | None = None,
         **extras: Any,
     ):
         """
@@ -68,6 +70,11 @@ class ProviderError(ScopeConfigurableError):
         self.provider_options = provider_options
         self.provider = provider
         self.provider_status_code = provider_status_code
+        self.add_exception_to_messages = (
+            add_exception_to_messages
+            if add_exception_to_messages is not None
+            else self.default_add_exception_to_messages
+        )
 
         self.provider_error = provider_error
 
@@ -175,12 +182,15 @@ class MaxToolCallIterationError(ProviderError):
 class FailedGenerationError(ProviderError):
     code = "failed_generation"
     default_status_code = 400
+    default_retry = True
+    default_add_exception_to_messages = True
 
 
 class InvalidGenerationError(ProviderError):
     code = "invalid_generation"
     default_status_code = 400
     default_retry = True
+    default_add_exception_to_messages = True
 
 
 class InvalidProviderConfig(ProviderError):

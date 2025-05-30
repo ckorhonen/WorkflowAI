@@ -30,6 +30,7 @@ async def test_run_with_custom_provider_v1(test_client: IntegrationTestClient):
                     "models": ["gpt-4o-2024-11-20"],
                 },
             },
+            "preserve_credits": False,
         },
     )
 

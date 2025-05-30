@@ -5,16 +5,16 @@ from typing import Any, NamedTuple
 from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from api.dependencies.event_router import EventRouterDep
-from api.dependencies.services import GroupServiceDep, RunServiceDep
-from api.dependencies.storage import StorageDep
+from api.services.feedback_svc import FeedbackTokenGenerator
+from api.services.groups import GroupService
 from api.services.messages.messages_utils import json_schema_for_template
 from api.services.models import ModelsService
+from api.services.run import RunService
 from api.utils import get_start_time
 from core.domain.analytics_events.analytics_events import SourceType, TaskProperties
 from core.domain.consts import INPUT_KEY_MESSAGES, METADATA_KEY_DEPLOYMENT_ENVIRONMENT, WORKFLOWAI_APP_URL
 from core.domain.errors import BadRequestError
-from core.domain.events import ProxyAgentCreatedEvent
+from core.domain.events import EventRouter, ProxyAgentCreatedEvent
 from core.domain.message import Message, Messages
 from core.domain.models.model_datas_mapping import MODEL_COUNT
 from core.domain.task_group_properties import TaskGroupProperties
@@ -25,8 +25,9 @@ from core.domain.types import AgentOutput, CacheUsage
 from core.domain.version_reference import VersionReference
 from core.providers.base.provider_error import MissingModelError
 from core.storage import ObjectNotFoundException
+from core.storage.backend_storage import BackendStorage
 from core.utils.schemas import schema_from_data
-from core.utils.strings import to_pascal_case
+from core.utils.strings import slugify, to_pascal_case
 from core.utils.templates import InvalidTemplateError
 
 from ._openai_proxy_models import (
@@ -44,15 +45,17 @@ _logger = logging.getLogger("OpenAIProxy")
 class OpenAIProxyHandler:
     def __init__(
         self,
-        group_service: GroupServiceDep,
-        storage: StorageDep,
-        run_service: RunServiceDep,
-        event_router: EventRouterDep,
+        group_service: GroupService,
+        storage: BackendStorage,
+        run_service: RunService,
+        event_router: EventRouter,
+        feedback_generator: FeedbackTokenGenerator,
     ):
         self._group_service = group_service
         self._storage = storage
         self._run_service = run_service
         self._event_router = event_router
+        self._feedback_generator = feedback_generator
 
     @classmethod
     def _raw_string_mapper(cls, output: Any) -> str:
@@ -130,13 +133,16 @@ class OpenAIProxyHandler:
         if not agent_slug:
             agent_slug = "default"
 
+        slugified_agent_slug = slugify(agent_slug)
+
         return SerializableTaskVariant(
             id="",
             task_schema_id=0,
-            task_id=agent_slug,
+            task_id=slugified_agent_slug,
             input_schema=input_schema,
             output_schema=output_schema,
-            name=to_pascal_case(agent_slug),
+            # If the agent_id was already a slug, then we convert to pascal case, or we use as is.
+            name=to_pascal_case(agent_slug, separator=" ") if slugified_agent_slug == agent_slug else agent_slug,
         ), last_templated_index
 
     class PreparedRun(NamedTuple):
@@ -170,22 +176,23 @@ class OpenAIProxyHandler:
         input: dict[str, Any] | None,
         response_format: OpenAIProxyResponseFormat | None,
     ) -> PreparedRun:
+        agent_id = slugify(agent_ref.agent_id)
         try:
             deployment = await self._storage.task_deployments.get_task_deployment(
-                agent_ref.agent_id,
+                agent_id,
                 agent_ref.schema_id,
                 agent_ref.environment,
             )
         except ObjectNotFoundException:
             raise BadRequestError(
-                f"Deployment not found for agent {agent_ref.agent_id}/{agent_ref.schema_id} in "
+                f"Deployment not found for agent {agent_id}/{agent_ref.schema_id} in "
                 f"environment {agent_ref.environment}. Check your deployments "
-                f"at {tenant_data.app_deployments_url(agent_ref.agent_id, agent_ref.schema_id)}",
+                f"at {tenant_data.app_deployments_url(agent_id, agent_ref.schema_id)}",
             )
         properties = deployment.properties
         if variant_id := deployment.properties.task_variant_id:
             variant = await self._storage.task_version_resource_by_id(
-                agent_ref.agent_id,
+                agent_id,
                 variant_id,
             )
         else:
@@ -202,8 +209,8 @@ class OpenAIProxyHandler:
             final_input: Messages | dict[str, Any] = messages
             if input:
                 raise BadRequestError(
-                    "The deployment you are trying to use does not contain any messages but you "
-                    "sent input variables. Check the deployment at "
+                    "You send input variables but the deployment you are trying to use does not expect any. "
+                    "You likely have a typo in your schema id. Check the deployment at "
                     f"{tenant_data.app_deployments_url(agent_ref.agent_id, agent_ref.schema_id)}",
                 )
         else:
@@ -281,11 +288,26 @@ class OpenAIProxyHandler:
         final_input: dict[str, Any] | Messages,
         agent_ref: EnvironmentRef | ModelRef,
         tenant_data: PublicOrganizationData,
+        request_input_was_empty: bool,
     ):
-        if isinstance(final_input, Messages):
+        if isinstance(final_input, Messages) or request_input_was_empty:
+            # That can happen if the user passed a None input
             if input_io.version == RawMessagesSchema.version:
-                # Everything is ok here
+                # Everything is ok here, we received messages with no input and expected no input
                 return
+
+            # We are not good here
+            # We should have a proper input dict
+            raise (
+                BadRequestError(
+                    f"Your deployment on schema #{agent_ref.schema_id} expects input variables but you did not send any."
+                    f"Please check your schema at {tenant_data.app_schema_url(agent_ref.agent_id, agent_ref.schema_id)}",
+                )
+                if isinstance(agent_ref, EnvironmentRef)
+                else BadRequestError("It seems that your messages expect templated variables but you did not send any.")
+            )
+
+        if input_io.version == RawMessagesSchema.version and not request_input_was_empty:
             raise (
                 BadRequestError(
                     f"You passed input variables to a deployment on schema #{agent_ref.schema_id} but schema "
@@ -295,7 +317,7 @@ class OpenAIProxyHandler:
                 )
                 if isinstance(agent_ref, EnvironmentRef)
                 else BadRequestError(
-                    "It looks like you are using input variables but there are no input variables in your messages.",
+                    "It looks like you sent input variables but there are no input variables in your messages.",
                 )
             )
 
@@ -335,6 +357,7 @@ class OpenAIProxyHandler:
             prepared_run.final_input,
             agent_ref,
             tenant_data,
+            request_input_was_empty=not body.input,
         )
         body.apply_to(prepared_run.properties)
 
@@ -350,6 +373,11 @@ class OpenAIProxyHandler:
 
         prepared_run = await self._prepare_run(body, tenant_data)
 
+        try:
+            parsed_fallback = body.parsed_use_fallback()
+        except MissingModelError as e:
+            raise await self.missing_model_error(e.extras.get("model"), prefix="fallback ")
+
         runner, _ = await self._group_service.sanitize_groups_for_internal_runner(
             task_id=prepared_run.variant.task_id,
             task_schema_id=prepared_run.variant.task_schema_id,
@@ -357,6 +385,7 @@ class OpenAIProxyHandler:
             provider_settings=None,
             variant=prepared_run.variant,
             stream_deltas=body.stream is True,
+            use_fallback=parsed_fallback,
         )
 
         output_mapper = (
@@ -393,6 +422,11 @@ class OpenAIProxyHandler:
                 output_mapper=output_mapper,
                 model=body.model,
                 deprecated_function=body.uses_deprecated_functions,
+                feedback_generator=lambda run_id: self._feedback_generator.generate_token(
+                    prepared_run.variant.task_uid,
+                    prepared_run.variant.task_schema_id,
+                    run_id,
+                ),
             )
             return JSONResponse(content=response_object.model_dump(mode="json", exclude_none=True))
 
@@ -418,7 +452,7 @@ class OpenAIProxyHandler:
         )
 
     @classmethod
-    async def missing_model_error(cls, model: str | None):
+    async def missing_model_error(cls, model: str | None, prefix: str = ""):
         _check_lineup = f"Check the lineup 👉 {WORKFLOWAI_APP_URL}/models ({MODEL_COUNT} models)"
         if not model:
             return BadRequestError(
@@ -427,7 +461,7 @@ class OpenAIProxyHandler:
             )
 
         components = [
-            f"Unknown model: {model}",
+            f"Unknown {prefix}model: {model}",
             _check_lineup,
         ]
         if suggested := await ModelsService.suggest_model(model):

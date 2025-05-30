@@ -1,9 +1,8 @@
-import logging
 from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, TypeAdapter
 
 from api.dependencies.provider_factory import ProviderFactoryDep
 from api.dependencies.security import RequiredUserOrganizationDep
@@ -11,15 +10,13 @@ from api.dependencies.storage import OrganizationStorageDep
 from api.tags import RouteTags
 from core.domain.models.providers import Provider
 from core.domain.tenant_data import (
-    ProviderConfig,
     ProviderSettings,
     TenantData,
 )
+from core.providers.base.config import ProviderConfig
 from core.utils.iter_utils import safe_map_optional
 
 router = APIRouter(prefix="/organization", tags=[RouteTags.ORGANIZATIONS])
-
-_logger = logging.getLogger(__name__)
 
 
 class OrganizationResponse(BaseModel):
@@ -96,15 +93,29 @@ async def get_organization_settings(tenant: RequiredUserOrganizationDep) -> Orga
     return OrganizationResponse.from_domain(tenant)
 
 
+# We don't use the provider class directly because it is not extensible enough
+class CreateProviderRequest(BaseModel):
+    provider: Provider
+    # By default credits are preserved
+    preserve_credits: bool = True
+
+    model_config = ConfigDict(extra="allow")
+
+    def provider_config(self) -> ProviderConfig:
+        type_adapter: TypeAdapter[ProviderConfig] = TypeAdapter(ProviderConfig)
+        return type_adapter.validate_python(self.model_dump(exclude_none=True))
+
+
 @router.post("/settings/providers", description="Add a provider config")
 async def add_provider_settings(
-    request: ProviderConfig,
+    request: CreateProviderRequest,
     storage: OrganizationStorageDep,
     provider_factory: ProviderFactoryDep,
 ) -> ProviderSettings:
-    provider_cls = provider_factory.provider_type(request)
+    config = request.provider_config()
+    provider_cls = provider_factory.provider_type(config)
     # Will raise InvalidProviderConfig if the config is invalid
-    config = provider_cls.sanitize_config(request)
+    config = provider_cls.sanitize_config(config)
 
     provider = provider_cls(config, config_id="temp")
 
@@ -112,7 +123,7 @@ async def add_provider_settings(
     if not is_valid:
         raise HTTPException(400, "Invalid provider config")
 
-    return await storage.add_provider_config(config)
+    return await storage.add_provider_config(config, preserve_credits=request.preserve_credits)
 
 
 @router.delete("/settings/providers/{provider_id}", description="Delete a provider config")

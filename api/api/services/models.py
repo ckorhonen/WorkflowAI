@@ -99,6 +99,7 @@ class ModelsService:
         provider_name: str
         quality_index: int
         providers: list[Provider]
+        supports_structured_output: bool
         is_not_supported_reason: str | None = None
         average_cost_per_run_usd: float | None = None
         is_latest: bool = False
@@ -158,9 +159,10 @@ class ModelsService:
                 context_window_tokens=data.max_tokens_data.max_tokens,
                 provider_name=data.provider_name,
                 providers=[p for p, _ in data.providers],
+                supports_structured_output=data.supports_structured_output,
             )
 
-        provider_data = data.provider_data_for_pricing()
+        provider_data = data.providers[0][1]
 
         if (
             requires_tools or len(get_tools_in_instructions(instructions or "")) > 0
@@ -344,7 +346,7 @@ class ModelsService:
                 )
                 return None
             return price_calculator(
-                data.provider_data_for_pricing(),
+                data.providers[0][1],
                 model,
             )
 

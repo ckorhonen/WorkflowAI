@@ -156,3 +156,22 @@ def get_tools_description(tools: Iterable[Tool]) -> str:
             "</tools_list>",
         ),
     )
+
+
+def get_tool_description_openai_format(tool: Tool) -> dict[str, Any]:
+    return {
+        "type": "function",
+        "function": {
+            "name": tool.name,
+            "description": tool.description,
+            "parameters": tool.input_schema,
+        },
+    }
+
+
+def get_tools_description_openai_format(tools: Iterable[Tool]) -> list[dict[str, Any]]:
+    return [get_tool_description_openai_format(tool) for tool in tools]
+
+
+def get_tools_description_openai_format_str(tools: Iterable[Tool]) -> str:
+    return json.dumps(get_tools_description_openai_format(tools), indent=2)

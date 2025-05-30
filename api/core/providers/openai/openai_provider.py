@@ -46,3 +46,7 @@ class OpenAIProvider(OpenAIProviderBase[OpenAIConfig]):
             api_key=get_provider_config_env("OPENAI_API_KEY", index),
             url=get_provider_config_env("OPENAI_URL", index, "https://api.openai.com/v1/chat/completions"),
         )
+
+    @override
+    def default_model(self) -> Model:
+        return Model.GPT_41_NANO_2025_04_14

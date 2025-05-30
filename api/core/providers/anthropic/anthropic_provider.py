@@ -387,3 +387,7 @@ class AnthropicProvider(HTTPXProvider[AnthropicConfig, CompletionResponse]):
             total=response.headers.get("anthropic-ratelimit-output-tokens-limit"),
             options=options,
         )
+
+    @override
+    def default_model(self) -> Model:
+        return Model.CLAUDE_3_7_SONNET_20250219

@@ -58,7 +58,7 @@ from pydantic import SecretStr
 chat = ChatOpenAI(
     base_url="https://run.workflowai.com/v1",  # ChatOpenAI now uses WorkflowAI's chat completion endpoint
     api_key=SecretStr(<WORKFLOWAI_API_KEY_PLACEHOLDER>),
-    model="gpt-4o-mini-latest",
+    ...
 )
 
 response = chat.invoke("Hello!")

@@ -25,7 +25,7 @@ from tests.integration.common import (
     stream_run_task,
     wait_for_completed_tasks,
 )
-from tests.utils import fixture_bytes, request_json_body
+from tests.utils import approx, fixture_bytes, request_json_body
 
 # TODO: keeping for legacy reasons, the run v1 endpoint should be used instead
 
@@ -292,8 +292,8 @@ async def test_openai_usage_with_usage_and_cached_tokens(
         0.00001875,  # 10 * 0.0000025 + 10 * 0.00000125 (50% price for cached tokens)
         rel_tol=1e-10,
     )
-    assert usage["completion_cost_usd"] == 0.00011  # 11 * 0.00001
-    assert usage["model_context_window_size"] == 128000  # from model
+    assert usage["completion_cost_usd"] == approx(0.00011)  # 11 * 0.00001
+    assert usage["model_context_window_size"] == approx(128000)  # from model
 
 
 async def test_openai_stream(

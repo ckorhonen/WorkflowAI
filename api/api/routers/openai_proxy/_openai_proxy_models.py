@@ -18,6 +18,7 @@ from core.domain.message import (
     MessageContent,
     MessageRole,
 )
+from core.domain.models.model_datas_mapping import MODEL_ALIASES
 from core.domain.models.models import Model
 from core.domain.models.providers import Provider
 from core.domain.run_output import RunOutput
@@ -425,6 +426,11 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
         "When not provided, we attempt to detect tools in the system message.",
     )
 
+    use_fallback: Literal["auto", "never"] | list[str] | None = Field(
+        default=None,
+        description="A way to configure the fallback behavior",
+    )
+
     model_config = ConfigDict(extra="allow")
 
     @property
@@ -574,6 +580,31 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
             environment=environment,
         )
 
+    @classmethod
+    def _map_model_str(cls, model: str, reasoning_effort: str | None) -> Model | None:
+        if m := MODEL_ALIASES.get(model):
+            return m
+        if reasoning_effort:
+            try:
+                return Model(f"{model}-{reasoning_effort}")
+            except ValueError:
+                pass
+        try:
+            return Model(model)
+        except ValueError:
+            return None
+
+    def parsed_use_fallback(self) -> Literal["auto", "never"] | list[Model] | None:
+        if isinstance(self.use_fallback, list):
+            out: list[Model] = []
+            for model in self.use_fallback:
+                if parsed := self._map_model_str(model, None):
+                    out.append(parsed)
+                else:
+                    raise MissingModelError(model=model)
+            return out
+        return self.use_fallback
+
     def extract_references(self) -> EnvironmentRef | ModelRef:
         """Extracts the model, agent_id, schema_id and environment from the model string
         and other body optional parameters.
@@ -589,7 +620,7 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
         agent_id = self.agent_id or (splits[0] if len(splits) > 1 else None)
         # Getting the model from the last component. This is to support cases like litellm that
         # prefix the model string with the provider
-        model = Model.from_permissive(splits[-1], reasoning_effort=self.reasoning_effort)
+        model = self._map_model_str(splits[-1], self.reasoning_effort)
 
         if env := self._env_from_fields(agent_id, model):
             return env
@@ -669,8 +700,20 @@ class OpenAIProxyChatCompletionChoice(BaseModel):
     index: int
     message: OpenAIProxyMessage
 
+    cost_usd: float | None = Field(description="The cost of the completion in USD, WorkflowAI specific")
+    duration_seconds: float | None = Field(description="The duration of the completion in seconds, WorkflowAI specific")
+    feedback_token: str = Field(
+        description="WorkflowAI Specific, a token to send feedback from client side without authentication",
+    )
+
     @classmethod
-    def from_domain(cls, run: AgentRun, output_mapper: Callable[[AgentOutput], str], deprecated_function: bool):
+    def from_domain(
+        cls,
+        run: AgentRun,
+        output_mapper: Callable[[AgentOutput], str],
+        deprecated_function: bool,
+        feedback_generator: Callable[[str], str],
+    ):
         msg = OpenAIProxyMessage.from_run(run, output_mapper, deprecated_function)
         if run.tool_call_requests:
             finish_reason = "function_call" if deprecated_function else "tool_calls"
@@ -681,6 +724,9 @@ class OpenAIProxyChatCompletionChoice(BaseModel):
             finish_reason=finish_reason,
             index=0,
             message=msg,
+            duration_seconds=run.duration_seconds,
+            feedback_token=feedback_generator(run.id),
+            cost_usd=run.cost_usd,
         )
 
 
@@ -693,8 +739,6 @@ class OpenAIProxyChatCompletionResponse(BaseModel):
     object: Literal["chat.completion"] = "chat.completion"
     usage: OpenAIProxyCompletionUsage | None = None
 
-    cost_usd: float | None = Field(description="The cost of the completion in USD, WorkflowAI specific")
-    duration_seconds: float | None = Field(description="The duration of the completion in seconds, WorkflowAI specific")
     metadata: dict[str, Any] | None = Field(description="Metadata about the completion, WorkflowAI specific")
 
     @classmethod
@@ -704,15 +748,22 @@ class OpenAIProxyChatCompletionResponse(BaseModel):
         output_mapper: Callable[[AgentOutput], str],
         model: str,
         deprecated_function: bool,
+        # feedback_generator should take a run id and return a feedback token
+        feedback_generator: Callable[[str], str],
     ):
         return cls(
             id=f"{run.task_id}/{run.id}",
-            choices=[OpenAIProxyChatCompletionChoice.from_domain(run, output_mapper, deprecated_function)],
+            choices=[
+                OpenAIProxyChatCompletionChoice.from_domain(
+                    run,
+                    output_mapper,
+                    deprecated_function,
+                    feedback_generator,
+                ),
+            ],
             created=int(run.created_at.timestamp()),
             model=model,
-            cost_usd=run.cost_usd,
             usage=OpenAIProxyCompletionUsage.from_domain(run.llm_completions[-1]) if run.llm_completions else None,
-            duration_seconds=run.duration_seconds,
             metadata=run.metadata,
         )
 

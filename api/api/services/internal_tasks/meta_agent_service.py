@@ -47,6 +47,9 @@ from core.agents.meta_agent_proxy import (
     PROPOSE_INPUT_VARIABLES_INSTRUCTIONS_NO_VERSION_MESSAGES,
     PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS,
     PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS,
+    EditSchemaDescriptionAndExamplesToolCallRequest,
+    EditSchemaStructureToolCallRequest,
+    GenerateAgentInputToolCallRequest,
     ProxyMetaAgentInput,
     ProxyMetaAgentOutput,
     proxy_meta_agent,
@@ -72,7 +75,10 @@ from core.domain.integration.integration_domain import (
     Integration,
     ProgrammingLanguage,
 )
-from core.domain.integration.integration_mapping import default_integration_for_language, get_integration_by_kind
+from core.domain.integration.integration_mapping import (
+    default_integration_for_language,
+    safe_get_integration_by_kind,
+)
 from core.domain.models.model_data import LatestModel
 from core.domain.models.model_datas_mapping import MODEL_DATAS
 from core.domain.models.model_provider_datas_mapping import AZURE_PROVIDER_DATA, OPENAI_PROVIDER_DATA
@@ -85,6 +91,7 @@ from core.storage import ObjectNotFoundException, TaskTuple
 from core.storage.backend_storage import BackendStorage
 from core.tools import ToolKind
 from core.utils.hash import compute_obj_hash
+from core.utils.tool_utils.tool_utils import get_tools_description_openai_format_str
 from core.utils.url_utils import extract_and_fetch_urls
 
 FIRST_MESSAGE_CONTENT = "Hi, I'm WorkflowAI's agent. How can I help you?"
@@ -418,6 +425,8 @@ class MetaAgentChatMessage(BaseModel):
         return ProxyMetaAgentChatMessageDomain(
             role=self.role,
             content=self.content,
+            tool_call=self.tool_call.model_dump() if self.tool_call else None,
+            tool_call_status=self.tool_call.status if self.tool_call else None,
         )
 
     def to_chat_message(self) -> ChatMessage:
@@ -1043,18 +1052,41 @@ class MetaAgentService:
             instructions=instructions,
             requires_tools=None,
         )
+
+        # Pre-calculate costs for ranking
+        model_costs: list[tuple[Any, float]] = []
+        for model in models:
+            cost = (
+                round(model.average_cost_per_run_usd * 1000, 3)
+                if model.average_cost_per_run_usd is not None
+                else float("inf")  # Models with no cost data get worst ranking
+            )
+            model_costs.append((model, cost))
+
+        # Sort by quality (descending - higher quality gets better rank)
+        models_by_quality = sorted(models, key=lambda m: m.quality_index, reverse=True)
+        quality_rankings = {model.id: rank + 1 for rank, model in enumerate(models_by_quality)}
+
+        # Sort by cost (ascending - lower cost gets better rank)
+        models_by_cost = sorted(model_costs, key=lambda x: x[1])
+        cost_rankings = {model.id: rank + 1 for rank, (model, _) in enumerate(models_by_cost)}
+
         return [
             ProxyPlaygroundStateDomain.PlaygroundModel(
                 id=model.id,
                 name=model.name,
                 quality_index=model.quality_index,
+                quality_index_ranking=quality_rankings[model.id],
                 context_window_tokens=model.context_window_tokens,
+                is_supported_for_agent=not bool(model.is_not_supported_reason),
                 is_not_supported_reason=model.is_not_supported_reason or "",
                 estimate_cost_per_thousand_runs_usd=round(model.average_cost_per_run_usd * 1000, 3)
-                if model.average_cost_per_run_usd
+                if model.average_cost_per_run_usd is not None
                 else None,
+                cost_ranking=cost_rankings[model.id],
                 is_default=model.is_default,
                 is_latest=model.is_latest,
+                supports_structured_output=model.supports_structured_output,
             )
             for model in models
         ]
@@ -1186,6 +1218,7 @@ class MetaAgentService:
             input=str(agent_run.task_input),
             output=str(agent_run.task_output),  # Handle both dict output and str
             error=agent_run.error.model_dump() if agent_run.error else None,
+            raw_response=agent_run.llm_completions[-1].response if agent_run.llm_completions else None,
             cost_usd=agent_run.cost_usd,
             duration_seconds=agent_run.duration_seconds,
             user_evaluation=agent_run.user_review,
@@ -1237,7 +1270,7 @@ class MetaAgentService:
 
         return ProxyMetaAgentInput(
             current_datetime=datetime.datetime.now(tz=datetime.timezone.utc),
-            messages=[message.to_proxy_domain() for message in messages],
+            chat_messages=[message.to_proxy_domain() for message in messages],
             current_agent=ProxyMetaAgentInput.Agent(
                 name=current_agent.name,
                 slug=current_agent.task_id,
@@ -1261,14 +1294,14 @@ class MetaAgentService:
                 chat_messages=[message.to_chat_message() for message in messages],
                 agent_instructions=GENERIC_INSTRUCTIONS or "",
             ),
-            integration_documentation=[],  # Will be filled in later
+            integration_documentation=[],  # Will be filled in later in 'stream_meta_agent_chat'
             available_hosted_tools_description=internal_tools_description(
                 include={ToolKind.WEB_BROWSER_TEXT, ToolKind.WEB_SEARCH_PERPLEXITY_SONAR_PRO},
+                formatting_func=get_tools_description_openai_format_str,
             ),
             playground_state=ProxyPlaygroundStateDomain(
                 agent_input=agent_input_copy,
                 agent_input_files=agent_input_files,
-                agent_instructions=playground_state.agent_instructions,
                 agent_temperature=playground_state.agent_temperature,
                 available_models=await self._proxy_build_model_list("", current_agent),  # TODO: add instructions
                 selected_models=playground_state.selected_models.to_domain(),
@@ -1353,16 +1386,16 @@ class MetaAgentService:
         task_tuple: TaskTuple,
         agent_schema_id: int,
     ) -> Integration:
-        if agent.used_integration_kind:
+        if integration := safe_get_integration_by_kind(agent.used_integration_kind):
             # If integration is registered for the agent, use it
-            return get_integration_by_kind(agent.used_integration_kind)
+            return integration
 
         if agent.task_schema_id > 1:
             schema_id_to_explore = list(range(1, agent.task_schema_id))[::-1]  # reverse order
             for schema_id in schema_id_to_explore:
                 agent_to_check = await self.storage.task_variant_latest_by_schema_id(task_tuple[0], schema_id)
-                if agent_to_check.used_integration_kind:
-                    return get_integration_by_kind(agent_to_check.used_integration_kind)
+                if integration := safe_get_integration_by_kind(agent_to_check.used_integration_kind):
+                    return integration
 
         # Else, pick the default integration for the programming language based on the user agent of the latest run
         user_agent = ""
@@ -1473,6 +1506,70 @@ class MetaAgentService:
                 raw_completion = raw_completion.replace(kind, "")
                 return kind, raw_completion
         return None
+
+    def _extract_tool_call_to_return(
+        self,
+        updated_version_messages: list[dict[str, Any]] | None,
+        example_input: dict[str, Any] | None,
+        new_tool: ProxyMetaAgentOutput.NewTool | None,
+        run_trigger_config: ProxyMetaAgentOutput.RunTriggerConfig | None,
+        edit_schema_structure_request: EditSchemaStructureToolCallRequest | None,
+        edit_schema_description_and_examples_request: EditSchemaDescriptionAndExamplesToolCallRequest | None,
+        generate_input_request: GenerateAgentInputToolCallRequest | None,
+    ) -> MetaAgentToolCallType | None:
+        tool_call_to_return = None
+        if updated_version_messages:
+            tool_call_to_return = UpdateVersionMessagesToolCall(
+                updated_version_messages=updated_version_messages,
+                input_variables=example_input,
+            )
+
+        if new_tool:
+            tool_call_to_return = AddToolToolCall(
+                tool_name=new_tool.name,
+                tool_description=new_tool.description,
+                tool_parameters=new_tool.parameters,
+            )
+
+        if run_trigger_config:
+            run_configs = [
+                RunCurrentAgentOnModelsToolCall.RunConfig(
+                    run_on_column="column_1",
+                    model=run_trigger_config.model_1,
+                ),
+            ]
+            if run_trigger_config.model_2:
+                run_configs.append(
+                    RunCurrentAgentOnModelsToolCall.RunConfig(
+                        run_on_column="column_2",
+                        model=run_trigger_config.model_2,
+                    ),
+                )
+            if run_trigger_config.model_3:
+                run_configs.append(
+                    RunCurrentAgentOnModelsToolCall.RunConfig(
+                        run_on_column="column_3",
+                        model=run_trigger_config.model_3,
+                    ),
+                )
+            tool_call_to_return = RunCurrentAgentOnModelsToolCall(run_configs=run_configs)
+
+        if edit_schema_structure_request:
+            tool_call_to_return = EditSchemaToolCall(
+                edition_request_message=edit_schema_structure_request.edition_request_message,
+            )
+
+        if edit_schema_description_and_examples_request:
+            tool_call_to_return = EditSchemaToolCall(
+                edition_request_message=edit_schema_description_and_examples_request.description_and_examples_edition_request_message,
+            )
+
+        if generate_input_request:
+            tool_call_to_return = GenerateAgentInputToolCall(
+                instructions=generate_input_request.instructions,
+            )
+
+        return tool_call_to_return
 
     async def stream_proxy_meta_agent_response(  # noqa: C901
         self,
@@ -1816,6 +1913,11 @@ Please double check:
         example_input: dict[str, Any] | None = None
         new_tool: ProxyMetaAgentOutput.NewTool | None = None
         run_trigger_config: ProxyMetaAgentOutput.RunTriggerConfig | None = None
+        edit_schema_structure_request_chunk: EditSchemaStructureToolCallRequest | None = None
+        edit_schema_description_and_examples_request_chunk: EditSchemaDescriptionAndExamplesToolCallRequest | None = (
+            None
+        )
+        generate_input_request_chunk: GenerateAgentInputToolCallRequest | None = None
         tool_call_to_return: MetaAgentToolCallType | None = None
         async for chunk in proxy_meta_agent(
             input=proxy_meta_agent_input,
@@ -1824,6 +1926,9 @@ Please double check:
             completion_client=completion_client,
             is_using_version_messages=integration.use_version_messages,
             use_tool_calls=use_tools,
+            agent_has_output_schema=is_using_structured_generation,
+            is_using_input_variables=is_using_instruction_variables,
+            is_agent_deployed=agent_deployment is not None,
         ):
             if chunk.assistant_answer:
                 accumulator = await self._sanitize_output_string(accumulator + chunk.assistant_answer, integration)
@@ -1852,42 +1957,21 @@ Please double check:
                 new_tool = chunk.new_tool
             if chunk.run_trigger_config:
                 run_trigger_config = chunk.run_trigger_config
+            # Capture the schema edit requests from the chunk
+            edit_schema_structure_request_chunk = chunk.edit_schema_structure_request
+            edit_schema_description_and_examples_request_chunk = chunk.edit_schema_description_and_examples_request
+            if chunk.generate_input_request:
+                generate_input_request_chunk = chunk.generate_input_request
 
-        if updated_version_messages:
-            tool_call_to_return = UpdateVersionMessagesToolCall(
-                updated_version_messages=updated_version_messages,
-                input_variables=example_input,
-            )
-
-        if new_tool:
-            tool_call_to_return = AddToolToolCall(
-                tool_name=new_tool.name,
-                tool_description=new_tool.description,
-                tool_parameters=new_tool.parameters,
-            )
-
-        if run_trigger_config:
-            run_configs = [
-                RunCurrentAgentOnModelsToolCall.RunConfig(
-                    run_on_column="column_1",
-                    model=run_trigger_config.model_1,
-                ),
-            ]
-            if run_trigger_config.model_2:
-                run_configs.append(
-                    RunCurrentAgentOnModelsToolCall.RunConfig(
-                        run_on_column="column_2",
-                        model=run_trigger_config.model_2,
-                    ),
-                )
-            if run_trigger_config.model_3:
-                run_configs.append(
-                    RunCurrentAgentOnModelsToolCall.RunConfig(
-                        run_on_column="column_3",
-                        model=run_trigger_config.model_3,
-                    ),
-                )
-            tool_call_to_return = RunCurrentAgentOnModelsToolCall(run_configs=run_configs)
+        tool_call_to_return = self._extract_tool_call_to_return(
+            updated_version_messages,
+            example_input,
+            new_tool,
+            run_trigger_config,
+            edit_schema_structure_request_chunk,
+            edit_schema_description_and_examples_request_chunk,
+            generate_input_request_chunk,
+        )
 
         if tool_call_to_return:
             ret = fixed_messages + [

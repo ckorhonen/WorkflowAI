@@ -51,11 +51,12 @@ class ProviderSettingsSchema(BaseModel):
     preserve_credits: bool | None = None
 
     @classmethod
-    def from_domain(cls, domain: ProviderConfig, encryption: Encryption) -> Self:
+    def from_domain(cls, domain: ProviderConfig, encryption: Encryption, preserve_credits: bool | None = None) -> Self:
         dumped = domain.model_dump_json(exclude={"provider"})
         return cls(
             provider=domain.provider,
             secrets=encryption.encrypt(dumped),
+            preserve_credits=preserve_credits,
         )
 
     def to_domain(self, encryption: Encryption | None) -> DecryptableProviderSettings:

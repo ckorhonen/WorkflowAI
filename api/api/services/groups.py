@@ -1,5 +1,5 @@
 import logging
-from typing import Any, NamedTuple, Optional
+from typing import Any, Literal, NamedTuple, Optional
 
 from api.services.analytics import AnalyticsService
 from core.agents.detect_chain_of_thought_task import (
@@ -257,6 +257,7 @@ class GroupService:
         custom_configs: list[ProviderSettings] | None,
         disable_fallback: bool,
         stream_deltas: bool,
+        use_fallback: Literal["auto", "never"] | list[Model] | None,
     ) -> AbstractRunner[Any]:
         metadata: dict[str, Any] = {}
         if sanitized_version.environment:
@@ -272,6 +273,7 @@ class GroupService:
             custom_configs=custom_configs,
             disable_fallback=disable_fallback,
             stream_deltas=stream_deltas,
+            use_fallback=use_fallback,
         )
         await runner.validate_run_options()
         return runner
@@ -327,6 +329,7 @@ class GroupService:
         provider_settings: list[ProviderSettings] | None = None,
         disable_fallback: bool = False,
         stream_deltas: bool = False,
+        use_fallback: Literal["auto", "never"] | list[Model] | None = None,
     ) -> tuple[AbstractRunner[Any], bool]:
         """
         The internal runner uses the full schema of a task (i-e not only the types that are described
@@ -379,6 +382,7 @@ class GroupService:
             custom_configs=provider_settings,
             disable_fallback=disable_fallback,
             stream_deltas=stream_deltas,
+            use_fallback=use_fallback,
         )
         is_different_version = version.properties.model_dump(exclude_none=True) != runner.properties.model_dump(
             exclude_none=True,
