@@ -2,11 +2,11 @@ import { ChevronsUpDown } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { ModelBadge } from '@/components/ModelBadge/ModelBadge';
 import { TaskEnvironmentBadge } from '@/components/TaskEnvironmentBadge';
+import { HoverTaskVersionDetails } from '@/components/TaskIterationBadge/HoverTaskVersionDetails';
 import { TaskVersionBadgeContainer } from '@/components/TaskIterationBadge/TaskVersionBadgeContainer';
 import { CustomCommandInput } from '@/components/ui/Command';
-import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/HoverCard';
+import { HoverCard, HoverCardTrigger } from '@/components/ui/HoverCard';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
-import { TaskVersionDetails } from '@/components/v2/TaskVersionDetails';
 import { cn } from '@/lib/utils';
 import { formatSemverVersion, sortVersions } from '@/lib/versionUtils';
 import { VersionsPerEnvironment } from '@/store/versions';
@@ -56,11 +56,7 @@ function VersionPopoverItem(props: VersionPopoverItemProps) {
           )}
         </div>
       </HoverCardTrigger>
-      {!!version && (
-        <HoverCardContent className='w-fit max-w-[660px] p-0 rounded-[2px] border-gray-200' side='right'>
-          <TaskVersionDetails version={version} className='w-[350px]' />
-        </HoverCardContent>
-      )}
+      {!!version && <HoverTaskVersionDetails versionId={version.id} side='right' />}
     </HoverCard>
   );
 }

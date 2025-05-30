@@ -5,18 +5,15 @@ import { useLocalStorage } from 'usehooks-ts';
 import { useApiKeysModal } from '@/components/ApiKeysModal/ApiKeysModal';
 import { Loader } from '@/components/ui/Loader';
 import { API_URL, RUN_URL } from '@/lib/constants';
-import { useTaskSchemaParams } from '@/lib/hooks/useTaskParams';
-import { useParsedSearchParams, useRedirectWithParams } from '@/lib/queryString';
 import {
   useOrFetchApiKeys,
   useOrFetchCurrentTaskSchema,
-  useOrFetchTask,
   useOrFetchTaskRuns,
   useOrFetchVersion,
   useOrFetchVersions,
 } from '@/store';
 import { useOrFetchIntegrations } from '@/store/integrations';
-import { TaskID, TaskSchemaID } from '@/types/aliases';
+import { TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
 import { CodeLanguage } from '@/types/snippets';
 import { VersionEnvironment } from '@/types/workflowAI';
 import { ApiContent } from './ApiContent';
@@ -24,8 +21,35 @@ import { useTaskRunWithSecondaryInput } from './utils';
 
 const languages: CodeLanguage[] = [CodeLanguage.TYPESCRIPT, CodeLanguage.PYTHON, CodeLanguage.REST];
 
-export function ApiContainer() {
-  const { tenant, taskId } = useTaskSchemaParams();
+type Props = {
+  tenant: TenantID | undefined;
+  taskId: TaskID;
+  setSelectedVersionId: (newVersionId: string | undefined) => void;
+  setSelectedEnvironment: (
+    newSelectedEnvironment: VersionEnvironment | undefined,
+    newSelectedVersionId: string | undefined
+  ) => void;
+  setSelectedLanguage: (language: CodeLanguage) => void;
+  setSelectedIntegrationId: (integrationId: string | undefined) => void;
+  selectedVersionId: string | undefined;
+  selectedEnvironment: string | undefined;
+  selectedLanguage: string | undefined;
+  selectedIntegrationId: string | undefined;
+};
+
+export function ApiContainer(props: Props) {
+  const {
+    tenant,
+    taskId,
+    setSelectedVersionId,
+    setSelectedEnvironment,
+    setSelectedLanguage: setSelectedLanguageFromProps,
+    setSelectedIntegrationId: setSelectedIntegrationIdFromProps,
+    selectedVersionId: selectedVersionIdValue,
+    selectedEnvironment: selectedEnvironmentValue,
+    selectedLanguage: selectedLanguageValue,
+    selectedIntegrationId: selectedIntegrationIdValue,
+  } = props;
 
   const [languagesForTaskIds, setLanguagesForTaskIds] = useLocalStorage<Record<TaskID, CodeLanguage>>(
     'languagesForTaskIds',
@@ -37,34 +61,11 @@ export function ApiContainer() {
     {}
   );
 
-  const redirectWithParams = useRedirectWithParams();
-
   const { integrations } = useOrFetchIntegrations();
-
-  const {
-    selectedVersionId: selectedVersionIdValue,
-    selectedEnvironment: selectedEnvironmentValue,
-    selectedLanguage: selectedLanguageValue,
-    selectedIntegrationId: selectedIntegrationIdValue,
-  } = useParsedSearchParams('selectedVersionId', 'selectedEnvironment', 'selectedLanguage', 'selectedIntegrationId');
 
   const preselectedLanguage = languagesForTaskIds[taskId] ?? CodeLanguage.TYPESCRIPT;
 
   const preselectedIntegrationId = selectedIntegrationIdForTaskIds[taskId] ?? integrations?.[0]?.id;
-
-  const setSelectedVersionId = useCallback(
-    (newVersionId: string | undefined) => {
-      redirectWithParams({
-        params: {
-          selectedEnvironment: undefined,
-          selectedVersionId: newVersionId,
-          selectedKeyOption: undefined,
-        },
-        scroll: false,
-      });
-    },
-    [redirectWithParams]
-  );
 
   const { versions, versionsPerEnvironment, isInitialized: isVersionsInitialized } = useOrFetchVersions(tenant, taskId);
 
@@ -98,19 +99,6 @@ export function ApiContainer() {
 
   const { version: selectedVersion } = useOrFetchVersion(tenant, taskId, selectedVersionId);
 
-  const setSelectedEnvironment = useCallback(
-    (newSelectedEnvironment: VersionEnvironment | undefined, newSelectedVersionId: string | undefined) => {
-      redirectWithParams({
-        params: {
-          selectedEnvironment: newSelectedEnvironment,
-          selectedVersionId: newSelectedVersionId,
-        },
-        scroll: false,
-      });
-    },
-    [redirectWithParams]
-  );
-
   const taskSchemaId = selectedVersion?.schema_id as TaskSchemaID | undefined;
 
   const { taskSchema, isInitialized: isTaskSchemaInitialized } = useOrFetchCurrentTaskSchema(
@@ -128,8 +116,6 @@ export function ApiContainer() {
 
   const [taskRun, secondaryInput] = useTaskRunWithSecondaryInput(taskRuns, taskSchema);
 
-  const { task, isInitialized: isTaskInitialized } = useOrFetchTask(tenant, taskId);
-
   const selectedLanguage = !selectedLanguageValue
     ? preselectedLanguage
     : (selectedLanguageValue as CodeLanguage | undefined);
@@ -143,14 +129,9 @@ export function ApiContainer() {
         [taskId]: language,
       }));
 
-      redirectWithParams({
-        params: {
-          selectedLanguage: language,
-        },
-        scroll: false,
-      });
+      setSelectedLanguageFromProps(language);
     },
-    [redirectWithParams, setLanguagesForTaskIds, taskId]
+    [setLanguagesForTaskIds, setSelectedLanguageFromProps, taskId]
   );
 
   const setSelectedIntegrationId = useCallback(
@@ -160,14 +141,9 @@ export function ApiContainer() {
         [taskId]: integrationId,
       }));
 
-      redirectWithParams({
-        params: {
-          selectedIntegrationId: integrationId,
-        },
-        scroll: false,
-      });
+      setSelectedIntegrationIdFromProps(integrationId);
     },
-    [redirectWithParams, setSelectedIntegrationIdForTaskIds, taskId]
+    [setSelectedIntegrationIdForTaskIds, setSelectedIntegrationIdFromProps, taskId]
   );
 
   const apiUrl = API_URL === 'https://api.workflowai.com' ? undefined : RUN_URL;
@@ -192,12 +168,8 @@ export function ApiContainer() {
     );
   }
 
-  if (!isTaskSchemaInitialized || !isTaskRunsInitialized || !isTaskInitialized || !isApiKeysInitialized) {
+  if (!isTaskSchemaInitialized || !isTaskRunsInitialized || !isApiKeysInitialized) {
     return <Loader centered />;
-  }
-
-  if (!task) {
-    return <div className='flex-1 h-full flex items-center justify-center'>No task found</div>;
   }
 
   return (
@@ -208,7 +180,6 @@ export function ApiContainer() {
       tenant={tenant}
       taskId={taskId}
       taskSchemaId={taskSchemaId}
-      task={task}
       selectedLanguage={selectedLanguage}
       setSelectedLanguage={setSelectedLanguage}
       languages={languages}

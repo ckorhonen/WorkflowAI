@@ -21,6 +21,7 @@ type PageContainerProps = {
   documentationLink?: string;
   showBorders?: boolean;
   schemaId?: TaskSchemaID;
+  documentationText?: string;
 };
 
 export function PageContainer(props: PageContainerProps) {
@@ -38,6 +39,7 @@ export function PageContainer(props: PageContainerProps) {
     documentationLink,
     showBorders = true,
     schemaId,
+    documentationText,
   } = props;
 
   const copyUrl = useCopyCurrentUrl();
@@ -86,6 +88,7 @@ export function PageContainer(props: PageContainerProps) {
             name={name}
             rightBarText={rightBarText}
             documentationLink={documentationLink}
+            documentationText={documentationText}
             extraButton={extraButton}
             showCopyLink={showCopyLink}
             copyUrl={copyUrl}

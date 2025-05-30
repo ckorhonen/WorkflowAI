@@ -16,10 +16,11 @@ type ProxySaveBadgeButtonProps = {
   taskId: TaskID;
   handleUpdateNotes?: DebouncedState<(versionId: string, notes: string) => Promise<void>> | undefined;
   onSave: () => void;
+  setVersionIdForCode?: (versionId: string | undefined) => void;
 };
 
 export function ProxySaveBadgeButton(props: ProxySaveBadgeButtonProps) {
-  const { version, handleUpdateNotes, onSave, tenant, taskId } = props;
+  const { version, handleUpdateNotes, onSave, tenant, taskId, setVersionIdForCode } = props;
 
   const isSaving = useIsSavingVersion(version?.id);
   const { isInDemoMode } = useDemoMode();
@@ -27,7 +28,14 @@ export function ProxySaveBadgeButton(props: ProxySaveBadgeButtonProps) {
   return (
     <div className='flex items-center'>
       <SimpleTooltip
-        content={<ProxyVersionDetails version={version} handleUpdateNotes={handleUpdateNotes} className='w-[360px]' />}
+        content={
+          <ProxyVersionDetails
+            version={version}
+            handleUpdateNotes={handleUpdateNotes}
+            className='w-[360px]'
+            setVersionIdForCode={setVersionIdForCode}
+          />
+        }
         tooltipClassName='p-0 rounded-[2px] border border-gray-200'
         tooltipDelay={100}
       >

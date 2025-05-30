@@ -48,6 +48,7 @@ type TaskRunOutputRowsProps = {
   side?: HoverCardContentProps['side'];
   showTaskIterationDetails?: boolean;
   version: VersionV1 | undefined;
+  setVersionIdForCode?: (versionId: string | undefined) => void;
 };
 
 export function TaskRunOutputRows({
@@ -62,6 +63,7 @@ export function TaskRunOutputRows({
   showAllFields = false,
   side,
   showTaskIterationDetails = false,
+  setVersionIdForCode,
 }: TaskRunOutputRowsProps) {
   const properties = version?.properties;
   const { temperature, instructions, model, provider } = properties ?? {};
@@ -71,7 +73,12 @@ export function TaskRunOutputRows({
       <div className='grid grid-cols-[repeat(auto-fit,minmax(max(160px,50%),1fr))] [&>*]:border-gray-100 [&>*]:border-b [&>*:nth-child(odd)]:border-r'>
         {showVersion && (
           <div className='flex h-10'>
-            <VersionOutputValueRow version={version} side={side} showTaskIterationDetails={showTaskIterationDetails} />
+            <VersionOutputValueRow
+              version={version}
+              side={side}
+              showTaskIterationDetails={showTaskIterationDetails}
+              setVersionIdForCode={setVersionIdForCode}
+            />
           </div>
         )}
         <div className='flex h-10'>

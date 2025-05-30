@@ -1,20 +1,36 @@
 import { HoverCardContentProps } from '@radix-ui/react-hover-card';
 import { HoverCardContent } from '@radix-ui/react-hover-card';
+import { useParams } from 'next/navigation';
+import { useMemo } from 'react';
 import { DebouncedState } from 'usehooks-ts';
+import { checkVersionForProxy } from '@/app/[tenant]/agents/[taskId]/[taskSchemaId]/proxy-playground/utils';
 import { ProxyVersionDetails } from '@/components/v2/ProxyVersionDetails';
 import { TaskVersionDetails } from '@/components/v2/TaskVersionDetails';
-import { VersionV1 } from '@/types/workflowAI';
+import { useOrFetchVersion } from '@/store/fetchers';
+import { TenantID } from '@/types/aliases';
+import { TaskID } from '@/types/aliases';
 
 type HoverTaskVersionDetailsProps = {
   side?: HoverCardContentProps['side'];
   align?: HoverCardContentProps['align'];
-  version: VersionV1;
+  versionId: string;
   handleUpdateNotes?: DebouncedState<(versionId: string, notes: string) => Promise<void>>;
-  isProxy?: boolean;
+  setVersionIdForCode?: (versionId: string | undefined) => void;
 };
 
 export function HoverTaskVersionDetails(props: HoverTaskVersionDetailsProps) {
-  const { side, align, version, handleUpdateNotes, isProxy } = props;
+  const { side, align, versionId, handleUpdateNotes, setVersionIdForCode } = props;
+  const { tenant, taskId } = useParams();
+
+  const { version } = useOrFetchVersion(tenant as TenantID, taskId as TaskID, versionId);
+
+  const isProxy = useMemo(() => {
+    return checkVersionForProxy(version);
+  }, [version]);
+
+  if (!version) {
+    return null;
+  }
 
   return (
     <HoverCardContent
@@ -23,7 +39,12 @@ export function HoverTaskVersionDetails(props: HoverTaskVersionDetailsProps) {
       align={align}
     >
       {isProxy ? (
-        <ProxyVersionDetails version={version} handleUpdateNotes={handleUpdateNotes} className='w-[360px]' />
+        <ProxyVersionDetails
+          version={version}
+          handleUpdateNotes={handleUpdateNotes}
+          className='w-[360px]'
+          setVersionIdForCode={setVersionIdForCode}
+        />
       ) : (
         <div className='flex flex-col'>
           <div className='text-gray-700 text-[16px] font-semibold px-4 py-3 border-b border-gray-200 border-dashed'>

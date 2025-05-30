@@ -31,18 +31,20 @@ import {
   Tool_Output,
 } from '@/types/workflowAI';
 import { ProxyMessage } from '@/types/workflowAI';
+import { CodeModal } from '../code/CodeModal';
 import { PlaygroundChat } from '../playground/components/Chat/PlaygroundChat';
 import { RunAgentsButton } from '../playground/components/RunAgentsButton';
 import { RunTaskOptions } from '../playground/hooks/usePlaygroundPersistedState';
 import { useVersionsForTaskRunners } from '../playground/hooks/useVersionsForRuns';
-import { PlaygroundOutput } from '../playground/playgroundOutput';
 import { ProxySection } from './ProxySection';
+import { ProxyCodeButton } from './code/ProxyCodeButton';
 import { performScroll } from './components/performScroll';
 import { getFromProxyHistory, useSaveToProxyHistory } from './hooks/useProxyHistory';
 import { useProxyMatchVersion } from './hooks/useProxyMatchVersion';
 import { useProxyPerformRuns } from './hooks/useProxyPerformRuns';
 import { useProxyPlaygroundStates } from './hooks/useProxyPlaygroundStates';
 import { useProxyRunners } from './hooks/useProxyRunners';
+import { ProxyOutput } from './output/ProxyOutput';
 import { findMessagesInVersion, moveInputMessagesToVersionIfRequired, repairMessageKeyInInput } from './utils';
 
 export type Props = {
@@ -188,6 +190,7 @@ export function ProxyPlayground(props: Props) {
   useHotkeys('meta+enter', () => onPerformRuns());
 
   const runs = useMemo(() => [run1, run2, run3], [run1, run2, run3]);
+  const [versionIdForCode, setVersionIdForCode] = useState<string | undefined>(undefined);
 
   const filteredRunIds = useMemo(() => {
     const result = runs.filter((run) => !!run) as RunV1[];
@@ -368,10 +371,24 @@ export function ProxyPlayground(props: Props) {
           showCopyLink={false}
           showBottomBorder={true}
           documentationLink='https://docs.workflowai.com/features/playground'
+          documentationText='Docs'
           rightBarText='Your data is not used for LLM training.'
           rightBarChildren={
             <div className='flex flex-row items-center gap-2 font-lato'>
               <Button variant='newDesign' icon={<Link16Regular />} onClick={copyUrl} className='w-9 h-9 px-0 py-0' />
+              <ProxyCodeButton
+                runs={runs}
+                versionsForRuns={versionsForRuns}
+                outputModels={outputModels}
+                models={allModels}
+                tenant={tenant}
+                taskId={taskId}
+                schemaId={schemaId}
+                proxyMessages={proxyMessages}
+                proxyToolCalls={proxyToolCalls}
+                temperature={temperature}
+                setVersionIdForCode={setVersionIdForCode}
+              />
               {!isMobile && (
                 <RunAgentsButton
                   showSaveAllVersions={false}
@@ -419,14 +436,10 @@ export function ProxyPlayground(props: Props) {
                 versionsForRuns={versionsForRuns}
               />
               <div ref={playgroundOutputRef} className='flex w-full'>
-                <PlaygroundOutput
-                  // We pass allAIModels here because we want to display all models
-                  // and disable the ones that are not supported by the task schema mode.
+                <ProxyOutput
                   aiModels={allModels}
                   areInstructionsLoading={false}
                   errorForModels={errorsForModels}
-                  generatedInput={input}
-                  improveInstructions={() => Promise.resolve()}
                   models={outputModels}
                   onModelsChange={setModelAndRun}
                   outputSchema={outputSchema}
@@ -436,16 +449,13 @@ export function ProxyPlayground(props: Props) {
                   taskSchemaId={schemaId}
                   taskRunners={taskRunners}
                   tenant={tenant}
-                  onShowEditDescriptionModal={() => {}}
-                  onShowEditSchemaModal={() => {}}
                   versionsForRuns={versionsForRuns}
                   maxHeight={isMobile ? undefined : containerHeight}
-                  isInDemoMode={isInDemoMode}
                   addModelColumn={addModelColumn}
                   hideModelColumn={hideModelColumn}
                   hiddenModelColumns={hiddenModelColumns}
-                  isProxy={true}
                   updateInputAndRun={updateInputAndRun}
+                  setVersionIdForCode={setVersionIdForCode}
                 />
               </div>
             </div>
@@ -490,6 +500,7 @@ export function ProxyPlayground(props: Props) {
           scrollToOutput={() => performScroll('proxy-scroll-view', 'bottom')}
         />
       )}
+      <CodeModal tenant={tenant} taskId={taskId} versionId={versionIdForCode} setVersionId={setVersionIdForCode} />
     </div>
   );
 }

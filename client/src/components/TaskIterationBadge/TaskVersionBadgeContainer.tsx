@@ -40,6 +40,7 @@ type TaskVersionBadgeContainerProps = {
 
   className?: string;
   height?: number;
+  setVersionIdForCode?: (versionId: string | undefined) => void;
 };
 
 export function TaskVersionBadgeContainer(props: TaskVersionBadgeContainerProps) {
@@ -57,6 +58,7 @@ export function TaskVersionBadgeContainer(props: TaskVersionBadgeContainerProps)
     height,
     interaction = true,
     hideMinorVersion = false,
+    setVersionIdForCode,
   } = props;
   const [noteHoverCardOpen, setNoteHoverCardOpen] = useState(false);
 
@@ -130,6 +132,7 @@ export function TaskVersionBadgeContainer(props: TaskVersionBadgeContainerProps)
           handleUpdateNotes={handleUpdateNotes}
           tenant={tenant}
           taskId={taskId}
+          setVersionIdForCode={setVersionIdForCode}
         />
       );
     } else {
@@ -206,9 +209,9 @@ export function TaskVersionBadgeContainer(props: TaskVersionBadgeContainerProps)
           <HoverTaskVersionDetails
             side={side}
             align={align}
-            version={version}
+            versionId={version.id}
             handleUpdateNotes={handleUpdateNotes}
-            isProxy={isProxy}
+            setVersionIdForCode={setVersionIdForCode}
           />
         )}
         {showNotes && noteHoverCardOpen && (

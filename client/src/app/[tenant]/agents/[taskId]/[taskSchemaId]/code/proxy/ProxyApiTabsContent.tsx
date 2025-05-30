@@ -25,15 +25,17 @@ export function ProxyApiTabsContent(props: Props) {
   const { code } = useOrFetchIntegrationsCode(tenant, taskId, taskSchemaId, versionId, integration?.id);
 
   return (
-    <div className='flex flex-col w-full h-full'>
-      <div className='flex text-[16px] text-gray-700 font-semibold items-center h-[52px] px-4 border-b border-gray-200 border-dashed'>
+    <div className='flex flex-col w-full flex-1 overflow-hidden'>
+      <div className='flex text-[16px] text-gray-700 font-semibold items-center h-[49px] px-4 border-b border-gray-200 border-dashed flex-shrink-0'>
         {integration?.display_name}
       </div>
-      <div className='flex px-4 py-3 w-full h-full'>
+      <div className='flex w-full h-[calc(100%-49px)] overflow-y-auto'>
         {!!code ? (
-          <MarkdownMessageTextView message={code} className='text-[16px] mt-1' />
+          <div className='flex w-full h-max px-4 py-3'>
+            <MarkdownMessageTextView message={code} className='text-[16px]' />
+          </div>
         ) : (
-          <div className='flex flex-col w-full'>
+          <div className='flex flex-col w-full px-4 py-3'>
             <div className='text-[12px] text-gray-400 italic'>Creating updated documentation</div>
             <div className='flex w-full flex-col gap-2 py-2 animate-pulse'>
               <div className='w-[100%] h-[14px] bg-gradient-to-r from-gray-200 to-gray-300 rounded-[2px]' />

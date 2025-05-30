@@ -51,6 +51,7 @@ type TaskMetadataProps = {
   limitNumberOfLines?: boolean;
   maximalHeightOfInstructions?: number;
   version: VersionV1;
+  setVersionIdForCode?: (versionId: string | undefined) => void;
 };
 
 export function ProxyVersionDetails(props: TaskMetadataProps) {
@@ -62,6 +63,7 @@ export function ProxyVersionDetails(props: TaskMetadataProps) {
     limitNumberOfLines = false,
     maximalHeightOfInstructions = 173,
     version,
+    setVersionIdForCode,
   } = props;
   const { tenant, taskId } = useTaskSchemaParams();
 
@@ -118,14 +120,18 @@ export function ProxyVersionDetails(props: TaskMetadataProps) {
       await saveVersion(tenant, taskId, versionId);
     }
 
-    router.push(
-      taskApiRoute(tenant, taskId, taskSchemaId, {
-        selectedVersionId: versionId,
-      })
-    );
+    if (setVersionIdForCode) {
+      setVersionIdForCode(versionId);
+    } else {
+      router.push(
+        taskApiRoute(tenant, taskId, taskSchemaId, {
+          selectedVersionId: versionId,
+        })
+      );
+    }
 
     setIsOpeningCode(false);
-  }, [router, tenant, taskId, version, saveVersion, checkIfSignedIn]);
+  }, [router, tenant, taskId, version, saveVersion, checkIfSignedIn, setVersionIdForCode]);
 
   if (!version || !properties) {
     return null;
