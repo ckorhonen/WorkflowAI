@@ -3,6 +3,7 @@ import pytest
 from tests.e2e.conftest import ApiRunFn
 
 
+@pytest.mark.requires_deployed
 @pytest.mark.parametrize(
     "version,model",
     [

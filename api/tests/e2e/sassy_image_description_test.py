@@ -3,6 +3,7 @@ import pytest
 from tests.e2e.conftest import ApiRunFn
 
 
+@pytest.mark.requires_deployed
 @pytest.mark.parametrize(
     "version,model",
     [(39, "gemini-1.5-flash-002"), (36, "gpt-4o-2024-08-06"), ("production", None)],
