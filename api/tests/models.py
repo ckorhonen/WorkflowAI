@@ -45,6 +45,7 @@ def task_run_ser(
     tool_call_requests: list[ToolCallRequestWithID] | None = None,
     task_uid: int | None = None,
     model: str | None = None,
+    id: str = "run_id",
     **kwargs: Any,
 ) -> AgentRun:
     if not group:
@@ -57,7 +58,7 @@ def task_run_ser(
         group = task_group(group_id=group_id, **final_kwargs)
 
     base = AgentRun(
-        id="run_id",
+        id=id,
         task_uid=task_uid or 0,
         task_id=task.task_id if task else task_id,
         task_schema_id=task.task_schema_id if task else task_schema_id,
