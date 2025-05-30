@@ -1233,22 +1233,18 @@ FIREWORKS_PROVIDER_DATA: ProviderDataByModel = {
             source="https://fireworks.ai/pricing",
         ),
     ),
-    # Revise later https://linear.app/workflowai/issue/WOR-4446/revise-qwen-3-pricing since price is not available
-    # Using same price as LLAMA_4_MAVERICK_BASIC for now
     Model.QWEN3_235B_A22B: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.10 * ONE_MILLION_TH,
-            completion_cost_per_token=0.10 * ONE_MILLION_TH,
-            source="https://fireworks.ai/pricing",
+            prompt_cost_per_token=0.22 * ONE_MILLION_TH,
+            completion_cost_per_token=0.88 * ONE_MILLION_TH,
+            source="https://app.fireworks.ai/models/fireworks/qwen3-235b-a22b",
         ),
     ),
-    # Revise later https://linear.app/workflowai/issue/WOR-4446/revise-qwen-3-pricing since price is not available
-    # Using same price as LLAMA_4_SCOUT_BASIC for now
     Model.QWEN3_30B_A3B: ModelProviderData(
         text_price=TextPricePerToken(
-            prompt_cost_per_token=0.90 * ONE_MILLION_TH,
-            completion_cost_per_token=0.90 * ONE_MILLION_TH,
-            source="https://fireworks.ai/pricing",
+            prompt_cost_per_token=0.15 * ONE_MILLION_TH,
+            completion_cost_per_token=0.60 * ONE_MILLION_TH,
+            source="https://app.fireworks.ai/models/fireworks/qwen3-30b-a3b",
         ),
     ),
 }
