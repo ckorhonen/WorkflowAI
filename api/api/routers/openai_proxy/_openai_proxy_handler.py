@@ -403,6 +403,7 @@ class OpenAIProxyHandler:
             is_different_version=False,
             author_tenant=None,
             private_fields=set(),
+            conversation_id=body.conversation_id,
         )
         cache: CacheUsage = body.use_cache or "auto"
         trigger = "user"

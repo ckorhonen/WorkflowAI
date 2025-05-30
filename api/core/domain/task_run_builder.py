@@ -62,6 +62,8 @@ class TaskRunBuilder(BaseModel):
 
     file_download_seconds: float | None = None
 
+    conversation_id: str | None = None
+
     def add_metadata(self, key: str, value: Any) -> None:
         if self.metadata is None:
             self.metadata = {}
@@ -149,6 +151,7 @@ class TaskRunBuilder(BaseModel):
             author_uid=self.author_uid,
             private_fields=self.private_fields,
             overhead_seconds=overhead_seconds,
+            conversation_id=self.conversation_id,
         )
         return self._task_run
 

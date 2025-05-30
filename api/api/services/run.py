@@ -114,6 +114,7 @@ class RunService:
         author_tenant: TenantTuple | None,
         private_fields: set[str] | None,
         is_different_version: bool,
+        conversation_id: str | None,
     ):
         builder = await runner.task_run_builder(
             input=task_input,
@@ -121,6 +122,7 @@ class RunService:
             metadata=metadata,
             private_fields=private_fields,
             start_time=start_time,
+            conversation_id=conversation_id,
         )
         builder.author_uid = author_tenant[1] if author_tenant else None
         builder.author_tenant = author_tenant[0] if author_tenant else None
@@ -144,6 +146,7 @@ class RunService:
         stream_last_chunk: bool = False,
         store_inline: bool = False,
         private_fields: set[str] | None = None,
+        conversation_id: str | None = None,
         # Deprecated: we should not need the source here but we need it when storing inline for
         # the old run endpoint
         source: SourceType | None = None,
@@ -159,6 +162,7 @@ class RunService:
             start_time=start_time,
             author_tenant=author_tenant,
             is_different_version=is_different_version,
+            conversation_id=conversation_id,
         )
         if stream_serializer:
             return StreamingResponse(

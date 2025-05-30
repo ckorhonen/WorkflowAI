@@ -194,6 +194,7 @@ class AbstractRunner(
         metadata: Optional[dict[str, Any]] = None,
         private_fields: Optional[set[str]] = None,
         reply: RunReply | None = None,
+        conversation_id: str | None = None,
     ) -> TaskRunBuilder:
         """Construct a task run builder for the given input and properties"""
 
@@ -207,6 +208,7 @@ class AbstractRunner(
             private_fields=private_fields,
             reply=reply,
             start_time=start_time,
+            conversation_id=conversation_id,
         )
 
     def _should_use_cache(self, cache: CacheUsage) -> bool:

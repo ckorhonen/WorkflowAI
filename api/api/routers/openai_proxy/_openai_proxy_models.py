@@ -431,6 +431,13 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
         description="A way to configure the fallback behavior",
     )
 
+    conversation_id: str | None = Field(
+        default=None,
+        description="The conversation id to associate with the run. If not provided, WorkflowAI will attempt to "
+        "match the message history to an existing conversation. If no conversation is found, a new "
+        "conversation will be created.",
+    )
+
     model_config = ConfigDict(extra="allow")
 
     @property
