@@ -4,10 +4,10 @@ from collections.abc import Callable
 from typing import Any, Literal, cast
 
 from pydantic import BaseModel
-from pymongo.errors import DocumentTooLarge
 
 from api.services._utils import apply_reviews
 from api.services.analytics import AnalyticsService
+from api.services.runs._run_conversation_handler import RunConversationHandler
 from api.services.runs._run_file_handler import FileHandler
 from core.domain.agent_run import AgentRun
 from core.domain.analytics_events.analytics_events import (
@@ -31,6 +31,7 @@ from core.storage import ObjectNotFoundException, TaskTuple
 from core.storage.abstract_storage import AbstractStorage
 from core.storage.azure.azure_blob_file_storage import FileStorage
 from core.storage.backend_storage import BackendStorage
+from core.utils.coroutines import capture_errors
 from core.utils.dicts import delete_at_keypath
 
 from ._run_previews import assign_run_previews
@@ -258,14 +259,14 @@ class RunsService:
         return task_run
 
     @classmethod
-    def _strip_llm_completions(cls, task_run: AgentRun):
-        if not task_run.llm_completions:
-            return task_run
+    def _strip_llm_completions(cls, completions: list[LLMCompletion] | None):
+        """Remove potentially private LLM data from LLM completions"""
+        if not completions:
+            return
 
-        for completion in task_run.llm_completions:
+        for completion in completions:
             completion.messages = []
             completion.response = None
-        return task_run
 
     # TODO: merge with instance method when workflowai.py is removed
     # Staticmethod is only used as a bridge to avoid adding a new dependency on workflowai.py
@@ -292,23 +293,26 @@ class RunsService:
         except Exception as e:
             _logger.exception("error computing cost for task run", exc_info=e, extra={"task_run": task_run})
 
+        if task_variant.input_schema.uses_messages:
+            with capture_errors(logger=_logger, msg="Could not handle conversation"):
+                conversation_handler = RunConversationHandler(
+                    task_uid=task_variant.task_uid,
+                    schema_id=task_variant.task_schema_id,
+                    kv_storage=storage.kv,
+                )
+                await conversation_handler.handle_run(task_run)
+
         # Replace base64 and outside urls with storage urls in payloads
         file_handler = FileHandler(file_storage, f"{storage.tenant}/{task_run.task_id}")
         await file_handler.handle_run(task_run, task_variant)
 
         # Removing LLM completions if there are private fields
-        if task_run.private_fields and task_run.llm_completions:
-            task_run = cls._strip_llm_completions(task_run)
+        if task_run.private_fields:
+            cls._strip_llm_completions(task_run.llm_completions)
 
         assign_run_previews(task_run, task_variant)
 
-        try:
-            # Store task run
-            stored = await storage.store_task_run_resource(task_variant, task_run, user_identifier, source)
-        except DocumentTooLarge:
-            _logger.warning("task run document too large", extra={"task_run_id": task_run.id})
-            task_run = cls._strip_llm_completions(task_run)
-            stored = await storage.store_task_run_resource(task_variant, task_run, user_identifier, source)
+        stored = await storage.store_task_run_resource(task_variant, task_run, user_identifier, source)
 
         event_router(RunCreatedEvent(run=stored))
         analytics_handler(lambda: RanTaskEventProperties.from_task_run(stored, trigger))
