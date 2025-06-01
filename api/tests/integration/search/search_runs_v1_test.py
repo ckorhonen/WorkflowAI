@@ -35,6 +35,7 @@ async def searchable_runs(int_clickhouse_client: Any):
         run.created_at_date = _now.date() - (reference_date - run.created_at_date)
         new_created_at = _now - (reference_datetime - uuid7_generation_time(run.run_uuid))
         run.run_uuid = uuid7(ms=lambda: int(new_created_at.timestamp() * 1000))
+        run.conversation_id = uuid7()
 
     await client.command("TRUNCATE TABLE runs")
     await client.insert_models("runs", docs, {"async_insert": 0, "wait_for_async_insert": 1})
