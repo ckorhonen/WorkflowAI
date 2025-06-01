@@ -1,7 +1,7 @@
 import hashlib
 import json
 
-from pydantic import AliasChoices, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from core.domain.consts import INPUT_KEY_MESSAGES
 from core.domain.message import Message, MessageContent
@@ -24,7 +24,7 @@ def _content_sort_key(content: MessageContent) -> int:
     return 5
 
 
-_MESSAGE_INCLUDE = {
+_MESSAGE_INCLUDE_FOR_HASH = {
     "role": True,
     "content": {
         "__all__": {
@@ -54,11 +54,11 @@ class StoredMessage(Message):
         copy.content.sort(key=_content_sort_key)
 
         # Be careful of omitting all fields that might be added by us
-        return _hash(copy.model_dump_json(exclude_none=True, include=_MESSAGE_INCLUDE))
+        return _hash(copy.model_dump_json(exclude_none=True, include=_MESSAGE_INCLUDE_FOR_HASH))
 
 
-class StoredMessages(Message):
-    messages: list[StoredMessage] = Field(validation_alias=AliasChoices("messages", INPUT_KEY_MESSAGES))
+class StoredMessages(BaseModel):
+    messages: list[StoredMessage] = Field(alias=INPUT_KEY_MESSAGES, default_factory=list)
 
     # Any other field will be allowed in stored in extras
     model_config = ConfigDict(extra="allow")

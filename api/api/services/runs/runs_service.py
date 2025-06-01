@@ -22,6 +22,7 @@ from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
 from core.domain.models import Model, Provider
 from core.domain.page import Page
+from core.domain.task_io import RawMessagesSchema
 from core.domain.task_run_query import SerializableTaskRunField, SerializableTaskRunQuery
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.users import UserIdentifier
@@ -300,7 +301,10 @@ class RunsService:
                     schema_id=task_variant.task_schema_id,
                     kv_storage=storage.kv,
                 )
-                await conversation_handler.handle_run(task_run)
+                await conversation_handler.handle_run(
+                    task_run,
+                    has_input=task_variant.input_schema != RawMessagesSchema,
+                )
 
         # Replace base64 and outside urls with storage urls in payloads
         file_handler = FileHandler(file_storage, f"{storage.tenant}/{task_run.task_id}")

@@ -18,7 +18,6 @@ from core.domain.task_run_reply import RunReply
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.tenant_data import PublicOrganizationData
 from core.domain.users import User
-from core.providers.factory.abstract_provider_factory import AbstractProviderFactory
 from core.utils.schemas import JsonSchema
 from tests.asgi_transport import patch_asgi_transport
 from tests.utils import fixtures_json
@@ -157,6 +156,7 @@ def mock_storage() -> AsyncMock:
     from core.storage.changelogs_storage import ChangeLogStorage
     from core.storage.evaluator_storage import EvaluatorStorage
     from core.storage.input_evaluations_storage import InputEvaluationStorage
+    from core.storage.key_value_storage import KeyValueStorage
     from core.storage.organization_storage import OrganizationStorage
     from core.storage.review_benchmark_storage import ReviewBenchmarkStorage
     from core.storage.reviews_storage import ReviewsStorage
@@ -180,6 +180,7 @@ def mock_storage() -> AsyncMock:
     mock.review_benchmarks = AsyncMock(spec=ReviewBenchmarkStorage)
     mock.task_deployments = AsyncMock(spec=TaskDeploymentsStorage)
     mock.input_evaluations = AsyncMock(spec=InputEvaluationStorage)
+    mock.kv = AsyncMock(spec=KeyValueStorage)
     return mock
 
 
@@ -355,6 +356,8 @@ def mock_internal_tasks_service() -> Mock:
 
 @pytest.fixture()
 def mock_provider_factory():
+    from core.providers.factory.abstract_provider_factory import AbstractProviderFactory
+
     return Mock(spec=AbstractProviderFactory)
 
 
