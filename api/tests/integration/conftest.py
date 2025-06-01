@@ -79,6 +79,7 @@ def setup_environment():
             "SERPER_API_KEY": "serper-api-key",
             "PERPLEXITY_API_KEY": "perplexity-api-key",
             "ENRICH_SO_API_KEY": "enrich-so-api-key",
+            "REDIS_CONNECTION_STRING": "redis://localhost:6379/10",
         },
         clear=True,
     ):
