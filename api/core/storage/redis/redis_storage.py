@@ -28,14 +28,12 @@ class RedisStorage(KeyValueStorage):
         )
 
     @override
-    async def expire(self, key: str, expires_in: timedelta, gt: bool = False, lt: bool = False) -> None:
+    async def expire(self, key: str, expires_in: timedelta) -> None:
         # Important to note that expire only supports seconds not milliseconds
         # Setting milliseconds is basically setting expiration to 0
         await self._redis_client.expire(
             self._key(key),
             time=expires_in,
-            gt=gt,
-            lt=lt,
         )
 
     @override

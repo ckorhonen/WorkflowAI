@@ -75,5 +75,5 @@ class NoopKeyValueStorage(KeyValueStorage):
         return None
 
     @override
-    async def expire(self, key: str, expires_in: timedelta, gt: bool = False, lt: bool = False):
+    async def expire(self, key: str, expires_in: timedelta):
         pass
