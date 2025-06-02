@@ -1,7 +1,10 @@
 import { ProxyMessage } from '@/types/workflowAI';
 
 export function changeTextToHTML(text: string) {
-  return text.replace(/\n/g, '<br>').trim();
+  // First escape any existing HTML/XML tags
+  const escapedText = text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // Then convert newlines to <br> tags
+  return escapedText.replace(/\n/g, '<br>').trim();
 }
 
 export function changeHTMLToText(html: string) {
@@ -9,6 +12,8 @@ export function changeHTMLToText(html: string) {
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/p>/gi, '\n')
     .replace(/<p>/gi, '')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
     .trim();
 }
 
