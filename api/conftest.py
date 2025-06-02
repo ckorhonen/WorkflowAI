@@ -635,4 +635,5 @@ async def redis_client():
 
     client = Redis.from_url(connection_string)  # pyright: ignore [reportUnknownMemberType]
     await client.flushall()  # pyright: ignore [reportUnknownMemberType, reportPrivateUsage]
-    return client
+    yield client
+    await client.close()
