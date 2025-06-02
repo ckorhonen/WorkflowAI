@@ -358,6 +358,13 @@ class TestModelFallback:
                 )
 
             # ------------------------------------------------------------
+            # Check context exceeded
+            if fallback_type == "context_exceeded":
+                assert fallback_model_data.max_tokens_data.max_tokens >= 2 * model_data.max_tokens_data.max_tokens, (
+                    f"Fallback model {fallback_model} has a lower than twice themax tokens than the current model {model_data.model}"
+                )
+
+            # ------------------------------------------------------------
             # Check supports
 
             # TODO: fix missing support for pdf and audio
