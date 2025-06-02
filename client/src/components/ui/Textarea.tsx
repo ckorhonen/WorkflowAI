@@ -90,6 +90,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>((props, re
       )}
       ref={textAreaRef}
       value={value}
+      data-1p-ignore
       {...rest}
     />
   );
