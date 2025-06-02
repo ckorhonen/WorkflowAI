@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import override
+from typing import cast, override
 
 from redis.asyncio import Redis
 
@@ -40,5 +40,9 @@ class RedisStorage(KeyValueStorage):
 
     @override
     async def pop(self, key: str) -> str | None:
-        bs = await self._redis_client.getdel(self._key(key))
-        return bs.decode() if bs else None
+        # Not using getdel because it's not supported by redis 6.0
+        pipeline = self._redis_client.pipeline()
+        pipeline.get(self._key(key))
+        pipeline.delete(self._key(key))
+        bs, _ = await pipeline.execute()  # pyright: ignore [reportUnknownVariableType]
+        return cast(bytes, bs).decode() if bs else None
