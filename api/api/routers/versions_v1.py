@@ -24,6 +24,7 @@ from api.tags import RouteTags
 from core.agents.improve_version_messages_agent import ImproveVersionMessagesResponse
 from core.domain.agent_run import AgentRun
 from core.domain.changelogs import VersionChangelog
+from core.domain.errors import BadRequestError
 from core.domain.major_minor import MajorMinor
 from core.domain.message import Message
 from core.domain.models import Model
@@ -214,7 +215,7 @@ async def improve_version_messages(
 
     if not version.group.properties.messages:
         _logger.warning("Can not improve version message of a version without messages")
-        raise Exception("Can not improve version message of a version without messages")
+        raise BadRequestError("Can not improve version message of a version without messages")
 
     run: AgentRun | None = None
     if request.run_id:
