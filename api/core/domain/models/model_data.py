@@ -97,6 +97,9 @@ class ModelFallback(BaseModel):
     rate_limit: Model = Field(
         description="The model to use when the requested model raises a rate limit error",
     )
+    context_exceeded: Model | None = Field(
+        description="The model to use when the requested model raises a context exceeded error",
+    )
     unkwown_error: Model | None = Field(
         default=None,
         description="The model to use when the requested model raises an unknown error. By default, "
@@ -110,6 +113,7 @@ class ModelFallback(BaseModel):
         content_moderation: Model | None = None,
         structured_output: Model | None = None,
         rate_limit: Model | None = None,
+        context_exceeded: Model | Literal["no"] | None = None,
     ):
         """The default fallback for models at the cheapest price point. OpenAI is a prime candidate for fallback
         since it has large quotas, supports structured output and has reasonable content moderation"""
@@ -118,34 +122,41 @@ class ModelFallback(BaseModel):
                 content_moderation = content_moderation or Model.GEMINI_2_0_FLASH_LATEST
                 structured_output = structured_output or Model.GPT_41_NANO_LATEST
                 rate_limit = rate_limit or Model.GPT_41_NANO_LATEST
+                context_exceeded = context_exceeded or Model.GPT_41_NANO_LATEST
             case "cheap":
                 content_moderation = content_moderation or Model.GEMINI_2_0_FLASH_LATEST
                 structured_output = structured_output or Model.GPT_41_MINI_LATEST
                 rate_limit = rate_limit or Model.GPT_41_MINI_LATEST
+                context_exceeded = context_exceeded or Model.GPT_41_MINI_LATEST
             case "medium":
                 content_moderation = content_moderation or Model.GEMINI_1_5_PRO_002
                 structured_output = structured_output or Model.GPT_41_LATEST
                 rate_limit = rate_limit or Model.GPT_41_LATEST
+                context_exceeded = context_exceeded or Model.GPT_41_LATEST
             case "expensive":
                 # TODO: Switch to 2_5 pro when it's out of preview ?
                 content_moderation = content_moderation or Model.O3_LATEST_MEDIUM_REASONING_EFFORT
                 structured_output = structured_output or Model.O3_LATEST_MEDIUM_REASONING_EFFORT
                 rate_limit = rate_limit or Model.O3_LATEST_MEDIUM_REASONING_EFFORT
+                context_exceeded = context_exceeded
 
         return cls(
             pricing_tier=pricing_tier,
             content_moderation=content_moderation,
             structured_output=structured_output,
             rate_limit=rate_limit,
+            context_exceeded=context_exceeded if context_exceeded != "no" else None,
         )
 
     @classmethod
-    def only_model(cls, model: Model, pricing_tier: PricingTier):
+    def only_model(cls, model: Model, pricing_tier: PricingTier, context_exceeded: Model | Literal["no"] | None = None):
+        context_exceeded = context_exceeded or model
         return cls(
             pricing_tier=pricing_tier,
             content_moderation=model,
             structured_output=model,
             rate_limit=model,
+            context_exceeded=context_exceeded if context_exceeded != "no" else None,
         )
 
 

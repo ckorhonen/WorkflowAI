@@ -96,7 +96,7 @@ class ProviderPipeline:
             )
         )
 
-    def _pick_fallback_model(self, e: ProviderError) -> FinalModelData | None:
+    def _pick_fallback_model(self, e: ProviderError) -> FinalModelData | None:  # noqa: C901
         """Selects the fallback model to use based on the error code"""
         if self._model_fallback_disabled:
             return None
@@ -118,19 +118,17 @@ class ProviderPipeline:
                 fallback_model = self.model_data.fallback.content_moderation
             case "structured_generation_error" | "invalid_generation" | "failed_generation":
                 fallback_model = self.model_data.fallback.structured_output
-            case (
-                "max_tokens_exceeded"
-                | "invalid_file"
-                | "max_tool_call_iteration"
-                | "task_banned"
-                | "bad_request"
-                | "agent_run_failed"
-            ):
+            case "max_tokens_exceeded":
+                fallback_model = self.model_data.fallback.context_exceeded
+            case "invalid_file" | "max_tool_call_iteration" | "task_banned" | "bad_request" | "agent_run_failed":
                 return None
             case "rate_limit" | "provider_internal_error" | "provider_unavailable" | "read_timeout" | "timeout":
                 fallback_model = self.model_data.fallback.rate_limit
             case _:
                 fallback_model = self.model_data.fallback.unkwown_error or self.model_data.fallback.rate_limit
+
+        if not fallback_model:
+            return None
 
         fallback_model_data = get_model_data(fallback_model)
         if fallback_model_data.is_not_supported_reason(self._typology):
