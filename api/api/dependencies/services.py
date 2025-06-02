@@ -34,7 +34,6 @@ from api.services.task_deployments import TaskDeploymentsService
 from api.services.tools_service import ToolsService
 from api.services.transcriptions import TranscriptionService
 from api.services.versions import VersionsService
-from core.deprecated.workflowai import WorkflowAI
 from core.domain.users import UserIdentifier
 from core.services.emails import shared_email_service
 from core.services.emails.email_service import EmailService
@@ -109,29 +108,11 @@ def run_service(
 RunServiceDep = Annotated[RunService, Depends(run_service)]
 
 
-def workflowai_dependency(
-    storage: StorageDep,
-    file_storage: FileStorageDep,
-    run_service: RunServiceDep,
-) -> WorkflowAI:
-    return WorkflowAI(
-        run_service=run_service,
-        storage=storage,
-        file_storage=file_storage,
-        cache_fetcher=storage.task_runs.fetch_cached_run,
-    )
-
-
-WorkflowAIDep = Annotated[WorkflowAI, Depends(workflowai_dependency)]
-
-
 def internal_tasks(
-    wai: WorkflowAIDep,
     event_router: EventRouterDep,
     storage: StorageDep,
 ) -> InternalTasksService:
     return InternalTasksService(
-        wai=wai,
         storage=storage,
         event_router=event_router,
     )

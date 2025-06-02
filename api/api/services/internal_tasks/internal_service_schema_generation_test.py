@@ -1,18 +1,19 @@
+# pyright: reportPrivateUsage=false
+
 import logging
 from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
 
-# pyright: ignore[reportPrivateUsage]
 from api.services.internal_tasks.internal_tasks_service import (
     InternalTasksService,
 )
 
 
 @pytest.fixture(scope="function")
-def internal_tasks_service(mock_storage: Mock, mock_wai: Mock, mock_event_router: Mock):
-    return InternalTasksService(wai=mock_wai, storage=mock_storage, event_router=mock_event_router)
+def internal_tasks_service(mock_storage: Mock, mock_event_router: Mock):
+    return InternalTasksService(storage=mock_storage, event_router=mock_event_router)
 
 
 class TestAddExplanationToSchema:
@@ -25,7 +26,7 @@ class TestAddExplanationToSchema:
             },
         }
         logger = logging.getLogger("test")
-        service = InternalTasksService(Mock(), Mock(), Mock())
+        service = InternalTasksService(Mock(), Mock())
 
         # Execute
         with patch("api.services.internal_tasks.internal_tasks_service.schema_needs_explanation", return_value=True):
@@ -38,7 +39,9 @@ class TestAddExplanationToSchema:
         }
         assert list(result["properties"].keys()) == ["explanation", "is_valid"]
 
-    def test_add_explanation_not_needed(self):
+    def test_add_explanation_not_needed(
+        self,
+    ):
         # Setup
         schema = {
             "type": "object",
@@ -47,7 +50,7 @@ class TestAddExplanationToSchema:
             },
         }
         logger = logging.getLogger("test")
-        service = InternalTasksService(Mock(), Mock(), Mock())
+        service = InternalTasksService(Mock(), Mock())
 
         # Execute
         with patch("api.services.internal_tasks.internal_tasks_service.schema_needs_explanation", return_value=False):
@@ -64,7 +67,7 @@ class TestAddExplanationToSchema:
             "type": "boolean",
         }
         logger = logging.getLogger("test")
-        service = InternalTasksService(Mock(), Mock(), Mock())
+        service = InternalTasksService(Mock(), Mock())
 
         # Execute
         with patch("api.services.internal_tasks.internal_tasks_service.schema_needs_explanation", return_value=True):
@@ -83,7 +86,7 @@ class TestAddExplanationToSchema:
             "type": "object",
         }
         logger = logging.getLogger("test")
-        service = InternalTasksService(Mock(), Mock(), Mock())
+        service = InternalTasksService(Mock(), Mock())
 
         # Execute
         with patch("api.services.internal_tasks.internal_tasks_service.schema_needs_explanation", return_value=True):
@@ -105,7 +108,7 @@ class TestAddExplanationToSchema:
             },
         }
         logger = logging.getLogger("test")
-        service = InternalTasksService(Mock(), Mock(), Mock())
+        service = InternalTasksService(Mock(), Mock())
 
         # Execute
         with patch(
@@ -153,7 +156,7 @@ class TestAddExplanationToSchema:
     ):
         # Setup
         logger = logging.getLogger("test")
-        service = InternalTasksService(Mock(), Mock(), Mock())
+        service = InternalTasksService(Mock(), Mock())
 
         # Execute
         with patch.object(logger, "warning") as mock_warning:
