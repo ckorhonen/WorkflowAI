@@ -12,6 +12,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(({ className, type,
         className
       )}
       ref={ref}
+      data-1p-ignore
       {...props}
     />
   );
