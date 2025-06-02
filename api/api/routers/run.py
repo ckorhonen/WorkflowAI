@@ -116,6 +116,11 @@ class RunRequest(BaseModel):
         description="A way to configure the fallback behavior. Defaults to auto",
     )
 
+    conversation_id: str | None = Field(
+        default=None,
+        description="The conversation id to associate with the run. If not provided, a new conversation will be created.",
+    )
+
     @field_validator("id")
     def validate_id(cls, v: str):
         # TODO: remove if there are no warnings
@@ -407,6 +412,7 @@ async def run_task(
         # We don't pass the source here, it is only used when storing the run inline
         is_different_version=is_different_version,
         start_time=request_start_time,
+        conversation_id=body.conversation_id,
     )
 
 

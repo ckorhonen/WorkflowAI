@@ -79,6 +79,7 @@ def setup_environment():
             "SERPER_API_KEY": "serper-api-key",
             "PERPLEXITY_API_KEY": "perplexity-api-key",
             "ENRICH_SO_API_KEY": "enrich-so-api-key",
+            "REDIS_CONNECTION_STRING": "redis://localhost:6379/10",
         },
         clear=True,
     ):
@@ -229,6 +230,7 @@ async def int_api_client(
     httpx_mock: HTTPXMock,
     # Making sure the blob storage is created
     test_blob_storage: None,
+    redis_client: Any,
 ):
     # Making sure the call is patched before applying all imports
     from api.main import app
@@ -241,21 +243,22 @@ async def int_api_client(
 
     with mock.patch("api.services.storage._base_client", integration_storage.client):
         with mock.patch("api.services.storage._db_name", "workflowai_int_test"):
-            async with patch_asgi_transport():
-                headers: dict[str, str] = {}
-                if not request.node.get_closest_marker("unauthenticated"):  # type: ignore
-                    headers["Authorization"] = f"Bearer {_TEST_JWT}"
+            with mock.patch("api.services.storage._shared_redis_client", redis_client):
+                async with patch_asgi_transport():
+                    headers: dict[str, str] = {}
+                    if not request.node.get_closest_marker("unauthenticated"):  # type: ignore
+                        headers["Authorization"] = f"Bearer {_TEST_JWT}"
 
-                client = AsyncClient(
-                    transport=ASGITransport(app=app),  # pyright: ignore [reportArgumentType]
-                    base_url="http://0.0.0.0",
-                    headers=headers,
-                )
+                    client = AsyncClient(
+                        transport=ASGITransport(app=app),  # pyright: ignore [reportArgumentType]
+                        base_url="http://0.0.0.0",
+                        headers=headers,
+                    )
 
-                yield client
+                    yield client
 
-                # Making sure all tasks are completed before exiting
-                await wait_for_completed_tasks(patched_broker)
+                    # Making sure all tasks are completed before exiting
+                    await wait_for_completed_tasks(patched_broker)
 
 
 def pytest_configure(config: pytest.Config):

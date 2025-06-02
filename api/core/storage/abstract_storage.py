@@ -11,6 +11,7 @@ from core.domain.task_group import TaskGroup, TaskGroupIdentifier
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.users import UserIdentifier
 from core.domain.version_environment import VersionEnvironment
+from core.storage.key_value_storage import KeyValueStorage
 
 
 # TODO: most of these methods should not be used as they
@@ -28,6 +29,11 @@ class AbstractStorage(ABC):
     @property
     @abstractmethod
     def tenant(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def kv(self) -> KeyValueStorage:
         pass
 
     @abstractmethod

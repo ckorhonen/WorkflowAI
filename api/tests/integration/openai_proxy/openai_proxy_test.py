@@ -266,7 +266,7 @@ async def test_with_tools(test_client: IntegrationTestClient, openai_client: Asy
             },
         ],
     )
-    assert res.choices[0].message.content == ""
+    assert res.choices[0].message.content is None
     assert res.choices[0].message.tool_calls == [
         ChatCompletionMessageToolCall(
             id="1",
@@ -741,3 +741,24 @@ async def test_with_cache(test_client: IntegrationTestClient, openai_client: Asy
     chunks = [c async for c in streamer]
     assert len(chunks) == 1
     assert chunks[0].choices[0].delta.content == "Hello, world!"
+
+
+async def test_none_content(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+    # Check that we return None content when there is no text content
+    test_client.mock_openai_call(
+        raw_content=None,
+        tool_calls_content=[
+            {
+                "id": "1",
+                "type": "function",
+                "function": {"name": "get_current_weather", "arguments": '{"location": "San Francisco"}'},
+            },
+        ],
+    )
+
+    res = await openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "Hello, world!"}],
+    )
+    assert res.choices[0].message.content is None
+    assert res.choices[0].message.tool_calls is not None

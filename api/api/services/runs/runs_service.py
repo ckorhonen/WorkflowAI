@@ -4,10 +4,10 @@ from collections.abc import Callable
 from typing import Any, Literal, cast
 
 from pydantic import BaseModel
-from pymongo.errors import DocumentTooLarge
 
 from api.services._utils import apply_reviews
 from api.services.analytics import AnalyticsService
+from api.services.runs._run_conversation_handler import RunConversationHandler
 from api.services.runs._run_file_handler import FileHandler
 from core.domain.agent_run import AgentRun
 from core.domain.analytics_events.analytics_events import (
@@ -22,6 +22,7 @@ from core.domain.llm_completion import LLMCompletion
 from core.domain.llm_usage import LLMUsage
 from core.domain.models import Model, Provider
 from core.domain.page import Page
+from core.domain.task_io import RawMessagesSchema
 from core.domain.task_run_query import SerializableTaskRunField, SerializableTaskRunQuery
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.users import UserIdentifier
@@ -259,14 +260,14 @@ class RunsService:
         return task_run
 
     @classmethod
-    def _strip_llm_completions(cls, task_run: AgentRun):
-        if not task_run.llm_completions:
-            return task_run
+    def _strip_llm_completions(cls, completions: list[LLMCompletion] | None):
+        """Remove potentially private LLM data from LLM completions"""
+        if not completions:
+            return
 
-        for completion in task_run.llm_completions:
+        for completion in completions:
             completion.messages = []
             completion.response = None
-        return task_run
 
     # TODO: merge with instance method when workflowai.py is removed
     # Staticmethod is only used as a bridge to avoid adding a new dependency on workflowai.py
@@ -293,24 +294,30 @@ class RunsService:
         except Exception as e:
             _logger.exception("error computing cost for task run", exc_info=e, extra={"task_run": task_run})
 
+        if task_variant.input_schema.uses_messages:
+            with capture_errors(logger=_logger, msg="Could not handle conversation"):
+                conversation_handler = RunConversationHandler(
+                    task_uid=task_variant.task_uid,
+                    schema_id=task_variant.task_schema_id,
+                    kv_storage=storage.kv,
+                )
+                await conversation_handler.handle_run(
+                    task_run,
+                    has_input=task_variant.input_schema != RawMessagesSchema,
+                )
+
         # Replace base64 and outside urls with storage urls in payloads
         file_handler = FileHandler(file_storage, f"{storage.tenant}/{task_run.task_id}")
         await file_handler.handle_run(task_run, task_variant)
 
         # Removing LLM completions if there are private fields
-        if task_run.private_fields and task_run.llm_completions:
-            task_run = cls._strip_llm_completions(task_run)
+        if task_run.private_fields:
+            cls._strip_llm_completions(task_run.llm_completions)
 
         with capture_errors(logger=_logger, msg="Could not assign run previews"):
             assign_run_previews(task_run, task_variant)
 
-        try:
-            # Store task run
-            stored = await storage.store_task_run_resource(task_variant, task_run, user_identifier, source)
-        except DocumentTooLarge:
-            _logger.warning("task run document too large", extra={"task_run_id": task_run.id})
-            task_run = cls._strip_llm_completions(task_run)
-            stored = await storage.store_task_run_resource(task_variant, task_run, user_identifier, source)
+        stored = await storage.store_task_run_resource(task_variant, task_run, user_identifier, source)
 
         event_router(RunCreatedEvent(run=stored))
         analytics_handler(lambda: RanTaskEventProperties.from_task_run(stored, trigger))
