@@ -58,8 +58,8 @@ class OpenAIProxyHandler:
         self._feedback_generator = feedback_generator
 
     @classmethod
-    def _raw_string_mapper(cls, output: Any) -> str:
-        return output
+    def _raw_string_mapper(cls, output: Any) -> str | None:
+        return output or None
 
     @classmethod
     def _output_json_mapper(cls, output: AgentOutput) -> str:

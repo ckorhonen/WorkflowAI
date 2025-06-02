@@ -214,7 +214,7 @@ class OpenAIProxyMessage(BaseModel):
     tool_call_id: str | None = None
 
     @classmethod
-    def from_run(cls, run: AgentRun, output_mapper: Callable[[AgentOutput], str], deprecated_function: bool):
+    def from_run(cls, run: AgentRun, output_mapper: Callable[[AgentOutput], str | None], deprecated_function: bool):
         return cls(
             role="assistant",
             content=output_mapper(run.task_output),
@@ -717,7 +717,7 @@ class OpenAIProxyChatCompletionChoice(BaseModel):
     def from_domain(
         cls,
         run: AgentRun,
-        output_mapper: Callable[[AgentOutput], str],
+        output_mapper: Callable[[AgentOutput], str | None],
         deprecated_function: bool,
         feedback_generator: Callable[[str], str],
     ):
@@ -752,7 +752,7 @@ class OpenAIProxyChatCompletionResponse(BaseModel):
     def from_domain(
         cls,
         run: AgentRun,
-        output_mapper: Callable[[AgentOutput], str],
+        output_mapper: Callable[[AgentOutput], str | None],
         model: str,
         deprecated_function: bool,
         # feedback_generator should take a run id and return a feedback token
@@ -836,7 +836,7 @@ class OpenAIProxyChatCompletionChunk(BaseModel):
         return _serializer
 
     @classmethod
-    def serializer(cls, model: str, deprecated_function: bool, output_mapper: Callable[[AgentOutput], str]):
+    def serializer(cls, model: str, deprecated_function: bool, output_mapper: Callable[[AgentOutput], str | None]):
         # Builds the final chunk containing the usage
         def _serializer(run: AgentRun):
             # TODO: we should still return the usage when not from cache
