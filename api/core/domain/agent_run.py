@@ -174,7 +174,7 @@ class AgentRun(AgentRunBase):
         # Order matters and should match whatever is returned in OpenAIProxyMessage._content_iterator
         # Otherwise the hash of the messages will not be consistent
         # See RunConversationHandler._final_assistant_message
-        if self.task_output is not None:
+        if self.task_output is not None and self.task_output != "":
             if isinstance(self.task_output, str):
                 yield MessageContent(text=self.task_output)
             else:

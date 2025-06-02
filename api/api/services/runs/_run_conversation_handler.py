@@ -90,6 +90,7 @@ class RunConversationHandler:
             role="assistant",
             content=list(run.message_content_iterator()),
         )
+
         # Compute the final message hash
         final_hash = StoredMessages.aggregate_hashes(
             [
