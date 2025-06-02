@@ -266,7 +266,7 @@ async def test_with_tools(test_client: IntegrationTestClient, openai_client: Asy
             },
         ],
     )
-    assert res.choices[0].message.content == ""
+    assert res.choices[0].message.content is None
     assert res.choices[0].message.tool_calls == [
         ChatCompletionMessageToolCall(
             id="1",
