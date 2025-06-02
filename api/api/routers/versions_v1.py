@@ -32,6 +32,7 @@ from core.domain.version_environment import VersionEnvironment
 from core.domain.version_major import VersionDeploymentMetadata as DVersionDeploymentMetadata
 from core.domain.version_major import VersionMajor
 from core.utils.fields import datetime_factory
+from core.utils.stream_response_utils import safe_streaming_response
 from core.utils.streams import format_model_for_sse
 
 router = APIRouter(prefix="/v1/{tenant}/agents/{task_id}", tags=[RouteTags.VERSIONS])
@@ -178,6 +179,41 @@ async def improve_prompt(
             yield format_model_for_sse(ImproveVersionResponse(improved_properties=chunk[0], changelog=chunk[1]))
 
     return StreamingResponse(_stream(), media_type="text/event-stream")
+
+
+class ImproveVersionMessagesRequest(BaseModel):
+    run_id: str | None = None
+    improvement_instructions: str | None = None
+
+
+class ImproveVersionMessagesResponse(BaseModel):
+    messages: list[dict[str, Any]]
+
+
+@router.post(
+    "/versions/{version}/messages/improve",
+    description="TODO",
+    responses={
+        200: {
+            "text/event-stream": {"schema": ImproveVersionMessagesResponse.model_json_schema()},
+        },
+    },
+)
+async def improve_version_messages(
+    version: str,
+    internal_tasks: InternalTasksServiceDep,
+    request: ImproveVersionMessagesRequest,
+    task_id: TaskTupleDep,
+):
+    async def _stream():
+        yield ImproveVersionMessagesResponse(
+            messages=[
+                {"role": "system", "content": "improved system message"},
+                {"role": "user", "content": "improved user message"},
+            ],
+        )
+
+    return safe_streaming_response(_stream)
 
 
 class MajorVersionProperties(BaseModel):
