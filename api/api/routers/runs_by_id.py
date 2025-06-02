@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from api.dependencies.services import InternalTasksServiceDep, RunsServiceDep
 from api.dependencies.task_info import TaskTupleDep
+from core.agents.audio_transcription_task import transcribe_audio
 from core.domain.agent_run import AgentRun
 from core.domain.task_variant import SerializableTaskVariant
 from core.runners.workflowai.utils import FileWithKeyPath, extract_files
@@ -63,7 +64,7 @@ async def transcribed_audio(
     model = run.group.properties.model
 
     async def transcribe_file(file: FileWithKeyPath) -> tuple[str, str]:
-        transcription = await internal_tasks_service.transcribe_audio(file, model=model)
+        transcription = await transcribe_audio(file, model=model)
         return file.key_path_str, transcription
 
     transcriptions: dict[str, str] = {}

@@ -21,7 +21,6 @@ from api.services.internal_tasks.instructions_service import InstructionsService
 from api.services.internal_tasks.moderation_service import ModerationService
 from api.services.internal_tasks.task_input_service import TaskInputService
 from api.services.tasks import list_agent_summaries
-from core.agents.audio_transcription_task import AudioTranscriptionTask, AudioTranscriptionTaskInput
 from core.agents.chat_task_schema_generation.chat_task_schema_generation_task import (
     INSTRUCTIONS as AGENT_BUILDER_INSTRUCTIONS,
 )
@@ -104,7 +103,6 @@ from core.domain.deprecated.task import Task, TaskInput, TaskOutput
 from core.domain.errors import InternalError, JSONSchemaValidationError, UnparsableChunkError
 from core.domain.events import AgentInstructionsGeneratedEvent, EventRouter
 from core.domain.fields.chat_message import ChatMessage
-from core.domain.fields.file import File
 from core.domain.input_evaluation import InputEvaluation
 from core.domain.models import Model
 from core.domain.run_identifier import RunIdentifier
@@ -1148,28 +1146,6 @@ class InternalTasksService:
 
     async def evaluate_output(self, task_input: EvaluateOutputTaskInput):
         return await evaluate_output(task_input)
-
-    # Audio transcription task
-    async def transcribe_audio(
-        self,
-        audio_file: File,
-        model: str | None = None,
-    ) -> str:
-        if not audio_file.is_audio:
-            raise InternalError(
-                "File is not an audio file",
-                extras={"file": audio_file.model_dump(mode="json", exclude={"data"})},
-            )
-
-        output = await self.wai.run(
-            AudioTranscriptionTask(),
-            input=AudioTranscriptionTaskInput(
-                audio_file=audio_file,
-            ),
-            group=VersionReference.with_properties(model=model),
-        )
-
-        return output.transcription
 
     def stream_generate_task_preview(
         self,

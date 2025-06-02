@@ -8,16 +8,10 @@ import pytest
 import workflowai
 
 from api.services.internal_tasks.internal_tasks_service import (
-    AUDIO_TRANSCRIPTION_MODEL,
     AgentUids,
     InternalTasksService,
 )
 from api.services.tasks import AgentSummary
-from core.agents.audio_transcription_task import (
-    AudioTranscriptionTask,
-    AudioTranscriptionTaskInput,
-    AudioTranscriptionTaskOutput,
-)
 from core.agents.chat_task_schema_generation.chat_task_schema_generation_task import (
     AgentBuilderInput,
     AgentBuilderOutput,
@@ -65,14 +59,12 @@ from core.agents.task_instructions_migration_task import (
 from core.domain.deprecated.task import Task
 from core.domain.errors import JSONSchemaValidationError, UnparsableChunkError
 from core.domain.fields.chat_message import ChatMessage, UserChatMessage
-from core.domain.fields.file import File
 from core.domain.task_group import TaskGroup
 from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_info import TaskInfo
 from core.domain.task_io import SerializableTaskIO
 from core.domain.task_preview import TaskPreview
 from core.domain.task_variant import SerializableTaskVariant
-from core.domain.version_reference import VersionReference
 from core.providers.base.provider_error import FailedGenerationError
 from core.storage.mongo.models.task_group import TaskGroupDocument
 from core.tools import ToolKind
@@ -822,39 +814,6 @@ class TestGenerateTaskInputs:
             assert task_input.task_name == _api_task.name
             assert task_input.input_json_schema == _api_task.input_schema.json_schema
             assert task_input.output_json_schema == _api_task.output_schema.json_schema
-
-
-class TestTranscribeAudio:
-    async def test_transcribe_audio(
-        self,
-        internal_tasks_service: InternalTasksService,
-        mock_wai: Mock,
-    ):
-        # Arrange
-        mock_audio_file = File(
-            content_type="audio/mp3",
-            data="This is sample file content",
-        )
-        expected_transcription = "This is a transcription of the audio file."
-
-        mock_wai.run = AsyncMock(
-            return_value=AudioTranscriptionTaskOutput(transcription=expected_transcription),
-        )
-
-        # Act
-        result = await internal_tasks_service.transcribe_audio(mock_audio_file, model=AUDIO_TRANSCRIPTION_MODEL.value)
-
-        # Assert
-        assert result == expected_transcription
-
-        mock_wai.run.assert_called_once()
-        call_args = mock_wai.run.call_args
-
-        assert isinstance(call_args[0][0], AudioTranscriptionTask)
-        assert isinstance(call_args[1]["input"], AudioTranscriptionTaskInput)
-        assert call_args[1]["input"].audio_file == mock_audio_file
-        assert isinstance(call_args[1]["group"], VersionReference)
-        assert call_args[1]["group"].properties.model == AUDIO_TRANSCRIPTION_MODEL.value
 
 
 @pytest.fixture
