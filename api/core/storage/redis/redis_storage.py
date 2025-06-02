@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import override
+from typing import cast, override
 
 from redis.asyncio import Redis
 
@@ -28,17 +28,19 @@ class RedisStorage(KeyValueStorage):
         )
 
     @override
-    async def expire(self, key: str, expires_in: timedelta, gt: bool = False, lt: bool = False) -> None:
+    async def expire(self, key: str, expires_in: timedelta) -> None:
         # Important to note that expire only supports seconds not milliseconds
         # Setting milliseconds is basically setting expiration to 0
         await self._redis_client.expire(
             self._key(key),
             time=expires_in,
-            gt=gt,
-            lt=lt,
         )
 
     @override
     async def pop(self, key: str) -> str | None:
-        bs = await self._redis_client.getdel(self._key(key))
-        return bs.decode() if bs else None
+        # Not using getdel because it's not supported by redis 6.0
+        pipeline = self._redis_client.pipeline()
+        pipeline.get(self._key(key))
+        pipeline.delete(self._key(key))
+        bs, _ = await pipeline.execute()  # pyright: ignore [reportUnknownVariableType]
+        return cast(bytes, bs).decode() if bs else None

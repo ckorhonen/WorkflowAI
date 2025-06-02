@@ -27,13 +27,13 @@ async def test_redis_storage_set_get_pop(redis_storage: RedisStorage):
 async def test_redis_storage_expire(redis_storage: RedisStorage):
     await redis_storage.set("test", "test", timedelta(milliseconds=10))
     assert await redis_storage.get("test") == "test"
-    await asyncio.sleep(0.01)
+    await asyncio.sleep(0.02)
     assert await redis_storage.get("test") is None
 
 
 async def test_redis_storage_expire_gt(redis_storage: RedisStorage):
     await redis_storage.set("test", "test", timedelta(milliseconds=10))
     assert await redis_storage.get("test") == "test"
-    await redis_storage.expire("test", timedelta(seconds=1), gt=True)
+    await redis_storage.expire("test", timedelta(seconds=1))
     await asyncio.sleep(0.01)
     assert await redis_storage.get("test") == "test", "key expired after resetting expiration"
