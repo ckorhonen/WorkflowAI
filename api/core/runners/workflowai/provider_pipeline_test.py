@@ -15,6 +15,7 @@ from core.providers.base.config import ProviderConfig
 from core.providers.base.provider_error import (
     ContentModerationError,
     FailedGenerationError,
+    MaxTokensExceededError,
     ProviderError,
     ProviderRateLimitError,
     UnknownProviderError,
@@ -334,6 +335,7 @@ class TestProviderIterator:
                     content_moderation=Model.CLAUDE_4_OPUS_20250514,
                     structured_output=Model.CLAUDE_4_OPUS_20250514,
                     rate_limit=Model.CLAUDE_4_OPUS_20250514,
+                    context_exceeded=None,
                 ),
             ),
         ):
@@ -380,7 +382,7 @@ class TestProviderIterator:
             *extra_yield,
         ]
 
-    @pytest.mark.parametrize("error_cls", [ContentModerationError, FailedGenerationError])
+    @pytest.mark.parametrize("error_cls", [ContentModerationError, FailedGenerationError, MaxTokensExceededError])
     async def test_model_fallback_failed_generation(
         self,
         provider_builder: Mock,
@@ -398,6 +400,7 @@ class TestProviderIterator:
                     content_moderation=Model.CLAUDE_4_OPUS_20250514,
                     structured_output=Model.CLAUDE_4_OPUS_20250514,
                     rate_limit=Model.CLAUDE_4_OPUS_20250514,
+                    context_exceeded=Model.CLAUDE_4_OPUS_20250514,
                 ),
             ),
         ):
