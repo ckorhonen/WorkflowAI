@@ -79,10 +79,6 @@ from core.agents.task_instruction_generation.task_instructions_generation_task i
     AgentInstructionsGenerationTaskInput,
     agent_instructions_redaction,
 )
-from core.agents.task_instruction_generation.task_schema_comparison_task import (
-    TaskSchemaComparisonTask,
-    TaskSchemaComparisonTaskInput,
-)
 from core.agents.task_instruction_required_tools_picking.task_instructions_required_tools_picking_task import (
     TaskInstructionsRequiredToolsPickingTaskInput,
     run_task_instructions_required_tools_picking,
@@ -97,9 +93,7 @@ from core.agents.update_correct_outputs_and_instructions import (
     update_correct_outputs_and_instructions,
 )
 from core.agents.url_finder_agent import URLFinderAgentInput, url_finder_agent
-from core.deprecated.workflowai import WorkflowAI
 from core.domain.changelogs import VersionChangelog
-from core.domain.deprecated.task import Task, TaskInput, TaskOutput
 from core.domain.errors import InternalError, JSONSchemaValidationError, UnparsableChunkError
 from core.domain.events import AgentInstructionsGeneratedEvent, EventRouter
 from core.domain.fields.chat_message import ChatMessage
@@ -111,9 +105,8 @@ from core.domain.task_evaluator import EvalV2Evaluator
 from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_io import SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
-from core.domain.types import AgentInput, CacheUsage
+from core.domain.types import AgentInput
 from core.domain.url_content import URLContent
-from core.domain.version_reference import VersionReference
 from core.providers.base.provider_error import FailedGenerationError
 from core.runners.workflowai.utils import FileWithKeyPath
 from core.runners.workflowai.workflowai_runner import WorkflowAIRunner
@@ -137,9 +130,9 @@ DEFAULT_NEW_TASK_ASSISTANT_ANSWER_WITHOUT_SCHEMA = "I did not understand your re
 
 
 class InternalTasksService:
-    def __init__(self, wai: WorkflowAI, storage: BackendStorage, event_router: EventRouter):
+    def __init__(self, storage: BackendStorage, event_router: EventRouter):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.wai = wai
+
         self.storage = storage
         self._event_router = event_router
 
@@ -158,18 +151,6 @@ class InternalTasksService:
     @property
     def moderation(self) -> ModerationService:
         return ModerationService()
-
-    # Wrappers
-
-    def _run(
-        self,
-        task: Task[TaskInput, TaskOutput],
-        input: TaskInput,
-        group: VersionReference,
-        # Cache is never by default for internal tasks
-        cache: CacheUsage = "never",
-    ):
-        return self.wai.run(task, input=input, group=group, trigger="internal", cache=cache)
 
     # ----------------------------------------
     # New task schema creation (new_task)
@@ -978,35 +959,6 @@ class InternalTasksService:
             system_storage=system_storage,
             stream=False,
         )
-
-    async def compare_task_schemas(
-        self,
-        reference_schema: AgentSchemaJson,
-        candidate_schema: AgentSchemaJson,
-        group: VersionReference,
-    ) -> str:
-        """
-        Compares two task schemas and returns a summary of the differences.
-
-        Args:
-            reference_schema (TaskSchema): The reference task schema.
-            candidate_schema (TaskSchema): The candidate task schema to compare.
-            group (VersionReference): The task group reference for running the task.
-
-        Returns:
-            str: A summary of the differences between the schemas.
-        """
-        task = TaskSchemaComparisonTask()
-        task_input = TaskSchemaComparisonTaskInput(
-            reference_schema=reference_schema,
-            candidate_schema=candidate_schema,
-        )
-        output = await self._run(
-            task,
-            input=task_input,
-            group=group,
-        )
-        return output.differences_summary
 
     async def generate_changelog(
         self,

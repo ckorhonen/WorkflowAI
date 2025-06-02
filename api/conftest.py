@@ -405,7 +405,6 @@ async def test_blob_storage():
 @pytest.fixture(scope="function")
 def test_app(
     mock_storage: Mock,
-    mock_wai: Mock,
     mock_user_dep: Mock,
     mock_encryption: Mock,
     mock_key_ring: Mock,
@@ -441,7 +440,6 @@ def test_app(
         internal_tasks,
         models_service,
         reviews_service,
-        workflowai_dependency,
     )
     from api.dependencies.storage import storage_dependency
     from api.main import app
@@ -470,7 +468,6 @@ def test_app(
         return await mock_tenant_dep(user, user_org, system_storage, request, encryption)
 
     app.dependency_overrides[user_auth_dependency] = _mock_user_auth_dependency
-    app.dependency_overrides[workflowai_dependency] = lambda: mock_wai
 
     async def _user_organization_dependency(
         user: UserDep,

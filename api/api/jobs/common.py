@@ -183,9 +183,8 @@ def runs_service_for_event_dep(
 RunsServiceDep = Annotated[RunsService, TaskiqDepends(runs_service_for_event_dep)]
 
 
-def internal_tasks_service_dep(wai: WaiDep, storage: StorageDep, event_router: EventRouterDep) -> InternalTasksService:
+def internal_tasks_service_dep(storage: StorageDep, event_router: EventRouterDep) -> InternalTasksService:
     return InternalTasksService(
-        wai=wai,
         storage=storage,
         event_router=event_router,
     )
