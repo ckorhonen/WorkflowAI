@@ -314,7 +314,8 @@ class RunsService:
         if task_run.private_fields:
             cls._strip_llm_completions(task_run.llm_completions)
 
-        assign_run_previews(task_run, task_variant)
+        with capture_errors(logger=_logger, msg="Could not assign run previews"):
+            assign_run_previews(task_run, task_variant)
 
         stored = await storage.store_task_run_resource(task_variant, task_run, user_identifier, source)
 
