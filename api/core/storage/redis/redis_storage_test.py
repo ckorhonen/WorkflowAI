@@ -8,21 +8,12 @@ from redis.asyncio import Redis
 from core.storage.redis.redis_storage import RedisStorage
 
 
-@pytest.fixture(scope="session")
-def session_redis_storage() -> RedisStorage:
-    # Storage string always maps to localhost for safety
-    connection_string = "redis://localhost:6379/15"
+@pytest.fixture(scope="function")
+async def redis_storage(redis_client: Redis) -> RedisStorage:
     return RedisStorage(
         tenant_uid=1,
-        redis_client=Redis.from_url(connection_string),  # pyright: ignore [reportUnknownMemberType]
+        redis_client=redis_client,
     )
-
-
-@pytest.fixture()
-async def redis_storage(session_redis_storage: RedisStorage):
-    # Flusing all keys to avoid conflicts
-    await session_redis_storage._redis_client.flushall()  # pyright: ignore [reportUnknownMemberType]
-    yield session_redis_storage
 
 
 async def test_redis_storage_set_get_pop(redis_storage: RedisStorage):

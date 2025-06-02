@@ -625,3 +625,14 @@ def mock_builder_context():
     builder_context.set(ctx)
 
     yield ctx
+
+
+@pytest.fixture(scope="function")
+async def redis_client():
+    # Storage string always maps to localhost for safety
+    connection_string = "redis://localhost:6379/15"
+    from redis.asyncio import Redis
+
+    client = Redis.from_url(connection_string)  # pyright: ignore [reportUnknownMemberType]
+    await client.flushall()  # pyright: ignore [reportUnknownMemberType, reportPrivateUsage]
+    return client
