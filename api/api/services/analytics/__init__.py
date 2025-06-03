@@ -5,7 +5,6 @@ from core.domain.analytics_events.analytics_events import (
     TaskProperties,
     UserProperties,
 )
-from core.domain.events import EventRouter
 
 from ._amplitude_analytics_service import AmplitudeAnalyticsService
 from ._analytics_service import AnalyticsService
@@ -27,11 +26,10 @@ def analytics_service(
     user_properties: UserProperties | None,
     organization_properties: OrganizationProperties | None,
     task_properties: TaskProperties | None,
-    event_router: EventRouter,
 ) -> AnalyticsService:
     if organization_properties and organization_properties.organization_id in _BLACKLISTED_ORG_IDS:
         from ._noop_analytics_service import NoopAnalyticsService
 
         return NoopAnalyticsService()
 
-    return AmplitudeAnalyticsService(user_properties, organization_properties, task_properties, event_router)
+    return AmplitudeAnalyticsService(user_properties, organization_properties, task_properties)

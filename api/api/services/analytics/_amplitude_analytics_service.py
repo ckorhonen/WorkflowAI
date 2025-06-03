@@ -12,7 +12,6 @@ from core.domain.analytics_events.analytics_events import (
     TaskProperties,
     UserProperties,
 )
-from core.domain.events import EventRouter
 from core.utils.background import add_background_task
 from core.utils.fields import datetime_factory
 
@@ -30,11 +29,9 @@ class AmplitudeAnalyticsService(AnalyticsService):
         user_properties: UserProperties | None,
         organization_properties: OrganizationProperties | None,
         task_properties: TaskProperties | None,
-        event_router: EventRouter,
     ):
         self.user_properties = user_properties
         self.organization_properties = organization_properties
-        self.event_router = event_router
         self.task_properties = task_properties
         self._logger = logging.getLogger(self.__class__.__name__)
 
