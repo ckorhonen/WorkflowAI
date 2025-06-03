@@ -232,11 +232,12 @@ class OpenAIProxyMessage(BaseModel):
     def _content_iterator(self) -> Iterator[MessageContent]:
         # When the role is tool we know that the message only contains the tool call result
 
-        if isinstance(self.content, str):
-            yield MessageContent(text=self.content)
-        elif self.content:
-            for c in self.content:
-                yield c.to_domain()
+        if self.content:
+            if isinstance(self.content, str):
+                yield MessageContent(text=self.content)
+            else:
+                for c in self.content:
+                    yield c.to_domain()
 
         if self.function_call:
             yield MessageContent(tool_call_request=self.function_call.to_domain(""))
