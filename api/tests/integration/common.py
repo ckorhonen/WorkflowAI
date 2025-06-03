@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 import os
 import re
@@ -305,15 +306,17 @@ async def wait_for_completed_tasks(broker: InMemoryBroker, max_retries: int = 10
 
     from api.services.analytics._amplitude_analytics_service import AmplitudeAnalyticsService
 
-    await AmplitudeAnalyticsService.batched_amplitude.flush()
+    with contextlib.suppress(Exception):
+        await AmplitudeAnalyticsService.batched_amplitude.flush()
 
     """Sleep for intervals of 100 until all tasks are completed or max_retries is reached."""
     running = []
     for _ in range(max_retries):
+        await broker.wait_all()
+        # Retrying since some tasks could have created other tasks
         running = [task for task in broker._running_tasks if not task.done()]  # pyright: ignore [reportPrivateUsage]
         if not running:
             return
-        await asyncio.sleep(0.1)
     raise TimeoutError(f"Tasks did not complete {[task for task in running]}")
 
 

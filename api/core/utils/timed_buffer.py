@@ -1,6 +1,8 @@
 import asyncio
 from typing import Any, Callable, Coroutine, Generic, TypeVar
 
+from core.utils.coroutines import sentry_wrap
+
 _T = TypeVar("_T")
 
 
@@ -34,7 +36,7 @@ class TimedBuffer(Generic[_T]):
         await asyncio.gather(*self._tasks)
 
     def _add_task(self, task: Coroutine[Any, Any, None]):
-        t = asyncio.create_task(task)
+        t = asyncio.create_task(sentry_wrap(task))
         self._tasks.add(t)
         t.add_done_callback(self._tasks.remove)
 
