@@ -43,18 +43,13 @@ _UNSUPPORTED_FIELDS = {
     "logit_bias",
     "logprobs",
     "modalities",
-    "n",
     "prediction",
     "seed",
     "stop",
     "top_logprobs",
     "web_search_options",
 }
-# We used to send a warning when the ignored fields were used
-# _IGNORED_FIELDS = {
-#     "service_tier",
-#     "store",
-# }
+
 _role_mapping: dict[str, MessageRole] = {
     "user": "user",
     "assistant": "assistant",
@@ -484,12 +479,17 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
         set_fields = self.model_fields_set
         used_unsupported_fields = set_fields.intersection(_UNSUPPORTED_FIELDS)
         if used_unsupported_fields:
-            plural = len(used_unsupported_fields) > 1
-            fields = list(used_unsupported_fields)
+            fields = [f for f in used_unsupported_fields if getattr(self, f, None)]
+            plural = len(fields) > 1
             fields.sort()
             raise BadRequestError(
                 f"Field{'s' if plural else ''} `{'`, `'.join(fields)}` {'are' if plural else 'is'} not supported",
                 capture=True,
+            )
+
+        if self.n and self.n > 1:
+            raise BadRequestError(
+                "An n value greated than 1 is not supported",
             )
 
     @property

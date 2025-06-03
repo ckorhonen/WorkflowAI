@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Literal
 
 from core.domain.models import Model, Provider
 from core.domain.models._displayed_provider import DisplayedProvider
@@ -22,38 +23,25 @@ def _char_to_token(char_count: int) -> int:
     return int(round(char_count / 4))
 
 
-def _openai_fallback(pricing: PricingTier):
+def _openai_fallback(pricing: PricingTier, context_exceeded: Model | Literal["no"] | None = None):
     """Alternative fallback for OpenAI models. Can't use the default since it uses mostly OpenAI models"""
+    model: Model
     match pricing:
         case "cheap" | "cheapest":
-            return ModelFallback(
-                content_moderation=Model.GEMINI_2_0_FLASH_LATEST,
-                # should not happen since OpenAI has structured output
-                structured_output=Model.GEMINI_2_0_FLASH_LATEST,
-                rate_limit=Model.GEMINI_2_0_FLASH_LATEST,
-                pricing_tier=pricing,
-            )
+            # Depending on the model, might have to set to "no" individually
+            model = Model.GEMINI_2_0_FLASH_LATEST
         case "medium":
-            return ModelFallback(
-                content_moderation=Model.CLAUDE_4_SONNET_LATEST,
-                # should not happen since OpenAI has structured output
-                structured_output=Model.CLAUDE_4_SONNET_LATEST,
-                rate_limit=Model.CLAUDE_4_SONNET_LATEST,
-                pricing_tier=pricing,
-            )
+            # Medium models usually have a 1M context window
+            model = Model.CLAUDE_4_SONNET_LATEST
+            if not context_exceeded:
+                context_exceeded = Model.GEMINI_1_5_PRO_LATEST
         case "expensive":
-            return ModelFallback(
-                content_moderation=Model.CLAUDE_4_OPUS_LATEST,
-                structured_output=Model.CLAUDE_4_OPUS_LATEST,
-                rate_limit=Model.CLAUDE_4_OPUS_LATEST,
-                pricing_tier=pricing,
-            )
-    return ModelFallback(
-        content_moderation=Model.CLAUDE_4_SONNET_LATEST,
-        # should not happen since OpenAI has structured output
-        structured_output=Model.CLAUDE_4_SONNET_LATEST,
-        rate_limit=Model.CLAUDE_4_SONNET_LATEST,
-    )
+            # OpenAI expensive models usually have a 200k context window
+            model = Model.CLAUDE_4_OPUS_LATEST
+            if not context_exceeded:
+                context_exceeded = Model.GEMINI_2_5_PRO_PREVIEW_0506
+
+    return ModelFallback.only_model(model, pricing_tier=pricing, context_exceeded=context_exceeded)
 
 
 def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
@@ -152,7 +140,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=87.5, gpqa=65),
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
-            fallback=_openai_fallback("cheapest"),
+            fallback=_openai_fallback("cheapest", context_exceeded="no"),
         ),
         Model.GPT_41_NANO_LATEST: LatestModel(
             model=Model.GPT_41_NANO_2025_04_14,
@@ -177,7 +165,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             latest_model=Model.GPT_41_NANO_LATEST,
             provider_name=DisplayedProvider.OPEN_AI.value,
             supports_tool_calling=True,
-            fallback=_openai_fallback("cheapest"),
+            fallback=_openai_fallback("cheapest", context_exceeded="no"),
         ),
         Model.GPT_45_PREVIEW_2025_02_27: ModelData(
             display_name="GPT-4.5-preview (2025-02-27)",
@@ -263,6 +251,34 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             replacement_model=Model.GPT_4O_MINI_2024_07_18,
         ),
         Model.GPT_4_1106_VISION_PREVIEW: DeprecatedModel(replacement_model=Model.GPT_4O_2024_11_20),
+        Model.GPT_4O_AUDIO_PREVIEW_2025_06_03: ModelData(
+            display_name="GPT-4o (Audio Preview 2025-06-03)",
+            supports_json_mode=True,
+            supports_input_image=False,
+            supports_input_pdf=False,
+            support_input_schema=False,
+            supports_input_audio=True,
+            supports_audio_only=True,
+            max_tokens_data=MaxTokensData(
+                max_tokens=128_000,
+                max_output_tokens=16384,
+                source="https://platform.openai.com/docs/models",
+            ),
+            icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
+            is_default=True,
+            release_date=date(2025, 6, 3),
+            provider_name=DisplayedProvider.OPEN_AI.value,
+            quality_data=QualityData(equivalent_to=(Model.GPT_4O_AUDIO_PREVIEW_2024_12_17, 1)),
+            supports_tool_calling=False,
+            aliases=[],
+            fallback=ModelFallback(
+                # Falling back to Gemini 1.5 Pro to support audio
+                content_moderation=Model.GEMINI_1_5_PRO_002,
+                structured_output=Model.GEMINI_1_5_PRO_002,
+                rate_limit=Model.GEMINI_1_5_PRO_002,
+                context_exceeded=None,
+            ),
+        ),
         Model.GPT_4O_AUDIO_PREVIEW_2024_12_17: ModelData(
             display_name="GPT-4o (Audio Preview 2024-12-17)",
             supports_json_mode=True,
@@ -288,6 +304,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 content_moderation=Model.GEMINI_1_5_PRO_002,
                 structured_output=Model.GEMINI_1_5_PRO_002,
                 rate_limit=Model.GEMINI_1_5_PRO_002,
+                context_exceeded=None,
             ),
         ),
         Model.GPT_40_AUDIO_PREVIEW_2024_10_01: DeprecatedModel(replacement_model=Model.GPT_4O_AUDIO_PREVIEW_2024_12_17),
@@ -596,7 +613,11 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=83.5, gpqa=51.5),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
-            fallback=ModelFallback.default("cheapest", content_moderation=Model.GPT_41_NANO_LATEST),
+            fallback=ModelFallback.default(
+                "cheapest",
+                content_moderation=Model.GPT_41_NANO_LATEST,
+                context_exceeded="no",
+            ),
         ),
         Model.GEMINI_2_0_FLASH_001: ModelData(
             display_name="Gemini 2.0 Flash (001)",
@@ -616,7 +637,11 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=76.4, gpqa=74.2),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
-            fallback=ModelFallback.default("cheapest", content_moderation=Model.GPT_41_NANO_LATEST),
+            fallback=ModelFallback.default(
+                "cheapest",
+                content_moderation=Model.GPT_41_NANO_LATEST,
+                context_exceeded="no",
+            ),
         ),
         Model.GEMINI_2_5_FLASH_PREVIEW_0417: ModelData(
             display_name="Gemini 2.5 Flash Preview (0417)",
@@ -644,6 +669,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 "cheapest",
                 content_moderation=Model.GPT_41_NANO_LATEST,
                 rate_limit=Model.GEMINI_2_0_FLASH_001,
+                context_exceeded="no",
             ),
         ),
         Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417: ModelData(
@@ -671,6 +697,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 "cheapest",
                 content_moderation=Model.GPT_41_NANO_LATEST,
                 rate_limit=Model.GEMINI_2_0_FLASH_001,
+                context_exceeded="no",
             ),
         ),
         Model.GEMINI_2_5_PRO_PREVIEW_0506: ModelData(
@@ -693,7 +720,11 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             ),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
-            fallback=ModelFallback.default("medium", content_moderation=Model.GPT_41_LATEST),
+            fallback=ModelFallback.default(
+                "medium",
+                content_moderation=Model.GPT_41_LATEST,
+                context_exceeded="no",
+            ),
         ),
         Model.GEMINI_2_5_PRO_PREVIEW_0325: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0506),
         Model.GEMINI_2_5_PRO_EXP_0325: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0506),
@@ -754,7 +785,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=85.14, gpqa=59.10),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
-            fallback=ModelFallback.default("medium", content_moderation=Model.GPT_41_LATEST),
+            fallback=ModelFallback.default("medium", content_moderation=Model.GPT_41_LATEST, context_exceeded="no"),
         ),
         Model.GEMINI_1_5_PRO_001: DeprecatedModel(replacement_model=Model.GEMINI_1_5_PRO_002),
         Model.GEMINI_1_5_PRO_PREVIEW_0409: DeprecatedModel(replacement_model=Model.GEMINI_1_5_PRO_002),
@@ -880,7 +911,11 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             quality_data=QualityData(mmlu=78.9, gpqa=51),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
-            fallback=ModelFallback.default("cheapest", content_moderation=Model.GPT_41_NANO_LATEST),
+            fallback=ModelFallback.default(
+                "cheapest",
+                content_moderation=Model.GPT_41_NANO_LATEST,
+                context_exceeded="no",
+            ),
         ),
         Model.GEMINI_1_5_FLASH_001: DeprecatedModel(replacement_model=Model.GEMINI_1_5_PRO_002),
         Model.GEMINI_1_0_PRO_VISION_001: DeprecatedModel(replacement_model=Model.GEMINI_1_5_PRO_002),
@@ -1213,7 +1248,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             provider_name=DisplayedProvider.FIREWORKS.value,
             supports_tool_calling=False,
             supports_structured_output=True,
-            fallback=ModelFallback.default("cheap"),
+            fallback=ModelFallback.default("cheap", context_exceeded="no"),
         ),
         # https://fireworks.ai/models/fireworks/llama4-scout-instruct-basic
         Model.LLAMA_4_SCOUT_BASIC: ModelData(
