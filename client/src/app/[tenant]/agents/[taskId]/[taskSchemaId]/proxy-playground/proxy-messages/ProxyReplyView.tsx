@@ -69,7 +69,7 @@ export function ProxyReplyView(props: Props) {
   }, [supportToolCallResult, toolCallRequest]);
 
   const assistantMessage: ProxyMessage = useMemo(() => {
-    const assistantText = JSON.stringify(output);
+    const assistantText = typeof output === 'string' ? output : JSON.stringify(output);
     const requestContent: ProxyMessageContent[] = [];
 
     if (toolCallRequest) {
