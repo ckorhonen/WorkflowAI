@@ -4,7 +4,7 @@ from typing import Any, Sequence, cast
 from pydantic import ValidationError
 
 from core.domain.agent_run import AgentRun
-from core.domain.consts import INPUT_KEY_MESSAGES
+from core.domain.consts import INPUT_KEY_MESSAGES_DEPRECATED
 from core.domain.message import Messages
 from core.domain.task_io import RawMessagesSchema, SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
@@ -43,14 +43,16 @@ def _compute_preview(payload: Any, agent_io: SerializableTaskIO):
         if preview := _messages_preview(payload):
             return preview
 
-    if agent_io.uses_messages and isinstance(payload, dict) and INPUT_KEY_MESSAGES in payload:
+    if agent_io.uses_messages and isinstance(payload, dict) and INPUT_KEY_MESSAGES_DEPRECATED in payload:
         # That means we are in the case of an input schema in the case of a proxy task
         # In which case we preview the input, and then the messages in the reply
-        without_messages = {k: v for k, v in cast(dict[str, Any], payload).items() if k != INPUT_KEY_MESSAGES}
+        without_messages = {
+            k: v for k, v in cast(dict[str, Any], payload).items() if k != INPUT_KEY_MESSAGES_DEPRECATED
+        }
         first_preview = compute_preview(without_messages)
         if len(first_preview) < DEFAULT_PREVIEW_MAX_LEN:
             if second_preview := _messages_preview(
-                {"messages": payload[INPUT_KEY_MESSAGES]},
+                {"messages": payload[INPUT_KEY_MESSAGES_DEPRECATED]},
                 include_roles={"user", "assistant"},
                 max_len=DEFAULT_PREVIEW_MAX_LEN - len(first_preview),
             ):

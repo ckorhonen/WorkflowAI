@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from core.domain.agent_run import TaskRunIO
-from core.domain.consts import INPUT_KEY_MESSAGES
+from core.domain.consts import INPUT_KEY_MESSAGES_DEPRECATED
 from core.domain.message import Messages
 from core.domain.task_io import RawMessagesSchema, SerializableTaskIO
 from core.domain.task_variant import VariantIO
@@ -40,14 +40,14 @@ class FileHandler:
 
         _, _, input_files = extract_files(agent_io.json_schema, payload)
 
-        if agent_io.uses_messages and isinstance(payload, dict) and INPUT_KEY_MESSAGES in payload:
+        if agent_io.uses_messages and isinstance(payload, dict) and INPUT_KEY_MESSAGES_DEPRECATED in payload:
             try:
-                messages = Messages.model_validate({"messages": payload[INPUT_KEY_MESSAGES]})
+                messages = Messages.model_validate({"messages": payload[INPUT_KEY_MESSAGES_DEPRECATED]})
             except ValidationError:
                 _logger.exception("Error validating extra messages")
                 return input_files
 
-            input_files.extend(list(messages.file_iterator(prefix=INPUT_KEY_MESSAGES)))
+            input_files.extend(list(messages.file_iterator(prefix=INPUT_KEY_MESSAGES_DEPRECATED)))
 
         return input_files
 

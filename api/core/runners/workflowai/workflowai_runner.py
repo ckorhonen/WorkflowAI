@@ -13,7 +13,7 @@ from typing_extensions import override
 from api.services.providers_service import shared_provider_factory
 from core.domain.agent_run_result import INTERNAL_AGENT_RUN_RESULT_SCHEMA_KEY, AgentRunResult
 from core.domain.consts import (
-    INPUT_KEY_MESSAGES,
+    INPUT_KEY_MESSAGES_DEPRECATED,
     METADATA_KEY_PROVIDER_NAME,
     METADATA_KEY_USED_MODEL,
     METADATA_KEY_USED_PROVIDERS,
@@ -595,7 +595,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             base = await Messages(messages=self._options.messages).templated(self.template_manager.renderer(input))
         except InvalidTemplateError as e:
             raise BadRequestError(f"Invalid template: {e.message}", details=e.serialize_details()) from e
-        if self.task.input_schema.uses_messages and (input_messages := input.get(INPUT_KEY_MESSAGES)):
+        if self.task.input_schema.uses_messages and (input_messages := input.get(INPUT_KEY_MESSAGES_DEPRECATED)):
             # We have extra messages to append
             try:
                 input_messages = Messages.model_validate({"messages": input_messages})

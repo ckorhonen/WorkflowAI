@@ -15,7 +15,7 @@ from api.routers.openai_proxy._openai_proxy_models import (
     OpenAIProxyToolFunction,
 )
 from api.services.feedback_svc import FeedbackTokenGenerator
-from core.domain.consts import INPUT_KEY_MESSAGES
+from core.domain.consts import INPUT_KEY_MESSAGES_DEPRECATED
 from core.domain.errors import BadRequestError
 from core.domain.message import Message, MessageRole, Messages
 from core.domain.models.models import Model
@@ -269,7 +269,7 @@ class TestPrepareRunForModel:
             response_format=None,
         )
         assert result.final_input == {
-            INPUT_KEY_MESSAGES: [Message.with_text("Hello, world!", role="user")],
+            INPUT_KEY_MESSAGES_DEPRECATED: [Message.with_text("Hello, world!", role="user")],
         }
         assert result.properties.messages == [
             Message.with_text("You are a helpful assistant", role="system"),
@@ -285,7 +285,7 @@ class TestPrepareRunForModel:
             response_format=None,
         )
         assert result.final_input == {
-            INPUT_KEY_MESSAGES: [Message.with_text("Hello, world!", role="user")],
+            INPUT_KEY_MESSAGES_DEPRECATED: [Message.with_text("Hello, world!", role="user")],
         }
 
         assert result.properties.messages == []
@@ -311,7 +311,7 @@ class TestPrepareRunForModel:
         assert result.final_input == {
             "name": "John",
             "dude": "Jane",
-            INPUT_KEY_MESSAGES: [
+            INPUT_KEY_MESSAGES_DEPRECATED: [
                 Message.with_text("Not a template", role="user"),
             ],
         }

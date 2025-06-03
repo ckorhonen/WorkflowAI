@@ -3,7 +3,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel
 
-from core.domain.consts import INPUT_KEY_MESSAGES
+from core.domain.consts import INPUT_KEY_MESSAGES_DEPRECATED
 from core.domain.message import Message, MessageContent
 from core.domain.task_group_properties import TaskGroupProperties
 
@@ -59,7 +59,7 @@ class StoredMessage(Message):
 
 
 class StoredMessages(BaseModel):
-    messages: list[StoredMessage] = Field(alias=INPUT_KEY_MESSAGES, default_factory=list)
+    messages: list[StoredMessage] = Field(alias=INPUT_KEY_MESSAGES_DEPRECATED, default_factory=list)
 
     # Any other field will be allowed in stored in extras
     model_config = ConfigDict(extra="allow")
