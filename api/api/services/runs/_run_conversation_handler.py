@@ -66,11 +66,8 @@ class RunConversationHandler:
                 return conversation_id
         return None
 
-    async def handle_run(self, run: AgentRun):
+    async def handle_run(self, run: AgentRun, stored_messages: StoredMessages):
         """Try to find a conversation id and run id for messages in a run."""
-
-        # Build a stored message object from the run input
-        stored_messages = StoredMessages.model_validate(run.task_input)
 
         # We are still going if there are no messages, we still need to assign a conversation id
         # and set the hash for the run idn==
@@ -107,18 +104,3 @@ class RunConversationHandler:
         # Store the new values in redis
         await self._kv_storage.set(self._conversation_id_key(final_hash), run.conversation_id, _EXPIRY_TIME)
         await self._kv_storage.set(self._run_id_key(final_hash), run.id, _EXPIRY_TIME)
-
-        # Not using exclude_none here because we might have None values in the input that are
-        # expected
-        run.task_input = stored_messages.model_dump(
-            exclude_unset=True,
-            by_alias=True,
-            exclude={
-                "messages": {
-                    "__all__": {
-                        # We don't need the agg hash but we want the run id
-                        "agg_hash": True,
-                    },
-                },
-            },
-        )

@@ -1,9 +1,11 @@
 import hashlib
 import json
+from typing import Iterator
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, RootModel
 
 from core.domain.consts import INPUT_KEY_MESSAGES, INPUT_KEY_MESSAGES_DEPRECATED
+from core.domain.fields.file import File
 from core.domain.message import Message, MessageContent
 from core.domain.task_group_properties import TaskGroupProperties
 
@@ -96,3 +98,29 @@ class StoredMessages(BaseModel):
     def aggregate_hashes(cls, hashes: list[str]) -> str:
         """Aggregate the hashes of a list of messages"""
         return _hash(str(hashes))
+
+    def file_iterator(self) -> Iterator[File]:
+        for m in self.messages:
+            for c in m.content:
+                if c.file:
+                    yield c.file
+
+    def dump_for_input(self):
+        return self.model_dump(
+            exclude_unset=True,
+            exclude={
+                "messages": {
+                    "__all__": {
+                        # We don't need the agg hash but we want the run id
+                        "agg_hash": True,
+                        "content": {
+                            "__all__": {
+                                "file": {
+                                    "format": True,
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        )
