@@ -80,7 +80,7 @@ class RunConversationHandler:
         # We are still going if there are no messages, we still need to assign a conversation id
         # and set the hash for the run idn==
         # Compute all hashes
-        baseline_history = stored_messages.compute_hashes(run.group.properties.messages)
+        baseline_history = stored_messages.compute_hashes(run.group.properties)
 
         # Try to assign the conversation id
         if not run.conversation_id:
