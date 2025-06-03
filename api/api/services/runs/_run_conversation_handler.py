@@ -3,6 +3,7 @@ import logging
 from datetime import timedelta
 
 from core.domain.agent_run import AgentRun
+from core.domain.consts import INPUT_KEY_MESSAGES
 from core.storage.key_value_storage import KeyValueStorage
 from core.utils.coroutines import capture_errors
 from core.utils.uuid import uuid7
@@ -66,14 +67,20 @@ class RunConversationHandler:
                 return conversation_id
         return None
 
-    async def handle_run(self, run: AgentRun, has_input: bool):
+    async def handle_run(self, run: AgentRun):
         """Try to find a conversation id and run id for messages in a run."""
+        by_alias = isinstance(run.task_input, dict) and INPUT_KEY_MESSAGES in run.task_input  # pyright: ignore [reportUnknownMemberType]
         # Build a stored message object from the run input
-        stored_messages = StoredMessages.model_validate(run.task_input, by_alias=has_input, by_name=not has_input)
+        stored_messages = StoredMessages.model_validate(
+            run.task_input,  # pyright: ignore [reportUnknownMemberType]
+            by_alias=by_alias,
+            by_name=not by_alias,
+        )
+
         # We are still going if there are no messages, we still need to assign a conversation id
-        # and set the hash for the run id
+        # and set the hash for the run idn==
         # Compute all hashes
-        baseline_history = stored_messages.compute_hashes()
+        baseline_history = stored_messages.compute_hashes(run.group.properties.messages)
 
         # Try to assign the conversation id
         if not run.conversation_id:
@@ -118,5 +125,5 @@ class RunConversationHandler:
                     },
                 },
             },
-            by_alias=has_input,
+            by_alias=by_alias,
         )
