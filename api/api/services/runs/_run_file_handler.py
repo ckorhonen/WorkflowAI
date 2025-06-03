@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from core.domain.agent_run import TaskRunIO
-from core.domain.consts import INPUT_KEY_MESSAGES_DEPRECATED
+from core.domain.consts import INPUT_KEY_MESSAGES
 from core.domain.message import Messages
 from core.domain.task_io import RawMessagesSchema, SerializableTaskIO
 from core.domain.task_variant import VariantIO
@@ -40,14 +40,19 @@ class FileHandler:
 
         _, _, input_files = extract_files(agent_io.json_schema, payload)
 
-        if agent_io.uses_messages and isinstance(payload, dict) and INPUT_KEY_MESSAGES_DEPRECATED in payload:
+        if agent_io.uses_messages:
             try:
-                messages = Messages.model_validate({"messages": payload[INPUT_KEY_MESSAGES_DEPRECATED]})
+                messages = Messages.model_validate(payload)
             except ValidationError:
                 _logger.exception("Error validating extra messages")
                 return input_files
 
-            input_files.extend(list(messages.file_iterator(prefix=INPUT_KEY_MESSAGES_DEPRECATED)))
+            # Here there could be an issue if we had an old input
+            # using a deprecated key for messages
+            # We should be good because the ConversationHandler rewrites the input anyway
+            # It's just a lot of unnecessary work
+            # TODO: We should really just serialize to messages once and the sanitize the input
+            input_files.extend(list(messages.file_iterator(prefix=INPUT_KEY_MESSAGES)))
 
         return input_files
 

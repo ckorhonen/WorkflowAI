@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import AliasChoices, BaseModel, Field
 
-from core.domain.consts import INPUT_KEY_MESSAGES_DEPRECATED
+from core.domain.consts import INPUT_KEY_MESSAGES, INPUT_KEY_MESSAGES_DEPRECATED
 from core.domain.fields.file import File, FileKind, FileWithKeyPath
 from core.domain.fields.image_options import ImageOptions
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
@@ -121,7 +121,10 @@ class Message(BaseModel):
 
 
 class Messages(BaseModel):
-    messages: list[Message] = Field(validation_alias=AliasChoices("messages", INPUT_KEY_MESSAGES_DEPRECATED))
+    messages: list[Message] = Field(
+        serialization_alias=INPUT_KEY_MESSAGES,
+        validation_alias=AliasChoices(INPUT_KEY_MESSAGES, "messages", INPUT_KEY_MESSAGES_DEPRECATED),
+    )
 
     async def templated(self, renderer: TemplateRenderer):
         try:

@@ -12,7 +12,7 @@ from api.services.models import ModelsService
 from api.services.run import RunService
 from api.utils import get_start_time
 from core.domain.analytics_events.analytics_events import SourceType, TaskProperties
-from core.domain.consts import INPUT_KEY_MESSAGES_DEPRECATED, METADATA_KEY_DEPLOYMENT_ENVIRONMENT, WORKFLOWAI_APP_URL
+from core.domain.consts import INPUT_KEY_MESSAGES, METADATA_KEY_DEPLOYMENT_ENVIRONMENT, WORKFLOWAI_APP_URL
 from core.domain.errors import BadRequestError
 from core.domain.events import EventRouter, ProxyAgentCreatedEvent
 from core.domain.message import Message, Messages
@@ -223,7 +223,7 @@ class OpenAIProxyHandler:
 
                 final_input = {
                     **final_input,
-                    INPUT_KEY_MESSAGES_DEPRECATED: messages.model_dump(mode="json", exclude_none=True)["messages"],
+                    INPUT_KEY_MESSAGES: messages.model_dump(mode="json", exclude_none=True)["messages"],
                 }
 
         return self.PreparedRun(properties=properties, variant=variant, final_input=final_input)
@@ -275,7 +275,7 @@ class OpenAIProxyHandler:
             if len(messages.messages) > cutoff_index:
                 final_input = {
                     **final_input,
-                    INPUT_KEY_MESSAGES_DEPRECATED: messages.messages[cutoff_index:],
+                    INPUT_KEY_MESSAGES: messages.messages[cutoff_index:],
                 }
         else:
             final_input = messages

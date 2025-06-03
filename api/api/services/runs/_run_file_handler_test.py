@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 from pytest_httpx import HTTPXMock
 
-from core.domain.consts import INPUT_KEY_MESSAGES_DEPRECATED
+from core.domain.consts import INPUT_KEY_MESSAGES
 from core.domain.task_io import SerializableTaskIO
 from core.runners.workflowai.utils import (
     FileWithKeyPath,
@@ -58,7 +58,7 @@ class TestHandleRun:
         mock_file_storage.store_file.return_value = "https://bliblu"
         agent_input = {
             "hello": "world",
-            INPUT_KEY_MESSAGES_DEPRECATED: [
+            INPUT_KEY_MESSAGES: [
                 {
                     "role": "user",
                     "content": [
@@ -93,7 +93,7 @@ class TestHandleRun:
 
         assert run_io.task_input == {
             "hello": "world",
-            INPUT_KEY_MESSAGES_DEPRECATED: [
+            INPUT_KEY_MESSAGES: [
                 {
                     "role": "user",
                     "content": [
