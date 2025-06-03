@@ -24,3 +24,6 @@ class BatchedAmplitude:
 
     async def close(self):
         await self._timed_buffer.close()
+
+    async def flush(self):
+        await self._timed_buffer.purge()

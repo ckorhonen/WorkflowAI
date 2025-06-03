@@ -77,9 +77,9 @@ async def create_task(
 
     # Wait for all generated events to be sent to the broker
     await wait_for_completed_tasks(patched_broker)
-    amplitude_events = await get_amplitude_requests(httpx_mock)
+    amplitude_events = await get_amplitude_events(httpx_mock)
 
-    assert any(event["events"][0]["event_type"] == "org.created.task" for event in amplitude_events)
+    assert any(event["event_type"] == "org.created.task" for event in amplitude_events)
 
     # Reset the mock to clear any remaining requests
     httpx_mock._requests.clear()  # pyright: ignore [reportPrivateUsage]
@@ -302,6 +302,11 @@ async def import_task_run(
 async def wait_for_completed_tasks(broker: InMemoryBroker, max_retries: int = 10):
     if isinstance(broker, PausableInMemoryBroker):
         await broker.resume()
+
+    from api.services.analytics._amplitude_analytics_service import AmplitudeAnalyticsService
+
+    await AmplitudeAnalyticsService.batched_amplitude.flush()
+
     """Sleep for intervals of 100 until all tasks are completed or max_retries is reached."""
     running = []
     for _ in range(max_retries):
@@ -526,6 +531,16 @@ async def get_amplitude_requests(httpx_mock: HTTPXMock):
     events = [request_json_body(request) for request in requests]
     # Sort events based on time and event_type
     return sorted(events, key=lambda x: (x["events"][0]["time"], x["events"][0]["event_type"]))
+
+
+async def get_amplitude_events(httpx_mock: HTTPXMock):
+    requests = await get_amplitude_requests(httpx_mock)
+    out: list[dict[str, Any]] = []
+    for request in requests:
+        out.extend(request["events"])
+
+    # Sort by event type and time
+    return sorted(out, key=lambda x: (x["time"], x["event_type"]))
 
 
 async def create_organization_via_clerk(
