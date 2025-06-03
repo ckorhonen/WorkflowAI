@@ -1,7 +1,7 @@
 import hashlib
 import json
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, RootModel
 
 from core.domain.consts import INPUT_KEY_MESSAGES
 from core.domain.message import Message, MessageContent
@@ -69,10 +69,12 @@ class StoredMessages(BaseModel):
             return ""
         return _hash(json.dumps(self.model_extra, sort_keys=True))
 
-    def compute_hashes(self):
+    def compute_hashes(self, version_messages: list[Message] | None):
         """Compute a hash for each message that depends on the previous messages."""
 
         computed: list[str] = [self._extra_hash()]
+        if version_messages:
+            computed.append(_hash(RootModel(version_messages).model_dump_json()))
         for message in self.messages:
             # Add the current message hash to the computed list
             computed.append(message.model_hash())

@@ -117,3 +117,42 @@ async def test_with_tool_calls(test_client: IntegrationTestClient, openai_client
             },
         ],
     }
+
+
+async def test_with_deployed_version(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+    # First create a version with a system message and deploy it to prod
+    task = await test_client.create_agent_v1(
+        input_schema={"type": "object", "format": "messages"},
+        output_schema={"format": "message", "type": "string"},
+    )
+    version = await test_client.create_version_v1(
+        task,
+        {
+            "model": "gpt-4o-latest",
+            "messages": [
+                {"role": "system", "content": [{"text": "You are helpful"}]},
+            ],
+        },
+    )
+    await test_client.post(
+        f"/v1/_/agents/{task['id']}/versions/{version['id']}/deploy",
+        json={"environment": "production"},
+    )
+
+    # Now create a conversation with that version
+    test_client.mock_openai_call(raw_content="Hello John!")
+    messages: list[ChatCompletionMessageParam] = [{"role": "user", "content": "Hello, world!"}]
+    res1 = await openai_client.chat.completions.create(model="greet/#1/production", messages=messages)
+    messages.append(res1.choices[0].message.model_dump(exclude_none=True))  # type: ignore
+
+    test_client.mock_openai_call(raw_content="Hello James!")
+    messages.append({"role": "user", "content": "Finally"})
+    res2 = await openai_client.chat.completions.create(model="greet/#1/production", messages=messages)
+
+    await test_client.wait_for_completed_tasks()
+
+    # Now fetching the runs
+    run1 = await fetch_run_from_completion(test_client, res1)
+    assert run1["conversation_id"] is not None
+    run2 = await fetch_run_from_completion(test_client, res2)
+    assert run2["conversation_id"] == run1["conversation_id"]
