@@ -319,7 +319,7 @@ class RunsService:
             cls._strip_llm_completions(task_run.llm_completions)
 
         with capture_errors(logger=_logger, msg="Could not assign run previews"):
-            assign_run_previews(task_run, task_variant, messages)
+            assign_run_previews(task_run, messages)
 
         if messages:
             task_run.task_input = messages.dump_for_input()
