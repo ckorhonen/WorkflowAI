@@ -41,12 +41,12 @@ class TestHandleRun:
         assert mock_storage.kv.set.call_count == 2
         call_args_list = sorted(mock_storage.kv.set.call_args_list, key=lambda x: x[0])
         assert call_args_list[0].args == (
-            "1:1:conversation:conversation_id:93fb678742ea460c52fd0475fb9a2adacba6d5bb82f683386ae0d5830c235200",
+            "1:1:conversation:conversation_id:2535ac77ef0eea3b2a5306b42a59f3b6e42f31ee0e14a035033bb0c528068a0a",
             str(UUID(int=1)),
             timedelta(hours=1),
         )
         assert call_args_list[1].args == (
-            "1:1:conversation:run_id:93fb678742ea460c52fd0475fb9a2adacba6d5bb82f683386ae0d5830c235200",
+            "1:1:conversation:run_id:2535ac77ef0eea3b2a5306b42a59f3b6e42f31ee0e14a035033bb0c528068a0a",
             run.id,
             timedelta(hours=1),
         )
