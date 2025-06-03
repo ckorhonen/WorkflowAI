@@ -35,7 +35,7 @@ async def test_raw_string_output(test_client: IntegrationTestClient, openai_clie
 
     # Check the amplitude call
     amplitude_events = test_client.amplitude_events_with_type("org.ran.task")
-    assert len(amplitude_events) == 1
+    assert len(amplitude_events) == 1, "no amplitude event"
     assert amplitude_events[0]["event_properties"]["task"]["id"] == "default"
 
     task_id, run_id = res.id.split("/")
@@ -170,7 +170,7 @@ async def test_with_image(test_client: IntegrationTestClient, openai_client: Asy
     task_id, run_id = res.id.split("/")
     run = await test_client.fetch_run({"id": task_id}, run_id=run_id, v1=True)
     assert run["id"] == run_id
-    assert run["task_input"]["messages"][1]["content"][0] == {
+    assert run["task_input"]["workflowai.messages"][1]["content"][0] == {
         "file": {
             "url": "https://hello.com/image.png",
             "content_type": "image/png",
@@ -211,7 +211,7 @@ async def test_with_image_as_data(test_client: IntegrationTestClient, openai_cli
     task_id, run_id = res.id.split("/")
     run = await test_client.fetch_run({"id": task_id}, run_id=run_id, v1=True)
     assert run["id"] == run_id
-    assert run["task_input"]["messages"][1]["content"][0] == {
+    assert run["task_input"]["workflowai.messages"][1]["content"][0] == {
         "file": {
             "url": mock.ANY,
             "content_type": "image/png",
@@ -465,7 +465,7 @@ async def test_deployment(test_client: IntegrationTestClient, openai_client: Asy
     assert run["task_output"] == "I'm good, thank you!"
     assert run["task_input"] == {
         "name": "Cecily",
-        "workflowai.replies": [
+        "workflowai.messages": [
             {"role": "assistant", "content": [{"text": "Hello, Cecily!"}]},
             {"role": "user", "content": [{"text": "How are you?"}]},
         ],

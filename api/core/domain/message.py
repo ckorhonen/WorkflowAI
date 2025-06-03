@@ -5,8 +5,8 @@ from typing import Literal
 
 from pydantic import AliasChoices, BaseModel, Field
 
-from core.domain.consts import INPUT_KEY_MESSAGES
-from core.domain.fields.file import File, FileKind, FileWithKeyPath
+from core.domain.consts import INPUT_KEY_MESSAGES, INPUT_KEY_MESSAGES_DEPRECATED
+from core.domain.fields.file import File, FileKind
 from core.domain.fields.image_options import ImageOptions
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.domain.types import TemplateRenderer
@@ -121,7 +121,10 @@ class Message(BaseModel):
 
 
 class Messages(BaseModel):
-    messages: list[Message] = Field(validation_alias=AliasChoices("messages", INPUT_KEY_MESSAGES))
+    messages: list[Message] = Field(
+        serialization_alias=INPUT_KEY_MESSAGES,
+        validation_alias=AliasChoices(INPUT_KEY_MESSAGES, "messages", INPUT_KEY_MESSAGES_DEPRECATED),
+    )
 
     async def templated(self, renderer: TemplateRenderer):
         try:
@@ -137,13 +140,3 @@ class Messages(BaseModel):
 
     def to_input_dict(self):
         return self.model_dump(exclude_none=True)
-
-    def file_iterator(self, prefix: str = "messages") -> Iterator[FileWithKeyPath]:
-        for i, m in enumerate(self.messages):
-            for j, c in enumerate(m.content):
-                if c.file:
-                    # Returning an empty key path
-                    yield FileWithKeyPath(
-                        key_path=[prefix, i, "content", j, "file"],
-                        **c.file.model_dump(exclude_none=True),
-                    )
