@@ -72,6 +72,7 @@ export function ProxyInputVariables(props: Props) {
         handleUploadFile={handleUploadFile}
         className='h-max'
         showDescriptionPopover={false}
+        showTypeSelector={true}
       />
     </div>
   );

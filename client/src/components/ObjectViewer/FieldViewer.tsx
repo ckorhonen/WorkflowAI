@@ -27,6 +27,7 @@ export interface FieldViewerProps extends Omit<ValueViewerProps<unknown>, 'value
   flatFieldBasedConfigMode?: 'editable' | 'readonly' | 'evaluation';
   arrayIndex: number | undefined;
   onRemove: (() => void) | undefined;
+  showTypeSelector?: boolean;
 }
 
 export function FieldViewer(props: FieldViewerProps) {
@@ -49,6 +50,7 @@ export function FieldViewer(props: FieldViewerProps) {
     flatFieldBasedConfigMode,
     arrayIndex,
     onRemove,
+    showTypeSelector = false,
     ...rest
   } = props;
 
