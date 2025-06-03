@@ -31,7 +31,7 @@ async def test_raw_string_messages(test_client: IntegrationTestClient, openai_cl
     assert run1["conversation_id"] == run2["conversation_id"] == run3["conversation_id"]
 
     assert run2["task_input"] == {
-        "messages": [
+        "workflowai.messages": [
             {"role": "user", "content": [{"text": "Hello, world!"}]},
             {"role": "assistant", "content": [{"text": "Hello James!"}], "run_id": run1["id"]},
             {"role": "user", "content": [{"text": "1"}]},
@@ -39,7 +39,7 @@ async def test_raw_string_messages(test_client: IntegrationTestClient, openai_cl
     }
 
     assert run3["task_input"] == {
-        "messages": [
+        "workflowai.messages": [
             {"role": "user", "content": [{"text": "Hello, world!"}]},
             {"role": "assistant", "content": [{"text": "Hello James!"}], "run_id": run1["id"]},
             {"role": "user", "content": [{"text": "1"}]},
@@ -85,7 +85,7 @@ async def test_with_tool_calls(test_client: IntegrationTestClient, openai_client
     assert run1["conversation_id"] == run2["conversation_id"]
 
     assert run2["task_input"] == {
-        "messages": [
+        "workflowai.messages": [
             {"role": "user", "content": [{"text": "Hello, world!"}]},
             {
                 "role": "assistant",
@@ -187,14 +187,14 @@ async def test_with_different_model(test_client: IntegrationTestClient, openai_c
 
     # Check that the run_id is in run3 input but not run2
     assert run2["task_input"] == {
-        "messages": [
+        "workflowai.messages": [
             {"role": "user", "content": [{"text": "Hello, world!"}]},
             {"role": "assistant", "content": [{"text": "Hello James!"}]},
             {"role": "user", "content": [{"text": "1"}]},
         ],
     }
     assert run3["task_input"] == {
-        "messages": [
+        "workflowai.messages": [
             {"role": "user", "content": [{"text": "Hello, world!"}]},
             {"role": "assistant", "content": [{"text": "Hello James!"}], "run_id": run1["id"]},
             {"role": "user", "content": [{"text": "1"}]},

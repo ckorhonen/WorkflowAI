@@ -170,7 +170,7 @@ async def test_with_image(test_client: IntegrationTestClient, openai_client: Asy
     task_id, run_id = res.id.split("/")
     run = await test_client.fetch_run({"id": task_id}, run_id=run_id, v1=True)
     assert run["id"] == run_id
-    assert run["task_input"]["messages"][1]["content"][0] == {
+    assert run["task_input"]["workflowai.messages"][1]["content"][0] == {
         "file": {
             "url": "https://hello.com/image.png",
             "content_type": "image/png",
