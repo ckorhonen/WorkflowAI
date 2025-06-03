@@ -5,6 +5,7 @@ from uuid import UUID
 import pytest
 
 from api.services.runs._run_conversation_handler import RunConversationHandler
+from core.domain.message import Message
 from tests import models as test_models
 
 
@@ -34,7 +35,7 @@ class TestHandleRun:
             task_output="hello",
         )
         assert not run.conversation_id, "sanity check"
-        await handler.handle_run(run, has_input=False)
+        await handler.handle_run(run)
 
         mock_storage.kv.get.assert_not_called()
         assert mock_storage.kv.set.call_count == 2
@@ -81,7 +82,7 @@ class TestHandleRun:
             },
         )
         mock_storage.kv.get.return_value = str(UUID(int=2))
-        await handler.handle_run(run, has_input=False)
+        await handler.handle_run(run)
         assert run.task_input == {
             "messages": [
                 {
@@ -120,7 +121,7 @@ class TestHandleRun:
             },
         )
         mock_storage.kv.get.return_value = str(UUID(int=2))
-        await handler.handle_run(run, has_input=True)
+        await handler.handle_run(run)
         mock_storage.kv.get.assert_called_once()
         assert mock_storage.kv.set.call_count == 2
 
@@ -148,7 +149,7 @@ class TestHandleRun:
             },
         )
         mock_storage.kv.get.return_value = str(UUID(int=2))
-        await handler.handle_run(run, has_input=True)
+        await handler.handle_run(run)
         assert mock_storage.kv.set.call_count == 2
         assert run.task_input == {
             "hello": "world",
@@ -163,9 +164,44 @@ class TestHandleRun:
                 "workflowai.replies": [],
             },
         )
-        await handler.handle_run(run, has_input=True)
+        await handler.handle_run(run)
         assert mock_storage.kv.set.call_count == 2
         assert run.task_input == {
             "name": "Cecily",
             "workflowai.replies": [],
         }
+
+    async def test_with_version_messages(self, handler: RunConversationHandler, mock_storage: Mock):
+        """With version messages. Run should have a conversation id assigned and the input should be untouched"""
+        run = test_models.task_run_ser(
+            task_input={
+                "name": "Cecily",
+                "workflowai.replies": [],
+            },
+        )
+        run.group.properties.messages = [
+            Message.with_text("Hello, world!", role="system"),
+        ]
+        await handler.handle_run(run)
+        assert mock_storage.kv.set.call_count == 2
+
+        run2 = test_models.task_run_ser(
+            task_input={
+                "name": "Cecily",
+                "workflowai.replies": [],
+            },
+        )
+        run2.group.properties.messages = [
+            Message.with_text("Hello, world 2!", role="system"),
+        ]
+        await handler.handle_run(run2)
+        assert mock_storage.kv.set.call_count == 4
+
+        # Checking that the hashes are different
+        conversation_keys = [
+            c.args[0]
+            for c in mock_storage.kv.set.call_args_list
+            if c.args[0].startswith("1:1:conversation:conversation_id:")
+        ]
+        assert len(conversation_keys) == 2
+        assert conversation_keys[0] != conversation_keys[1]
