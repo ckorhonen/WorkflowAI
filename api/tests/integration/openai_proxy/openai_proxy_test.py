@@ -762,3 +762,14 @@ async def test_none_content(test_client: IntegrationTestClient, openai_client: A
     )
     assert res.choices[0].message.content is None
     assert res.choices[0].message.tool_calls is not None
+
+
+async def test_with_n_value_of_1(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+    test_client.mock_openai_call(raw_content="Hello, world!")
+
+    res = await openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "Hello, world!"}],
+        n=1,
+    )
+    assert res.choices[0].message.content == "Hello, world!"
