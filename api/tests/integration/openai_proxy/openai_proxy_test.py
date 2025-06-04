@@ -46,7 +46,7 @@ async def test_raw_string_output(test_client: IntegrationTestClient, openai_clie
     runs = (await test_client.post(f"/v1/_/agents/{task_id}/runs/search", json={}))["items"]
     assert len(runs) == 1
     assert runs[0]["id"] == run_id
-    assert runs[0]["task_input_preview"] == "Hello, world!"
+    assert runs[0]["task_input_preview"] == "User: Hello, world!"
     assert runs[0]["task_output_preview"] == "Hello James!"
 
     agent = await test_client.get(f"/_/agents/{task_id}/schemas/1")
@@ -182,7 +182,7 @@ async def test_with_image(test_client: IntegrationTestClient, openai_client: Asy
 
     runs = (await test_client.post("/v1/_/agents/default/runs/search", json={}))["items"]
     assert len(runs) == 1
-    assert runs[0]["task_input_preview"].startswith("[[img:http://127.0.0.1")
+    assert runs[0]["task_input_preview"].startswith("User: [[img:http://127.0.0.1")
 
 
 async def test_with_image_as_data(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
@@ -223,7 +223,7 @@ async def test_with_image_as_data(test_client: IntegrationTestClient, openai_cli
 
     runs = (await test_client.post("/v1/_/agents/default/runs/search", json={}))["items"]
     assert len(runs) == 1
-    assert runs[0]["task_input_preview"].startswith("[[img:http://127.0.0.1")
+    assert runs[0]["task_input_preview"].startswith("User: [[img:http://127.0.0.1")
 
 
 async def test_with_tools(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
