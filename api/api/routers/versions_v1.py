@@ -190,6 +190,10 @@ async def improve_prompt(
 
 class ImproveVersionMessagesRequest(BaseModel):
     run_id: str | None = None
+    overriden_messages: list[Message] | None = Field(
+        default=None,
+        description="The messages to use for the improvement (in case the user has overriden the messages in the UI). If not provided, the version messages will be used.",
+    )
     improvement_instructions: str | None = None
 
 
@@ -227,7 +231,7 @@ async def improve_version_messages(
 
     async def _stream():
         async for chunk in internal_tasks.improve_prompt.improve_version_messages(
-            version_messages=version.group.properties.messages or [],
+            version_messages=request.overriden_messages or version.group.properties.messages or [],
             run=run,
             improvement_instructions=request.improvement_instructions,
         ):
