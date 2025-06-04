@@ -116,7 +116,7 @@ class Message(BaseModel):
         raise InternalError("Unexpected message type")
 
     @classmethod
-    def with_text(cls, text: str, role: MessageRole = "user") -> "Message":
+    def with_text(cls, text: str, role: MessageRole = "user"):
         return cls(role=role, content=[MessageContent(text=text)])
 
 

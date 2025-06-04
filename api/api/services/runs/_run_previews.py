@@ -1,32 +1,58 @@
 from typing import Sequence
 
-from api.services.runs._stored_message import StoredMessages
+from api.services.runs._stored_message import StoredMessage, StoredMessages
 from core.domain.agent_run import AgentRun
-from core.domain.message import Message
 from core.domain.tool_call import ToolCallRequest
 from core.utils.models.previews import DEFAULT_PREVIEW_MAX_LEN, compute_preview
 
 
+def _last_message_idx_with_run_id(messages: Sequence[StoredMessage]) -> int | None:
+    for i, m in enumerate(reversed(messages)):
+        if m.run_id:
+            return len(messages) - i - 1
+    return None
+
+
+def _message_preview(message: StoredMessage, max_len: int):
+    if not message.content:
+        return None
+
+    content = message.content[0]
+    if content.file:
+        return "User: " + compute_preview(content.file, max_len=max_len)
+
+    if content.text:
+        return "User: " + compute_preview(content.text, max_len=max_len)
+
+    if content.tool_call_result:
+        return "Tool: " + compute_preview(content.tool_call_result.result, max_len=max_len)
+
+    return None
+
+
 def _messages_list_preview(
-    messages: Sequence[Message],
+    messages: Sequence[StoredMessage],
     include_roles: set[str] = {"user"},
     max_len: int = DEFAULT_PREVIEW_MAX_LEN,
 ):
     if not messages:
         return None
 
-    first_user_message = next((m for m in messages if m.role in include_roles), messages[0])
+    # Trying to find the number of messages that were added
+    # This means finding the number of messages after the last run that has a "run_id"
 
-    if not first_user_message.content:
-        return None
+    first_response_idx = _last_message_idx_with_run_id(messages)
+    if first_response_idx is None:
+        first_msg_idx = 0
+        prefix = ""
+    else:
+        first_msg_idx = first_response_idx + 1
+        prefix = f"💬 {first_msg_idx} msg{'s' if first_msg_idx > 1 else ''}..."
 
-    content = first_user_message.content[0]
-    if content.file:
-        return compute_preview(content.file, max_len=max_len)
-
-    if content.text:
-        return compute_preview(content.text)
-
+    max_len -= len(prefix)
+    first_message = next((m for m in messages[first_msg_idx:] if m.role in include_roles), messages[0])
+    if preview := _message_preview(first_message, max_len):
+        return f"{prefix}{preview}"
     return None
 
 
@@ -46,7 +72,7 @@ def _messages_preview(messages: StoredMessages):
                 include_roles={"user", "assistant"},
                 max_len=DEFAULT_PREVIEW_MAX_LEN - len(first_preview),
             ):
-                first_preview += f" | messages: {second_preview}"
+                first_preview += f" | {second_preview}"
         return first_preview
     return _messages_list_preview(messages.messages) or ""
 
