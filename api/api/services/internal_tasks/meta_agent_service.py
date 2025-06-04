@@ -308,13 +308,8 @@ class GenerateAgentInputToolCall(MetaAgentToolCall):
 class UpdateVersionMessagesToolCall(MetaAgentToolCall):
     tool_name: str = "update_version_messages"
 
-    updated_version_messages: list[dict[str, Any]] = Field(
-        description="The messages to update the version with.",
-    )
-
-    input_variables: dict[str, Any] | None = Field(
-        default=None,
-        description="The input variables to update the version with, to fill only in case the version message contain {{input_variables}}",
+    improvement_instructions: str = Field(
+        description="Instructions on how to improve the current agent version's messages.",
     )
 
     def to_domain(self) -> None:
@@ -1509,8 +1504,7 @@ class MetaAgentService:
 
     def _extract_tool_call_to_return(
         self,
-        updated_version_messages: list[dict[str, Any]] | None,
-        example_input: dict[str, Any] | None,
+        improvement_instructions: str | None,
         new_tool: ProxyMetaAgentOutput.NewTool | None,
         run_trigger_config: ProxyMetaAgentOutput.RunTriggerConfig | None,
         edit_schema_structure_request: EditSchemaStructureToolCallRequest | None,
@@ -1518,10 +1512,9 @@ class MetaAgentService:
         generate_input_request: GenerateAgentInputToolCallRequest | None,
     ) -> MetaAgentToolCallType | None:
         tool_call_to_return = None
-        if updated_version_messages:
+        if improvement_instructions:
             tool_call_to_return = UpdateVersionMessagesToolCall(
-                updated_version_messages=updated_version_messages,
-                input_variables=example_input,
+                improvement_instructions=improvement_instructions,
             )
 
         if new_tool:
@@ -1681,8 +1674,7 @@ class MetaAgentService:
                 )
                 if integration.use_version_messages:
                     tool_call = UpdateVersionMessagesToolCall(
-                        updated_version_messages=proxy_meta_agent_input.suggested_messages_with_input_variables or [],
-                        input_variables=proxy_meta_agent_input.suggested_input_variables_example or {},
+                        improvement_instructions="Proposing to migrate to input variables. Utilize 'suggested_messages_with_input_variables' and 'suggested_input_variables_example' from the main agent input for new version messages.",
                     )
             elif (
                 agent_runs
@@ -1793,9 +1785,7 @@ Please double check:
                     )
                     if integration.use_version_messages:
                         tool_call = UpdateVersionMessagesToolCall(
-                            updated_version_messages=proxy_meta_agent_input.suggested_messages_with_input_variables
-                            or [],
-                            input_variables=proxy_meta_agent_input.suggested_input_variables_example or {},
+                            improvement_instructions="Proposing to migrate to input variables. Utilize 'suggested_messages_with_input_variables' and 'suggested_input_variables_example' from the main agent input for new version messages.",
                         )
             elif messages[-1].kind == "setup_input_variables_user_confirmation":
                 if not is_using_instruction_variables:
@@ -1909,8 +1899,7 @@ Please double check:
         ret: list[MetaAgentChatMessage] = []
 
         accumulator = ""
-        updated_version_messages: list[dict[str, Any]] | None = None
-        example_input: dict[str, Any] | None = None
+        improvement_instructions_chunk: str | None = None
         new_tool: ProxyMetaAgentOutput.NewTool | None = None
         run_trigger_config: ProxyMetaAgentOutput.RunTriggerConfig | None = None
         edit_schema_structure_request_chunk: EditSchemaStructureToolCallRequest | None = None
@@ -1949,10 +1938,8 @@ Please double check:
                 ]
                 yield ret
 
-            if chunk.updated_version_messages:
-                updated_version_messages = chunk.updated_version_messages
-            if chunk.example_input:
-                example_input = chunk.example_input
+            if chunk.improvement_instructions:
+                improvement_instructions_chunk = chunk.improvement_instructions
             if chunk.new_tool:
                 new_tool = chunk.new_tool
             if chunk.run_trigger_config:
@@ -1964,8 +1951,7 @@ Please double check:
                 generate_input_request_chunk = chunk.generate_input_request
 
         tool_call_to_return = self._extract_tool_call_to_return(
-            updated_version_messages,
-            example_input,
+            improvement_instructions_chunk,
             new_tool,
             run_trigger_config,
             edit_schema_structure_request_chunk,
