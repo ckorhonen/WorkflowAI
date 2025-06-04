@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { client } from '@/lib/api';
 import { RequestError } from '@/lib/api/client';
 import { areSchemasEquivalent } from '@/lib/schemaEditorUtils';
+import { mergeSchemaTypesAndDefs } from '@/lib/schemaUtils';
 import { TaskID, TenantID } from '@/types/aliases';
 import { JsonSchema } from '@/types/json_schema';
 import { ProxyMessage } from '@/types/workflowAI';
@@ -117,7 +118,10 @@ function extractInputKeysFromSchema(schema: JsonSchema | undefined): string[] | 
   return Object.keys(properties);
 }
 
-function fixSchema(schema: JsonSchema | undefined, baseInputSchema: JsonSchema | undefined): JsonSchema | undefined {
+function fixSchemaFormat(
+  schema: JsonSchema | undefined,
+  baseInputSchema: JsonSchema | undefined
+): JsonSchema | undefined {
   if (baseInputSchema && 'format' in baseInputSchema) {
     return {
       ...schema,
@@ -142,10 +146,13 @@ export const useOrExtractTemplete = (
   const extractedSchema = useExtractTemplete((state) => state.schemaById.get(id));
   const error = useExtractTemplete((state) => state.errorById.get(id));
 
+  const [typeSchema, setTypeSchema] = useState<JsonSchema | undefined>(undefined);
+
   const schema = useMemo(() => {
     if (!extractedSchema || messages?.length === 0 || !messages) return inputSchema;
-    return fixSchema(extractedSchema, inputSchema);
-  }, [extractedSchema, inputSchema, messages]);
+    const fixedSchema = fixSchemaFormat(extractedSchema, inputSchema);
+    return mergeSchemaTypesAndDefs(fixedSchema, typeSchema);
+  }, [extractedSchema, inputSchema, messages, typeSchema]);
 
   const extract = useExtractTemplete((state) => state.extract);
 
@@ -182,6 +189,7 @@ export const useOrExtractTemplete = (
   return {
     isLoading: isLoading || isWaitingForRequestToEnd,
     schema,
+    setSchema: setTypeSchema,
     inputVariblesKeys,
     error,
     areThereChangesInInputSchema,

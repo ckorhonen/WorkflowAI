@@ -10,8 +10,8 @@ import { ProxyParameters } from './parameters-section/ProxyParameters';
 import { createEmptyMessage } from './proxy-messages/utils';
 
 interface Props {
-  inputSchema: JsonSchema | undefined;
   extractedInputSchema: JsonSchema | undefined;
+  setExtractedInputSchema: (inputSchema: JsonSchema | undefined) => void;
   inputVariblesKeys: string[] | undefined;
   error: ExtractTempleteError | undefined;
 
@@ -45,6 +45,7 @@ interface Props {
 export function ProxySection(props: Props) {
   const {
     extractedInputSchema,
+    setExtractedInputSchema,
     inputVariblesKeys,
     error,
     input,
@@ -111,6 +112,7 @@ export function ProxySection(props: Props) {
           tenant={tenant}
           taskId={taskId}
           inputSchema={extractedInputSchema}
+          setInputSchema={setExtractedInputSchema}
           input={cleanInput}
           setInput={setCleanInput}
           onMoveToVersion={onMoveToVersion}
