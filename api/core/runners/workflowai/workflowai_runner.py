@@ -488,12 +488,12 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
 
     async def _handle_files_in_messages(
         self,
-        messages: Messages,
+        messages: Sequence[Message],
         provider: AbstractProvider[Any, Any],
     ):
         # Not using file iterator here as it creates a copy of files
         files: list[File] = []
-        for m in messages.messages:
+        for m in messages:
             files.extend((c.file for c in m.content if c.file))
 
         if not files:
@@ -524,33 +524,35 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
                 builder.record_file_download_seconds(download_duration)
 
     @classmethod
-    def _fix_messages(cls, messages: Messages):
+    def _fix_messages(cls, messages: Sequence[Message]):
         try:
-            messages.messages = MessageAutofixer().fix(messages.messages)
+            return MessageAutofixer().fix(messages)
         except ValueError as e:
             raise BadRequestError(msg=str(e)) from e
 
     async def _inline_messages(
         self,
-        messages: Messages,
+        messages: Sequence[Message],
         provider: AbstractProvider[Any, Any],
         structured_output: bool,
         use_tools: bool,
     ) -> list[MessageDeprecated]:
         # First handle all files as needed
         await self._handle_files_in_messages(messages, provider)
-        self._fix_messages(messages)
+        messages = self._fix_messages(messages)
+
+        final = Messages(messages=messages)
 
         if structured_output or self._prepared_output_schema.prepared_schema is None:
-            return messages.to_deprecated()
+            return final.to_deprecated()
 
         # Otherwise we append the output to the first system message
-        messages = messages.model_copy(deep=True)
+        final = final.model_copy(deep=True)
         try:
-            system_message = next(m for m in messages.messages if m.role in ("system", "developer"))
+            system_message = next(m for m in final.messages if m.role in ("system", "developer"))
         except StopIteration:
             system_message = Message(role="system", content=[MessageContent(text="")])
-            messages.messages.insert(0, system_message)
+            final.messages.insert(0, system_message)
 
         try:
             text_content = next(m for m in system_message.content if m.text is not None)
@@ -559,7 +561,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
             system_message.content.append(text_content)
 
         if text_content.text and self._json_schema_regexp.search(text_content.text):
-            return messages.to_deprecated()
+            return final.to_deprecated()
 
         tool_call_str = "either tool call(s) or " if use_tools else ""
         schema_str = (
@@ -573,9 +575,9 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         suffix = f"Return {tool_call_str}a single JSON object{schema_str}"
         prefix = f"{text_content.text}\n\n" if text_content.text else ""
         text_content.text = f"{prefix}{suffix}"
-        return messages.to_deprecated()
+        return final.to_deprecated()
 
-    async def _extract_raw_messages(self, input: AgentInput) -> Messages | None:
+    async def _extract_raw_messages(self, input: AgentInput) -> Sequence[Message] | None:
         builder = MessageBuilder(self.template_manager, self.task.input_schema, self._options.messages, logger)
         return await builder.extract(input)
 
@@ -601,7 +603,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         # If the input is already a Messages object we can just use as is
         if isinstance(input, Messages):
             return await self._inline_messages(
-                input,
+                input.messages,
                 provider,
                 structured_output=use_structured_output,
                 use_tools=self.is_tool_use_enabled,

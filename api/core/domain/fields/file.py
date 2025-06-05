@@ -3,10 +3,10 @@ import mimetypes
 import re
 from base64 import b64decode
 from enum import StrEnum
-from typing import Any
+from typing import Any, Self
 from urllib.parse import parse_qs, urlparse
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ModelWrapValidatorHandler, model_validator
 from pydantic.json_schema import SkipJsonSchema
 
 from core.domain.errors import InternalError
@@ -45,7 +45,7 @@ class FileKind(StrEnum):
             case "PDF":
                 return cls.PDF
             case _:
-                return cls.ANY
+                return None
 
 
 def _remove_additional_properties_from_json_schema(model: dict[str, Any]):
@@ -105,22 +105,28 @@ class File(BaseModel):
         if mime_type := mimetypes.guess_type(url, strict=False)[0]:
             self.content_type = mime_type
 
-    @model_validator(mode="after")
-    def validate_image(self):
-        if self.data:
+    @model_validator(mode="wrap")
+    @classmethod
+    def wrap_validator(cls, data: Any, handler: ModelWrapValidatorHandler[Self]) -> Self:
+        if isinstance(data, str):
+            data = {"url": data}
+
+        validated = handler(data)
+
+        if validated.data:
             try:
-                decoded_data = b64decode(self.data)
+                decoded_data = b64decode(validated.data)
             except Exception:
                 # We should really throw an error here, but let's log a bit for now
                 # python is very strict about padding so might need to be more tolerant
                 _logger.warning("Found invalid base64 data in file", exc_info=True)
-                return self
-            if not self.content_type:
-                self.content_type = guess_content_type(decoded_data)
-            return self
-        if self.url:
-            self._validate_url_and_set_content_type(self.url)
-            return self
+                return validated
+            if not validated.content_type:
+                validated.content_type = guess_content_type(decoded_data)
+            return validated
+        if validated.url:
+            validated._validate_url_and_set_content_type(validated.url)
+            return validated
 
         raise ValueError("No data or URL provided for image")
 
@@ -173,7 +179,7 @@ class File(BaseModel):
     def template_key(self) -> str | None:
         """Returns the key path for a value if the url of the file is templated"""
         if self.url and (match := _template_var_regexp.match(self.url)):
-            return match.group(1)
+            return match.group(1).strip()
         return None
 
 

@@ -303,7 +303,7 @@ class TestHasFiles:
             "properties": {
                 "name": {"type": "string"},
             },
-            "$refs": {},
+            "$defs": {},
         }
         task_io = SerializableTaskIO.from_json_schema(schema)
         assert not task_io.has_files
@@ -315,7 +315,7 @@ class TestHasFiles:
             "properties": {
                 "name": {"type": "string"},
             },
-            "$refs": {
+            "$defs": {
                 "Person": {"type": "object"},
                 "Company": {"type": "object"},
             },
@@ -331,7 +331,7 @@ class TestHasFiles:
             "properties": {
                 "name": {"type": "string"},
             },
-            "$refs": {
+            "$defs": {
                 file_type: {"type": "object"},
             },
         }
@@ -345,7 +345,7 @@ class TestHasFiles:
             "properties": {
                 "name": {"type": "string"},
             },
-            "$refs": {
+            "$defs": {
                 "Image": {"type": "object"},
                 "File": {"type": "object"},
                 "Audio": {"type": "object"},
@@ -362,7 +362,7 @@ class TestHasFiles:
             "properties": {
                 "name": {"type": "string"},
             },
-            "$refs": {
+            "$defs": {
                 "Person": {"type": "object"},
                 "Image": {"type": "object"},
                 "Company": {"type": "object"},

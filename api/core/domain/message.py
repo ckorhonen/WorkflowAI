@@ -77,9 +77,14 @@ class Message(BaseModel):
     def with_text(cls, text: str, role: MessageRole = "user"):
         return cls(role=role, content=[MessageContent(text=text)])
 
+    @classmethod
+    def with_file_url(cls, url: str, role: MessageRole = "user"):
+        return cls(role=role, content=[MessageContent(file=File(url=url))])
+
 
 class Messages(BaseModel):
     messages: list[Message] = Field(
+        default_factory=list,
         serialization_alias=INPUT_KEY_MESSAGES,
         validation_alias=AliasChoices(INPUT_KEY_MESSAGES, "messages", INPUT_KEY_MESSAGES_DEPRECATED),
     )

@@ -1,13 +1,13 @@
 import logging
-from collections.abc import Iterator
+from collections.abc import Sequence
 from typing import Any
 
 from pydantic import ValidationError
 
-from core.domain.consts import FILE_DEFS
+from api.services.runs._stored_message import StoredMessages
 from core.domain.errors import BadRequestError
-from core.domain.fields.file import File, FileKind, FileWithKeyPath
-from core.domain.message import Message, MessageContent, Messages
+from core.domain.fields.file import File, FileKind
+from core.domain.message import Message, MessageContent
 from core.domain.task_io import RawMessagesSchema, SerializableTaskIO
 from core.utils.schemas import InvalidSchemaError, JsonSchema
 from core.utils.templates import TemplateManager
@@ -27,47 +27,63 @@ class MessageBuilder:
         self._logger = logger
 
     @classmethod
-    def _extract_files(
+    def _extract_files(  # noqa: C901
         cls,
         schema: JsonSchema,
         input: Any,
         base_key_path: list[str | int],
-    ) -> Iterator[FileWithKeyPath]:
+        acc: dict[str, File],
+    ):
         """Extracts FileWithKeyPath objects from the input.
         Payload is removed from the original input"""
+
+        def _dive(key: int | str):
+            try:
+                child_schema = schema.child_schema(key, follow_refs=False)
+            except InvalidSchemaError:
+                return None
+            # Check if child schema is a file child_schema
+            ref = child_schema.schema.get("$ref")
+            if not ref or not ref.startswith("#/$defs/"):
+                # Not a file, we can just dive
+                cls._extract_files(child_schema, input[key], [*base_key_path, key], acc)
+                return False
+            # We are in a file
+            try:
+                file = File.model_validate(input[key])
+            except ValidationError as e:
+                raise BadRequestError(f"Invalid file with key {key}: {str(e)}", capture=True) from e
+            file.format = FileKind.from_ref_name(ref[8:])
+            key_path = ".".join(str(key) for key in [*base_key_path, key])
+            acc[key_path] = file
+            return True
+
         if isinstance(input, dict):
-            if (ref := schema.schema.get("$ref")) and ref.startswith("#/$defs/"):
-                if ref[8:] in FILE_DEFS:
-                    # Ref is a file
-                    try:
-                        file = FileWithKeyPath.model_validate(input[ref])
-                    except ValidationError as e:
-                        raise BadRequestError(f"Invalid file with key {ref}: {str(e)}", capture=True) from e
-                    file.key_path = base_key_path
-                    file.format = FileKind.from_ref_name(ref[8:])
-                    yield file
-                # Ref is something else, we can just skip
-                return
-            for key, value in input.items():  # pyright: ignore [reportUnknownVariableType]
+            for key in list(input.keys()):  # pyright: ignore [reportUnknownArgumentType, reportUnknownVariableType]
                 if not isinstance(key, str):
                     continue
-                try:
-                    yield from cls._extract_files(schema.child_schema(key), value, [*base_key_path, key])
-                except InvalidSchemaError:
-                    # Key is not present in the schema, we can just skip
-                    continue
+                if _dive(key):
+                    del input[key]
+            return
 
         if isinstance(input, list):
-            for idx, item in enumerate(input):  # pyright: ignore [reportUnknownVariableType, reportUnknownArgumentType]
-                yield from cls._extract_files(schema.child_schema(idx), item, [*base_key_path, idx])
+            indices_to_remove: list[int] = []
+            for idx in range(len(input)):  # pyright: ignore [reportUnknownArgumentType]
+                if _dive(idx):
+                    indices_to_remove.append(idx)  # noqa: PERF401
+            for idx in reversed(indices_to_remove):
+                del input[idx]
+            return
 
     def _sanitize_files(self, input: Any):
-        return {f.key_path_str: f for f in self._extract_files(JsonSchema(self._input_schema.json_schema), input, [])}
+        acc: dict[str, File] = {}
+        self._extract_files(JsonSchema(self._input_schema.json_schema), input, [], acc)
+        return acc
 
-    async def _handle_templated_messages(self, messages: Messages):
+    async def _handle_templated_messages(self, messages: StoredMessages) -> Sequence[Message] | None:
         if not messages.model_extra:
             self._logger.warning("No extra fields provided, but the input schema is a templated message schema")
-            return messages
+            return messages.messages
         if not self._version_messages:
             # There are no version messages, so nothing to template
             # This would be a very weird case so logging a warning
@@ -83,14 +99,15 @@ class MessageBuilder:
         renderer = _MessageRenderer(self._template_manager, messages.model_extra, files or {})
 
         version_messages = await renderer.render_messages(version_messages)
-        return Messages(messages=[*version_messages, *messages.messages])
+        return [*version_messages, *messages.messages]
 
     async def extract(self, input: Any):
         # No matter what, the input should be a valid Messages object
         if isinstance(input, list):
             input = {"workflowai.messages": input}
         try:
-            messages = Messages.model_validate(input)
+            # Stored messages allows extras
+            messages = StoredMessages.model_validate(input)
         except ValidationError as e:
             # Capturing for now just in case
             raise BadRequestError(f"Input is not a valid list of messages: {str(e)}", capture=True) from e
@@ -99,14 +116,14 @@ class MessageBuilder:
             # Version messages are not templated since there is no field in the input schema
             # So we can just inline as is
             if self._version_messages:
-                messages.messages = [*self._version_messages, *messages.messages]
-            return messages
+                return [*self._version_messages, *messages.messages]
+            return messages.messages
 
         return await self._handle_templated_messages(messages)
 
 
 class _MessageRenderer:
-    def __init__(self, template_manager: TemplateManager, input: Any, files: dict[str, FileWithKeyPath]):
+    def __init__(self, template_manager: TemplateManager, input: Any, files: dict[str, File]):
         self._template_manager = template_manager
         self._input = input
         self._files = files
@@ -134,7 +151,7 @@ class _MessageRenderer:
             update["file"] = file
 
         if (text := await self._render_text(content.text)) is not None:
-            update["text"] = text
+            update["text"] = text[0]
 
         if update:
             return content.model_copy(update=update)

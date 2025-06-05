@@ -97,7 +97,7 @@ class SerializableTaskIO(BaseModel):
 
     @property
     def has_files(self) -> bool:
-        refs = self.json_schema.get("$refs")
+        refs = self.json_schema.get("$defs")
         if not refs:
             return False
         keys = set(refs.keys())
