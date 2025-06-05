@@ -4,6 +4,7 @@ import { TaskID, TenantID } from '@/types/aliases';
 import { JsonSchema } from '@/types/json_schema';
 import { GeneralizedTaskInput } from '@/types/task_run';
 import { MajorVersion, ProxyMessage, ToolKind, Tool_Output, VersionV1 } from '@/types/workflowAI';
+import { ProxyImproveMessagesControls } from './hooks/useProxyImproveMessages';
 import { useProxyInputStructure } from './hooks/useProxyInputStructure';
 import { ProxyInput } from './input-section/ProxyInput';
 import { ProxyParameters } from './parameters-section/ProxyParameters';
@@ -40,6 +41,8 @@ interface Props {
   onSaveAllVersions: () => void;
 
   versionsForRuns: Record<string, VersionV1>;
+
+  improveMessagesControls: ProxyImproveMessagesControls;
 }
 
 export function ProxySection(props: Props) {
@@ -64,6 +67,7 @@ export function ProxySection(props: Props) {
     showSaveAllVersions,
     onSaveAllVersions,
     versionsForRuns,
+    improveMessagesControls,
   } = props;
 
   const messagesWithDefaultSystemMessage = useMemo(() => {
@@ -133,6 +137,7 @@ export function ProxySection(props: Props) {
           versionsForRuns={versionsForRuns}
           inputVariblesKeys={inputVariblesKeys}
           error={error}
+          improveMessagesControls={improveMessagesControls}
         />
       </div>
     </div>

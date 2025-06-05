@@ -6,6 +6,7 @@ import { ModelOptional, TaskID, TaskSchemaID, TenantID } from '@/types/aliases';
 import {
   EditSchemaToolCall,
   GenerateAgentInputToolCall,
+  ImproveVersionMessagesToolCall,
   MetaAgentChatMessage,
   PlaygroundState,
   RunCurrentAgentOnModelsToolCall,
@@ -19,6 +20,7 @@ type Props = {
   playgroundState: PlaygroundState;
   onShowEditSchemaModal: (message?: string) => void;
   improveInstructions: (text: string, runId: string | undefined) => Promise<void>;
+  improveVersionMessages?: (improvementInstructions: string) => Promise<void>;
   changeModels: (columnsAndModels: { column: number; model: ModelOptional | undefined }[]) => void;
   generateNewInput: (instructions: string | undefined) => Promise<void>;
   onCancelChatToolCallOnPlayground: () => void;
@@ -33,6 +35,7 @@ export function usePlaygroundChatToolCalls(props: Props) {
     playgroundState,
     onShowEditSchemaModal,
     improveInstructions,
+    improveVersionMessages,
     changeModels,
     generateNewInput,
     onCancelChatToolCallOnPlayground,
@@ -92,6 +95,24 @@ export function usePlaygroundChatToolCalls(props: Props) {
       improveInstructions(run_feedback_message, improveInstructionsRunId);
     },
     [improveInstructions, markToolCallAsInProgress]
+  );
+
+  const onImproveVersionMessages = useCallback(
+    (toolCall: ImproveVersionMessagesToolCall) => {
+      if (!improveVersionMessages) {
+        return;
+      }
+
+      const { tool_call_id, improvement_instructions } = toolCall;
+
+      if (!tool_call_id || !improvement_instructions) {
+        return;
+      }
+
+      markToolCallAsInProgress(ToolCallName.IMPROVE_VERSION_MESSAGES, tool_call_id);
+      improveVersionMessages(improvement_instructions);
+    },
+    [improveVersionMessages, markToolCallAsInProgress]
   );
 
   const onChangeModels = useCallback(
@@ -323,6 +344,7 @@ export function usePlaygroundChatToolCalls(props: Props) {
     inProgressToolCallIds,
     onEditSchema,
     onImproveInstructions,
+    onImproveVersionMessages,
     onChangeModels,
     onGenerateNewInput,
     onIgnoreToolCall,

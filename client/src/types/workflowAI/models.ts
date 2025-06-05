@@ -755,6 +755,13 @@ export type ImprovePromptToolCall = {
   run_feedback_message: string;
 };
 
+export type ImproveVersionMessagesToolCall = {
+  tool_name?: string;
+  status?: 'assistant_proposed' | 'user_ignored' | 'completed' | 'failed';
+  tool_call_id?: string;
+  improvement_instructions: string;
+};
+
 export type ImproveVersionRequest = {
   run_id?: string | null;
   variant_id?: string | null;
@@ -914,6 +921,7 @@ export type MetaAgentChatMessage = {
    */
   tool_call?:
     | ImprovePromptToolCall
+    | ImproveVersionMessagesToolCall
     | EditSchemaToolCall
     | RunCurrentAgentOnModelsToolCall
     | GenerateAgentInputToolCall
