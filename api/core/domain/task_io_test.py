@@ -281,3 +281,92 @@ class TestRawJSONSchema:
     def test_enforce(self, obj: Any):
         # Check that we don't raise when returning a dict
         RawJSONMessageSchema.enforce(obj)
+
+
+class TestHasFiles:
+    def test_has_files_no_refs(self):
+        """Test has_files returns False when schema has no $refs"""
+        schema = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "age": {"type": "number"},
+            },
+        }
+        task_io = SerializableTaskIO.from_json_schema(schema)
+        assert not task_io.has_files
+
+    def test_has_files_empty_refs(self):
+        """Test has_files returns False when $refs is empty"""
+        schema = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+            },
+            "$refs": {},
+        }
+        task_io = SerializableTaskIO.from_json_schema(schema)
+        assert not task_io.has_files
+
+    def test_has_files_refs_without_file_types(self):
+        """Test has_files returns False when $refs exists but contains no file types"""
+        schema = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+            },
+            "$refs": {
+                "Person": {"type": "object"},
+                "Company": {"type": "object"},
+            },
+        }
+        task_io = SerializableTaskIO.from_json_schema(schema)
+        assert not task_io.has_files
+
+    @pytest.mark.parametrize("file_type", ["Image", "File", "Audio", "PDF"])
+    def test_has_files_single_file_type(self, file_type: str):
+        """Test has_files returns True when $refs contains a single file type"""
+        schema = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+            },
+            "$refs": {
+                file_type: {"type": "object"},
+            },
+        }
+        task_io = SerializableTaskIO.from_json_schema(schema)
+        assert task_io.has_files
+
+    def test_has_files_multiple_file_types(self):
+        """Test has_files returns True when $refs contains multiple file types"""
+        schema = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+            },
+            "$refs": {
+                "Image": {"type": "object"},
+                "File": {"type": "object"},
+                "Audio": {"type": "object"},
+                "PDF": {"type": "object"},
+            },
+        }
+        task_io = SerializableTaskIO.from_json_schema(schema)
+        assert task_io.has_files
+
+    def test_has_files_mixed_refs(self):
+        """Test has_files returns True when $refs contains both file types and other types"""
+        schema = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+            },
+            "$refs": {
+                "Person": {"type": "object"},
+                "Image": {"type": "object"},
+                "Company": {"type": "object"},
+            },
+        }
+        task_io = SerializableTaskIO.from_json_schema(schema)
+        assert task_io.has_files

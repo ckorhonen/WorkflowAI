@@ -6,6 +6,7 @@ from jsonschema import ValidationError as SchemaValidationError
 from jsonschema.validators import validator_for  # pyright: ignore[reportUnknownVariableType]
 from pydantic import BaseModel, Field
 
+from core.domain.consts import FILE_DEFS
 from core.domain.errors import JSONSchemaValidationError
 from core.utils.hash import compute_obj_hash
 from core.utils.schema_sanitation import streamline_schema
@@ -93,6 +94,14 @@ class SerializableTaskIO(BaseModel):
     @property
     def uses_messages(self) -> bool:
         return self.json_schema.get("format") == "messages"
+
+    @property
+    def has_files(self) -> bool:
+        refs = self.json_schema.get("$refs")
+        if not refs:
+            return False
+        keys = set(refs.keys())
+        return bool(keys.intersection(FILE_DEFS))
 
     @property
     def is_structured_output_disabled(self) -> bool:

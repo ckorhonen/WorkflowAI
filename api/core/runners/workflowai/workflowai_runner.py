@@ -34,7 +34,7 @@ from core.domain.reasoning_step import INTERNAL_REASONING_STEPS_SCHEMA_KEY
 from core.domain.run_output import RunOutput
 from core.domain.structured_output import StructuredOutput
 from core.domain.task_group_properties import FewShotConfiguration, FewShotExample, TaskGroupProperties
-from core.domain.task_io import RawJSONMessageSchema, RawMessagesSchema, RawStringMessageSchema, SerializableTaskIO
+from core.domain.task_io import RawJSONMessageSchema, RawStringMessageSchema, SerializableTaskIO
 from core.domain.task_run_reply import RunReply
 from core.domain.task_typology import TaskTypology
 from core.domain.task_variant import SerializableTaskVariant
@@ -51,6 +51,7 @@ from core.providers.base.provider_error import (
 from core.providers.base.provider_options import ProviderOptions
 from core.runners.abstract_runner import AbstractRunner, CacheFetcher
 from core.runners.workflowai.internal_tool import build_all_internal_tools
+from core.runners.workflowai.message_builder import MessageBuilder
 from core.runners.workflowai.message_fixer import MessageAutofixer
 from core.runners.workflowai.provider_pipeline import ProviderPipeline
 from core.runners.workflowai.templates import (
@@ -575,34 +576,8 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         return messages.to_deprecated()
 
     async def _extract_raw_messages(self, input: AgentInput) -> Messages | None:
-        if self.task.input_schema.version == RawMessagesSchema.version:
-            if isinstance(input, list):
-                input = {"messages": input}
-            try:
-                messages = Messages.model_validate(input)
-            except ValidationError as e:
-                # Capturing for now just in case
-                raise BadRequestError(f"Input is not a valid list of messages: {str(e)}", capture=True) from e
-            if self._options.messages:
-                messages.messages = [*self._options.messages, *messages.messages]
-            return messages
-        if not self._options.messages:
-            return None
-        # Then the current version is a full message template
-        # So we just need to return the messages
-        try:
-            base = await Messages(messages=self._options.messages).templated(self.template_manager.renderer(input))
-        except InvalidTemplateError as e:
-            raise BadRequestError(f"Invalid template: {e.message}", details=e.serialize_details()) from e
-        if self.task.input_schema.uses_messages:
-            # We have extra messages to append
-            try:
-                input_messages = Messages.model_validate(input)
-                base.messages.extend(input_messages.messages)
-            except ValidationError:
-                # That should never happen, the messages should have been validated upstream
-                logger.exception("Invalid messages in input", extra={"input_messages": input})
-        return base
+        builder = MessageBuilder(self.template_manager, self.task.input_schema, self._options.messages, logger)
+        return await builder.extract(input)
 
     async def _build_messages(  # noqa: C901
         self,
