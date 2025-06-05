@@ -760,6 +760,7 @@ export type ImproveVersionMessagesToolCall = {
   status?: 'assistant_proposed' | 'user_ignored' | 'completed' | 'failed';
   tool_call_id?: string;
   improvement_instructions: string;
+  auto_run?: boolean | null;
 };
 
 export type ImproveVersionRequest = {
