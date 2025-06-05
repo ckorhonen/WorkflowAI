@@ -370,3 +370,47 @@ class TestHasFiles:
         }
         task_io = SerializableTaskIO.from_json_schema(schema)
         assert task_io.has_files
+
+
+class TestEnforce:
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {"name": "https://example.com/file.pdf"},
+            {"name": {"url": "https://example.com/file.pdf"}},
+        ],
+    )
+    def test_files_as_strings(self, payload: dict[str, Any]):
+        task_io = SerializableTaskIO.from_json_schema(
+            {
+                "properties": {
+                    "name": {"$ref": "#/$defs/File"},
+                },
+            },
+            streamline=True,
+        )
+        assert task_io.has_files
+        task_io.enforce(payload, files_as_strings=True)
+
+    def test_files_as_string_raises(self):
+        task_io = SerializableTaskIO.from_json_schema(
+            {
+                "properties": {
+                    "name": {"$ref": "#/$defs/File"},
+                },
+            },
+            streamline=True,
+        )
+        with pytest.raises(JSONSchemaValidationError):
+            task_io.enforce(
+                {
+                    "name": "https://example.com/file.pdf",
+                },
+                files_as_strings=False,
+            )
+        task_io.enforce(
+            {
+                "name": {"url": "https://example.com/file.pdf"},
+            },
+            files_as_strings=False,
+        )

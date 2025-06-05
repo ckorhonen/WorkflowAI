@@ -773,3 +773,42 @@ async def test_with_n_value_of_1(test_client: IntegrationTestClient, openai_clie
         n=1,
     )
     assert res.choices[0].message.content == "Hello, world!"
+
+
+async def test_with_files_in_variables(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+    test_client.mock_openai_call(raw_content="Hello, world!")
+    test_client.httpx_mock.add_response(
+        url="https://blabla",
+        content=b"This is a test image",
+    )
+
+    res = await openai_client.chat.completions.create(
+        model="greeting/gpt-4o",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Describe this image"},
+                    {"type": "image_url", "image_url": {"url": "{{ image_url }}"}},
+                ],
+            },
+        ],
+        extra_body={
+            "input": {
+                "image_url": "https://blabla",
+            },
+        },
+    )
+    assert res.choices[0].message.content == "Hello, world!"
+
+    agent = await test_client.get("/_/agents/greeting/schemas/1")
+    assert agent["input_schema"]["json_schema"] == {
+        "$defs": mock.ANY,
+        "format": "messages",
+        "properties": {
+            "image_url": {
+                "$ref": "#/$defs/Image",
+            },
+        },
+        "type": "object",
+    }

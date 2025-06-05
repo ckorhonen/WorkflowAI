@@ -25,12 +25,32 @@ class SerializableTaskIO(BaseModel):
 
     _optional_json_schema: dict[str, Any] | None = None
 
+    @classmethod
+    def _add_files_as_strings(cls, schema: dict[str, Any]) -> dict[str, Any]:
+        defs = schema.get("$defs")
+        if not defs:
+            return schema
+
+        def _add_string_type(key: str, schema: dict[str, Any]):
+            if key not in FILE_DEFS:
+                return schema
+            t = schema.get("type")
+            if t == "object":
+                t = ["object", "string"]
+            return {**schema, "type": t}
+
+        return {
+            **schema,
+            "$defs": {key: _add_string_type(key, value) for key, value in defs.items()},
+        }
+
     def enforce(
         self,
         obj: Any,
         partial: bool = False,
         strip_extras: bool = False,
         strip_opt_none_and_empty_strings: bool = False,
+        files_as_strings: bool = False,
     ) -> None:
         """Enforce validates that an object matches the schema. Object is updated in place."""
 
@@ -40,6 +60,8 @@ class SerializableTaskIO(BaseModel):
             schema = self._optional_json_schema
         else:
             schema = self.json_schema
+        if files_as_strings:
+            schema = self._add_files_as_strings(schema)
 
         navigators: list[JsonSchema.Navigator] = []
         if strip_opt_none_and_empty_strings:

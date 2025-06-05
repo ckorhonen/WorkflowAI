@@ -321,7 +321,7 @@ class OpenAIProxyHandler:
                 )
             )
 
-        input_io.enforce(final_input)
+        input_io.enforce(final_input, files_as_strings=True)
 
     async def _prepare_run(self, body: OpenAIProxyChatCompletionRequest, tenant_data: PublicOrganizationData):
         messages = Messages(messages=[m.to_domain() for m in body.messages])
