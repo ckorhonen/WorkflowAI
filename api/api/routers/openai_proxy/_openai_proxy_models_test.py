@@ -3,6 +3,8 @@
 from typing import Any
 
 import pytest
+from pydantic import AliasChoices
+from pydantic.alias_generators import to_camel
 
 from core.domain.errors import BadRequestError
 from core.domain.fields.file import File
@@ -14,6 +16,7 @@ from core.domain.tool_call import ToolCall
 from core.domain.version_environment import VersionEnvironment
 from core.providers.base.provider_error import MissingModelError
 from core.tools import ToolKind
+from core.utils.strings import to_pascal_case
 
 from ._openai_proxy_models import (
     EnvironmentRef,
@@ -24,6 +27,7 @@ from ._openai_proxy_models import (
     OpenAIProxyImageURL,
     OpenAIProxyMessage,
     OpenAIProxyToolCall,
+    _OpenAIProxyExtraFields,
 )
 
 
@@ -37,6 +41,72 @@ class TestOpenAIProxyChatCompletionRequest:
             },
         )
         assert payload
+
+    @pytest.mark.parametrize(
+        "extra",
+        (
+            pytest.param(
+                {
+                    "input": {"h": "w"},
+                    "conversation_id": "123",
+                    "agent_id": "456",
+                    "use_fallback": "never",
+                    "provider": "openai",
+                },
+                id="snake_case",
+            ),
+            pytest.param(
+                {
+                    "input": {"h": "w"},
+                    "conversationId": "123",
+                    "agentId": "456",
+                    "useFallback": "never",
+                    "provider": "openai",
+                },
+                id="camel_case",
+            ),
+            pytest.param(
+                {
+                    "Input": {"h": "w"},
+                    "ConversationId": "123",
+                    "AgentId": "456",
+                    "UseFallback": "never",
+                    "Provider": "openai",
+                },
+                id="pascal_case",
+            ),
+        ),
+    )
+    def test_alias_generator(self, extra: dict[str, Any]):
+        base: dict[str, Any] = {"messages": [], "model": "gpt-4o"}
+        payload = OpenAIProxyChatCompletionRequest.model_validate(base | extra)
+        assert payload.model_dump(exclude_unset=True) == {
+            **base,
+            "input": {"h": "w"},
+            "conversation_id": "123",
+            "agent_id": "456",
+            "use_fallback": "never",
+            "provider": "openai",
+        }
+
+    def test_different_alias_generators(self):
+        payload = OpenAIProxyChatCompletionRequest.model_validate(
+            {"messages": [], "model": "gpt-4o", "reasoningEffort": "low"},
+        )
+        assert payload.reasoning_effort is None
+
+
+class TestOpenAIProxyExtraFieldsValidation:
+    def test_exhaustive(self):
+        # Check that all fields have a choice validation alias
+        for k, field in _OpenAIProxyExtraFields.model_fields.items():
+            assert field.validation_alias is not None
+            assert isinstance(field.validation_alias, AliasChoices)
+            assert field.validation_alias.choices[0] == k
+
+            choice_set = set(field.validation_alias.choices)
+            assert to_pascal_case(k) in choice_set
+            assert to_camel(k) in choice_set
 
 
 class TestOpenAIProxyContent:
