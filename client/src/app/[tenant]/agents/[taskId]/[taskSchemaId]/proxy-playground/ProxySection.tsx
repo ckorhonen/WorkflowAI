@@ -41,7 +41,6 @@ interface Props {
   onSaveAllVersions: () => void;
 
   versionsForRuns: Record<string, VersionV1>;
-
   improveMessagesControls: ProxyImproveMessagesControls;
 }
 
