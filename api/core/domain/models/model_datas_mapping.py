@@ -767,7 +767,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             supports_input_audio=True,
             supports_structured_output=False,
             max_tokens_data=MaxTokensData(
-                max_tokens=1_048_576,
+                max_tokens=1_048_576 + 65_536,
                 max_output_tokens=65_536,
                 source="https://cloud.google.com/vertex-ai/generative-ai/docs/models/gemini/2-5-pro",
             ),
@@ -825,7 +825,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             supports_structured_output=False,
             support_system_messages=False,
             max_tokens_data=MaxTokensData(
-                max_tokens=1048576,
+                max_tokens=1_048_576 + 8_192,
                 max_output_tokens=8_192,
                 source="https://ai.google.dev/gemini-api/docs/models/gemini#gemini-2.0-flash",
             ),
