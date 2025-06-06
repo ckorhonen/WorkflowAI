@@ -327,6 +327,7 @@ class TestModelFallback:
         Model.GEMINI_2_5_FLASH_PREVIEW_0417,
         Model.GEMINI_2_5_FLASH_PREVIEW_0520,
         Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417,
+        Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0520,
     }
 
     @pytest.mark.parametrize("model_data", _FILTERED_MODEL_DATA)
