@@ -1,3 +1,5 @@
+# pyright: reportPrivateUsage=false
+
 import json
 import logging
 import os
@@ -31,7 +33,6 @@ from core.providers.base.provider_error import (
 )
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.google.google_provider import (
-    _VERTEX_API_EXCLUDED_REGIONS_METADATA_KEY,  # pyright: ignore [reportPrivateUsage]
     GoogleProvider,
     GoogleProviderConfig,
 )
@@ -46,6 +47,7 @@ from core.providers.google.google_provider_domain import (
     Part,
     UsageMetadata,
 )
+from core.providers.google.vertex_base_config import _VERTEX_API_EXCLUDED_REGIONS_METADATA_KEY
 from core.runners.builder_context import BuilderInterface
 from core.runners.workflowai.utils import FileWithKeyPath
 from tests.utils import mock_aiter, request_json_body
