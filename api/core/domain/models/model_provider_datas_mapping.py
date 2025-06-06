@@ -85,7 +85,7 @@ GOOGLE_PROVIDER_DATA: ProviderDataByModel = {
             prompt_cost_per_token=1.25 * ONE_MILLION_TH,
             completion_cost_per_token=10 * ONE_MILLION_TH,
             prompt_cached_tokens_discount=0.75,
-            source="https://cloud.google.com/vertex-ai/generative-ai/docs/pricing",
+            source="https://cloud.google.com/vertex-ai/generative-ai/pricing",
             thresholded_prices=[
                 ThresholdedTextPricePerToken(
                     threshold=200_000,
@@ -1009,7 +1009,7 @@ GOOGLE_GEMINI_API_PROVIDER_DATA: ProviderDataByModel = {
             prompt_cost_per_token=1.25 * ONE_MILLION_TH,
             completion_cost_per_token=10 * ONE_MILLION_TH,
             prompt_cached_tokens_discount=0.75,
-            source="https://cloud.google.com/vertex-ai/generative-ai/docs/pricing",
+            source="https://cloud.google.com/vertex-ai/generative-ai/pricing",
             thresholded_prices=[
                 ThresholdedTextPricePerToken(
                     threshold=200_000,
