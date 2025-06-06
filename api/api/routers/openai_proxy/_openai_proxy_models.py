@@ -5,7 +5,8 @@ import time
 from collections.abc import Callable, Iterator, Mapping
 from typing import Any, Literal, NamedTuple
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel, to_pascal
 from workflowai import CacheUsage
 
 from core.domain.agent_run import AgentRun
@@ -43,18 +44,13 @@ _UNSUPPORTED_FIELDS = {
     "logit_bias",
     "logprobs",
     "modalities",
-    "n",
     "prediction",
     "seed",
     "stop",
     "top_logprobs",
     "web_search_options",
 }
-# We used to send a warning when the ignored fields were used
-# _IGNORED_FIELDS = {
-#     "service_tier",
-#     "store",
-# }
+
 _role_mapping: dict[str, MessageRole] = {
     "user": "user",
     "assistant": "assistant",
@@ -237,11 +233,12 @@ class OpenAIProxyMessage(BaseModel):
     def _content_iterator(self) -> Iterator[MessageContent]:
         # When the role is tool we know that the message only contains the tool call result
 
-        if isinstance(self.content, str):
-            yield MessageContent(text=self.content)
-        elif self.content:
-            for c in self.content:
-                yield c.to_domain()
+        if self.content:
+            if isinstance(self.content, str):
+                yield MessageContent(text=self.content)
+            else:
+                for c in self.content:
+                    yield c.to_domain()
 
         if self.function_call:
             yield MessageContent(tool_call_request=self.function_call.to_domain(""))
@@ -354,7 +351,75 @@ _agent_schema_env_regex = re.compile(
 )
 
 
-class OpenAIProxyChatCompletionRequest(BaseModel):
+def _alias_generator(field_name: str):
+    aliases = {field_name, to_pascal(field_name), to_camel(field_name)}
+    aliases.remove(field_name)
+    return AliasChoices(field_name, *aliases)
+
+
+class _OpenAIProxyExtraFields(BaseModel):
+    input: dict[str, Any] | None = Field(
+        default=None,
+        description="An input to template the messages with.This field is not defined by the default OpenAI api."
+        "When provided, an input schema is generated and the messages are used as a template.",
+        validation_alias=_alias_generator("input"),
+    )
+
+    provider: str | None = Field(
+        default=None,
+        description="A specific provider to use for the request. When provided, multi provider fallback is disabled."
+        "The attribute is ignored if the provider is not supported.",
+        validation_alias=_alias_generator("provider"),
+    )
+
+    agent_id: str | None = Field(
+        default=None,
+        description="The id of the agent to use for the request. If not provided, the default agent is used.",
+        validation_alias=_alias_generator("agent_id"),
+    )
+
+    environment: str | None = Field(
+        default=None,
+        description="A reference to an environment where the agent is deployed. It can also be provided in the model "
+        "with the format `agent_id/#schema_id/environment`",
+        validation_alias=_alias_generator("environment"),
+    )
+
+    schema_id: int | None = Field(
+        default=None,
+        description="The agent schema id. Required when using a deployment. It can also be provided in the model "
+        "with the format `agent_id/#schema_id/environment`",
+        validation_alias=_alias_generator("schema_id"),
+    )
+
+    use_cache: CacheUsage | None = Field(
+        default=None,
+        validation_alias=_alias_generator("use_cache"),
+    )
+
+    workflowai_tools: list[str] | None = Field(
+        default=None,
+        description=f"A list of WorkflowAI hosted tools. Possible values are `{'`, `'.join(ToolKind)}`."
+        "When not provided, we attempt to detect tools in the system message.",
+        validation_alias=_alias_generator("workflowai_tools"),
+    )
+
+    use_fallback: Literal["auto", "never"] | list[str] | None = Field(
+        default=None,
+        description="A way to configure the fallback behavior",
+        validation_alias=_alias_generator("use_fallback"),
+    )
+
+    conversation_id: str | None = Field(
+        default=None,
+        description="The conversation id to associate with the run. If not provided, WorkflowAI will attempt to "
+        "match the message history to an existing conversation. If no conversation is found, a new "
+        "conversation will be created.",
+        validation_alias=_alias_generator("conversation_id"),
+    )
+
+
+class OpenAIProxyChatCompletionRequest(_OpenAIProxyExtraFields):
     messages: list[OpenAIProxyMessage]
     model: str
     frequency_penalty: float | None = None
@@ -388,55 +453,6 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
     top_p: float | None = None
     user: str | None = None
     web_search_options: OpenAIProxyWebSearchOptions | None = None
-
-    input: dict[str, Any] | None = Field(
-        default=None,
-        description="An input to template the messages with.This field is not defined by the default OpenAI api."
-        "When provided, an input schema is generated and the messages are used as a template.",
-    )
-
-    provider: str | None = Field(
-        default=None,
-        description="A specific provider to use for the request. When provided, multi provider fallback is disabled."
-        "The attribute is ignored if the provider is not supported.",
-    )
-
-    agent_id: str | None = Field(
-        default=None,
-        description="The id of the agent to use for the request. If not provided, the default agent is used.",
-    )
-
-    environment: str | None = Field(
-        default=None,
-        description="A reference to an environment where the agent is deployed. It can also be provided in the model "
-        "with the format `agent_id/#schema_id/environment`",
-    )
-
-    schema_id: int | None = Field(
-        default=None,
-        description="The agent schema id. Required when using a deployment. It can also be provided in the model "
-        "with the format `agent_id/#schema_id/environment`",
-    )
-
-    use_cache: CacheUsage | None = None
-
-    workflowai_tools: list[str] | None = Field(
-        default=None,
-        description=f"A list of WorkflowAI hosted tools. Possible values are `{'`, `'.join(ToolKind)}`."
-        "When not provided, we attempt to detect tools in the system message.",
-    )
-
-    use_fallback: Literal["auto", "never"] | list[str] | None = Field(
-        default=None,
-        description="A way to configure the fallback behavior",
-    )
-
-    conversation_id: str | None = Field(
-        default=None,
-        description="The conversation id to associate with the run. If not provided, WorkflowAI will attempt to "
-        "match the message history to an existing conversation. If no conversation is found, a new "
-        "conversation will be created.",
-    )
 
     model_config = ConfigDict(extra="allow")
 
@@ -497,12 +513,17 @@ class OpenAIProxyChatCompletionRequest(BaseModel):
         set_fields = self.model_fields_set
         used_unsupported_fields = set_fields.intersection(_UNSUPPORTED_FIELDS)
         if used_unsupported_fields:
-            plural = len(used_unsupported_fields) > 1
-            fields = list(used_unsupported_fields)
+            fields = [f for f in used_unsupported_fields if getattr(self, f, None)]
+            plural = len(fields) > 1
             fields.sort()
             raise BadRequestError(
                 f"Field{'s' if plural else ''} `{'`, `'.join(fields)}` {'are' if plural else 'is'} not supported",
                 capture=True,
+            )
+
+        if self.n and self.n > 1:
+            raise BadRequestError(
+                "An n value greated than 1 is not supported",
             )
 
     @property

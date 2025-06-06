@@ -1,3 +1,5 @@
+# pyright: reportPrivateUsage=false
+
 from typing import Any
 
 import pytest
@@ -19,7 +21,6 @@ from core.providers.openai.openai_domain import (
     Usage,
 )
 from core.providers.openai.openai_provider_base import OpenAIProviderBase, OpenAIProviderBaseConfig
-from core.utils.templates import TemplateManager
 from tests.utils import fixtures_json
 
 
@@ -614,7 +615,7 @@ class TestBuildRequest:
                     role="user",
                     content=[
                         MessageContent(
-                            text="What is the weather like in {{location}}?",
+                            text="What is the weather like in London?",
                         ),
                     ],
                 ),
@@ -645,10 +646,12 @@ class TestBuildRequest:
                 ),
             ],
         )
-        template_manager = TemplateManager()
-        templated = await messages.templated(template_manager.renderer({"location": "London"}))
-        deprecated = templated.to_deprecated()
-        req = base_provider._build_request(deprecated, ProviderOptions(model=Model.GPT_4O_2024_08_06), False)  # pyright: ignore[reportPrivateUsage]
+
+        req = base_provider._build_request(
+            messages.to_deprecated(),
+            ProviderOptions(model=Model.GPT_4O_2024_08_06),
+            False,
+        )
         assert req.model_dump(exclude_none=True)["messages"] == [
             {
                 "role": "system",

@@ -505,14 +505,9 @@ class ProxyMetaAgentOutput(BaseModel):
         description="The content of the answer message from the meta-agent",
     )
 
-    updated_version_messages: list[dict[str, Any]] | None = Field(
+    improvement_instructions: str | None = Field(
         default=None,
-        description="The new list of versions messages to use for the current agent, including unchanged messages.",
-    )
-
-    example_input: dict[str, Any] | None = Field(
-        default=None,
-        description="The example input to update the current agent version with.",
+        description="Instructions on how to improve the current agent version's messages, if any.",
     )
 
     class NewTool(BaseModel):
@@ -554,8 +549,7 @@ class ProxyMetaAgentOutput(BaseModel):
 class ParsedToolCall(NamedTuple):
     """Result of parsing a tool call from the OpenAI streaming response."""
 
-    updated_version_messages: list[dict[str, Any]] | None = None
-    example_input: dict[str, Any] | None = None
+    improvement_instructions: str | None = None
     tool_name: str | None = None
     tool_description: str | None = None
     tool_parameters: dict[str, Any] | None = None
@@ -584,8 +578,7 @@ def parse_tool_call(tool_call: Any) -> ParsedToolCall:
 
     if function_name == "update_version_messages":
         return ParsedToolCall(
-            updated_version_messages=arguments["updated_version_messages"],
-            example_input=arguments.get("example_input", {}),
+            improvement_instructions=arguments["improvement_instructions"],
         )
 
     if function_name == "create_custom_tool":
@@ -994,21 +987,17 @@ TOOL_DEFINITIONS: list[ChatCompletionToolParam] = [
         "type": "function",
         "function": {
             "name": "update_version_messages",
-            "description": "Update the messages of the current agent version.",
+            "description": "Update the messages of the current agent version by providing instructions for improvement.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "updated_version_messages": {
-                        "type": "array",
-                        "description": "The new list of versions messages to use for the current agent, including unchanged messages. Message must ALWAYS ONLY contain a 'role' and a 'content' property.",
-                    },
-                    "example_input": {
-                        "type": "object",
-                        "description": "The example input to update the current agent version with, to fill only in case the version message contain input_variables (double curly braces)",
+                    "improvement_instructions": {
+                        "type": "string",
+                        "description": "Instructions on how to improve the current agent version's messages. This will be passed to a specialized agent.",
                     },
                 },
                 "required": [
-                    "updated_version_messages",
+                    "improvement_instructions",
                 ],
                 "additionalProperties": False,
             },
@@ -1076,7 +1065,7 @@ TOOL_DEFINITIONS: list[ChatCompletionToolParam] = [
                 "properties": {
                     "instructions": {
                         "type": "string",
-                        "description": "Instructions on how to generate the agent input, this message will be passed to the input generation agent.",
+                        "description": "Instructions on how to generate the agent input, this message will be handed off to the input generation agent.",
                     },
                 },
                 "required": ["instructions"],
@@ -1223,8 +1212,7 @@ async def proxy_meta_agent(
 
         yield ProxyMetaAgentOutput(
             assistant_answer=chunk.choices[0].delta.content,
-            updated_version_messages=parsed_tool_call.updated_version_messages,
-            example_input=parsed_tool_call.example_input,
+            improvement_instructions=parsed_tool_call.improvement_instructions,
             new_tool=ProxyMetaAgentOutput.NewTool(
                 name=parsed_tool_call.tool_name,
                 description=parsed_tool_call.tool_description,
