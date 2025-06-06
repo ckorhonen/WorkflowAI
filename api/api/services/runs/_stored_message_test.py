@@ -1,8 +1,8 @@
 from core.domain.fields.file import File, FileWithKeyPath
-from core.domain.message import MessageContent
+from core.domain.message import Message, MessageContent
 from tests import models as test_models
 
-from ._stored_message import StoredMessage
+from ._stored_message import StoredMessage, StoredMessages
 
 
 class TestStoredMessageModelHash:
@@ -71,3 +71,39 @@ class TestStoredMessageModelHash:
 
         m1.content[0].file.url = "https://example.com/file.txt2"  # type: ignore
         assert m.model_hash() != m1.model_hash(), "sanity check"
+
+
+class TestDumpForInput:
+    def test_dump_for_input_with_none_field(self):
+        m = StoredMessages.model_validate(
+            {
+                "whatever": None,
+                "workflowai.messages": [
+                    {
+                        "role": "user",
+                        "content": [{"file": {"url": "https://example.com/file"}}],
+                    },
+                ],
+            },
+        )
+        assert m.dump_for_input() == {
+            "whatever": None,
+            "workflowai.messages": [
+                {
+                    "role": "user",
+                    "content": [{"file": {"url": "https://example.com/file"}}],
+                },
+            ],
+        }
+
+    def test_from_messages(self):
+        m = StoredMessages.model_validate(
+            {
+                "workflowai.messages": [
+                    Message(role="user", content=[MessageContent(text="Hello, world!")]),
+                ],
+            },
+        )
+        assert m.dump_for_input() == {
+            "workflowai.messages": [{"role": "user", "content": [{"text": "Hello, world!"}]}],
+        }

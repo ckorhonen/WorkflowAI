@@ -1,5 +1,5 @@
 import { Add16Regular } from '@fluentui/react-icons';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { ProxyMessage } from '@/types/workflowAI';
@@ -20,6 +20,9 @@ type Props = {
 
   inputVariblesKeys?: string[];
   supportInputVaribles?: boolean;
+  supportRunDetails?: boolean;
+  supportOpeningInPlayground?: boolean;
+  scrollToLastMessage?: boolean;
 };
 
 export function ProxyMessagesView(props: Props) {
@@ -37,6 +40,9 @@ export function ProxyMessagesView(props: Props) {
 
     inputVariblesKeys,
     supportInputVaribles = true,
+    supportRunDetails = false,
+    supportOpeningInPlayground,
+    scrollToLastMessage = false,
   } = props;
 
   const [isHovering, setIsHovering] = useState(false);
@@ -44,8 +50,24 @@ export function ProxyMessagesView(props: Props) {
   const readonly = !setMessages;
 
   const cleanedMessages = useMemo(() => {
-    return cleanMessagesAndAddIDs(messages);
+    const result = cleanMessagesAndAddIDs(messages);
+    return result;
   }, [messages]);
+
+  const areMessagesLoaded = useMemo(() => {
+    return !!messages && messages.length > 0;
+  }, [messages]);
+
+  useEffect(() => {
+    if (areMessagesLoaded && scrollToLastMessage) {
+      const lastMessageElement = document.getElementById('last-message');
+      if (lastMessageElement) {
+        setTimeout(() => {
+          lastMessageElement.scrollIntoView({ behavior: 'instant', block: 'start' });
+        }, 0);
+      }
+    }
+  }, [areMessagesLoaded, scrollToLastMessage]);
 
   const onMessageChange = useCallback(
     (message: ProxyMessage | undefined, index: number) => {
@@ -116,6 +138,7 @@ export function ProxyMessagesView(props: Props) {
     >
       {cleanedMessages?.map((message, index) => (
         <ProxyMessageView
+          id={index === 0 ? 'first-message' : index === cleanedMessages.length - 1 ? 'last-message' : undefined}
           key={message.internal_id ?? index}
           message={message}
           setMessage={(message) => onMessageChange(message, index)}
@@ -128,6 +151,8 @@ export function ProxyMessagesView(props: Props) {
           previouseMessage={cleanedMessages?.[index - 1]}
           inputVariblesKeys={inputVariblesKeys}
           supportInputVaribles={supportInputVaribles}
+          supportRunDetails={supportRunDetails}
+          supportOpeningInPlayground={supportOpeningInPlayground}
         />
       ))}
       {showAddMessageButton && (

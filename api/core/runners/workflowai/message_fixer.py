@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 from core.domain.message import Message, MessageContent
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 
@@ -72,7 +74,7 @@ class MessageAutofixer:
 
         self._current_tool_result_message.content.append(MessageContent(tool_call_result=tool_call_result))
 
-    def fix(self, messages: list[Message]):
+    def fix(self, messages: Sequence[Message]):
         """Unfulfilled tool call requests are not allowed"""
         for i, m in enumerate(messages):
             # We only accept tool call results for new messages as long as we have
