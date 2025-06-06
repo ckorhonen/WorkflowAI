@@ -437,11 +437,11 @@ function mergePaths(beginingPath: string, endPath: string): string {
 function getAllTypeAndRefSchemaKeyPaths(schema: JsonSchema, currentKeyPath: string = ''): string[] {
   const result: string[] = [];
 
-  if (schema.type) {
+  if ('type' in schema) {
     result.push(mergePaths(currentKeyPath, 'type'));
   }
 
-  if ('$ref' in schema && schema.$ref) {
+  if ('$ref' in schema) {
     result.push(mergePaths(currentKeyPath, '$ref'));
   }
 
@@ -515,24 +515,19 @@ export function changeFileTypeInSchema(schema: JsonSchema, keyPath: string, type
 
   switch (type) {
     case 'string':
-      set(newSchema, schemaKeyPath, { type: 'string' });
-      unset(newSchema, schemaKeyPath + '.$ref');
+      set(newSchema, schemaKeyPath, { type: 'string', $ref: undefined });
       break;
     case 'image':
-      set(newSchema, schemaKeyPath, { $ref: '#/$defs/Image' });
-      unset(newSchema, schemaKeyPath + '.type');
+      set(newSchema, schemaKeyPath, { $ref: '#/$defs/Image', type: undefined });
       break;
     case 'document':
-      set(newSchema, schemaKeyPath, { $ref: '#/$defs/File' });
-      unset(newSchema, schemaKeyPath + '.type');
+      set(newSchema, schemaKeyPath, { $ref: '#/$defs/File', type: undefined });
       break;
     case 'audio':
-      set(newSchema, schemaKeyPath, { $ref: '#/$defs/Audio' });
-      unset(newSchema, schemaKeyPath + '.type');
+      set(newSchema, schemaKeyPath, { $ref: '#/$defs/Audio', type: undefined });
       break;
     default:
-      unset(newSchema, schemaKeyPath + '.type');
-      unset(newSchema, schemaKeyPath + '.$ref');
+      set(newSchema, schemaKeyPath, { $ref: undefined, type: undefined });
       break;
   }
 

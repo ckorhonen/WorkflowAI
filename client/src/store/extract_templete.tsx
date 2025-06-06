@@ -151,7 +151,8 @@ export const useOrExtractTemplete = (
   const schema = useMemo(() => {
     if (!extractedSchema || messages?.length === 0 || !messages) return inputSchema;
     const fixedSchema = fixSchemaFormat(extractedSchema, inputSchema);
-    return mergeSchemaTypesAndDefs(fixedSchema, typeSchema);
+    const mergedSchema = mergeSchemaTypesAndDefs(fixedSchema, typeSchema);
+    return mergedSchema;
   }, [extractedSchema, inputSchema, messages, typeSchema]);
 
   const extract = useExtractTemplete((state) => state.extract);
