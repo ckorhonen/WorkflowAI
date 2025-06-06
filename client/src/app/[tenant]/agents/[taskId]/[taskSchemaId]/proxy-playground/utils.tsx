@@ -102,7 +102,7 @@ export function moveInputMessagesToVersionIfRequired(
 export function removeInputEntriesNotMatchingSchema(
   input: Record<string, unknown>,
   schema: JsonSchema | undefined
-): Record<string, unknown> {
+): Record<string, unknown> | unknown[] {
   if (!schema) {
     return input;
   }
@@ -110,20 +110,14 @@ export function removeInputEntriesNotMatchingSchema(
   // Handle array type
   if (schema.type === 'array' && Array.isArray(input)) {
     if (!schema.items) {
-      return {};
+      return [];
     }
-    const result: Record<string, unknown> = {};
-    input.forEach((item, index) => {
+    return input.map((item) => {
       if (typeof item === 'object' && item !== null) {
-        result[index.toString()] = removeInputEntriesNotMatchingSchema(
-          item as Record<string, unknown>,
-          schema.items as JsonSchema
-        );
-      } else {
-        result[index.toString()] = item;
+        return removeInputEntriesNotMatchingSchema(item as Record<string, unknown>, schema.items as JsonSchema);
       }
+      return item;
     });
-    return result;
   }
 
   // Handle object type
@@ -141,18 +135,15 @@ export function removeInputEntriesNotMatchingSchema(
         const value = input[key];
 
         if (propertySchema.type === 'array' && Array.isArray(value)) {
-          const arrayResult: Record<string, unknown> = {};
-          value.forEach((item, index) => {
+          filteredInput[key] = value.map((item) => {
             if (typeof item === 'object' && item !== null) {
-              arrayResult[index.toString()] = removeInputEntriesNotMatchingSchema(
+              return removeInputEntriesNotMatchingSchema(
                 item as Record<string, unknown>,
                 propertySchema.items as JsonSchema
               );
-            } else {
-              arrayResult[index.toString()] = item;
             }
+            return item;
           });
-          filteredInput[key] = arrayResult;
         } else if (propertySchema.type === 'object' && typeof value === 'object' && value !== null) {
           filteredInput[key] = removeInputEntriesNotMatchingSchema(value as Record<string, unknown>, propertySchema);
         } else {
@@ -177,6 +168,10 @@ export function removeInputEntriesNotMatchingSchemaAndKeepMessages(
 
   const inputMessages = input['workflowai.replies'] as ProxyMessage[] | undefined;
   const cleanedInput = removeInputEntriesNotMatchingSchema(input, schema);
+
+  if (Array.isArray(cleanedInput)) {
+    return input;
+  }
 
   if (!!inputMessages) {
     return { ...cleanedInput, 'workflowai.replies': inputMessages };
