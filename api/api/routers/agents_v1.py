@@ -21,6 +21,7 @@ from core.domain.task_io import SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
 from core.utils import strings
 from core.utils.fields import datetime_factory
+from core.utils.schema_sanitation import streamline_schema
 from core.utils.templates import InvalidTemplateError, extract_variable_schema
 
 router = APIRouter(prefix="/v1/{tenant}/agents", tags=[RouteTags.AGENTS])
@@ -182,7 +183,7 @@ async def extract_template(request: ExtractTemplateRequest) -> ExtractTemplateRe
         elif request.messages:
             json_schema, last_templated_index = json_schema_for_template(
                 request.messages,
-                base_schema=request.base_schema,
+                base_schema=streamline_schema(request.base_schema) if request.base_schema else None,
             )
         else:
             raise BadRequestError("Either template or messages must be provided")

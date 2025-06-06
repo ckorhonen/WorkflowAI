@@ -108,6 +108,7 @@ def _process_ref(
     return False
 
 
+# TODO: We should be using JsonSchema file_iterator here
 def _recursive_find_files(
     schema: dict[str, Any],
     payload: Any,

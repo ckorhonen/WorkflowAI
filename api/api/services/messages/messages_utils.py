@@ -1,5 +1,6 @@
 from typing import Any, Iterable
 
+from core.domain.fields.file import FileKind
 from core.domain.message import Message
 from core.utils.schema_sanitation import streamline_schema
 from core.utils.templates import InvalidTemplateError, extract_variable_schema
@@ -27,6 +28,20 @@ class MessageTemplateError(InvalidTemplateError):
         }
 
 
+def _add_file_to_schema(schema: dict[str, Any], template_key: str, file_kind: FileKind | str | None):
+    splits = template_key.split(".")
+    # We don't deal with complex stuff here. We just assume that at worst
+    # The key is in a nested object. No array
+
+    # We add the properties up to the last one
+    for k in splits:
+        properties = schema.setdefault("properties", {})
+        schema = properties.setdefault(k, {})
+
+    ref_name = file_kind.to_ref_name() if isinstance(file_kind, FileKind) else "File"
+    schema["$ref"] = f"#/$defs/{ref_name}"
+
+
 def json_schema_for_template(
     messages: Iterable[Message],
     base_schema: dict[str, Any] | None,
@@ -34,26 +49,23 @@ def json_schema_for_template(
     """Returns a json schema for template variables present in the messages and the index
     of the last templated message"""
 
-    # TODO: handle files as strings in templates
-    # var_regexp = re.compile(r"\{\{([^}]+)\}\}")
-
-    # files: dict[str, FileKind | str] = {}
-    schema: dict[str, Any] | None = None
+    schema: dict[str, Any] = {}
     last_templated_index = -1
+
     for i, m in enumerate(messages):
-        # If format is not provided, then we treat as a plain string
-        # if not format:
-        #     templatable_parts.append(m)
-        #     continue
-        # # If format is provided and the whole content is a variable
-        # if match := var_regexp.match(m):
-        #     files[match.group(1)] = format
-        #     continue
-        # We are in a case where the content is a mix of variables and plain text so we can't
-        # really extract the file
-        for j, (c, _) in enumerate(m.content_iterator()):
+        for j, c in enumerate(m.content):
+            if c.file and (template_key := c.file.template_key()):
+                # We have a template key so we should add the file to the schema
+                _add_file_to_schema(schema, template_key, c.file.format)
+                last_templated_index = i
+            if not c.text:
+                continue
             try:
-                schema, is_templated = extract_variable_schema(c, start_schema=schema, use_types_from=base_schema)
+                extracted, is_templated = extract_variable_schema(
+                    c.text,
+                    start_schema=schema,
+                    use_types_from=base_schema,
+                )
             except InvalidTemplateError as e:
                 raise MessageTemplateError(
                     message=e.message,
@@ -63,11 +75,9 @@ def json_schema_for_template(
                     message_index=i,
                     content_index=j,
                 )
+            if extracted:
+                schema = extracted
             if is_templated:
                 last_templated_index = i
 
-    # for var, kind in files.items():
-    #     # We just add the format here
-    #     # It will be streamlined and replace with the proper
-    #     schema.setdefault("properties", {})[var] = {"$ref": "#/$defs/File", "format": kind}
     return streamline_schema(schema) if schema else None, last_templated_index

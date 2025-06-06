@@ -1,5 +1,5 @@
 from core.domain.fields.file import File, FileWithKeyPath
-from core.domain.message import MessageContent
+from core.domain.message import Message, MessageContent
 from tests import models as test_models
 
 from ._stored_message import StoredMessage, StoredMessages
@@ -94,4 +94,16 @@ class TestDumpForInput:
                     "content": [{"file": {"url": "https://example.com/file"}}],
                 },
             ],
+        }
+
+    def test_from_messages(self):
+        m = StoredMessages.model_validate(
+            {
+                "workflowai.messages": [
+                    Message(role="user", content=[MessageContent(text="Hello, world!")]),
+                ],
+            },
+        )
+        assert m.dump_for_input() == {
+            "workflowai.messages": [{"role": "user", "content": [{"text": "Hello, world!"}]}],
         }
