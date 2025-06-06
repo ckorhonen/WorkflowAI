@@ -101,8 +101,6 @@ export function ProxySection(props: Props) {
     setInput,
   });
 
-  console.log('cleanInput', cleanInput);
-
   const cleanInputRef = useRef<Record<string, unknown>>(cleanInput);
   cleanInputRef.current = cleanInput;
   useEffect(() => {
