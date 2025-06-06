@@ -39,7 +39,7 @@ def _openai_fallback(pricing: PricingTier, context_exceeded: Model | Literal["no
             # OpenAI expensive models usually have a 200k context window
             model = Model.CLAUDE_4_OPUS_LATEST
             if not context_exceeded:
-                context_exceeded = Model.GEMINI_2_5_PRO_PREVIEW_0506
+                context_exceeded = Model.GEMINI_2_5_PRO_PREVIEW_0605
 
     return ModelFallback.only_model(model, pricing_tier=pricing, context_exceeded=context_exceeded)
 
@@ -730,8 +730,8 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
         ),
         Model.GEMINI_2_5_PRO_PREVIEW_0506: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0605),
         Model.GEMINI_2_5_PRO_PREVIEW_0325: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0605),
-        Model.GEMINI_2_5_PRO_EXP_0325: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0506),
-        Model.GEMINI_2_0_PRO_EXP: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0506),
+        Model.GEMINI_2_5_PRO_EXP_0325: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0605),
+        Model.GEMINI_2_0_PRO_EXP: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0605),
         Model.GEMINI_2_0_FLASH_EXP: ModelData(
             display_name="Gemini 2.0 Flash Exp (Image Generation)",
             supports_json_mode=False,
@@ -1175,8 +1175,8 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 content_moderation=Model.GPT_41_NANO_LATEST,
             ),
         ),
-        Model.GEMINI_EXP_1206: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0506),
-        Model.GEMINI_EXP_1121: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0506),
+        Model.GEMINI_EXP_1206: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0605),
+        Model.GEMINI_EXP_1121: DeprecatedModel(replacement_model=Model.GEMINI_2_5_PRO_PREVIEW_0605),
         Model.QWEN_QWQ_32B: ModelData(
             display_name="Qwen QWQ (32B)",
             supports_json_mode=True,
