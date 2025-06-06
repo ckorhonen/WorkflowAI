@@ -1,10 +1,15 @@
 import json
+import logging
 import os
 from typing import Any, AsyncIterator, Literal, NamedTuple
 
 import workflowai
 from openai import AsyncOpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
+
+from core.domain.message import Message
+
+_logger = logging.getLogger(__name__)
 
 
 class ImproveVersionMessagesInput(NamedTuple):
@@ -24,11 +29,13 @@ class ImproveVersionMessagesOutput(BaseModel):
         content: str
 
     improved_messages: list[Message]
+    changelog: list[str] | None = None
 
 
 class ImproveVersionMessagesResponse(BaseModel):
-    improved_messages: list[dict[str, Any]]
+    improved_messages: list[Message]
     feedback_token: str | None
+    changelog: list[str] | None = None
 
 
 async def improve_version_messages_agent(
@@ -45,7 +52,7 @@ async def improve_version_messages_agent(
         messages=[
             {
                 "role": "system",
-                "content": "You are an expert at improving AI agent input messages. Given initial messages and improvement instructions, return improved messages.\n\nthe improvement instructions are: {{improvement_instructions}}",
+                "content": "You are an expert at improving AI agent input messages. Given initial messages and improvement instructions, return improved messages.\n\nthe improvement instructions are: {{improvement_instructions}}. You must output a concise changelog of the changes you made to the message in the 'changelog' field. Note that changelog should be a list of strings, with each element being an atomic change.",
             },
             {
                 "role": "user",
@@ -66,23 +73,44 @@ async def improve_version_messages_agent(
     ) as response:
         chunk = None
         agg = ""
+        yielded_response: ImproveVersionMessagesResponse | None = None
         async for chunk in response:
             feedback_token: str | None = getattr(chunk, "feedback_token", None)
             if hasattr(chunk, "type") and chunk.type == "content.delta" and hasattr(chunk, "delta"):
                 if chunk.parsed and isinstance(chunk.parsed, dict):
-                    yield ImproveVersionMessagesResponse(
-                        **(chunk.parsed),  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
-                        feedback_token=feedback_token,
-                    )
-                    continue
+                    try:
+                        parsed_output = ImproveVersionMessagesOutput.model_validate(chunk.parsed)  # pyright: ignore[reportUnknownMemberType]
+                        yielded_response = ImproveVersionMessagesResponse(
+                            improved_messages=[
+                                Message.with_text(message.content, message.role)
+                                for message in parsed_output.improved_messages
+                            ],
+                            feedback_token=feedback_token,
+                            changelog=parsed_output.changelog,
+                        )
+                        yield yielded_response
+                    except ValidationError:
+                        continue
 
                 # It seems the runs from cache do not have a 'parsed' attribute filled,  so we need to parse the delta manually
                 if chunk.delta:
                     try:
                         agg += chunk.delta
-                        yield ImproveVersionMessagesResponse(
-                            **(json.loads(agg)),
+                        parsed_output = ImproveVersionMessagesOutput.model_validate(json.loads(agg))
+                        yielded_response = ImproveVersionMessagesResponse(
+                            improved_messages=[
+                                Message.with_text(message.content, message.role)
+                                for message in parsed_output.improved_messages
+                            ],
                             feedback_token=feedback_token,
+                            changelog=parsed_output.changelog,
                         )
-                    except json.JSONDecodeError:
+                        yield yielded_response
+                    except (json.JSONDecodeError, ValidationError):
                         continue
+
+        if yielded_response is None:
+            _logger.exception(
+                "No response yielded from improve_version_messages_agent",
+                extra={"input": input._asdict(), "last_chunk": chunk.model_dump(mode="json") if chunk else ""},
+            )

@@ -169,7 +169,7 @@ class _SchemaBuilder(NodeVisitor):
 
         if len(components) == 1 and "*" in components:
             # We are in an array. We can just add the array type and dive
-            existing = existing.safe_child_schema(0) if existing else None
+            existing = existing.safe_child_schema(0, follow_refs=False) if existing else None
             schema["type"] = "array"
             schema["items"] = {}
             schema = schema["items"]
@@ -185,7 +185,7 @@ class _SchemaBuilder(NodeVisitor):
         for k, v in components.items():
             self._handle_components(
                 schema=schema.setdefault(k, {}),
-                existing=existing.safe_child_schema(k) if existing else None,
+                existing=existing.safe_child_schema(k, follow_refs=False) if existing else None,
                 components=v,
             )
 

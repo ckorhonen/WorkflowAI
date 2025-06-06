@@ -1,8 +1,8 @@
 import hashlib
 import json
-from typing import Iterator
+from typing import Any, Iterator, Self
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, RootModel
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, ModelWrapValidatorHandler, RootModel, model_validator
 
 from core.domain.consts import INPUT_KEY_MESSAGES, INPUT_KEY_MESSAGES_DEPRECATED
 from core.domain.fields.file import File
@@ -47,6 +47,13 @@ class StoredMessage(Message):
 
     # Any other field will be ignored
     model_config = ConfigDict(extra="ignore")
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def wrap_validator(cls, data: Any, handler: ModelWrapValidatorHandler[Self]) -> Self:
+        if isinstance(data, Message):
+            data = StoredMessage(**data.__dict__)
+        return handler(data)
 
     def model_hash(self):
         """Compute a hash for this message only"""
@@ -120,6 +127,7 @@ class StoredMessages(BaseModel):
                                 },
                             },
                         },
+                        "image_options": True,
                     },
                 },
             },

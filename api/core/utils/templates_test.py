@@ -281,3 +281,23 @@ class TestExtractVariableSchema:
             "format": "messages",
             "properties": {"name": {}},
         }
+
+    def test_refs_are_maintained(self):
+        schema, _ = extract_variable_schema(
+            "{{ audio  }} {{ image}}",
+            use_types_from={
+                "type": "object",
+                "format": "messages",
+                "properties": {
+                    "audio": {"$ref": "Audio"},
+                },
+            },
+        )
+        assert schema == {
+            "type": "object",
+            "format": "messages",
+            "properties": {
+                "audio": {"$ref": "Audio"},
+                "image": {},
+            },
+        }

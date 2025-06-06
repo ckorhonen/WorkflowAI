@@ -1,15 +1,13 @@
-import asyncio
-from collections.abc import Iterator, Sequence
+from collections.abc import Sequence
 from enum import StrEnum, auto
 from typing import Literal
 
 from pydantic import AliasChoices, BaseModel, Field
 
 from core.domain.consts import INPUT_KEY_MESSAGES, INPUT_KEY_MESSAGES_DEPRECATED
-from core.domain.fields.file import File, FileKind
+from core.domain.fields.file import File
 from core.domain.fields.image_options import ImageOptions
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
-from core.domain.types import TemplateRenderer
 
 
 class MessageDeprecated(BaseModel):
@@ -34,29 +32,6 @@ class MessageContent(BaseModel):
     tool_call_request: ToolCallRequestWithID | None = None
     tool_call_result: ToolCall | None = None
 
-    async def templated(self, renderer: TemplateRenderer):
-        try:
-            async with asyncio.TaskGroup() as tg:
-                text_task = tg.create_task(renderer(self.text)) if self.text else None
-                file_task = tg.create_task(self.file.templated(renderer)) if self.file else None
-        except ExceptionGroup as e:
-            # Raising the first exception, to avoid having a special kind of exception to handle
-            # This is not great and we should return a compound instead
-            raise e.exceptions[0]
-
-        return MessageContent(
-            text=text_task.result() if text_task else None,
-            file=file_task.result() if file_task else None,
-            tool_call_request=self.tool_call_request,
-            tool_call_result=self.tool_call_result,
-        )
-
-    def content_iterator(self) -> Iterator[tuple[str, FileKind | str | None]]:
-        if self.text:
-            yield self.text, None
-        if self.file is not None and self.file.url:
-            yield self.file.url, self.file.format or FileKind.ANY
-
 
 MessageRole = Literal["system", "user", "assistant"]
 
@@ -68,23 +43,6 @@ class Message(BaseModel):
     role: MessageRole
     content: list[MessageContent]
     image_options: ImageOptions | None = None
-
-    async def templated(self, renderer: TemplateRenderer):
-        try:
-            contents = await asyncio.gather(*[c.templated(renderer) for c in self.content])
-        except ExceptionGroup as e:
-            # Raising the first exception, to avoid having a special kind of exception to handle
-            # This is not great and we should return a compound instead
-            raise e.exceptions[0]
-        return Message(
-            role=self.role,
-            content=contents,
-            image_options=self.image_options,
-        )
-
-    def content_iterator(self) -> Iterator[tuple[str, FileKind | str | None]]:
-        for c in self.content:
-            yield from c.content_iterator()
 
     def to_deprecated(self) -> MessageDeprecated:
         # TODO: remove this method
@@ -119,21 +77,17 @@ class Message(BaseModel):
     def with_text(cls, text: str, role: MessageRole = "user"):
         return cls(role=role, content=[MessageContent(text=text)])
 
+    @classmethod
+    def with_file_url(cls, url: str, role: MessageRole = "user"):
+        return cls(role=role, content=[MessageContent(file=File(url=url))])
+
 
 class Messages(BaseModel):
     messages: list[Message] = Field(
+        default_factory=list,
         serialization_alias=INPUT_KEY_MESSAGES,
         validation_alias=AliasChoices(INPUT_KEY_MESSAGES, "messages", INPUT_KEY_MESSAGES_DEPRECATED),
     )
-
-    async def templated(self, renderer: TemplateRenderer):
-        try:
-            messages = await asyncio.gather(*[m.templated(renderer) for m in self.messages])
-        except ExceptionGroup as e:
-            # Raising the first exception, to avoid having a special kind of exception to handle
-            # This is not great and we should return a compound instead
-            raise e.exceptions[0]
-        return Messages(messages=messages)
 
     def to_deprecated(self) -> list[MessageDeprecated]:
         return [m.to_deprecated() for m in self.messages]

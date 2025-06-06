@@ -337,6 +337,7 @@ class JsonSchema:
         self,
         prefix: list[str],
         dive: Callable[[Self], bool] = lambda _: True,
+        follow_refs: bool = True,
     ) -> Iterator[tuple[list[str], FieldType, Self]]:
         t = self.type
         if not t:
@@ -348,10 +349,16 @@ class JsonSchema:
         match t:
             case "object":
                 for key in list(self.schema.get("properties", {}).keys()):
-                    yield from self.child_schema(key).fields_iterator(prefix=[*prefix, key], dive=dive)
+                    yield from self.child_schema(key, follow_refs=follow_refs).fields_iterator(
+                        prefix=[*prefix, key],
+                        dive=dive,
+                    )
             case "array":
                 # Assuming array only has one item
-                yield from self.child_schema(0).fields_iterator(prefix=[*prefix, "[]"], dive=dive)
+                yield from self.child_schema(0, follow_refs=follow_refs).fields_iterator(
+                    prefix=[*prefix, "[]"],
+                    dive=dive,
+                )
             case _:
                 pass
 

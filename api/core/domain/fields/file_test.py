@@ -1,7 +1,7 @@
 from urllib.parse import urlencode
 
 import pytest
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from core.domain.fields.file import File, FileKind
 from core.utils.schema_sanitation import clean_pydantic_schema
@@ -50,6 +50,15 @@ class TestFile:
     def test_init_with_format(self):
         img = File(url="https://bla.com/file", format="image")
         assert img.format == FileKind.IMAGE
+
+    def test_model_validate_str(self):
+        """Validate that the model can be validated with a url string"""
+
+        class _M(BaseModel):
+            file: File
+
+        validated = _M.model_validate({"file": "https://bla.com/file"})
+        assert validated.file.url == "https://bla.com/file"
 
     @pytest.mark.skip(reason="TODO: re-enabled when we add the check")
     def test_invalid_url(self):
