@@ -28,6 +28,7 @@ import {
 } from './utils';
 
 type Props = {
+  id?: string;
   message: ProxyMessage;
   setMessage?: (message: ProxyMessage | undefined) => void;
   avaibleTypes: ExtendedMessageType[];
@@ -40,10 +41,13 @@ type Props = {
   previouseMessage?: ProxyMessage;
   inputVariblesKeys?: string[];
   supportInputVaribles?: boolean;
+  supportRunDetails?: boolean;
+  supportOpeningInPlayground?: boolean;
 };
 
 export function ProxyMessageView(props: Props) {
   const {
+    id,
     message,
     setMessage,
     avaibleTypes,
@@ -56,6 +60,8 @@ export function ProxyMessageView(props: Props) {
     previouseMessage,
     inputVariblesKeys,
     supportInputVaribles = true,
+    supportRunDetails = false,
+    supportOpeningInPlayground = true,
   } = props;
 
   const { tenant, taskId } = useParams();
@@ -167,8 +173,8 @@ export function ProxyMessageView(props: Props) {
   const showMoveButton = false;
 
   const showRunDetails = useMemo(() => {
-    return !!message.run_id && message.role === 'assistant';
-  }, [message.run_id, message.role]);
+    return supportRunDetails && !!message.run_id && message.role === 'assistant';
+  }, [message.run_id, message.role, supportRunDetails]);
 
   const router = useRouter();
 
@@ -187,6 +193,7 @@ export function ProxyMessageView(props: Props) {
 
   return (
     <div
+      id={id}
       className='flex flex-col relative'
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
@@ -284,8 +291,8 @@ export function ProxyMessageView(props: Props) {
         </>
       )}
 
-      {!!message.run_id && isHovering && (
-        <div className='absolute top-0 right-0 translate-x-2 -translate-y-[14px] items-center justify-center'>
+      {showRunDetails && supportOpeningInPlayground && !!message.run_id && isHovering && (
+        <div className='absolute top-0 right-0 translate-x-2 -translate-y-[14px] items-center justify-center z-10'>
           <Button
             variant='newDesign'
             size='sm'
