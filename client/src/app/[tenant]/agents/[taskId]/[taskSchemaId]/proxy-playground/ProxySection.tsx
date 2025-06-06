@@ -101,8 +101,12 @@ export function ProxySection(props: Props) {
     setInput,
   });
 
-  const cleanMatchingInput = useMemo(() => {
-    return removeInputEntriesNotMatchingSchema(cleanInput, extractedInputSchema);
+  const cleanMatchingInput: Record<string, unknown> = useMemo(() => {
+    const result = removeInputEntriesNotMatchingSchema(cleanInput, extractedInputSchema);
+    if (Array.isArray(result)) {
+      return cleanInput;
+    }
+    return result;
   }, [cleanInput, extractedInputSchema]);
 
   return (
