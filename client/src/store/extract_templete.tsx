@@ -66,7 +66,7 @@ export const useExtractTemplete = create<ExtractTempleteState>((set, get) => ({
 
       set(
         produce((state) => {
-          state.schemaById.set(id, json_schema ?? {});
+          state.schemaById.set(id, json_schema ?? { type: 'object', properties: {} });
           state.isLoadingById.set(id, false);
           state.errorById.set(id, undefined);
         })
