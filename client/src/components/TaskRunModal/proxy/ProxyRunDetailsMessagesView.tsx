@@ -6,10 +6,11 @@ import { ProxyMessage, api__routers__runs_v1__RunV1__Error } from '@/types/workf
 type Props = {
   messages: ProxyMessage[] | undefined;
   error: api__routers__runs_v1__RunV1__Error | undefined;
+  supportOpeningInPlayground?: boolean;
 };
 
 export function ProxyRunDetailsMessagesView(props: Props) {
-  const { messages, error } = props;
+  const { messages, error, supportOpeningInPlayground } = props;
 
   const plainError = useMemo(() => {
     if (!error) {
@@ -34,7 +35,8 @@ export function ProxyRunDetailsMessagesView(props: Props) {
           messages={messages as ProxyMessage[]}
           className='flex w-full h-max px-4 py-2'
           supportRunDetails={true}
-          revertOrder={true}
+          supportOpeningInPlayground={supportOpeningInPlayground}
+          scrollToLastMessage={true}
         />
       </div>
     </div>

@@ -48,7 +48,11 @@ export function ProxyTaskRunHoverableInputOutputContent(props: Props) {
         </div>
       )}
       <div className='flex flex-1 h-full overflow-hidden'>
-        <ProxyRunDetailsMessagesView messages={inputAndOutputMessages} error={run.error ?? undefined} />
+        <ProxyRunDetailsMessagesView
+          messages={inputAndOutputMessages}
+          error={run.error ?? undefined}
+          supportOpeningInPlayground={false}
+        />
       </div>
     </div>
   );
