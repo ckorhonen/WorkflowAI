@@ -520,6 +520,7 @@ export function ProxyPlayground(props: Props) {
           onCancelChatToolCallOnPlayground={onCancelChatRequest}
           scrollToInput={() => performScroll('proxy-scroll-view', 'top')}
           scrollToOutput={() => performScroll('proxy-scroll-view', 'bottom')}
+          isProxy={true}
         />
       )}
       <CodeModal tenant={tenant} taskId={taskId} versionId={versionIdForCode} setVersionId={setVersionIdForCode} />

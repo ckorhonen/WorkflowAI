@@ -25,6 +25,7 @@ type Props = {
   generateNewInput: (instructions: string | undefined) => Promise<void>;
   onCancelChatToolCallOnPlayground: () => void;
   isAutoRunOn: boolean;
+  isProxy: boolean;
 };
 
 export function usePlaygroundChatToolCalls(props: Props) {
@@ -40,6 +41,7 @@ export function usePlaygroundChatToolCalls(props: Props) {
     generateNewInput,
     onCancelChatToolCallOnPlayground,
     isAutoRunOn,
+    isProxy,
   } = props;
 
   const {
@@ -290,12 +292,12 @@ export function usePlaygroundChatToolCalls(props: Props) {
       return true;
     }
 
-    if (scheduledPlaygroundStateMessageToSendAfterRuns) {
+    if (!isProxy && scheduledPlaygroundStateMessageToSendAfterRuns) {
       return true;
     }
 
     return false;
-  }, [isLoading, inProgressToolCallIds, scheduledPlaygroundStateMessageToSendAfterRuns]);
+  }, [isLoading, inProgressToolCallIds, scheduledPlaygroundStateMessageToSendAfterRuns, isProxy]);
 
   const onStop = useCallback(async () => {
     if (!showStop) {

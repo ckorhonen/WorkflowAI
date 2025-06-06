@@ -33,6 +33,7 @@ type Props = {
   onCancelChatToolCallOnPlayground: () => void;
   scrollToInput: () => void;
   scrollToOutput: () => void;
+  isProxy?: boolean;
 };
 
 export function PlaygroundChat(props: Props) {
@@ -49,6 +50,7 @@ export function PlaygroundChat(props: Props) {
     onCancelChatToolCallOnPlayground,
     scrollToInput,
     scrollToOutput,
+    isProxy = false,
   } = props;
 
   const [open, setOpen] = useLocalStorage('playground-chat-open', true);
@@ -128,6 +130,7 @@ export function PlaygroundChat(props: Props) {
     generateNewInput,
     onCancelChatToolCallOnPlayground,
     isAutoRunOn: true,
+    isProxy,
   });
 
   const convertedMessages: ConversationMessage[] = useMemo(() => {
