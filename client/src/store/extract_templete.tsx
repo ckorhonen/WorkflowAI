@@ -134,13 +134,14 @@ function fixSchemaFormat(
 export const useOrExtractTemplete = (
   tenant: TenantID | undefined,
   taskId: TaskID,
+  schemaId: number | undefined,
   messages: ProxyMessage[] | undefined,
   inputSchema: JsonSchema | undefined,
   historyId: string | undefined
 ) => {
   const id = useMemo(() => {
-    return `${tenant}-${taskId}-${historyId}`;
-  }, [tenant, taskId, historyId]);
+    return `${tenant}-${taskId}-${schemaId}-${historyId}`;
+  }, [tenant, taskId, schemaId, historyId]);
 
   const isLoading = useExtractTemplete((state) => state.isLoadingById.get(id));
   const extractedSchema = useExtractTemplete((state) => state.schemaById.get(id));

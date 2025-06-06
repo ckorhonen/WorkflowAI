@@ -140,7 +140,7 @@ export function ProxyPlayground(props: Props) {
     inputVariblesKeys,
     error: extractedInputSchemaError,
     areThereChangesInInputSchema,
-  } = useOrExtractTemplete(tenant, taskId, proxyMessages, inputSchema, historyId);
+  } = useOrExtractTemplete(tenant, taskId, schema?.schema_id, proxyMessages, inputSchema, historyId);
 
   const playgroundOutputRef = useRef<HTMLDivElement>(null);
   const [scheduledPlaygroundStateMessage, setScheduledPlaygroundStateMessage] = useState<string | undefined>(undefined);
