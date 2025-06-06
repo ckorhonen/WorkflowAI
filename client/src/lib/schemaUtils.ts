@@ -466,6 +466,12 @@ function getAllTypeAndRefSchemaKeyPaths(schema: JsonSchema, currentKeyPath: stri
   return result;
 }
 
+function removeRefAndTypeFromKeyPath(keyPath: string): string {
+  const parts = keyPath.split('.');
+  parts.pop();
+  return parts.join('.');
+}
+
 export function mergeSchemaTypesAndDefs(
   schema: JsonSchema | undefined,
   typeSchema: JsonSchema | undefined
@@ -473,13 +479,19 @@ export function mergeSchemaTypesAndDefs(
   if (!schema || !typeSchema) {
     return schema;
   }
-
   const result = cloneDeep(schema);
   const typesAndRefsToSetKeyPaths = getAllTypeAndRefSchemaKeyPaths(typeSchema);
 
   const refsAndTypes: string[] = [];
 
   typesAndRefsToSetKeyPaths.forEach((keyPath) => {
+    // Let's first check if the entry still exists in the schema
+    const keyPathWithoutRefAndType = removeRefAndTypeFromKeyPath(keyPath);
+    const orginalValue = get(schema, keyPathWithoutRefAndType);
+    if (!orginalValue) {
+      return;
+    }
+
     const value = get(typeSchema, keyPath);
     if (value) {
       set(result, keyPath, value);
