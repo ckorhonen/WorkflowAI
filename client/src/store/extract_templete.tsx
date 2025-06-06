@@ -164,21 +164,13 @@ export const useOrExtractTemplete = (
 
   const abortControllerRef = useRef<AbortController | undefined>(undefined);
 
-  const messagesRef = useRef(messages);
-  messagesRef.current = messages;
-
-  const [isWaitingForRequestToEnd, setIsWaitingForRequestToEnd] = useState(false);
-
   useEffect(() => {
     abortControllerRef.current?.abort();
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
-    setIsWaitingForRequestToEnd(true);
-
     const debouncedExtract = debounce(() => {
-      extract(id, tenant, taskId, messagesRef.current ?? [], inputSchema, abortController.signal);
-      setIsWaitingForRequestToEnd(false);
+      extract(id, tenant, taskId, messages ?? [], inputSchema, abortController.signal);
     }, 500);
 
     debouncedExtract();
@@ -195,7 +187,7 @@ export const useOrExtractTemplete = (
   }, [schema, inputSchema]);
 
   return {
-    isLoading: isLoading || isWaitingForRequestToEnd,
+    isLoading: isLoading,
     schema,
     setSchema: setTypeSchema,
     inputVariblesKeys,
