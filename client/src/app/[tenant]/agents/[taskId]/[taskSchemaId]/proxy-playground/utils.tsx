@@ -90,3 +90,71 @@ export function moveInputMessagesToVersionIfRequired(
 
   return { input: newInput, messages: messagesToMove };
 }
+
+export function removeInputEntriesNotMatchingSchema(
+  input: Record<string, unknown>,
+  schema: JsonSchema | undefined
+): Record<string, unknown> {
+  if (!schema) {
+    return input;
+  }
+
+  // Handle array type
+  if (schema.type === 'array' && Array.isArray(input)) {
+    if (!schema.items) {
+      return {};
+    }
+    const result: Record<string, unknown> = {};
+    input.forEach((item, index) => {
+      if (typeof item === 'object' && item !== null) {
+        result[index.toString()] = removeInputEntriesNotMatchingSchema(
+          item as Record<string, unknown>,
+          schema.items as JsonSchema
+        );
+      } else {
+        result[index.toString()] = item;
+      }
+    });
+    return result;
+  }
+
+  // Handle object type
+  if (schema.type === 'object' && typeof input === 'object' && input !== null && !Array.isArray(input)) {
+    if (!('properties' in schema) || !schema.properties) {
+      return input;
+    }
+
+    const schemaProperties = Object.keys(schema.properties);
+    const filteredInput: Record<string, unknown> = {};
+
+    for (const key of Object.keys(input)) {
+      if (schemaProperties.includes(key)) {
+        const propertySchema = schema.properties[key] as JsonSchema;
+        const value = input[key];
+
+        if (propertySchema.type === 'array' && Array.isArray(value)) {
+          const arrayResult: Record<string, unknown> = {};
+          value.forEach((item, index) => {
+            if (typeof item === 'object' && item !== null) {
+              arrayResult[index.toString()] = removeInputEntriesNotMatchingSchema(
+                item as Record<string, unknown>,
+                propertySchema.items as JsonSchema
+              );
+            } else {
+              arrayResult[index.toString()] = item;
+            }
+          });
+          filteredInput[key] = arrayResult;
+        } else if (propertySchema.type === 'object' && typeof value === 'object' && value !== null) {
+          filteredInput[key] = removeInputEntriesNotMatchingSchema(value as Record<string, unknown>, propertySchema);
+        } else {
+          filteredInput[key] = value;
+        }
+      }
+    }
+
+    return filteredInput;
+  }
+
+  return input;
+}

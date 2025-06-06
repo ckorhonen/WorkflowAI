@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { ExtractTempleteError } from '@/store/extract_templete';
 import { TaskID, TenantID } from '@/types/aliases';
 import { JsonSchema } from '@/types/json_schema';
@@ -8,6 +8,7 @@ import { useProxyInputStructure } from './hooks/useProxyInputStructure';
 import { ProxyInput } from './input-section/ProxyInput';
 import { ProxyParameters } from './parameters-section/ProxyParameters';
 import { createEmptyMessage } from './proxy-messages/utils';
+import { removeInputEntriesNotMatchingSchema } from './utils';
 
 interface Props {
   extractedInputSchema: JsonSchema | undefined;
@@ -99,6 +100,20 @@ export function ProxySection(props: Props) {
     input,
     setInput,
   });
+
+  console.log('cleanInput', cleanInput);
+
+  const cleanInputRef = useRef<Record<string, unknown>>(cleanInput);
+  cleanInputRef.current = cleanInput;
+  useEffect(() => {
+    cleanInputRef.current = cleanInput;
+  }, [cleanInput]);
+
+  useEffect(() => {
+    const updatedCleanInputToSchema = removeInputEntriesNotMatchingSchema(cleanInputRef.current, extractedInputSchema);
+    setCleanInput(updatedCleanInputToSchema);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [extractedInputSchema]);
 
   return (
     <div
