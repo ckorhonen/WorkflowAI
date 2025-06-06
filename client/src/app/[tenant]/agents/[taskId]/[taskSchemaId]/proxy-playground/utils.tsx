@@ -158,3 +158,21 @@ export function removeInputEntriesNotMatchingSchema(
 
   return input;
 }
+
+export function removeInputEntriesNotMatchingSchemaAndKeepMessages(
+  input: Record<string, unknown>,
+  schema: JsonSchema | undefined
+): Record<string, unknown> {
+  if (!schema) {
+    return input;
+  }
+
+  const inputMessages = input['workflowai.replies'] as ProxyMessage[] | undefined;
+  const cleanedInput = removeInputEntriesNotMatchingSchema(input, schema);
+
+  if (!!inputMessages) {
+    return { ...cleanedInput, 'workflowai.replies': inputMessages };
+  }
+
+  return cleanedInput;
+}
