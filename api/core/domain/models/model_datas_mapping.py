@@ -693,7 +693,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             ),
             provider_name=DisplayedProvider.GOOGLE.value,
             supports_tool_calling=True,
-            reasoning_level="medium",
+            reasoning_level="none",
             fallback=ModelFallback.default(
                 "cheapest",
                 content_moderation=Model.GPT_41_NANO_LATEST,
