@@ -112,6 +112,20 @@ export function removeInputEntriesNotMatchingSchema(
     if (!schema.items) {
       return [];
     }
+
+    // Handle tuple validation (items is an array of schemas)
+    if (Array.isArray(schema.items)) {
+      const itemsArray = schema.items as JsonSchema[];
+      return input.map((item, index) => {
+        const itemSchema = index < itemsArray.length ? itemsArray[index] : undefined;
+        if (typeof item === 'object' && item !== null && itemSchema) {
+          return removeInputEntriesNotMatchingSchema(item as Record<string, unknown>, itemSchema);
+        }
+        return item;
+      });
+    }
+
+    // Handle single schema for all items
     return input.map((item) => {
       if (typeof item === 'object' && item !== null) {
         return removeInputEntriesNotMatchingSchema(item as Record<string, unknown>, schema.items as JsonSchema);
@@ -135,15 +149,30 @@ export function removeInputEntriesNotMatchingSchema(
         const value = input[key];
 
         if (propertySchema.type === 'array' && Array.isArray(value)) {
-          filteredInput[key] = value.map((item) => {
-            if (typeof item === 'object' && item !== null) {
-              return removeInputEntriesNotMatchingSchema(
-                item as Record<string, unknown>,
-                propertySchema.items as JsonSchema
-              );
-            }
-            return item;
-          });
+          if (propertySchema.items && Array.isArray(propertySchema.items)) {
+            // Handle tuple validation
+            const itemsArray = propertySchema.items as JsonSchema[];
+            filteredInput[key] = value.map((item, index) => {
+              const itemSchema = index < itemsArray.length ? itemsArray[index] : undefined;
+              if (typeof item === 'object' && item !== null && itemSchema) {
+                return removeInputEntriesNotMatchingSchema(item as Record<string, unknown>, itemSchema);
+              }
+              return item;
+            });
+          } else if (propertySchema.items) {
+            // Handle single schema for all items
+            filteredInput[key] = value.map((item) => {
+              if (typeof item === 'object' && item !== null) {
+                return removeInputEntriesNotMatchingSchema(
+                  item as Record<string, unknown>,
+                  propertySchema.items as JsonSchema
+                );
+              }
+              return item;
+            });
+          } else {
+            filteredInput[key] = value;
+          }
         } else if (propertySchema.type === 'object' && typeof value === 'object' && value !== null) {
           filteredInput[key] = removeInputEntriesNotMatchingSchema(value as Record<string, unknown>, propertySchema);
         } else {
