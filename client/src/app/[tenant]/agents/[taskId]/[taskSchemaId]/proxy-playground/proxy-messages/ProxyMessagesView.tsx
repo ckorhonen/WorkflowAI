@@ -63,7 +63,7 @@ export function ProxyMessagesView(props: Props) {
       const lastMessageElement = document.getElementById('last-message');
       if (lastMessageElement) {
         setTimeout(() => {
-          lastMessageElement.scrollIntoView({ behavior: 'instant' });
+          lastMessageElement.scrollIntoView({ behavior: 'instant', block: 'start' });
         }, 0);
       }
     }
