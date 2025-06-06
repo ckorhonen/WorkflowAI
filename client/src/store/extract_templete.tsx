@@ -66,7 +66,7 @@ export const useExtractTemplete = create<ExtractTempleteState>((set, get) => ({
 
       set(
         produce((state) => {
-          state.schemaById.set(id, json_schema);
+          state.schemaById.set(id, json_schema ?? {});
           state.isLoadingById.set(id, false);
           state.errorById.set(id, undefined);
         })
@@ -175,11 +175,17 @@ export const useOrExtractTemplete = (
 
     setIsWaitingForRequestToEnd(true);
 
-    debounce(() => {
-      if (!messages) return;
-      extract(id, tenant, taskId, messages, inputSchema, abortController.signal);
+    const debouncedExtract = debounce(() => {
+      extract(id, tenant, taskId, messagesRef.current ?? [], inputSchema, abortController.signal);
       setIsWaitingForRequestToEnd(false);
-    }, 500)();
+    }, 500);
+
+    debouncedExtract();
+
+    return () => {
+      debouncedExtract.cancel();
+      abortController.abort();
+    };
   }, [extract, tenant, taskId, messages, inputSchema, id]);
 
   const areThereChangesInInputSchema = useMemo(() => {
