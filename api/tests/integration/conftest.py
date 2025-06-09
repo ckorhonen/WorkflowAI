@@ -8,28 +8,24 @@ import os
 from typing import Any
 from unittest.mock import Mock, patch
 
+import httpx
 import pytest
 
 _INT_DB_NAME = "workflowai_e2e_test"
 
+_CLICKHOUSE_TEST_CONNECTION_STRING = "clickhouse://default:admin@localhost:8123/db_int_test"
+_WORKFLOWAI_MONGO_INT_CONNECTION_STRING = f"mongodb://admin:admin@localhost:27017/{_INT_DB_NAME}"
+
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_environment():
-    CLICKHOUSE_TEST_CONNECTION_STRING = os.environ.get(
-        "CLICKHOUSE_TEST_CONNECTION_STRING",
-        "clickhouse://default:admin@localhost:8123/db_int_test",
-    )
-    MONGO_TEST_CONNECTION_STRING = os.environ.get(
-        "WORKFLOWAI_MONGO_INT_CONNECTION_STRING",
-        f"mongodb://admin:admin@localhost:27017/{_INT_DB_NAME}",
-    )
     with patch.dict(
         os.environ,
         {
-            "WORKFLOWAI_MONGO_CONNECTION_STRING": MONGO_TEST_CONNECTION_STRING,
-            "WORKFLOWAI_MONGO_INT_CONNECTION_STRING": MONGO_TEST_CONNECTION_STRING,
+            "WORKFLOWAI_MONGO_CONNECTION_STRING": _WORKFLOWAI_MONGO_INT_CONNECTION_STRING,
+            "WORKFLOWAI_MONGO_INT_CONNECTION_STRING": _WORKFLOWAI_MONGO_INT_CONNECTION_STRING,
             "CLICKHOUSE_TEST_CONNECTION_STRING": "clickhouse://default:admin@localhost:8123/db_test",
-            "CLICKHOUSE_CONNECTION_STRING": CLICKHOUSE_TEST_CONNECTION_STRING,
+            "CLICKHOUSE_CONNECTION_STRING": _CLICKHOUSE_TEST_CONNECTION_STRING,
             "STORAGE_AES": "ruQBOB/yrSJYw+hozAGewJx5KAadHAMPnATttB2dmig=",
             "STORAGE_HMAC": "ATWcst2v/c/KEypN99ujwOySMzpwCqdaXvHLGDqBt+c=",
             "CLERK_WEBHOOKS_SECRET": "",
@@ -68,21 +64,23 @@ def _build_storage(mock_encryption: Mock):
         tenant="",
         encryption=mock_encryption,
         event_router=no_op.event_router,
+        connection_string=_WORKFLOWAI_MONGO_INT_CONNECTION_STRING,
     )
     assert base_storage._db_name == _INT_DB_NAME, "DB Name must be workflowai_int_test"  # pyright: ignore [reportPrivateUsage]
     return base_storage
 
 
 @pytest.fixture(scope="session")
-async def int_clickhouse_client():
+async def fresh_clickhouse():
     from core.storage.clickhouse.clickhouse_client_test import fresh_clickhouse_client
 
     # After the reviews
-    return await fresh_clickhouse_client(dsn=os.environ["CLICKHOUSE_CONNECTION_STRING"])
+    return await fresh_clickhouse_client(dsn=_CLICKHOUSE_TEST_CONNECTION_STRING)
 
 
-@pytest.fixture(scope="session", autouse=True)
-async def wrap_db_cleanup(mock_encryption_session: Mock):
+@pytest.fixture(scope="session")
+async def fresh_mongo_db(mock_encryption_session: Mock):
+    """Deletes and migrate the database at the beginning of the start session"""
     from core.storage.mongo.migrations.migrate import migrate
 
     # Deleting the db and running migrations
@@ -96,41 +94,52 @@ async def wrap_db_cleanup(mock_encryption_session: Mock):
     return base_storage
 
 
-@pytest.fixture(autouse=True)
-async def integration_storage(
-    mock_encryption: Mock,
+async def _wait_for_server_ready():
+    async with httpx.AsyncClient() as client:
+        for _ in range(20):
+            try:
+                await client.get("http://0.0.0.0:8000/probes/readiness")
+                return
+            except Exception:
+                await asyncio.sleep(0.1)
+    pytest.fail("Server not ready")
+
+
+@pytest.fixture(scope="session")
+async def api_server(
     request: pytest.FixtureRequest,
-    int_clickhouse_client: Any,
+    fresh_mongo_db: Any,
+    fresh_clickhouse: Any,
+    # Making sure the blob storage is created
+    test_blob_storage: None,
 ):
-    no_truncate = request.node.get_closest_marker("no_truncate") is not None  # type: ignore
+    """Starts a server in a separate thread so that it can be called via API directly"""
+    import threading
 
-    connection_string = os.getenv(
-        "CLICKHOUSE_TEST_CONNECTION_STRING",
-        "clickhouse://default:admin@localhost:8123/db_test",
+    import uvicorn
+
+    from api.main import app
+
+    # Create a server instance that can be shutdown gracefully
+    config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="error")
+    server = uvicorn.Server(config)
+
+    # Use threading instead of multiprocessing to avoid pickling issues
+    server_thread = threading.Thread(
+        target=server.run,
+        daemon=True,
     )
-    assert connection_string.endswith("/db_test"), "DB Name must be db_test"
-    storage = _build_storage(mock_encryption=mock_encryption)
-    # Removing runs
-    if not no_truncate:
-        assert int_clickhouse_client.connection_string.endswith("/db_test"), "DB Name must be db_test"
-        await int_clickhouse_client.command("TRUNCATE TABLE runs;")
+    server_thread.start()
 
-        # Remove all data from all collections
-        db = storage.client[_INT_DB_NAME]
-        names = await db.list_collection_names()
-        await asyncio.gather(
-            *(db[c].delete_many({}) for c in names if c != "system.profile"),
-        )
+    try:
+        await _wait_for_server_ready()
+    except Exception:
+        # Try to shutdown gracefully if startup failed
+        server.should_exit = True
+        raise
 
-    return storage
+    yield "http://0.0.0.0:8000"
 
-
-@pytest.fixture(scope="module")
-def test_storage_container():
-    from core.storage.azure.azure_blob_file_storage import AzureBlobFileStorage
-
-    blob_storage = AzureBlobFileStorage(
-        connection_string=os.environ["WORKFLOWAI_STORAGE_CONNECTION_STRING"],
-        container_name=os.environ["WORKFLOWAI_STORAGE_TASK_RUNS_CONTAINER"],
-    )
-    yield blob_storage
+    # Graceful shutdown
+    server.should_exit = True
+    server_thread.join(timeout=5)  # Wait up to 5 seconds for graceful shutdown

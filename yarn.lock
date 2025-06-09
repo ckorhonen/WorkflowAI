@@ -18682,9 +18682,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"node@workspace:tests/frameworks/node":
+"node@workspace:integrations/js":
   version: 0.0.0-use.local
-  resolution: "node@workspace:tests/frameworks/node"
+  resolution: "node@workspace:integrations/js"
   dependencies:
     dotenv-cli: "npm:^8.0.0"
     openai: "npm:^5.1.1"
