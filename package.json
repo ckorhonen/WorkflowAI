@@ -1,7 +1,8 @@
 {
   "private": true,
   "workspaces": [
-    "client"
+    "client",
+    "integrations/js"
   ],
   "scripts": {
     "format": "prettier --write client",

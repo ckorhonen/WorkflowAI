@@ -315,10 +315,10 @@ async def test_stream_raw_string(test_client: IntegrationTestClient, openai_clie
     )
 
     chunks = [c async for c in streamer]
-    assert len(chunks) == 2
+    assert len(chunks) == 3
 
     deltas = [c.choices[0].delta.content for c in chunks]
-    assert deltas == ["Hello", " world"]
+    assert deltas == ["Hello", " world", None]
 
     await test_client.wait_for_completed_tasks()
 
@@ -337,7 +337,7 @@ async def test_stream_raw_json(test_client: IntegrationTestClient, openai_client
     )
 
     chunks = [c async for c in streamer]
-    assert len(chunks) == 2
+    assert len(chunks) == 3
     assert chunks[0].id.startswith("default/")
 
     await test_client.wait_for_completed_tasks()
@@ -374,7 +374,7 @@ async def test_stream_structured_output(test_client: IntegrationTestClient, open
     )
 
     chunks = [c async for c in streamer]
-    assert len(chunks) == 2
+    assert len(chunks) == 3
 
 
 async def test_templated_variables(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
