@@ -211,11 +211,14 @@ export function usePlaygroundChatToolCalls(props: Props) {
         case ToolCallName.GENERATE_AGENT_INPUT:
           onGenerateNewInput(message.tool_call as GenerateAgentInputToolCall);
           break;
+        case ToolCallName.IMPROVE_VERSION_MESSAGES:
+          onImproveVersionMessages(message.tool_call as ImproveVersionMessagesToolCall);
+          break;
         default:
           return;
       }
     },
-    [onEditSchema, onImproveInstructions, onChangeModels, onGenerateNewInput]
+    [onEditSchema, onImproveInstructions, onChangeModels, onGenerateNewInput, onImproveVersionMessages]
   );
 
   const lastMessageWithNotTriggeredToolCall = useMemo(() => {

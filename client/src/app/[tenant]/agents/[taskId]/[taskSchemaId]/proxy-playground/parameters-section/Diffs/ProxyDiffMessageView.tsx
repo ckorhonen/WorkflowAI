@@ -65,7 +65,7 @@ export function ProxyDiffMessageView(props: Props) {
                 )}
                 {content.text !== undefined && showDiffTextarea && (
                   <div className='flex w-full'>
-                    <ProxyDiffTextarea key={index} newText={content.text} oldText={oldMessage?.content[index].text} />
+                    <ProxyDiffTextarea key={index} newText={content.text} oldText={oldMessage?.content[index]?.text} />
                   </div>
                 )}
                 {content.file && (
