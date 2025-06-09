@@ -24,12 +24,12 @@ _MIXED_REGION_MODELS = {
 
 _GLOBAL_MODELS = {
     Model.GEMINI_2_5_FLASH_PREVIEW_0417,
+    Model.GEMINI_2_5_FLASH_PREVIEW_0520,
     Model.GEMINI_2_5_PRO_PREVIEW_0506,
+    Model.GEMINI_2_5_PRO_PREVIEW_0605,
     Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417,
+    Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0520,
 }
-
-_VERTEX_API_REGION_METADATA_KEY = "workflowai.vertex_api_region"
-_VERTEX_API_EXCLUDED_REGIONS_METADATA_KEY = "workflowai.vertex_api_excluded_regions"
 
 
 class GoogleProviderConfig(VertexBaseConfig):

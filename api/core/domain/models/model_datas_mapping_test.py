@@ -315,6 +315,7 @@ class TestModelFallback:
         # Model is way to cheap so we cannot find a model that is less than 3x cheaper
         Model.GEMINI_1_5_FLASH_8B,
         Model.GEMINI_2_5_FLASH_PREVIEW_0417,
+        Model.GEMINI_2_5_FLASH_PREVIEW_0520,
         Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417,
     }
 
@@ -324,7 +325,9 @@ class TestModelFallback:
         # These models are super cheap so they fallback to a Gemini Flash lite which is alqo on google
         Model.GEMINI_1_5_FLASH_8B,
         Model.GEMINI_2_5_FLASH_PREVIEW_0417,
+        Model.GEMINI_2_5_FLASH_PREVIEW_0520,
         Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417,
+        Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0520,
     }
 
     @pytest.mark.parametrize("model_data", _FILTERED_MODEL_DATA)

@@ -115,7 +115,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "plain_text",
-                    "text": ":rocket: Successfully deployed API to ${{ inputs.env }}",
+                    "text": ":rocket: Successfully deployed ${{ inputs.full_app_name }} from ${{ github.ref }}",
                     "emoji": true
                   },
                   "accessory": {
