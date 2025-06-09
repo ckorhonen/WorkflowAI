@@ -14,7 +14,11 @@ api.install.deps:
 
 .PHONY: api.test
 api.test.unit:
-	poetry run pytest --ignore=api/tests/LLM_tests --ignore=api/tests/e2e --ignore=api/tests/integration .
+	poetry run pytest --ignore=api/tests/LLM_tests --ignore=api/tests/e2e --ignore=api/tests/component .
+
+.PHONY: api.test.component
+api.test.integration:
+	poetry run pytest api/tests/component
 
 .PHONY: api.test.integration
 api.test.integration:
