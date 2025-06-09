@@ -26,6 +26,7 @@ def _all_openai_examples():
 
 @pytest.mark.parametrize("example", _all_openai_examples())
 def test_js_openai_example(example: Path, api_server: str):
+    """Run every example in the openai_examples directory"""
     result = subprocess.run(
         ["yarn", "tsx", f"openai_examples/{example.name}"],
         capture_output=True,  # Capture both stdout and stderr
