@@ -2,6 +2,9 @@ name: API Quality
 on:
   workflow_call:
 
+permissions:
+  contents: read
+
 jobs:
   api-integration:
     if: inputs.skip != true

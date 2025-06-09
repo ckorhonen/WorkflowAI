@@ -9,6 +9,9 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: read
+
 jobs:
   api-quality:
     if: inputs.skip != true
@@ -121,7 +124,7 @@ jobs:
           poetry install
       # Run all tests in the app and tests directories
       - name: Run Unit Tests
-        run: PYTHONPATH=. poetry run pytest api/tests/components -W ignore::pydantic.warnings.PydanticDeprecatedSince20 -vv --junitxml=junit/test-results.xml -m "not poppler and not ffmpeg"
+        run: PYTHONPATH=. poetry run pytest api/tests/component -W ignore::pydantic.warnings.PydanticDeprecatedSince20 -vv --junitxml=junit/test-results.xml -m "not poppler and not ffmpeg"
 
   # Run tests that rely on extra dependencies to avoid installing them on all jobs
   # TODO: we should likely use tool caching instead -> https://github.com/actions/toolkit/tree/main/packages/tool-cache
@@ -177,6 +180,6 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y poppler-utils ffmpeg
       # Run all tests in the app and tests directories
       - name: Run Unit Tests
-        run: PYTHONPATH=. poetry run pytest api/tests/components -W ignore::pydantic.warnings.PydanticDeprecatedSince20 -vv --junitxml=junit/test-results.xml -m "poppler or ffmpeg"
+        run: PYTHONPATH=. poetry run pytest api/tests/component -W ignore::pydantic.warnings.PydanticDeprecatedSince20 -vv --junitxml=junit/test-results.xml -m "poppler or ffmpeg"
         env:
           JOBS_BROKER_URL: 'redis://localhost:6379'
