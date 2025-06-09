@@ -1,5 +1,12 @@
 # Node E2E Tests
 
+## Requirements
+
+> The package.json of this directory is referenced in the root `package.json` file. Meaning that all dependencies will be installed when running `yarn install` in the root directory.
+
+- Node > 20
+- Yarn v4
+
 ## OpenAI Examples
 
 Examples pulled from the [OpenAI Node Examples](https://github.com/openai/openai-node/tree/master/examples) repository.

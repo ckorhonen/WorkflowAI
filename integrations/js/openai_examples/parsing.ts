@@ -1,5 +1,5 @@
+import OpenAI from 'openai';
 import { zodResponseFormat } from 'openai/helpers/zod';
-import OpenAI from 'openai/index';
 import { z } from 'zod';
 
 const Step = z.object({
