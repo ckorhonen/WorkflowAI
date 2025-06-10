@@ -1,5 +1,8 @@
+from unittest import mock
+
 from api.services.messages.messages_utils import json_schema_for_template
-from core.domain.message import Message
+from core.domain.fields.file import File, FileKind
+from core.domain.message import Message, MessageContent
 
 
 class TestJsonSchemaForTemplate:
@@ -114,49 +117,62 @@ class TestJsonSchemaForTemplate:
         }
         assert last_index == 0
 
-    # @pytest.mark.skip(reason="TODO: Add image support")
-    # def test_file_only(self):
-    #     messages = Messages(
-    #         messages=[Message(role="user", content=[MessageContent(file=File(url="{{a_file_url}}"))])],
-    #     )
-    #     schema = messages.json_schema_for_template(base_schema=None)
-    #     assert schema == {
-    #         "$defs": {"File": mock.ANY},
-    #         "type": "object",
-    #         "properties": {"a_file_url": {"$ref": "#/$defs/File"}},
-    #     }
+    def test_file_only(self):
+        messages = Message(role="user", content=[MessageContent(file=File(url="{{a_file_url}}"))])
 
-    # @pytest.mark.skip(reason="TODO: Add image support")
-    # def test_file_and_text(self):
-    #     messages = Messages(
-    #         messages=[
-    #             Message(
-    #                 role="user",
-    #                 content=[
-    #                     MessageContent(text="Hello, {{ name }}!"),
-    #                     MessageContent(file=File(url="{{a_file_url}}")),
-    #                 ],
-    #             ),
-    #         ],
-    #     )
-    #     schema = messages.json_schema_for_template(base_schema=None)
-    #     assert schema == {
-    #         "$defs": {"File": mock.ANY},
-    #         "type": "object",
-    #         "properties": {
-    #             "name": {},
-    #             "a_file_url": {"$ref": "#/$defs/File"},
-    #         },
-    #     }
+        schema, last_index = json_schema_for_template([messages], base_schema=None)
+        assert schema == {
+            "$defs": {"File": mock.ANY},
+            "type": "object",
+            "properties": {"a_file_url": {"$ref": "#/$defs/File"}},
+        }
+        assert last_index == 0
 
-    # @pytest.mark.skip(reason="TODO: Add image support")
-    # def test_image_url(self):
-    #     messages = Messages(
-    #         messages=[Message(role="user", content=[MessageContent(file=File(url="{{a_file_url}}", format="image"))])],
-    #     )
-    #     schema = messages.json_schema_for_template(base_schema=None)
-    #     assert schema == {
-    #         "$defs": {"Image": mock.ANY},
-    #         "type": "object",
-    #         "properties": {"a_file_url": {"$ref": "#/$defs/Image"}},
-    #     }
+    def test_file_with_nested_key(self):
+        messages = Message(role="user", content=[MessageContent(file=File(url="{{a_file_url.key}}"))])
+
+        schema, last_index = json_schema_for_template([messages], base_schema=None)
+        assert schema == {
+            "$defs": {"File": mock.ANY},
+            "type": "object",
+            "properties": {
+                "a_file_url": {
+                    "type": "object",
+                    "properties": {
+                        "key": {"$ref": "#/$defs/File"},
+                    },
+                },
+            },
+        }
+        assert last_index == 0
+
+    def test_file_and_text(self):
+        messages = [
+            Message(
+                role="user",
+                content=[
+                    MessageContent(text="Hello, {{ name }}!"),
+                    MessageContent(file=File(url="{{a_file_url}}")),
+                ],
+            ),
+        ]
+        schema, _ = json_schema_for_template(messages, base_schema=None)
+        assert schema == {
+            "$defs": {"File": mock.ANY},
+            "type": "object",
+            "properties": {
+                "name": {},
+                "a_file_url": {"$ref": "#/$defs/File"},
+            },
+        }
+
+    def test_image_url(self):
+        messages = [
+            Message(role="user", content=[MessageContent(file=File(url="{{a_file_url}}", format=FileKind.IMAGE))]),
+        ]
+        schema, _ = json_schema_for_template(messages, base_schema=None)
+        assert schema == {
+            "$defs": {"Image": mock.ANY},
+            "type": "object",
+            "properties": {"a_file_url": {"$ref": "#/$defs/Image"}},
+        }

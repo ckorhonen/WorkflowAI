@@ -178,7 +178,7 @@ The [client](./client/README.md) is a NextJS app that serves as a frontend
   first stored the run data in Mongo but it quickly got out of hand with storage costs
   and query duration.
 - **Redis**: We use Redis as a broker for messages for taskiq. TaskIQ supports a number
-  of different message broker.
+  of different message broker. Redis 6.0 and above are supported.
 - **Minio** is used to store files but any _S3 compatible storage_ will do. We also have a plugin for _Azure Blob Storage_.
   The selected storage depends on the `WORKFLOWAI_STORAGE_CONNECTION_STRING` env variable. A variable starting with
   `s3://` will result in the S3 storage being used.

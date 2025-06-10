@@ -18,7 +18,8 @@ services:
       - '27017:27017'
   # Redis, used as a job broker and result backend
   redis:
-    image: redis:latest
+    # For now Azure only supports redis 6.0 :(
+    image: redis:6.0
     ports:
       - '6379:6379'
   # ClickHouse, used to store runs

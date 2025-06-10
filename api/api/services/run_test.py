@@ -108,6 +108,7 @@ class TestRun:
             metadata={"key": "value"},
             private_fields=None,
             start_time=1,
+            conversation_id=None,
         )
         assert response
 
@@ -158,6 +159,7 @@ class TestRun:
             metadata={"key": "value"},
             private_fields=None,
             start_time=1,
+            conversation_id=None,
         )
 
     async def test_stream_with_cache(

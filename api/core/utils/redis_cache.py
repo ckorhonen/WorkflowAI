@@ -21,11 +21,14 @@ def get_redis_client() -> Any:
     try:
         async_cache: aioredis.Redis | None = aioredis.from_url(os.environ["JOBS_BROKER_URL"])  # pyright: ignore
     except (KeyError, ValueError):
+        _logger.warning("Redis client is not available")
         async_cache = None
 
     return async_cache
 
 
+# TODO: this should not be defined here...
+# It should also use the redis client defined in the services/storage.py file
 shared_redis_client: aioredis.Redis | None = get_redis_client()
 
 

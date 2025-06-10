@@ -1,9 +1,13 @@
 from typing import Optional, override
 
+from redis.asyncio import Redis
+
 from core.domain.events import EventRouter
 from core.storage.clickhouse.clickhouse_client import ClickhouseClient
+from core.storage.key_value_storage import KeyValueStorage
 from core.storage.mongo.mongo_storage import MongoStorage
 from core.storage.mongo.mongo_types import AsyncClient
+from core.storage.redis.redis_storage import RedisStorage
 from core.storage.task_run_storage import TaskRunStorage
 from core.utils.encryption import Encryption
 
@@ -19,6 +23,7 @@ class CombinedStorage(MongoStorage):
         mongo_client: Optional[AsyncClient] = None,
         mongo_db_name: Optional[str] = None,
         clickhouse_dsn: Optional[str] = None,
+        redis_client: Optional[Redis] = None,
     ):
         super().__init__(
             tenant=tenant,
@@ -30,7 +35,7 @@ class CombinedStorage(MongoStorage):
             db_name=mongo_db_name,
         )
 
-        self.clickhouse_client = (
+        self._clickhouse_client = (
             ClickhouseClient(
                 connection_string=clickhouse_dsn,
                 tenant_uid=tenant_uid,
@@ -38,8 +43,14 @@ class CombinedStorage(MongoStorage):
             if clickhouse_dsn
             else None
         )
+        self._kv_storage = RedisStorage(tenant_uid=tenant_uid, redis_client=redis_client) if redis_client else None
 
     @property
     @override
     def task_runs(self) -> TaskRunStorage:
-        return self.clickhouse_client or super().task_runs
+        return self._clickhouse_client or super().task_runs
+
+    @property
+    @override
+    def kv(self) -> KeyValueStorage:
+        return self._kv_storage or super().kv

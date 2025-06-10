@@ -1,3 +1,5 @@
+import json
+from collections.abc import Iterator
 from datetime import datetime, timezone
 from typing import Any, Literal, Optional, Protocol, cast
 
@@ -10,6 +12,7 @@ from core.domain.consts import (
 from core.domain.error_response import ErrorResponse
 from core.domain.fields.internal_reasoning_steps import InternalReasoningStep
 from core.domain.llm_completion import LLMCompletion
+from core.domain.message import MessageContent
 from core.domain.review import Review
 from core.domain.task_group import TaskGroup
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
@@ -123,6 +126,8 @@ class AgentRun(AgentRunBase):
 
     is_external: bool | None = None
 
+    conversation_id: str | None = None
+
     @property
     def used_environment(self) -> str | None:
         if not self.metadata:
@@ -162,6 +167,26 @@ class AgentRun(AgentRunBase):
             return 0
 
         return sum(completion.credits_used for completion in self.llm_completions)
+
+    def message_content_iterator(self) -> Iterator[MessageContent]:
+        """An iterator for all the content of the associated assistant message"""
+
+        # Order matters and should match whatever is returned in OpenAIProxyMessage._content_iterator
+        # Otherwise the hash of the messages will not be consistent
+        # See RunConversationHandler._final_assistant_message
+        if self.task_output is not None and self.task_output != "":
+            if isinstance(self.task_output, str):
+                yield MessageContent(text=self.task_output)
+            else:
+                yield MessageContent(text=json.dumps(self.task_output))
+
+        if self.tool_call_requests:
+            for tool_call_request in self.tool_call_requests:
+                yield MessageContent(tool_call_request=tool_call_request)
+
+        if self.tool_calls:
+            for tool_call in self.tool_calls:
+                yield MessageContent(tool_call_result=tool_call)
 
 
 class TaskRunIO(Protocol):

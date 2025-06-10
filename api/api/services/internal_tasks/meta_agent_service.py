@@ -2,7 +2,7 @@ import asyncio
 import datetime
 import logging
 import re
-from typing import Any, AsyncIterator, NamedTuple, TypeAlias
+from typing import Any, AsyncIterator, NamedTuple, TypeAlias, cast
 
 import workflowai
 from pydantic import BaseModel, Field, model_validator
@@ -42,10 +42,16 @@ from core.agents.meta_agent import (
 )
 from core.agents.meta_agent_proxy import (
     GENERIC_INSTRUCTIONS,
+    PROPOSE_DEPLOYMENT_INSTRUCTIONS,
     PROPOSE_INPUT_VARIABLES_INSTRUCTIONS,
+    PROPOSE_INPUT_VARIABLES_INSTRUCTIONS_NO_VERSION_MESSAGES,
     PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS,
     PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS,
+    EditSchemaDescriptionAndExamplesToolCallRequest,
+    EditSchemaStructureToolCallRequest,
+    GenerateAgentInputToolCallRequest,
     ProxyMetaAgentInput,
+    ProxyMetaAgentOutput,
     proxy_meta_agent,
 )
 from core.agents.meta_agent_proxy import (
@@ -61,15 +67,18 @@ from core.agents.meta_agent_user_confirmation_agent import (
 )
 from core.agents.output_schema_extractor_agent import OutputSchemaExtractorInput, output_schema_extractor_agent
 from core.domain.agent_run import AgentRun
+from core.domain.consts import METADATA_KEY_DEPLOYMENT_ENVIRONMENT
 from core.domain.events import EventRouter, MetaAgentChatMessagesSent
 from core.domain.fields.chat_message import ChatMessage
 from core.domain.fields.file import File
 from core.domain.integration.integration_domain import (
     Integration,
-    IntegrationKind,
     ProgrammingLanguage,
 )
-from core.domain.integration.integration_mapping import default_integration_for_language, get_integration_by_kind
+from core.domain.integration.integration_mapping import (
+    default_integration_for_language,
+    safe_get_integration_by_kind,
+)
 from core.domain.models.model_data import LatestModel
 from core.domain.models.model_datas_mapping import MODEL_DATAS
 from core.domain.models.model_provider_datas_mapping import AZURE_PROVIDER_DATA, OPENAI_PROVIDER_DATA
@@ -82,6 +91,7 @@ from core.storage import ObjectNotFoundException, TaskTuple
 from core.storage.backend_storage import BackendStorage
 from core.tools import ToolKind
 from core.utils.hash import compute_obj_hash
+from core.utils.tool_utils.tool_utils import get_tools_description_openai_format_str
 from core.utils.url_utils import extract_and_fetch_urls
 
 FIRST_MESSAGE_CONTENT = "Hi, I'm WorkflowAI's agent. How can I help you?"
@@ -119,6 +129,7 @@ class ProxyMetaAgentContext(NamedTuple):
     feedback_page: Page[ProxyMetaAgentInput.AgentLifecycleInfo.FeedbackInfo.AgentFeedback] | None
     has_active_runs: HasActiveRunAndDate | None
     reviewed_input_count: int | None
+    playground_agent_runs: list[AgentRun] | None
 
 
 def get_programming_language_for_user_agent(user_agent: str) -> ProgrammingLanguage:
@@ -294,18 +305,76 @@ class GenerateAgentInputToolCall(MetaAgentToolCall):
         )
 
 
+class UpdateVersionMessagesToolCall(MetaAgentToolCall):
+    tool_name: str = "update_version_messages"
+
+    improvement_instructions: str = Field(
+        description="Instructions on how to improve the current agent version's messages.",
+    )
+
+    def to_domain(self) -> None:
+        return None
+
+
+class AddToolToolCall(MetaAgentToolCall):
+    tool_name: str = "create_custom_tool"
+
+    tool_name: str = Field(
+        description="The name of the tool to add.",
+    )
+
+    tool_description: str = Field(
+        description="The description of the tool to add.",
+    )
+
+    tool_parameters: dict[str, Any] = Field(
+        description="The parameters of the tool to add.",
+    )
+
+    def to_domain(self) -> None:
+        return None
+
+
 MetaAgentToolCallType: TypeAlias = (
-    ImprovePromptToolCall | EditSchemaToolCall | RunCurrentAgentOnModelsToolCall | GenerateAgentInputToolCall
+    ImprovePromptToolCall
+    | EditSchemaToolCall
+    | RunCurrentAgentOnModelsToolCall
+    | GenerateAgentInputToolCall
+    | UpdateVersionMessagesToolCall
+    | AddToolToolCall
 )
 
 
 MetaAgentChatMessageKind: TypeAlias = Literal[
     "non_specific",
-    "try_other_models_proposal",
-    "setup_input_variables_proposal",
-    "setup_structured_output_proposal",
-    "setup_deployment_proposal",
+    "try_other_models_assistant_proposal",
+    "try_other_models_user_confirmation",
+    "try_other_models_user_postponement",
+    "try_other_models_assistant_validation",
+    "setup_input_variables_assistant_proposal",
+    "setup_input_variables_user_confirmation",
+    "setup_input_variables_user_postponement",
+    "setup_input_variables_assistant_validation",
+    "setup_structured_output_assistant_proposal",
+    "setup_structured_output_user_confirmation",
+    "setup_structured_output_user_postponement",
+    "setup_structured_output_assistant_validation",
+    "setup_deployment_assistant_proposal",
+    "setup_deployment_user_confirmation",
+    "setup_deployment_user_postponement",
+    "setup_deployment_assistant_validation",
+    "user_deployed_agent_in_playground",
+    "run_deployed_agent_assistant_proposal",
+    "run_deployed_agent_user_postponement",
+    "run_deployed_agent_user_confirmation",
+    "run_deployed_agent_assistant_validation",
 ]
+
+
+class ProxyMetaAgentAgentPayload(NamedTuple):
+    input: ProxyMetaAgentInput
+    instructions: str
+    message_kind: MetaAgentChatMessageKind
 
 
 class MetaAgentChatMessage(BaseModel):
@@ -332,6 +401,8 @@ class MetaAgentChatMessage(BaseModel):
 
     feedback_token: str | None = None
 
+    switch_to_schema_id: int | None = None
+
     kind: MetaAgentChatMessageKind = Field(
         default="non_specific",
         description="The kind of message, used to determine the kind of tool call to show in the frontend.",
@@ -349,6 +420,8 @@ class MetaAgentChatMessage(BaseModel):
         return ProxyMetaAgentChatMessageDomain(
             role=self.role,
             content=self.content,
+            tool_call=self.tool_call.model_dump() if self.tool_call else None,
+            tool_call_status=self.tool_call.status if self.tool_call else None,
         )
 
     def to_chat_message(self) -> ChatMessage:
@@ -974,18 +1047,41 @@ class MetaAgentService:
             instructions=instructions,
             requires_tools=None,
         )
+
+        # Pre-calculate costs for ranking
+        model_costs: list[tuple[Any, float]] = []
+        for model in models:
+            cost = (
+                round(model.average_cost_per_run_usd * 1000, 3)
+                if model.average_cost_per_run_usd is not None
+                else float("inf")  # Models with no cost data get worst ranking
+            )
+            model_costs.append((model, cost))
+
+        # Sort by quality (descending - higher quality gets better rank)
+        models_by_quality = sorted(models, key=lambda m: m.quality_index, reverse=True)
+        quality_rankings = {model.id: rank + 1 for rank, model in enumerate(models_by_quality)}
+
+        # Sort by cost (ascending - lower cost gets better rank)
+        models_by_cost = sorted(model_costs, key=lambda x: x[1])
+        cost_rankings = {model.id: rank + 1 for rank, (model, _) in enumerate(models_by_cost)}
+
         return [
             ProxyPlaygroundStateDomain.PlaygroundModel(
                 id=model.id,
                 name=model.name,
                 quality_index=model.quality_index,
+                quality_index_ranking=quality_rankings[model.id],
                 context_window_tokens=model.context_window_tokens,
+                is_supported_for_agent=not bool(model.is_not_supported_reason),
                 is_not_supported_reason=model.is_not_supported_reason or "",
                 estimate_cost_per_thousand_runs_usd=round(model.average_cost_per_run_usd * 1000, 3)
-                if model.average_cost_per_run_usd
+                if model.average_cost_per_run_usd is not None
                 else None,
+                cost_ranking=cost_rankings[model.id],
                 is_default=model.is_default,
                 is_latest=model.is_latest,
+                supports_structured_output=model.supports_structured_output,
             )
             for model in models
         ]
@@ -1024,6 +1120,7 @@ class MetaAgentService:
         task_tuple: TaskTuple,
         agent_schema_id: int,
         user_email: str | None,
+        playground_state: PlaygroundState,
     ) -> ProxyMetaAgentContext:
         """
         Fetch all context data needed for the meta agent input, handling exceptions.
@@ -1031,10 +1128,18 @@ class MetaAgentService:
         If any individual fetch fails, it returns None for that part of the context
         instead of failing the entire operation.
         """
-        context_results = await asyncio.gather(
+        (
+            company_description,
+            existing_agents,
+            agent_runs,
+            feedback_page,
+            has_active_runs,
+            reviewed_input_count,
+            playground_agent_runs,
+        ) = await asyncio.gather(
             safe_generate_company_description_from_email(user_email),
             list_agent_summaries(self.storage, limit=10),
-            self._fetch_latest_agent_runs(task_tuple),
+            self._fetch_latest_agent_runs(task_tuple, agent_schema_id),
             self.feedback_service.list_feedback(
                 task_tuple[1],
                 run_id=None,
@@ -1044,45 +1149,52 @@ class MetaAgentService:
             ),
             self.has_active_agent_runs(task_tuple, agent_schema_id),
             self.get_reviewed_input_count(task_tuple, agent_schema_id),
+            self.fetch_agent_runs(task_tuple, playground_state.agent_run_ids),
             return_exceptions=True,
         )
 
         # Process each result - for each item, either use the value or log and return a default value
-        if isinstance(context_results[0], BaseException):
-            self._logger.warning("Failed to fetch company_description", exc_info=context_results[0])
+        if isinstance(company_description, BaseException):
+            self._logger.warning("Failed to fetch company_description", exc_info=company_description)
             company_description = None
         else:
-            company_description = context_results[0]
+            company_description = cast(ExtractCompanyInfoFromDomainTaskOutput, company_description)
 
-        if isinstance(context_results[1], BaseException):
-            self._logger.warning("Failed to fetch existing_agents", exc_info=context_results[1])
+        if isinstance(existing_agents, BaseException):
+            self._logger.warning("Failed to fetch existing_agents", exc_info=existing_agents)
             existing_agents = None
         else:
-            existing_agents = [str(agent) for agent in context_results[1] or []]
+            existing_agents = [str(agent) for agent in existing_agents or []]  # type: ignore
 
-        if isinstance(context_results[2], BaseException):
-            self._logger.warning("Failed to fetch agent_runs", exc_info=context_results[2])
+        if isinstance(agent_runs, BaseException):
+            self._logger.warning("Failed to fetch agent_runs", exc_info=agent_runs)
             agent_runs = None
         else:
-            agent_runs = context_results[2]
+            agent_runs = cast(list[AgentRun], agent_runs)
 
-        if isinstance(context_results[3], BaseException):
-            self._logger.warning("Failed to fetch feedback_page", exc_info=context_results[3])
+        if isinstance(feedback_page, BaseException):
+            self._logger.warning("Failed to fetch feedback_page", exc_info=feedback_page)
             feedback_page = None
         else:
-            feedback_page = context_results[3]
+            feedback_page = cast(Page[ProxyMetaAgentInput.AgentLifecycleInfo.FeedbackInfo.AgentFeedback], feedback_page)
 
-        if isinstance(context_results[4], BaseException):
-            self._logger.warning("Failed to fetch has_active_runs", exc_info=context_results[4])
+        if isinstance(has_active_runs, BaseException):
+            self._logger.warning("Failed to fetch has_active_runs", exc_info=has_active_runs)
             has_active_runs = None
         else:
-            has_active_runs = context_results[4]
+            has_active_runs = cast(HasActiveRunAndDate, has_active_runs)
 
-        if isinstance(context_results[5], BaseException):
-            self._logger.warning("Failed to fetch reviewed_input_count", exc_info=context_results[5])
+        if isinstance(reviewed_input_count, BaseException):
+            self._logger.warning("Failed to fetch reviewed_input_count", exc_info=reviewed_input_count)
             reviewed_input_count = None
         else:
-            reviewed_input_count = context_results[5]
+            reviewed_input_count = cast(int, reviewed_input_count)
+
+        if isinstance(playground_agent_runs, BaseException):
+            self._logger.warning("Failed to fetch playground agent_runs", exc_info=playground_agent_runs)
+            playground_agent_runs = None
+        else:
+            playground_agent_runs = cast(list[AgentRun], playground_agent_runs)
 
         return ProxyMetaAgentContext(
             company_description=company_description,
@@ -1091,6 +1203,28 @@ class MetaAgentService:
             feedback_page=feedback_page,
             has_active_runs=has_active_runs,
             reviewed_input_count=reviewed_input_count,
+            playground_agent_runs=playground_agent_runs,
+        )
+
+    def _build_proxy_agent_runs(self, agent_run: AgentRun) -> ProxyAgentRun:
+        return ProxyAgentRun(
+            id=agent_run.id,
+            model=agent_run.group.properties.model or "",
+            input=str(agent_run.task_input),
+            output=str(agent_run.task_output),  # Handle both dict output and str
+            error=agent_run.error.model_dump() if agent_run.error else None,
+            raw_response=agent_run.llm_completions[-1].response if agent_run.llm_completions else None,
+            cost_usd=agent_run.cost_usd,
+            duration_seconds=agent_run.duration_seconds,
+            user_evaluation=agent_run.user_review,
+            tool_calls=[
+                ProxyAgentRun.ToolCall(
+                    name=tool_call.tool_name,
+                    input=tool_call.tool_input_dict,
+                )
+                for llm_completion in agent_run.llm_completions or []
+                for tool_call in llm_completion.tool_calls or []
+            ],
         )
 
     async def _build_proxy_meta_agent_input(
@@ -1107,6 +1241,7 @@ class MetaAgentService:
             task_tuple,
             agent_schema_id,
             user_email,
+            playground_state,
         )
 
         # Extract files from agent_input
@@ -1117,34 +1252,20 @@ class MetaAgentService:
         )
 
         agent_runs: list[ProxyAgentRun] | None = (
-            [
-                ProxyAgentRun(
-                    id=agent_run.id,
-                    model=agent_run.group.properties.model or "",
-                    input=str(agent_run.task_input),
-                    output=str(agent_run.task_output),  # Handle both dict output and str
-                    error=agent_run.error.model_dump() if agent_run.error else None,
-                    cost_usd=agent_run.cost_usd,
-                    duration_seconds=agent_run.duration_seconds,
-                    user_evaluation=agent_run.user_review,
-                    tool_calls=[
-                        ProxyAgentRun.ToolCall(
-                            name=tool_call.tool_name,
-                            input=tool_call.tool_input_dict,
-                        )
-                        for llm_completion in agent_run.llm_completions or []
-                        for tool_call in llm_completion.tool_calls or []
-                    ],
-                )
-                for agent_run in context.agent_runs
-            ]
+            [self._build_proxy_agent_runs(agent_run) for agent_run in context.agent_runs]
             if context.agent_runs
+            else None
+        )
+
+        playground_agent_runs: list[ProxyAgentRun] | None = (
+            [self._build_proxy_agent_runs(agent_run) for agent_run in context.playground_agent_runs]
+            if context.playground_agent_runs
             else None
         )
 
         return ProxyMetaAgentInput(
             current_datetime=datetime.datetime.now(tz=datetime.timezone.utc),
-            messages=[message.to_proxy_domain() for message in messages],
+            chat_messages=[message.to_proxy_domain() for message in messages],
             current_agent=ProxyMetaAgentInput.Agent(
                 name=current_agent.name,
                 slug=current_agent.task_id,
@@ -1168,17 +1289,18 @@ class MetaAgentService:
                 chat_messages=[message.to_chat_message() for message in messages],
                 agent_instructions=GENERIC_INSTRUCTIONS or "",
             ),
-            integration_documentation=[],  # Will be filled in later
-            available_tools_description=internal_tools_description(
+            integration_documentation=[],  # Will be filled in later in 'stream_meta_agent_chat'
+            available_hosted_tools_description=internal_tools_description(
                 include={ToolKind.WEB_BROWSER_TEXT, ToolKind.WEB_SEARCH_PERPLEXITY_SONAR_PRO},
+                formatting_func=get_tools_description_openai_format_str,
             ),
             playground_state=ProxyPlaygroundStateDomain(
                 agent_input=agent_input_copy,
                 agent_input_files=agent_input_files,
-                agent_instructions=playground_state.agent_instructions,
                 agent_temperature=playground_state.agent_temperature,
                 available_models=await self._proxy_build_model_list("", current_agent),  # TODO: add instructions
                 selected_models=playground_state.selected_models.to_domain(),
+                playground_agent_runs=playground_agent_runs,
             ),
             agent_lifecycle_info=ProxyMetaAgentInput.AgentLifecycleInfo(
                 deployment_info=ProxyMetaAgentInput.AgentLifecycleInfo.DeploymentInfo(
@@ -1203,6 +1325,7 @@ class MetaAgentService:
     async def _fetch_latest_agent_runs(
         self,
         task_tuple: TaskTuple,
+        task_schema_id: int,
     ) -> list[AgentRun]:
         return [
             run
@@ -1210,6 +1333,7 @@ class MetaAgentService:
                 task_uid=task_tuple[1],
                 limit=10,
             )
+            if run.task_schema_id == task_schema_id
         ]
 
     def _is_user_triggered(self, messages: list[MetaAgentChatMessage]) -> bool:
@@ -1250,25 +1374,23 @@ class MetaAgentService:
                 return True
         return False
 
-    def _valid_integration_kind_or_none(self, used_integration_kind: str | None) -> IntegrationKind | None:
-        if not used_integration_kind:
-            return None
-
-        try:
-            return IntegrationKind(used_integration_kind)
-        except ValueError:
-            # Can happen if the frontend has registered an integration kind that is not yet know of the API.
-            self._logger.warning("Unknown integration kind", extra={"used_integration_kind": used_integration_kind})
-            return None
-
     async def _resolve_integration_for_agent(
         self,
         agent: SerializableTaskVariant,
         agent_runs: list[AgentRun],
+        task_tuple: TaskTuple,
+        agent_schema_id: int,
     ) -> Integration:
-        if integration_kind := self._valid_integration_kind_or_none(agent.used_integration_kind):
+        if integration := safe_get_integration_by_kind(agent.used_integration_kind):
             # If integration is registered for the agent, use it
-            return get_integration_by_kind(integration_kind)
+            return integration
+
+        if agent.task_schema_id > 1:
+            schema_id_to_explore = list(range(1, agent.task_schema_id))[::-1]  # reverse order
+            for schema_id in schema_id_to_explore:
+                agent_to_check = await self.storage.task_variant_latest_by_schema_id(task_tuple[0], schema_id)
+                if integration := safe_get_integration_by_kind(agent_to_check.used_integration_kind):
+                    return integration
 
         # Else, pick the default integration for the programming language based on the user agent of the latest run
         user_agent = ""
@@ -1283,7 +1405,166 @@ class MetaAgentService:
             return _remove_typescript_comments(output_string)
         return output_string
 
-    async def stream_proxy_meta_agent_response(
+    async def _get_proxy_agent_input_variables_proposal_paylaod(
+        self,
+        proxy_meta_agent_input: ProxyMetaAgentInput,
+        agent_runs: list[AgentRun],
+        integration: Integration,
+    ) -> ProxyMetaAgentAgentPayload:
+        # "Migrate to input variables" use case
+        if integration.use_version_messages:
+            input_variables_extractor_agent_run = await input_variables_extractor_agent(
+                InputVariablesExtractorInput(
+                    agent_inputs=[agent_run.task_input for agent_run in agent_runs],
+                ),
+            )
+            proxy_meta_agent_input.suggested_messages_with_input_variables = [
+                message.model_dump() for message in input_variables_extractor_agent_run.messages_with_input_variables
+            ]
+            proxy_meta_agent_input.suggested_input_variables_example = (
+                input_variables_extractor_agent_run.input_variables_example
+            )
+            instructions = PROPOSE_INPUT_VARIABLES_INSTRUCTIONS
+            message_kind = "setup_input_variables_assistant_proposal"
+        else:
+            instructions = PROPOSE_INPUT_VARIABLES_INSTRUCTIONS_NO_VERSION_MESSAGES
+            message_kind = "setup_input_variables_assistant_proposal"
+
+        return ProxyMetaAgentAgentPayload(
+            input=proxy_meta_agent_input,
+            instructions=instructions,
+            message_kind=message_kind,
+        )
+
+    async def _get_structured_output_proposal_payload(
+        self,
+        proxy_meta_agent_input: ProxyMetaAgentInput,
+        agent_runs: list[AgentRun],
+        integration: Integration,
+    ) -> ProxyMetaAgentAgentPayload:
+        output_schema_extractor_run = await output_schema_extractor_agent(
+            OutputSchemaExtractorInput(
+                agent_runs=[
+                    OutputSchemaExtractorInput.AgentRun(
+                        raw_messages=[
+                            llm_completion.messages or [] for llm_completion in agent_run.llm_completions or []
+                        ],
+                        input=str(agent_run.task_input),
+                        output=str(agent_run.task_output),
+                    )
+                    for agent_run in agent_runs
+                ],
+                programming_language=integration.programming_language,
+                structured_object_class=integration.output_class,
+            ),
+        )
+        proxy_meta_agent_input.suggested_output_class_code = (
+            output_schema_extractor_run.proposed_structured_object_class
+        )
+        proxy_meta_agent_input.suggested_instructions_parts_to_remove = (
+            output_schema_extractor_run.instructions_parts_to_remove
+        )
+
+        return ProxyMetaAgentAgentPayload(
+            input=proxy_meta_agent_input,
+            instructions=PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS,
+            message_kind="setup_structured_output_assistant_proposal",
+        )
+
+    def get_agent_deployment(
+        self,
+        proxy_meta_agent_input: ProxyMetaAgentInput,
+    ) -> ProxyMetaAgentInput.AgentLifecycleInfo.DeploymentInfo.Deployment | None:
+        if (
+            not proxy_meta_agent_input.agent_lifecycle_info
+            or not proxy_meta_agent_input.agent_lifecycle_info.deployment_info
+            or not proxy_meta_agent_input.agent_lifecycle_info.deployment_info.deployments
+        ):
+            return None
+        return proxy_meta_agent_input.agent_lifecycle_info.deployment_info.deployments[0]
+
+    def _is_any_run_using_deployment(self, agent_runs: list[AgentRun]) -> bool:
+        return any(
+            run.metadata.get(METADATA_KEY_DEPLOYMENT_ENVIRONMENT) if run.metadata else False for run in agent_runs
+        )
+
+    def detect_message_kind_in_raw_completion(self, raw_completion: str) -> tuple[MetaAgentChatMessageKind, str] | None:
+        message_kinds: list[MetaAgentChatMessageKind] = [
+            "setup_input_variables_assistant_proposal",
+            "setup_structured_output_assistant_proposal",
+            "try_other_models_assistant_proposal",
+            "setup_deployment_assistant_proposal",
+        ]
+
+        for kind in message_kinds:
+            if kind in raw_completion:
+                raw_completion = raw_completion.replace(kind, "")
+                return kind, raw_completion
+        return None
+
+    def _extract_tool_call_to_return(
+        self,
+        improvement_instructions: str | None,
+        new_tool: ProxyMetaAgentOutput.NewTool | None,
+        run_trigger_config: ProxyMetaAgentOutput.RunTriggerConfig | None,
+        edit_schema_structure_request: EditSchemaStructureToolCallRequest | None,
+        edit_schema_description_and_examples_request: EditSchemaDescriptionAndExamplesToolCallRequest | None,
+        generate_input_request: GenerateAgentInputToolCallRequest | None,
+    ) -> MetaAgentToolCallType | None:
+        tool_call_to_return = None
+        if improvement_instructions:
+            tool_call_to_return = UpdateVersionMessagesToolCall(
+                improvement_instructions=improvement_instructions,
+            )
+
+        if new_tool:
+            tool_call_to_return = AddToolToolCall(
+                tool_name=new_tool.name,
+                tool_description=new_tool.description,
+                tool_parameters=new_tool.parameters,
+            )
+
+        if run_trigger_config:
+            run_configs = [
+                RunCurrentAgentOnModelsToolCall.RunConfig(
+                    run_on_column="column_1",
+                    model=run_trigger_config.model_1,
+                ),
+            ]
+            if run_trigger_config.model_2:
+                run_configs.append(
+                    RunCurrentAgentOnModelsToolCall.RunConfig(
+                        run_on_column="column_2",
+                        model=run_trigger_config.model_2,
+                    ),
+                )
+            if run_trigger_config.model_3:
+                run_configs.append(
+                    RunCurrentAgentOnModelsToolCall.RunConfig(
+                        run_on_column="column_3",
+                        model=run_trigger_config.model_3,
+                    ),
+                )
+            tool_call_to_return = RunCurrentAgentOnModelsToolCall(run_configs=run_configs)
+
+        if edit_schema_structure_request:
+            tool_call_to_return = EditSchemaToolCall(
+                edition_request_message=edit_schema_structure_request.edition_request_message,
+            )
+
+        if edit_schema_description_and_examples_request:
+            tool_call_to_return = EditSchemaToolCall(
+                edition_request_message=edit_schema_description_and_examples_request.description_and_examples_edition_request_message,
+            )
+
+        if generate_input_request:
+            tool_call_to_return = GenerateAgentInputToolCall(
+                instructions=generate_input_request.instructions,
+            )
+
+        return tool_call_to_return
+
+    async def stream_proxy_meta_agent_response(  # noqa: C901
         self,
         task_tuple: TaskTuple,
         agent_schema_id: int,
@@ -1313,14 +1594,14 @@ class MetaAgentService:
 
         proxy_meta_agent_input, agent_runs = await self._build_proxy_meta_agent_input(
             task_tuple,
-            agent_schema_id,
+            current_agent.task_schema_id,
             user_email,
             messages,
             current_agent,
             playground_state,
         )
 
-        integration = await self._resolve_integration_for_agent(current_agent, agent_runs)
+        integration = await self._resolve_integration_for_agent(current_agent, agent_runs, task_tuple, agent_schema_id)
 
         # Fill the agent input with the right documentations
         proxy_meta_agent_input.integration_documentation = DocumentationService().get_documentation_by_path(
@@ -1332,80 +1613,88 @@ class MetaAgentService:
         is_user_triggered = self._is_user_triggered(messages) and messages[-1].content not in ["POLL", "poll"]
         is_using_instruction_variables = current_agent.input_schema.json_schema.get("properties", None) is not None
         is_using_structured_generation = not current_agent.output_schema.json_schema.get("format") == "message"
+        agent_deployment = self.get_agent_deployment(proxy_meta_agent_input)
         has_tried_other_models = not self._is_only_using_openai_models(agent_runs)
 
         proxy_meta_agent_input.current_agent.is_input_variables_enabled = is_using_instruction_variables
         proxy_meta_agent_input.current_agent.is_structured_output_enabled = is_using_structured_generation
 
-        message_kind = "non_specific"
-        if not is_user_triggered:
+        tool_call: MetaAgentToolCallType | None = None
+        fixed_messages: list[MetaAgentChatMessage] = []
+
+        completion_client = integration.completion_client
+
+        use_tools = False
+        if messages[-1].kind == "user_deployed_agent_in_playground":
+            if (
+                agent_deployment
+                and proxy_meta_agent_input.agent_lifecycle_info
+                and proxy_meta_agent_input.agent_lifecycle_info.deployment_info
+                and proxy_meta_agent_input.agent_lifecycle_info.deployment_info.deployments
+                and len(proxy_meta_agent_input.agent_lifecycle_info.deployment_info.deployments) == 1
+            ):
+                environment = agent_deployment.environment or "production"
+                yield [
+                    MetaAgentChatMessage(
+                        role="ASSISTANT",
+                        content=f"Congratulations on deploying your agent! You can now make runs by using 'model={current_agent.task_id}/{current_agent.task_schema_id}/{environment}'.",
+                        kind="run_deployed_agent_assistant_proposal",
+                    ),
+                ]
+                return
+            else:
+                # This is not the first deployed version of the agent, we don't need to show the message
+                yield []
+                return
+
+        # message_kind = "non_specific"
+        if not is_user_triggered:  # Polling
             if (
                 agent_runs
                 and not has_tried_other_models
-                and not self._is_message_kind_already_sent(messages, "try_other_models_proposal")
+                and not self._is_message_kind_already_sent(messages, "try_other_models_assistant_proposal")
             ):
                 # "Try non-OpenAI model" use case
                 instructions = PROPOSE_NON_OPENAI_MODELS_INSTRUCTIONS
-                message_kind = "try_other_models_proposal"
+                message_kind = "try_other_models_assistant_proposal"
             elif (
                 agent_runs
                 and has_tried_other_models
                 and not is_using_instruction_variables
-                and not self._is_message_kind_already_sent(messages, "setup_input_variables_proposal")
+                and not self._is_message_kind_already_sent(messages, "setup_input_variables_assistant_proposal")
             ):
-                # "Migrate to input variables" use case
-                input_variables_extractor_agent_run = await input_variables_extractor_agent(
-                    InputVariablesExtractorInput(
-                        agent_inputs=[agent_run.task_input for agent_run in agent_runs],
-                    ),
+                (
+                    proxy_meta_agent_input,
+                    instructions,
+                    message_kind,
+                ) = await self._get_proxy_agent_input_variables_proposal_paylaod(
+                    proxy_meta_agent_input,
+                    agent_runs,
+                    integration,
                 )
-                proxy_meta_agent_input.suggested_messages_with_input_variables = [
-                    message.model_dump()
-                    for message in input_variables_extractor_agent_run.messages_with_input_variables
-                ]
-                proxy_meta_agent_input.suggested_input_variables_example = (
-                    input_variables_extractor_agent_run.input_variables_example
-                )
-                instructions = PROPOSE_INPUT_VARIABLES_INSTRUCTIONS
-                message_kind = "setup_input_variables_proposal"
+                if integration.use_version_messages:
+                    tool_call = UpdateVersionMessagesToolCall(
+                        improvement_instructions="Proposing to migrate to input variables. Utilize 'suggested_messages_with_input_variables' and 'suggested_input_variables_example' from the main agent input for new version messages.",
+                    )
             elif (
                 agent_runs
                 and has_tried_other_models
                 and is_using_instruction_variables  # We require the user to have used input variables before proposing structured output
                 and not is_using_structured_generation
-                and not self._is_message_kind_already_sent(messages, "setup_structured_output_proposal")
+                and not self._is_message_kind_already_sent(messages, "setup_structured_output_assistant_proposal")
             ):
-                # "Migrate to structured output" use case
-                output_schema_extractor_run = await output_schema_extractor_agent(
-                    OutputSchemaExtractorInput(
-                        agent_runs=[
-                            OutputSchemaExtractorInput.AgentRun(
-                                raw_messages=[
-                                    llm_completion.messages or [] for llm_completion in agent_run.llm_completions or []
-                                ],
-                                input=str(agent_run.task_input),
-                                output=str(agent_run.task_output),
-                            )
-                            for agent_run in agent_runs
-                        ],
-                        programming_language=integration.programming_language,
-                        structured_object_class=integration.output_class,
-                    ),
-                )
-                proxy_meta_agent_input.suggested_output_class_code = (
-                    output_schema_extractor_run.proposed_structured_object_class
-                )
-                proxy_meta_agent_input.suggested_instructions_parts_to_remove = (
-                    output_schema_extractor_run.instructions_parts_to_remove
-                )
-                instructions = PROPOSE_STRUCTURED_OUTPUT_INSTRUCTIONS
-                message_kind = "setup_structured_output_proposal"
+                (
+                    proxy_meta_agent_input,
+                    instructions,
+                    message_kind,
+                ) = await self._get_structured_output_proposal_payload(proxy_meta_agent_input, agent_runs, integration)
+                completion_client = integration.completion_client_structured_output
             elif (
                 agent_runs
                 and has_tried_other_models
                 and is_using_instruction_variables
                 and is_using_structured_generation
-                and not self._is_message_kind_already_sent(messages, "setup_deployment_proposal")
+                and not self._is_message_kind_already_sent(messages, "setup_deployment_assistant_proposal")
                 and proxy_meta_agent_input.agent_lifecycle_info
                 and proxy_meta_agent_input.agent_lifecycle_info.deployment_info
                 and not proxy_meta_agent_input.agent_lifecycle_info.deployment_info.deployments
@@ -1415,7 +1704,7 @@ class MetaAgentService:
                         role="ASSISTANT",
                         content="Congratulations on get all that set! Do you want to deploy your agent now? This will allow you to manage your agent instructions from the WorkflowAI dashboard, and you won't need to deploy every time you update your agent's instructions.",
                         sent_at=now,
-                        kind="setup_deployment_proposal",
+                        kind="setup_deployment_assistant_proposal",
                     ),
                 ]
                 return
@@ -1424,28 +1713,263 @@ class MetaAgentService:
                 yield []
                 return
 
-        else:
-            # This is an actual client message. Answer
-            instructions = GENERIC_INSTRUCTIONS
-            message_kind = "non_specific"
+        else:  # Message is user-triggered
+            if messages[-1].kind == "run_deployed_agent_user_confirmation":
+                if not self._is_any_run_using_deployment(agent_runs):
+                    yield [
+                        MetaAgentChatMessage(
+                            role="ASSISTANT",
+                            content="I can't find any run using your deployment, make sure you have set 'model={current_agent.task_id}/{current_agent.task_schema_id}/{environment}', and you have run the agent at least once after setting the deployment.",
+                            kind="run_deployed_agent_user_confirmation",
+                        ),
+                    ]
+                    return
+                else:
+                    yield [
+                        MetaAgentChatMessage(
+                            role="ASSISTANT",
+                            content="Well done! I confirm that I've received a run using your deployment.",
+                            kind="run_deployed_agent_assistant_validation",
+                        ),
+                    ]
+                    return
+
+            elif messages[-1].kind in [
+                "try_other_models_user_postponement",
+                "setup_input_variables_user_postponement",
+                "setup_structured_output_user_postponement",
+                "setup_deployment_user_postponement",
+                "run_deployed_agent_user_postponement",
+            ]:
+                yield [
+                    MetaAgentChatMessage(
+                        role="ASSISTANT",
+                        content="Ok. Anything else you need help with?",
+                        kind="non_specific",
+                    ),
+                ]
+                return
+            elif messages[-1].kind == "try_other_models_user_confirmation":
+                if not has_tried_other_models:
+                    yield [
+                        MetaAgentChatMessage(
+                            role="ASSISTANT",
+                            content="""I did not receive any run with non-OpenAI models.
+Please double check:
+- You have updated your model=... parametes as mentioned above.
+- You did run the agent at least once after update.
+                            """,
+                            sent_at=now,
+                            kind="try_other_models_assistant_proposal",
+                        ),
+                    ]
+                    return
+                else:
+                    fixed_messages.append(
+                        MetaAgentChatMessage(
+                            role="ASSISTANT",
+                            content="Congratulations on trying out a non-OpenAI model!",
+                            sent_at=now,
+                            kind="try_other_models_assistant_validation",
+                        ),
+                    )
+                    yield fixed_messages
+                    (
+                        proxy_meta_agent_input,
+                        instructions,
+                        message_kind,
+                    ) = await self._get_proxy_agent_input_variables_proposal_paylaod(
+                        proxy_meta_agent_input,
+                        agent_runs,
+                        integration,
+                    )
+                    if integration.use_version_messages:
+                        tool_call = UpdateVersionMessagesToolCall(
+                            improvement_instructions="Proposing to migrate to input variables. Utilize 'suggested_messages_with_input_variables' and 'suggested_input_variables_example' from the main agent input for new version messages.",
+                        )
+            elif messages[-1].kind == "setup_input_variables_user_confirmation":
+                if not is_using_instruction_variables:
+                    yield [
+                        MetaAgentChatMessage(
+                            role="ASSISTANT",
+                            content="""I did not receive any run with input variables, please try double check:
+- You have included input variables in your agent messages, inside double curly braces '{'.
+- You are passing your 'input' payload to the completion request. And the 'input' values match the input variables you defined in your 'messages'.
+- You did run the agent at least once after update.
+                            """,
+                            sent_at=now,
+                            kind="setup_input_variables_assistant_proposal",
+                        ),
+                    ]
+                    return
+                else:
+                    # User confirmed input variables
+                    fixed_messages.append(
+                        MetaAgentChatMessage(
+                            role="ASSISTANT",
+                            content="Congratulations on setting up input variables! I confirm that your agent is now running with input variables.",
+                            sent_at=now,
+                            kind="setup_input_variables_assistant_validation",
+                        ),
+                    )
+                    yield fixed_messages
+                    (
+                        proxy_meta_agent_input,
+                        instructions,
+                        message_kind,
+                    ) = await self._get_structured_output_proposal_payload(
+                        proxy_meta_agent_input,
+                        agent_runs,
+                        integration,
+                    )
+                    completion_client = integration.completion_client_structured_output
+
+            elif messages[-1].kind == "setup_structured_output_user_confirmation":
+                if not is_using_structured_generation:
+                    yield [
+                        MetaAgentChatMessage(
+                            role="ASSISTANT",
+                            content="""I did not receive any run with structured output, please try double check:
+- You have included a response_format in your completion request.
+- You did run the agent at least once after update.
+                            """,
+                            sent_at=now,
+                            kind="setup_structured_output_assistant_proposal",
+                        ),
+                    ]
+                    return
+                else:
+                    # User confirmed input variables
+                    fixed_messages.extend(
+                        [
+                            MetaAgentChatMessage(
+                                role="ASSISTANT",
+                                content="Congratulations on setting up structured output! I confirm that your agent is now running with structured output.",
+                                sent_at=now,
+                                kind="setup_structured_output_assistant_validation",
+                            ),
+                        ],
+                    )
+                    yield fixed_messages
+                    instructions = PROPOSE_DEPLOYMENT_INSTRUCTIONS
+                    message_kind = "setup_deployment_assistant_proposal"
+            elif messages[-1].kind == "setup_deployment_user_confirmation":
+                if agent_deployment is None:
+                    yield [
+                        MetaAgentChatMessage(
+                            role="ASSISTANT",
+                            content="I can't find any deployment for your agent. Please double check https://docs.workflowai.com/features/deployments for more information.",
+                            sent_at=now,
+                            kind="setup_deployment_assistant_proposal",
+                        ),
+                    ]
+                    return
+                else:
+                    if not self._is_any_run_using_deployment(agent_runs):
+                        yield [
+                            MetaAgentChatMessage(
+                                role="ASSISTANT",
+                                content=f"Congratulations on deploying your agent! You can now make runs by using 'model={current_agent.task_id}/{current_agent.task_schema_id}/{agent_deployment.environment}'.",
+                                sent_at=now,
+                                kind="setup_deployment_assistant_validation",
+                            ),
+                            MetaAgentChatMessage(
+                                role="ASSISTANT",
+                                content="Let me know when you will have run the agent",
+                                sent_at=now,
+                                kind="run_deployed_agent_assistant_proposal",
+                            ),
+                        ]
+                        return
+                    else:
+                        yield [
+                            MetaAgentChatMessage(
+                                role="ASSISTANT",
+                                content="Congratulations on deploying your agent! I confirm that I've received a run using your deployment.",
+                                kind="run_deployed_agent_assistant_validation",
+                            ),
+                        ]
+                        return
+            else:
+                # This is a another client message like 'I want to do ...'
+                use_tools = True
+                instructions = GENERIC_INSTRUCTIONS
+                message_kind = "non_specific"
 
         ret: list[MetaAgentChatMessage] = []
 
         accumulator = ""
+        improvement_instructions_chunk: str | None = None
+        new_tool: ProxyMetaAgentOutput.NewTool | None = None
+        run_trigger_config: ProxyMetaAgentOutput.RunTriggerConfig | None = None
+        edit_schema_structure_request_chunk: EditSchemaStructureToolCallRequest | None = None
+        edit_schema_description_and_examples_request_chunk: EditSchemaDescriptionAndExamplesToolCallRequest | None = (
+            None
+        )
+        generate_input_request_chunk: GenerateAgentInputToolCallRequest | None = None
+        tool_call_to_return: MetaAgentToolCallType | None = None
         async for chunk in proxy_meta_agent(
-            proxy_meta_agent_input,
-            instructions,
+            input=proxy_meta_agent_input,
+            instructions=instructions,
+            model_name_prefix=integration.model_name_prefix or "",
+            completion_client=completion_client,
+            is_using_version_messages=integration.use_version_messages,
+            use_tool_calls=use_tools,
+            agent_has_output_schema=is_using_structured_generation,
+            is_using_input_variables=is_using_instruction_variables,
+            is_agent_deployed=agent_deployment is not None,
         ):
             if chunk.assistant_answer:
                 accumulator = await self._sanitize_output_string(accumulator + chunk.assistant_answer, integration)
-                ret = [
+
+                message_kind_detection = self.detect_message_kind_in_raw_completion(accumulator)
+                if message_kind_detection:
+                    message_kind, accumulator = message_kind_detection
+
+                ret = fixed_messages + [
                     MetaAgentChatMessage(
                         role="ASSISTANT",
                         content=accumulator,
                         sent_at=now,
                         kind=message_kind,
+                        tool_call=tool_call,
+                        switch_to_schema_id=current_agent.task_schema_id,
                     ),
                 ]
                 yield ret
+
+            if chunk.improvement_instructions:
+                improvement_instructions_chunk = chunk.improvement_instructions
+            if chunk.new_tool:
+                new_tool = chunk.new_tool
+            if chunk.run_trigger_config:
+                run_trigger_config = chunk.run_trigger_config
+            # Capture the schema edit requests from the chunk
+            edit_schema_structure_request_chunk = chunk.edit_schema_structure_request
+            edit_schema_description_and_examples_request_chunk = chunk.edit_schema_description_and_examples_request
+            if chunk.generate_input_request:
+                generate_input_request_chunk = chunk.generate_input_request
+
+        tool_call_to_return = self._extract_tool_call_to_return(
+            improvement_instructions_chunk,
+            new_tool,
+            run_trigger_config,
+            edit_schema_structure_request_chunk,
+            edit_schema_description_and_examples_request_chunk,
+            generate_input_request_chunk,
+        )
+
+        if tool_call_to_return:
+            ret = fixed_messages + [
+                MetaAgentChatMessage(
+                    role="ASSISTANT",
+                    content=accumulator,
+                    sent_at=now,
+                    kind=message_kind,
+                    tool_call=tool_call_to_return,
+                    switch_to_schema_id=current_agent.task_schema_id,
+                ),
+            ]
+            yield ret
 
         self.dispatch_new_assistant_messages_event(ret)

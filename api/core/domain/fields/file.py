@@ -1,15 +1,14 @@
-import asyncio
 import mimetypes
+import re
 from base64 import b64decode
 from enum import StrEnum
-from typing import Any
+from typing import Any, Self
 from urllib.parse import parse_qs, urlparse
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ModelWrapValidatorHandler, model_validator
 from pydantic.json_schema import SkipJsonSchema
 
 from core.domain.errors import InternalError
-from core.domain.types import TemplateRenderer
 from core.utils.file_utils.file_utils import guess_content_type
 
 
@@ -32,6 +31,18 @@ class FileKind(StrEnum):
                 return "PDF"
             case FileKind.ANY:
                 return "File"
+
+    @classmethod
+    def from_ref_name(cls, ref_name: str):
+        match ref_name:
+            case "Image":
+                return cls.IMAGE
+            case "Audio":
+                return cls.AUDIO
+            case "PDF":
+                return cls.PDF
+            case _:
+                return None
 
 
 def _remove_additional_properties_from_json_schema(model: dict[str, Any]):
@@ -101,16 +112,22 @@ class File(BaseModel):
         if mime_type := mimetypes.guess_type(url, strict=False)[0]:
             self.content_type = mime_type
 
-    @model_validator(mode="after")
-    def validate_image(self):
-        if self.data:
-            decoded_data = self._validate_base64(self.data)
-            if not self.content_type:
-                self.content_type = guess_content_type(decoded_data)
-            return self
-        if self.url:
-            self._validate_url_and_set_content_type(self.url)
-            return self
+    @model_validator(mode="wrap")
+    @classmethod
+    def wrap_validator(cls, data: Any, handler: ModelWrapValidatorHandler[Self]) -> Self:
+        if isinstance(data, str):
+            data = {"url": data}
+
+        validated = handler(data)
+
+        if validated.data:
+            decoded_data = cls._validate_base64(validated.data)
+            if not validated.content_type:
+                validated.content_type = guess_content_type(decoded_data)
+            return validated
+        if validated.url:
+            validated._validate_url_and_set_content_type(validated.url)
+            return validated
 
         raise ValueError("No data or URL provided for image")
 
@@ -160,22 +177,14 @@ class File(BaseModel):
             return b64decode(self.data)
         return None
 
-    async def templated(self, renderer: TemplateRenderer):
-        try:
-            content_type, data, url = await asyncio.gather(
-                renderer(self.content_type),
-                renderer(self.data),
-                renderer(self.url),
-            )
-        except ExceptionGroup as e:
-            # Raising the first exception, to avoid having a special kind of exception to handle
-            # This is not great and we should return a compound instead
-            raise e.exceptions[0]
-        return File(
-            content_type=content_type,
-            data=data,
-            url=url,
-        )
+    def template_key(self) -> str | None:
+        """Returns the key path for a value if the url of the file is templated"""
+        if self.url and (match := _template_var_regexp.match(self.url)):
+            return match.group(1).strip()
+        return None
+
+
+_template_var_regexp = re.compile(r"\{\{([^}]+)\}\}")
 
 
 def _parse_data_url(data_url: str) -> tuple[str, str]:
