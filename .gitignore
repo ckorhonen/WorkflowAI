@@ -255,6 +255,7 @@ pyrightconfig.json
 !.yarn/sdks
 !.yarn/versions
 .pnp.*
+install-state.gz
 
 **/.next
 junit
