@@ -315,6 +315,17 @@ class TestHandleInternalRef:
         assert result == ref
         assert ref_name in self.used_refs
 
+    def test_no_warning_for_files(self, caplog: pytest.LogCaptureFixture):
+        """Test that a non-File ref with format logs a warning and returns as is."""
+        ref = {"$ref": "#/$defs/File"}
+
+        with caplog.at_level(logging.WARNING):
+            result = _handle_internal_ref("File", ref, self.used_refs, self.internal_defs)
+
+        assert not caplog.text
+        assert result == ref
+        assert "File" in self.used_refs
+
     def test_file_ref_with_image_format_returns_image_ref(self):
         """Test that a File ref with image format returns an Image ref."""
         ref_name = "File"
