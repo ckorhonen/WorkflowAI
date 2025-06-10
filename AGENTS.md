@@ -61,3 +61,18 @@ def test_my_new_script(api_server: str):
 ```
 
 and executing the test with `poetry run pytest api/tests/integration/my_test_file.py::test_my_new_script`
+
+## Client
+
+### Checks
+
+- `eslint` is used to check for linting errors.
+- `prettier` is used to check for formatting errors.
+- `typescript` is used for type checking.
+
+Useful commands:
+
+- `yarn prettier-check` check for formatting errors.
+- `yarn format` to format the code.
+- `yarn workspace workflowai lint` run eslint on the client code
+- `yarn workspace workflowai build` to build the client, including checking for type errors.
