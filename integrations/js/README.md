@@ -2,10 +2,9 @@
 
 ## Requirements
 
-> The package.json of this directory is referenced in the root `package.json` file. Meaning that all dependencies will be installed when running `yarn install` in the root directory.
-
 - Node > 20
 - Yarn v4
+- Installing dependencies: `yarn install` from within the `integrations/js` directory
 
 ## OpenAI Examples
 

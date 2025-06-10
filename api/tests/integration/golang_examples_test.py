@@ -11,6 +11,12 @@ def _golang_dir():
     return root_dir() / "integrations" / "golang"
 
 
+@pytest.fixture(scope="session")
+def install_golang_dependencies():
+    """Install the dependencies for the Golang examples"""
+    subprocess.run(["go", "mod", "download"], cwd=_golang_dir())
+
+
 def _all_golang_examples():
     dirs = _golang_dir()
     for dir in dirs.iterdir():
