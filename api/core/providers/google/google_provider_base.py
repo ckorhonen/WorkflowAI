@@ -20,6 +20,7 @@ from core.providers.base.models import RawCompletion, StandardMessage
 from core.providers.base.provider_error import (
     ContentModerationError,
     FailedGenerationError,
+    InvalidGenerationError,
     MaxTokensExceededError,
     MissingModelError,
     ModelDoesNotSupportMode,
@@ -243,7 +244,7 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
                         msg="Model returned a MAX_TOKENS finish reason. The max number of tokens as specified in the request was reached.",
                     )
                 case "MALFORMED_FUNCTION_CALL":
-                    raise ProviderBadRequestError(
+                    raise InvalidGenerationError(
                         msg="Model returned a malformed function call finish reason",
                         # Capturing so we can see why this happens
                         capture=True,
@@ -366,11 +367,12 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
         "url_unreachable-unreachable_5xx",
         "url_rejected",
         "url_roboted",
-        "please ensure the URL is valid and accessible",
+        "please ensure the url is valid and accessible",
+        "submit request because it has a mimetype parameter with value",
     ]
 
     @classmethod
-    def _handle_invalid_argument(cls, message: str, response: httpx.Response):
+    def _handle_invalid_argument(cls, message: str, response: httpx.Response):  # noqa: C901
         error_cls: type[ProviderError] = ProviderBadRequestError
         error_msg = message
         capture = False
@@ -407,10 +409,19 @@ class GoogleProviderBase(HTTPXProvider[_GoogleConfigVar, CompletionResponse], Ge
             case lower_msg if "url_rejected-rejected_rpc_app_error" in lower_msg:
                 error_msg = "Provider could not retrieve file: Rejected"
                 error_cls = ProviderInvalidFileError
+            case lower_msg if "base64 decoding failed" in lower_msg:
+                error_msg = "Provider could not decode base64 data"
+                error_cls = ProviderInvalidFileError
             case lower_msg if any(m in lower_msg for m in cls._INVALID_FILE_SEARCH_STRINGS):
                 error_cls = ProviderInvalidFileError
             case lower_msg if "you can only include" in lower_msg:
                 error_cls = ModelDoesNotSupportMode
+            case lower_msg if "does not support the requested response modalities" in lower_msg:
+                error_cls = ModelDoesNotSupportMode
+            case lower_msg if "multi-modal output is not supported" in lower_msg:
+                error_cls = ModelDoesNotSupportMode
+            case lower_msg if "violated google's responsible ai practices" in lower_msg:
+                error_cls = ContentModerationError
             case _:
                 return
         raise error_cls(error_msg, response=response, capture=capture)

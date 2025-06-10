@@ -1,4 +1,3 @@
-import logging
 import mimetypes
 import re
 from base64 import b64decode
@@ -11,8 +10,6 @@ from pydantic.json_schema import SkipJsonSchema
 
 from core.domain.errors import InternalError
 from core.utils.file_utils.file_utils import guess_content_type
-
-_logger = logging.getLogger(__file__)
 
 
 class FileKind(StrEnum):
@@ -77,10 +74,20 @@ class File(BaseModel):
 
         raise InternalError("No data or URL provided for image")
 
+    @classmethod
+    def _validate_base64(cls, data: str) -> bytes:
+        # TODO: maybe we do not need to decode the data here, just check the padding
+        # That's a lot of memory usage for no reason
+        try:
+            return b64decode(data)
+        except Exception:
+            raise ValueError("Invalid base64 data in file")
+
     def _validate_url_and_set_content_type(self, url: str):
         if url.startswith("data:"):
             content_type, data = _parse_data_url(url[5:])
             self.content_type = content_type
+            self._validate_base64(data)
             self.data = data
             self.url = None
             return
@@ -114,13 +121,7 @@ class File(BaseModel):
         validated = handler(data)
 
         if validated.data:
-            try:
-                decoded_data = b64decode(validated.data)
-            except Exception:
-                # We should really throw an error here, but let's log a bit for now
-                # python is very strict about padding so might need to be more tolerant
-                _logger.warning("Found invalid base64 data in file", exc_info=True)
-                return validated
+            decoded_data = cls._validate_base64(validated.data)
             if not validated.content_type:
                 validated.content_type = guess_content_type(decoded_data)
             return validated

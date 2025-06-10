@@ -15,8 +15,8 @@ def test_merge_messages_content_only():
 
 
 def test_merge_messages_with_mixed_files():
-    image1 = File(content_type="image/jpeg", data="some data")
-    audio1 = File(content_type="audio/wav", data="some other data")
+    image1 = File(content_type="image/jpeg", data="somedata")
+    audio1 = File(content_type="audio/wav", data="someotherdat")
     messages = [
         MessageDeprecated(content="Message 1", files=[image1], role=MessageDeprecated.Role.USER),
         MessageDeprecated(content="Message 2", files=[audio1], role=MessageDeprecated.Role.USER),
@@ -28,8 +28,8 @@ def test_merge_messages_with_mixed_files():
 
 
 def test_merge_messages_with_images():
-    image1 = File(content_type="image/jpeg", data="some data")
-    image2 = File(content_type="image/jpeg", data="some other data")
+    image1 = File(content_type="image/jpeg", data="somedata")
+    image2 = File(content_type="image/jpeg", data="someotherdat")
     messages = [
         MessageDeprecated(content="Message 1", files=[image1], role=MessageDeprecated.Role.USER),
         MessageDeprecated(content="Message 2", files=[image2], role=MessageDeprecated.Role.USER),

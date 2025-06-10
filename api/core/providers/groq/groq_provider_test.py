@@ -25,6 +25,7 @@ from core.providers.base.provider_error import (
     ProviderBadRequestError,
     ProviderError,
     ProviderInternalError,
+    ProviderInvalidFileError,
     UnknownProviderError,
 )
 from core.providers.base.provider_options import ProviderOptions
@@ -489,6 +490,17 @@ class TestUnknownError:
         }
         e = unknown_error_fn(payload)
         assert isinstance(e, ProviderBadRequestError)
+        assert e.capture is False
+
+    def test_unknown_error_invalid_url(self, unknown_error_fn: Callable[[str | dict[str, Any]], ProviderError]):
+        payload = {
+            "error": {
+                "message": "failed to retrieve media: received status code: 404",
+                "type": "invalid_request_error",
+            },
+        }
+        e = unknown_error_fn(payload)
+        assert isinstance(e, ProviderInvalidFileError)
         assert e.capture is False
 
     def test_413_status_code(self, unknown_error_fn: Callable[[str | dict[str, Any], int], ProviderError]):

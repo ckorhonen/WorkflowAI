@@ -23,6 +23,7 @@ from core.providers.base.provider_error import (
     MaxTokensExceededError,
     ModelDoesNotSupportMode,
     ProviderBadRequestError,
+    ProviderInvalidFileError,
     StructuredGenerationError,
     UnknownProviderError,
 )
@@ -263,6 +264,8 @@ class OpenAIProviderBase(HTTPXProvider[_OpenAIConfigVar, CompletionResponse], Ge
                 response=response,
                 capture=True,
             )
+        if "Too many images in request" in payload.error.message:
+            return ProviderInvalidFileError(msg=payload.error.message, response=response)
 
         return None
 
@@ -301,6 +304,8 @@ class OpenAIProviderBase(HTTPXProvider[_OpenAIConfigVar, CompletionResponse], Ge
                     return ProviderBadRequestError(msg=payload.error.message, response=response)
                 case "invalid_image_url":
                     return ProviderBadRequestError(msg=payload.error.message, response=response)
+                case "invalid_base64":
+                    return ProviderInvalidFileError(msg="Base64 data is not valid")
                 case "BadRequest":
                     # Capturing for now
                     return ProviderBadRequestError(msg=payload.error.message, response=response, capture=True)
