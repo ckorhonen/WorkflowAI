@@ -105,6 +105,7 @@ async def _wait_for_server_ready():
     pytest.fail("Server not ready")
 
 
+# TODO: implement a lock mechanism to allow running in parallel
 @pytest.fixture(scope="session")
 async def api_server(
     request: pytest.FixtureRequest,

@@ -57,7 +57,9 @@ jobs:
           poetry config virtualenvs.in-project true
           poetry install
       - name: Run Unit Tests
-        run: PYTHONPATH=. poetry run pytest api/tests/integration -n=5
+        # Can't run in parallel here because of the session scoped fixtures
+        # See https://github.com/pytest-dev/pytest-xdist/issues/271
+        run: PYTHONPATH=. poetry run pytest api/tests/integration
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

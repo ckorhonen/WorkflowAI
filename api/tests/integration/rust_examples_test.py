@@ -1,8 +1,3 @@
-"""
-Tests that the JS examples are correctly supported by the API.
-Node modules dependencies are required to run the tests
-"""
-
 import subprocess
 from pathlib import Path
 
