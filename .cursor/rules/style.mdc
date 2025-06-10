@@ -1,9 +1,0 @@
----
-description: 
-globs: 
-alwaysApply: true
----
-# Code style
-
-## Comments and docstring
-- Avoid comments or docstrings that are too trivial and just describe what is written in the code. Only add docstrings and comments in cases when there is really something to explain or something to warn the reader about.

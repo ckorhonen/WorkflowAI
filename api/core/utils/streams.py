@@ -81,6 +81,7 @@ class JSONStreamParser:
         self.is_escaping = False
         self._unicode_chars_left: int | None = None
         self._unicode_buffer = ""
+        self._unicode_escape_type = "u"  # Track whether we're processing \u or \x
         self._pending_surrogate: int | None = None
         self.is_tolerant = is_tolerant
         self._leftover_buffer = ""
@@ -214,6 +215,7 @@ class JSONStreamParser:
             elif c in {"u", "x"}:
                 self._unicode_chars_left = 4 if c == "u" else 2
                 self._unicode_buffer = ""
+                self._unicode_escape_type = c
             else:
                 self._flush_pending_surrogate()
                 self.current_chain += c
@@ -234,7 +236,10 @@ class JSONStreamParser:
         try:
             code = int(self._unicode_buffer, 16)
         except ValueError:
-            self.current_chain += f"\\u{self._unicode_buffer}"
+            # Flush any pending surrogate before handling the error
+            self._flush_pending_surrogate()
+            # Use the correct escape prefix based on the original escape type
+            self.current_chain += f"\\{self._unicode_escape_type}{self._unicode_buffer}"
         else:
             if self._pending_surrogate is not None:
                 if 0xDC00 <= code <= 0xDFFF:
