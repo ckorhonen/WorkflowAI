@@ -24,6 +24,12 @@ def _all_openai_examples():
             yield pytest.param(file, id=file.name)
 
 
+@pytest.fixture(scope="session")
+def install_js_dependencies():
+    """Install the dependencies for the JS examples"""
+    subprocess.run(["yarn", "install"], cwd=_js_dir())
+
+
 @pytest.mark.parametrize("example", _all_openai_examples())
 def test_js_openai_example(example: Path, api_server: str):
     """Run every example in the openai_examples directory"""
