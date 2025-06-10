@@ -234,10 +234,11 @@ export function useProxyPerformRuns(props: Props) {
         //const useCache = !!temperatureRef.current && temperatureRef.current === 0 ? 'never' : undefined;
         const useCache = 'never';
 
-        const cleanedInput = removeInputEntriesNotMatchingSchemaAndKeepMessages(
-          inputRef.current as Record<string, unknown>,
-          extractedInputSchemaRef.current
-        );
+        const cleanedInput =
+          removeInputEntriesNotMatchingSchemaAndKeepMessages(
+            inputRef.current as Record<string, unknown> | undefined,
+            extractedInputSchemaRef.current
+          ) ?? {};
 
         const request: RunRequest = {
           task_input: cleanedInput,
@@ -342,7 +343,9 @@ export function useProxyPerformRuns(props: Props) {
 
       const newSchema = await checkAndUpdateSchemaIfNeeded();
       await Promise.all(indexesToRun.map((index) => performRun(index)));
-      await fetchModels(tenant, taskId, newSchema as TaskSchemaID);
+      if (newSchema) {
+        await fetchModels(tenant, taskId, newSchema);
+      }
       await fetchOrganizationSettings();
 
       if (newSchema) {

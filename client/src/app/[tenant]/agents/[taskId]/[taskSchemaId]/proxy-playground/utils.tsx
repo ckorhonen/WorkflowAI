@@ -188,9 +188,13 @@ export function removeInputEntriesNotMatchingSchema(
 }
 
 export function removeInputEntriesNotMatchingSchemaAndKeepMessages(
-  input: Record<string, unknown>,
+  input: Record<string, unknown> | undefined,
   schema: JsonSchema | undefined
-): Record<string, unknown> {
+): Record<string, unknown> | undefined {
+  if (!input) {
+    return undefined;
+  }
+
   if (!schema) {
     return input;
   }
