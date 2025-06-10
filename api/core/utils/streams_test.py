@@ -285,6 +285,36 @@ def test_all_splits_in_json(cut_idx: int):
     assert parsed == _PARSED_JSON
 
 
+def test_unicode_escape_sequence() -> None:
+    chunks = ['{"a": "\\', 'u00e9"}']
+    parsed = _stream_to_dict({}, chunks)
+    assert parsed == {"a": "é"}
+
+
+def test_hex_escape_sequence() -> None:
+    chunks = ['{"a": "\\', 'x41"}']
+    parsed = _stream_to_dict({}, chunks)
+    assert parsed == {"a": "A"}
+
+
+def test_surrogate_pair_single_chunk() -> None:
+    chunks = ['{"a": "\\ud83d\\ude00"}']
+    parsed = _stream_to_dict({}, chunks)
+    assert parsed == {"a": "😀"}
+
+
+def test_surrogate_pair_split() -> None:
+    chunks = ['{"a": "\\ud83', 'd\\ude00"}']
+    parsed = _stream_to_dict({}, chunks)
+    assert parsed == {"a": "😀"}
+
+
+def test_surrogate_pair_split_digits() -> None:
+    chunks = ['{"a": "\\u', 'd83d\\u', 'de00"}']
+    parsed = _stream_to_dict({}, chunks)
+    assert parsed == {"a": "😀"}
+
+
 def test_4o_mini_tabs():
     # 4o mini returns a bunch of tabs which breaks the json
     raw_str = """{"characters":{\n \t\t\t},"bla":"bla"}"""

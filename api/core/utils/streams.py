@@ -79,6 +79,9 @@ class JSONStreamParser:
         self.in_json = False
         self.is_done = False
         self.is_escaping = False
+        self._unicode_chars_left: int | None = None
+        self._unicode_buffer = ""
+        self._pending_surrogate: int | None = None
         self.is_tolerant = is_tolerant
         self._leftover_buffer = ""
         self._last_char = ""
@@ -198,14 +201,61 @@ class JSONStreamParser:
                 raise self._exception(f"Could not parse value '{self.current_chain}'")
 
     def _add_to_current_chain(self, c: str) -> None:
+        if self._unicode_chars_left is not None:
+            self._unicode_buffer += c
+            self._unicode_chars_left -= 1
+            if self._unicode_chars_left == 0:
+                self._process_unicode_sequence()
+            return
         if self.is_escaping:
-            self.current_chain += _ESCAPED_CHARS.get(c, c)
+            if c in _ESCAPED_CHARS:
+                self._flush_pending_surrogate()
+                self.current_chain += _ESCAPED_CHARS[c]
+            elif c in {"u", "x"}:
+                self._unicode_chars_left = 4 if c == "u" else 2
+                self._unicode_buffer = ""
+            else:
+                self._flush_pending_surrogate()
+                self.current_chain += c
             self.is_escaping = False
             return
         if c == "\\":
             self.is_escaping = True
             return
+        self._flush_pending_surrogate()
         self.current_chain += c
+
+    def _flush_pending_surrogate(self) -> None:
+        if self._pending_surrogate is not None:
+            self.current_chain += chr(self._pending_surrogate)
+            self._pending_surrogate = None
+
+    def _process_unicode_sequence(self) -> None:
+        try:
+            code = int(self._unicode_buffer, 16)
+        except ValueError:
+            self.current_chain += f"\\u{self._unicode_buffer}"
+        else:
+            if self._pending_surrogate is not None:
+                if 0xDC00 <= code <= 0xDFFF:
+                    high = self._pending_surrogate
+                    code = ((high - 0xD800) << 10) + (code - 0xDC00) + 0x10000
+                    self.current_chain += chr(code)
+                    self._pending_surrogate = None
+                else:
+                    self.current_chain += chr(self._pending_surrogate)
+                    self._pending_surrogate = None
+                    if 0xD800 <= code <= 0xDBFF:
+                        self._pending_surrogate = code
+                    else:
+                        self.current_chain += chr(code)
+            else:
+                if 0xD800 <= code <= 0xDBFF:
+                    self._pending_surrogate = code
+                else:
+                    self.current_chain += chr(code)
+        self._unicode_chars_left = None
+        self._unicode_buffer = ""
 
     def _next_non_space_char(self) -> str:
         for c in self._leftover_buffer:
