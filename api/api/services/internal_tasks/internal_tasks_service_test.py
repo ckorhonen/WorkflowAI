@@ -833,7 +833,7 @@ class TestTranscribeAudio:
         # Arrange
         mock_audio_file = File(
             content_type="audio/mp3",
-            data="This is sample file content",
+            data="Thisissamplefilecontent=",
         )
         expected_transcription = "This is a transcription of the audio file."
 

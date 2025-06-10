@@ -717,8 +717,8 @@ class TestBuildMessages:
             TemplateName.V2_DEFAULT,
             MultiFileTaskInput(
                 files=[
-                    File(content_type="image/png", data="data1"),
-                    File(content_type="image/png", data="data2"),
+                    File(content_type="image/png", data="dat1"),
+                    File(content_type="image/png", data="dat2"),
                 ],
                 description="test",
             ).model_dump(),
