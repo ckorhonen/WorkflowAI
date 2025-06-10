@@ -168,6 +168,13 @@ export const useOrExtractTemplete = (
     abortControllerRef.current?.abort();
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
+    extract(id, tenant, taskId, messages ?? [], inputSchema, abortController.signal);
+  }, [extract, tenant, taskId, messages, inputSchema, id]);
+
+  useEffect(() => {
+    abortControllerRef.current?.abort();
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
     const debouncedExtract = debounce(() => {
       extract(id, tenant, taskId, messages ?? [], inputSchema, abortController.signal);
@@ -180,10 +187,6 @@ export const useOrExtractTemplete = (
       abortController.abort();
     };
   }, [extract, tenant, taskId, messages, inputSchema, id]);
-
-  useEffect(() => {
-    performExtract();
-  }, [performExtract]);
 
   const areThereChangesInInputSchema = useMemo(() => {
     if (!schema || !inputSchema) return false;
