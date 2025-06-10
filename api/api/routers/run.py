@@ -133,6 +133,8 @@ class RunRequest(BaseModel):
 
 class _RunResponseCommon(BaseModel):
     id: str
+    # For historical reasons we never return None here
+    # Instead we will return an empty object if the task output is None
     task_output: AgentOutput
 
     tool_call_requests: list[APIToolCallRequest] | None = Field(
@@ -143,6 +145,10 @@ class _RunResponseCommon(BaseModel):
         description="A list of reasoning steps that were taken during the run."
         "Available for reasoning models or when the version used has chain of thoughts enabled",
     )
+
+    @classmethod
+    def sane_output(cls, output: AgentOutput | None) -> AgentOutput:
+        return {} if output is None else output
 
 
 class RunResponse(_RunResponseCommon):
@@ -192,7 +198,7 @@ class RunResponse(_RunResponseCommon):
             # Maintaining previous behavior of returning an empty object if the task output is None
             # to avoid creating validation errors in client payloads
             # We should add additional tests in the clients to make sure we support returning None here
-            task_output=task_run.task_output or {},
+            task_output=cls.sane_output(task_run.task_output),
             version=cls.Version(
                 id=task_run.group.id,
                 properties=task_run.group.properties
@@ -264,7 +270,7 @@ class RunResponseStreamChunk(_RunResponseCommon):
     def from_stream(cls, id: str, output: RunOutput):
         return cls(
             id=id,
-            task_output=output.task_output,
+            task_output=cls.sane_output(output.task_output),
             tool_calls=safe_map_optional(output.tool_calls, cls.ToolCall.from_domain, logger=_logger),
             tool_call_requests=safe_map_optional(
                 output.tool_call_requests,

@@ -138,6 +138,27 @@ class TestStreamlineSchema:
         streamlined = streamline_schema(copy.deepcopy(schema))
         assert streamlined == schema
 
+    def test_no_warning(self, caplog: pytest.LogCaptureFixture):
+        schema = {
+            "$defs": {},
+            "properties": {
+                "focus_areas": {
+                    "description": "Specific areas of risk to focus on during analysis (optional)",
+                    "items": {
+                        "type": "'string'",
+                    },
+                    "type": "array",
+                },
+                "loan_data": {
+                    "$ref": "#/$defs/File",
+                },
+            },
+            "type": "object",
+        }
+        with caplog.at_level(logging.WARNING):
+            streamline_schema(schema)
+        assert not caplog.text
+
     def test_model_array(self):
         class Model1(BaseModel):
             field: list[str] = Field(default_factory=list)
@@ -311,9 +332,20 @@ class TestHandleInternalRef:
         with caplog.at_level(logging.WARNING):
             result = _handle_internal_ref(ref_name, ref, self.used_refs, self.internal_defs)
 
-        assert "Unexpected format for internal ref" in caplog.text
+        assert "Unexpected format for a non File ref" in caplog.text
         assert result == ref
         assert ref_name in self.used_refs
+
+    def test_no_warning_for_files(self, caplog: pytest.LogCaptureFixture):
+        """Test that a non-File ref with format logs a warning and returns as is."""
+        ref = {"$ref": "#/$defs/File"}
+
+        with caplog.at_level(logging.WARNING):
+            result = _handle_internal_ref("File", ref, self.used_refs, self.internal_defs)
+
+        assert not caplog.text
+        assert result == ref
+        assert "File" in self.used_refs
 
     def test_file_ref_with_image_format_returns_image_ref(self):
         """Test that a File ref with image format returns an Image ref."""
