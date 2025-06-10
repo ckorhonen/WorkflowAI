@@ -285,11 +285,82 @@ def test_all_splits_in_json(cut_idx: int):
     assert parsed == _PARSED_JSON
 
 
+def test_surrogate_pair_split() -> None:
+    chunks = ['{"a": "\\ud83', 'd\\ude00"}']
+    parsed = _stream_to_dict({}, chunks)
+    assert parsed == {"a": "😀"}
+
+
 def test_4o_mini_tabs():
     # 4o mini returns a bunch of tabs which breaks the json
     raw_str = """{"characters":{\n \t\t\t},"bla":"bla"}"""
     parsed = _stream_to_dict({}, [raw_str])
     assert parsed == {"characters": {}, "bla": "bla"}
+
+
+class TestUnicodeChars:
+    def test_surrogate_pair_split_digits(self):
+        chunks = ['{"a": "\\u', "d83d\\u", 'de00"}']
+        parsed = _stream_to_dict({}, chunks)
+        assert parsed == {"a": "😀"}
+
+    def test_invalid_hex_escape_sequence_preserves_escape_type(self):
+        """Test that invalid \\x sequences show \\x in error output, not \\u"""
+        chunks = ['{"a": "\\x', 'ZZ"}']  # Invalid hex sequence split across chunks
+        parsed = _stream_to_dict({}, chunks)
+        # This should preserve the \x prefix, but currently shows \u
+        assert parsed == {"a": "\\xZZ"}
+
+    def test_invalid_unicode_escape_sequence_preserves_escape_type(self):
+        """Test that invalid \\u sequences show \\u in error output"""
+        chunks = ['{"a": "\\u', 'ZZZZ"}']  # Invalid unicode sequence split across chunks
+        parsed = _stream_to_dict({}, chunks)
+        assert parsed == {"a": "\\uZZZZ"}
+
+    def test_pending_surrogate_flushed_on_invalid_unicode_sequence(self):
+        """Test that pending surrogates are flushed even when next unicode sequence fails"""
+        # Start with a valid high surrogate, then an invalid unicode sequence
+        chunks = ['{"a": "\\ud83d\\u', 'ZZZZ"}']
+        parsed = _stream_to_dict({}, chunks)
+        # The high surrogate should be flushed as a replacement character
+        # followed by the invalid sequence
+        expected_char = chr(0xD83D)  # The pending surrogate should be flushed
+        assert parsed == {"a": f"{expected_char}\\uZZZZ"}
+
+    def test_unicode_escape_sequence(self):
+        chunks = ['{"a": "\\', 'u00e9"}']
+        parsed = _stream_to_dict({}, chunks)
+        assert parsed == {"a": "é"}
+
+    def test_hex_escape_sequence(self):
+        chunks = ['{"a": "\\', 'x41"}']
+        parsed = _stream_to_dict({}, chunks)
+        assert parsed == {"a": "A"}
+
+    def test_surrogate_pair_single_chunk(self):
+        chunks = ['{"a": "\\ud83d\\ude00"}']
+        parsed = _stream_to_dict({}, chunks)
+        assert parsed == {"a": "😀"}
+
+    @pytest.mark.parametrize(
+        "chunks,expected_text",
+        [
+            pytest.param(['{"word": "Caract\\u00e8re"}'], "Caractère", id="unicode_in_word_no_space"),
+            pytest.param(['{"word": "\\u00e9\\u00e8\\u00ea"}'], "éèê", id="multiple_unicode_no_spaces"),
+            pytest.param(['{"word": "caf\\u00e9s"}'], "cafés", id="unicode_followed_by_regular_char"),
+            pytest.param(['{"word": "\\u00e9\\x41\\u00e8"}'], "éAè", id="mixed_escape_sequences"),
+            pytest.param(['{"word": "\\x41\\u00e9"}'], "Aé", id="hex_followed_by_unicode"),
+            pytest.param(['{"word": "hello\\u00e9"}'], "helloé", id="unicode_at_end"),
+            pytest.param(['{"word": "\\u00e9hello"}'], "éhello", id="unicode_at_start"),
+            pytest.param(['{"word": "Caract\\u', '00e8re"}'], "Caractère", id="split_before_unicode"),
+            pytest.param(['{"word": "Caract\\u00', 'e8re"}'], "Caractère", id="split_mid_unicode"),
+            pytest.param(['{"word": "test\\u', "00", 'e9end"}'], "testéend", id="split_across_three_chunks"),
+        ],
+    )
+    def test_unicode_sequences_no_spaces(self, chunks: list[str], expected_text: str):
+        """Test various unicode sequences without spaces"""
+        parsed = _stream_to_dict({}, chunks)
+        assert parsed == {"word": expected_text}
 
 
 class TestFailures:

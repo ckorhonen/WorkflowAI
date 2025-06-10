@@ -115,13 +115,13 @@ class TestOpenAIMessageWithAudio:
 
     def test_audio_message_content_structure_from_file(self):
         message = OpenAIMessage(
-            content=[AudioContent.from_file(File(content_type="audio/mpeg", data="base64data"))],
+            content=[AudioContent.from_file(File(content_type="audio/mpeg", data="base64data=="))],
             role="user",
         )
         assert isinstance(message.content, list)
         assert len(message.content) == 1
         assert isinstance(message.content[0], AudioContent)
-        assert message.content[0].input_audio.data == "base64data"
+        assert message.content[0].input_audio.data == "base64data=="
         assert message.content[0].input_audio.format == "mp3"
 
     def test_audio_message_content_structure_from_file_with_text(self):
@@ -161,7 +161,7 @@ class TestOpenAIMessageWithAudio:
 
     def test_audio_message_from_file_unknown_format(self):
         with pytest.raises(ProviderError) as e:
-            AudioContent.from_file(File(content_type="audio/flac", data="base64data"))
+            AudioContent.from_file(File(content_type="audio/flac", data="base64data=="))
         assert e.value.code == "failed_generation"
         assert e.value.status_code == 400
 
@@ -171,8 +171,8 @@ class TestOpenAIMessageFromDomain:
         message = MessageDeprecated(
             content="Hello",
             files=[
-                File(content_type="image/png", data="image_data"),
-                File(content_type="audio/wav", data="audio_data"),
+                File(content_type="image/png", data="image_dat"),
+                File(content_type="audio/wav", data="audio_dat"),
             ],
             role=MessageDeprecated.Role.USER,
         )

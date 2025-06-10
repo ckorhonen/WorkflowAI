@@ -717,8 +717,8 @@ class TestBuildMessages:
             TemplateName.V2_DEFAULT,
             MultiFileTaskInput(
                 files=[
-                    File(content_type="image/png", data="data1"),
-                    File(content_type="image/png", data="data2"),
+                    File(content_type="image/png", data="dat1"),
+                    File(content_type="image/png", data="dat2"),
                 ],
                 description="test",
             ).model_dump(),
@@ -2273,7 +2273,7 @@ class TestInlineTextFiles:
                 data="dGV4dF9kYXRh",
                 key_path=["file1"],
             ),  # "text_data" in base64
-            FileWithKeyPath(content_type="image/png", data="image_data", key_path=["file2"]),
+            FileWithKeyPath(content_type="image/png", data="imagedat", key_path=["file2"]),
             FileWithKeyPath(
                 content_type="text/markdown",
                 data="bWFya2Rvd25fZGF0YQ==",
@@ -2786,7 +2786,7 @@ class TestRun:
             output={},
             files=[
                 File(
-                    data="hello",
+                    data="hell",
                     content_type="image/png",
                 ),
             ],
@@ -2795,7 +2795,7 @@ class TestRun:
         run = await runner.run(builder)
         assert run.task_output == {
             "image": {
-                "data": "hello",
+                "data": "hell",
                 "content_type": "image/png",
             },
         }

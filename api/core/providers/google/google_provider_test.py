@@ -22,6 +22,7 @@ from core.domain.structured_output import StructuredOutput
 from core.providers.base.abstract_provider import RawCompletion
 from core.providers.base.provider_error import (
     FailedGenerationError,
+    InvalidGenerationError,
     MaxTokensExceededError,
     MissingModelError,
     ModelDoesNotSupportMode,
@@ -882,7 +883,7 @@ class TestExtractStreamDelta:
                 ],
             },
         ).encode()
-        with pytest.raises(ProviderBadRequestError):
+        with pytest.raises(InvalidGenerationError):
             google_provider._extract_stream_delta(  # pyright: ignore [reportPrivateUsage]
                 sse_event_malformed_function_call,
                 RawCompletion(response="", usage=LLMUsage()),
