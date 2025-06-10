@@ -514,7 +514,11 @@ class OpenAIProxyChatCompletionRequest(_OpenAIProxyExtraFields):
         set_fields = self.model_fields_set
         used_unsupported_fields = set_fields.intersection(_UNSUPPORTED_FIELDS)
         if used_unsupported_fields:
-            fields = [f for f in used_unsupported_fields if getattr(self, f, None)]
+            # Ignoring all set None fields
+            fields = [f for f in used_unsupported_fields if getattr(self, f, None) is not None]
+            if not fields:
+                return
+
             plural = len(fields) > 1
             fields.sort()
             raise BadRequestError(
