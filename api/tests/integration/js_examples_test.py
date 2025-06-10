@@ -24,7 +24,7 @@ def _all_openai_examples():
             yield pytest.param(file, id=file.name)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="session", autouse=True)
 def install_js_dependencies():
     """Install the dependencies for the JS examples"""
     subprocess.run(["yarn", "install"], cwd=_js_dir())
