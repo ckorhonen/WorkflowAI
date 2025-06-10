@@ -496,6 +496,7 @@ class TestUnknownError:
         payload = {
             "error": {
                 "message": "failed to retrieve media: received status code: 404",
+                "type": "invalid_request_error",
             },
         }
         e = unknown_error_fn(payload)

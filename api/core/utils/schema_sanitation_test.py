@@ -332,7 +332,7 @@ class TestHandleInternalRef:
         with caplog.at_level(logging.WARNING):
             result = _handle_internal_ref(ref_name, ref, self.used_refs, self.internal_defs)
 
-        assert "Unexpected format for internal ref" in caplog.text
+        assert "Unexpected format for a non File ref" in caplog.text
         assert result == ref
         assert ref_name in self.used_refs
 

@@ -271,6 +271,7 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
 
     def _invalid_request_error(self, payload: GroqError, response: Response):
         base_cls = UnknownProviderError
+        capture: bool | None = None
 
         if payload.error.message:
             lower_msg = payload.error.message.lower()
@@ -279,12 +280,14 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
                     base_cls = ProviderBadRequestError
                 case m if "failed to retrieve media" in m:
                     base_cls = ProviderInvalidFileError
+                    capture = False
                 case _:
                     pass
 
         return base_cls(
             msg=payload.error.message or "Unknown error",
             response=response,
+            capture=capture,
         )
 
     @override
