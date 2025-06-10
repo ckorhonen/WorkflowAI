@@ -138,6 +138,27 @@ class TestStreamlineSchema:
         streamlined = streamline_schema(copy.deepcopy(schema))
         assert streamlined == schema
 
+    def test_no_warning(self, caplog: pytest.LogCaptureFixture):
+        schema = {
+            "$defs": {},
+            "properties": {
+                "focus_areas": {
+                    "description": "Specific areas of risk to focus on during analysis (optional)",
+                    "items": {
+                        "type": "'string'",
+                    },
+                    "type": "array",
+                },
+                "loan_data": {
+                    "$ref": "#/$defs/File",
+                },
+            },
+            "type": "object",
+        }
+        with caplog.at_level(logging.WARNING):
+            streamline_schema(schema)
+        assert not caplog.text
+
     def test_model_array(self):
         class Model1(BaseModel):
             field: list[str] = Field(default_factory=list)

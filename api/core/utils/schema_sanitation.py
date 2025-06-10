@@ -321,7 +321,7 @@ def _handle_internal_ref(ref_name: str, ref: dict[str, Any], used_refs: set[str]
     if ref_name != "File":
         # We got a format but it's not a file which is pretty weird.
         # We log a warning and return as is
-        logger.warning("Unexpected format for internal ref", extra={"schema": ref})
+        logger.warning("Unexpected format for a non File ref", extra={"schema": ref, "ref_name": ref_name})
         used_refs.add(ref_name)
         return ref
 
@@ -335,11 +335,9 @@ def _handle_internal_ref(ref_name: str, ref: dict[str, Any], used_refs: set[str]
             new_ref = "Audio"
         case "pdf":
             new_ref = "PDF"
-        case None:
-            new_ref = "File"
         case _:
             # Unexpected format. Same thing we log a warning and return as is
-            logger.warning("Unexpected format for internal ref", extra={"schema": ref})
+            logger.warning("Unexpected format for internal ref", extra={"schema": ref, "ref_name": ref_name})
             used_refs.add(ref_name)
             return ref
 

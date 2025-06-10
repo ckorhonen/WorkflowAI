@@ -7,7 +7,6 @@ from typing import Any, Generic, Protocol, TypeVar, override
 from httpx import Response
 from pydantic import BaseModel, ValidationError
 
-from core.domain.errors import InvalidFileError
 from core.domain.fields.file import File
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import MessageDeprecated
@@ -306,7 +305,7 @@ class OpenAIProviderBase(HTTPXProvider[_OpenAIConfigVar, CompletionResponse], Ge
                 case "invalid_image_url":
                     return ProviderBadRequestError(msg=payload.error.message, response=response)
                 case "invalid_base64":
-                    raise InvalidFileError(msg="Base64 data is not valid")
+                    return ProviderInvalidFileError(msg="Base64 data is not valid")
                 case "BadRequest":
                     # Capturing for now
                     return ProviderBadRequestError(msg=payload.error.message, response=response, capture=True)
