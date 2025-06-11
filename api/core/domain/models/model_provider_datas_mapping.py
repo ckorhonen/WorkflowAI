@@ -311,30 +311,30 @@ OPENAI_PROVIDER_DATA: ProviderDataByModel = {
             source="https://openai.com/api/pricing/",
         ),
     ),
-    Model.O3_PRO_2025_06_10_HIGH_REASONING_EFFORT: ModelProviderData(
-        text_price=TextPricePerToken(
-            prompt_cost_per_token=20 * ONE_MILLION_TH,
-            prompt_cached_tokens_discount=0.75,
-            completion_cost_per_token=80 * ONE_MILLION_TH,
-            source="https://platform.openai.com/docs/models/o3-pro",
-        ),
-    ),
-    Model.O3_PRO_2025_06_10_MEDIUM_REASONING_EFFORT: ModelProviderData(
-        text_price=TextPricePerToken(
-            prompt_cost_per_token=20 * ONE_MILLION_TH,
-            prompt_cached_tokens_discount=0.75,
-            completion_cost_per_token=80 * ONE_MILLION_TH,
-            source="https://platform.openai.com/docs/models/o3-pro",
-        ),
-    ),
-    Model.O3_PRO_2025_06_10_LOW_REASONING_EFFORT: ModelProviderData(
-        text_price=TextPricePerToken(
-            prompt_cost_per_token=20 * ONE_MILLION_TH,
-            prompt_cached_tokens_discount=0.75,
-            completion_cost_per_token=80 * ONE_MILLION_TH,
-            source="https://platform.openai.com/docs/models/o3-pro",
-        ),
-    ),
+    # Model.O3_PRO_2025_06_10_HIGH_REASONING_EFFORT: ModelProviderData(
+    #     text_price=TextPricePerToken(
+    #         prompt_cost_per_token=20 * ONE_MILLION_TH,
+    #         prompt_cached_tokens_discount=0.75,
+    #         completion_cost_per_token=80 * ONE_MILLION_TH,
+    #         source="https://platform.openai.com/docs/models/o3-pro",
+    #     ),
+    # ),
+    # Model.O3_PRO_2025_06_10_MEDIUM_REASONING_EFFORT: ModelProviderData(
+    #     text_price=TextPricePerToken(
+    #         prompt_cost_per_token=20 * ONE_MILLION_TH,
+    #         prompt_cached_tokens_discount=0.75,
+    #         completion_cost_per_token=80 * ONE_MILLION_TH,
+    #         source="https://platform.openai.com/docs/models/o3-pro",
+    #     ),
+    # ),
+    # Model.O3_PRO_2025_06_10_LOW_REASONING_EFFORT: ModelProviderData(
+    #     text_price=TextPricePerToken(
+    #         prompt_cost_per_token=20 * ONE_MILLION_TH,
+    #         prompt_cached_tokens_discount=0.75,
+    #         completion_cost_per_token=80 * ONE_MILLION_TH,
+    #         source="https://platform.openai.com/docs/models/o3-pro",
+    #     ),
+    # ),
     Model.O4_MINI_2025_04_16_HIGH_REASONING_EFFORT: ModelProviderData(
         text_price=TextPricePerToken(
             prompt_cost_per_token=1.1 * ONE_MILLION_TH,
