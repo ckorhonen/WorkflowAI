@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Annotated
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
@@ -181,13 +180,13 @@ Returns the details of one or more versions of a WorkflowAI agent.
 """,
 )
 async def get_agent_versions(
-    version_id: Annotated[
-        str | None,
-        Query(description="An optional version id, e-g 1.1. If not provided all versions are returned"),
-    ],
     versions_service: VersionsServiceDep,
     models_service: ModelsServiceDep,
     task_tuple: TaskTupleDep,
+    version_id: str | None = Query(
+        description="An optional version id, e-g 1.1. If not provided all versions are returned",
+        default=None,
+    ),
 ) -> list[MajorVersion]:
     if version_id:
         v = await versions_service.get_version(task_tuple, version_id, models_service)
