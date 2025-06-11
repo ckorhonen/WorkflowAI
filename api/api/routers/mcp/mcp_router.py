@@ -3,10 +3,9 @@ from datetime import datetime
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
-from api.dependencies.services import ModelsServiceDep, VersionsServiceDep
+from api.dependencies.services import MetaAgentServiceDep, ModelsServiceDep, VersionsServiceDep
 from api.dependencies.storage import StorageDep
 from api.dependencies.task_info import TaskTupleDep
-from api.jobs.common import MetaAgentServiceDep
 from api.schemas.user_identifier import UserIdentifier
 from api.schemas.version_properties import ShortVersionProperties
 from api.services.documentation_service import DocumentationService
