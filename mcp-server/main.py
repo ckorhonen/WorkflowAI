@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 mcp = FastMCP("WorkflowAI MCP Server", transport="sse")  # type: ignore[reportUnknownReturnType]
 
-WORKFLOWAI_API_URL = "http://localhost:8000"
+WORKFLOWAI_API_URL = ""
 
 # TODO: use actual API key / tenant from OAuth
 FIXED_WORKFLOWAI_API_KEY = ""
@@ -98,7 +98,7 @@ async def get_ai_engineer_response(  # noqa: C901
         default=None,
     ),
     agent_model_parameter: str | None = Field(
-        description="The model parameter of the user's agent, example: 'email-filtering-agent/gemini-2.0-flash-001' (agent id / model name). Pass 'new' to start a new agent.",
+        description="The model parameter of the user's agent, example: 'email-filtering-agent/gemini-2.0-flash-001' (agent id / model name). Pass 'new' when the user wants to create a new agent.",
         default=None,
     ),
     message: str = Field(
@@ -129,6 +129,7 @@ async def get_ai_engineer_response(  # noqa: C901
         )
 
     if not agent_schema_id:
+        # TODO: figure out the right schema id to use here
         agent_schema_id = 1
 
     if "/" in agent_model_parameter:
