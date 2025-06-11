@@ -168,8 +168,19 @@ class MajorVersion(BaseModel):
         )
 
 
-@router.get("/agents/{task_id}/versions")
-async def get_agent_version(
+@router.get(
+    "/agents/{task_id}/versions",
+    operation_id="get_agent_versions",
+    description="""
+<when_to_use>
+When the user wants to retrieve details of versions of a WorkflowAI agent, or when they want to compare a specific version of an agent.
+</when_to_use>
+<returns>
+Returns the details of one or more versions of a WorkflowAI agent.
+</returns>
+""",
+)
+async def get_agent_versions(
     version_id: Annotated[
         str | None,
         Query(description="An optional version id, e-g 1.1. If not provided all versions are returned"),
