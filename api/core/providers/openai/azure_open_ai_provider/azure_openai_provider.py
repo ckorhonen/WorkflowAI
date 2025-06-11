@@ -6,7 +6,7 @@ from typing_extensions import override
 from core.domain.errors import ProviderDoesNotSupportModelError
 from core.domain.models import Model, Provider
 from core.domain.tool import Tool
-from core.providers.base.provider_error import InvalidProviderConfig
+from core.providers.base.provider_error import InvalidProviderConfig, MissingModelError
 from core.providers.base.utils import get_provider_config_env
 from core.providers.openai.azure_open_ai_provider.azure_openai_config import AzureOpenAIConfig
 from core.providers.openai.openai_domain import MODEL_NAME_MAP
@@ -27,7 +27,7 @@ class AzureOpenAIProvider(OpenAIProviderBase[AzureOpenAIConfig]):
             if model_value in region_config.models:
                 return region, region_config
 
-        raise ProviderDoesNotSupportModelError(model=model_value, provider=self.name())
+        raise MissingModelError(model=model_value, provider=self.name())
 
     @override
     async def _request_headers(self, request: dict[str, Any], url: str, model: Model) -> dict[str, str]:

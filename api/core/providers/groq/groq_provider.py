@@ -20,6 +20,8 @@ from core.providers.base.provider_error import (
     FailedGenerationError,
     MaxTokensExceededError,
     ProviderBadRequestError,
+    ProviderInvalidFileError,
+    UnknownProviderError,
 )
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import ParsedResponse, ToolCallRequestBuffer
@@ -268,20 +270,24 @@ class GroqProvider(HTTPXProvider[GroqConfig, CompletionResponse]):
         return token_count
 
     def _invalid_request_error(self, payload: GroqError, response: Response):
-        base_cls = ProviderBadRequestError
-        capture = True
+        base_cls = UnknownProviderError
+        capture: bool | None = None
+
         if payload.error.message:
             lower_msg = payload.error.message.lower()
             match lower_msg:
                 case m if "localhost: no such host" in m:
+                    base_cls = ProviderBadRequestError
+                case m if "failed to retrieve media" in m:
+                    base_cls = ProviderInvalidFileError
                     capture = False
                 case _:
                     pass
 
         return base_cls(
             msg=payload.error.message or "Unknown error",
-            capture=capture,
             response=response,
+            capture=capture,
         )
 
     @override

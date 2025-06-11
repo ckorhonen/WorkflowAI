@@ -105,11 +105,11 @@ class TestExtractFiles:
 
     @pytest.mark.parametrize("single_file_schema", SINGLE_IMAGE_SCHEMAS)
     def test_file_array_extract_single(self, single_file_schema: dict[str, Any]):
-        payload = {"file": {"name": "1.jpg", "content_type": "image/jpeg", "data": "bla"}}
+        payload = {"file": {"name": "1.jpg", "content_type": "image/jpeg", "data": "bla="}}
 
         _, updated, images = extract_files(single_file_schema, payload)
         assert len(images) == 1
-        assert images[0].data == "bla"
+        assert images[0].data == "bla="
         assert images[0].key_path == ["file"]
 
         assert updated == {"file": {"number": 0}}
@@ -333,7 +333,7 @@ class TestExtractFiles:
             "documents": [
                 {
                     "title": "Doc1",
-                    "attachment": {"name": "file1.txt", "content_type": "text/plain", "data": "SVNdl===", "url": None},
+                    "attachment": {"name": "file1.txt", "content_type": "text/plain", "data": "SVNdl1==", "url": None},
                 },
                 {
                     "title": "Doc2",
@@ -353,7 +353,7 @@ class TestExtractFiles:
         file1, file2 = files
 
         # Check file extracted from documents[0].attachment
-        assert file1.data == "SVNdl==="
+        assert file1.data == "SVNdl1=="
         assert file1.content_type == "text/plain"
         assert file1.key_path == ["documents", 0, "attachment"]
 
@@ -422,11 +422,11 @@ class TestFileWithKeyPath:
     @pytest.mark.parametrize(
         "file,is_audio,is_image",
         [
-            (FileWithKeyPath(data="b", format="image", key_path=[]), False, True),
-            (FileWithKeyPath(data="b", format="audio", key_path=[]), True, False),
-            (FileWithKeyPath(data="b", format=None, key_path=[]), None, None),
-            (FileWithKeyPath(data="b", content_type="image/jpeg", key_path=[]), False, True),
-            (FileWithKeyPath(data="b", content_type="audio/mpeg", key_path=[]), True, False),
+            (FileWithKeyPath(data="bla=", format="image", key_path=[]), False, True),
+            (FileWithKeyPath(data="bla=", format="audio", key_path=[]), True, False),
+            (FileWithKeyPath(data="bla=", format=None, key_path=[]), None, None),
+            (FileWithKeyPath(data="bla=", content_type="image/jpeg", key_path=[]), False, True),
+            (FileWithKeyPath(data="bla=", content_type="audio/mpeg", key_path=[]), True, False),
         ],
     )
     def test_is_audio_is_image(self, file: FileWithKeyPath, is_audio: bool | None, is_image: bool | None):
@@ -557,11 +557,11 @@ class TestAssignFiles:
             },
             **_file_defs(),
         }
-        files = [File(data="file1", content_type="text/plain")]
+        files = [File(data="fil1", content_type="text/plain")]
         output: AgentOutput = {}
 
         assert not assign_files(schema, files, output)
-        assert output == {"file": {"data": "file1", "content_type": "text/plain"}}
+        assert output == {"file": {"data": "fil1", "content_type": "text/plain"}}
 
     def test_assign_file_list(self):
         schema: dict[str, Any] = {
@@ -571,16 +571,16 @@ class TestAssignFiles:
             **_file_defs(),
         }
         files = [
-            File(data="file1", content_type="text/plain"),
-            File(data="file2", content_type="text/plain"),
+            File(data="fil1", content_type="text/plain"),
+            File(data="fil2", content_type="text/plain"),
         ]
         output: AgentOutput = {"files": []}
 
         assert not assign_files(schema, files, output)
         assert output == {
             "files": [
-                {"data": "file1", "content_type": "text/plain"},
-                {"data": "file2", "content_type": "text/plain"},
+                {"data": "fil1", "content_type": "text/plain"},
+                {"data": "fil2", "content_type": "text/plain"},
             ],
         }
 
@@ -593,15 +593,15 @@ class TestAssignFiles:
             **_file_defs(),
         }
         files = [
-            File(data="file1", content_type="text/plain"),
-            File(data="file2", content_type="text/plain"),
+            File(data="fil1", content_type="text/plain"),
+            File(data="fil2", content_type="text/plain"),
         ]
         output: AgentOutput = {}
 
         assert not assign_files(schema, files, output)
         assert output == {
-            "file1": {"data": "file1", "content_type": "text/plain"},
-            "file2": {"data": "file2", "content_type": "text/plain"},
+            "file1": {"data": "fil1", "content_type": "text/plain"},
+            "file2": {"data": "fil2", "content_type": "text/plain"},
         }
 
     def test_assign_mixed_file_fields(self):
@@ -613,18 +613,18 @@ class TestAssignFiles:
             **_file_defs(),
         }
         files = [
-            File(data="single", content_type="text/plain"),
-            File(data="list1", content_type="text/plain"),
-            File(data="list2", content_type="text/plain"),
+            File(data="single==", content_type="text/plain"),
+            File(data="lis1", content_type="text/plain"),
+            File(data="lis2", content_type="text/plain"),
         ]
         output: AgentOutput = {}
 
         assert not assign_files(schema, files, output)
         assert output == {
-            "single_file": {"data": "single", "content_type": "text/plain"},
+            "single_file": {"data": "single==", "content_type": "text/plain"},
             "file_list": [
-                {"data": "list1", "content_type": "text/plain"},
-                {"data": "list2", "content_type": "text/plain"},
+                {"data": "lis1", "content_type": "text/plain"},
+                {"data": "lis2", "content_type": "text/plain"},
             ],
         }
 
@@ -648,23 +648,23 @@ class TestAssignFiles:
 
     def test_list_of_object_with_file_field(self, schema_with_object_with_file_field: dict[str, Any]):
         files = [
-            File(data="1", content_type="text/plain"),
-            File(data="2", content_type="text/plain"),
+            File(data="12==", content_type="text/plain"),
+            File(data="23==", content_type="text/plain"),
         ]
         output: AgentOutput = {}
         remaining_files = assign_files(schema_with_object_with_file_field, files, output)
         assert not remaining_files
         assert output == {
             "files": [
-                {"file": {"data": "1", "content_type": "text/plain"}},
-                {"file": {"data": "2", "content_type": "text/plain"}},
+                {"file": {"data": "12==", "content_type": "text/plain"}},
+                {"file": {"data": "23==", "content_type": "text/plain"}},
             ],
         }
 
     def test_list_of_object_with_file_field_prefilled(self, schema_with_object_with_file_field: dict[str, Any]):
         files = [
-            File(data="1", content_type="text/plain"),
-            File(data="2", content_type="text/plain"),
+            File(data="12==", content_type="text/plain"),
+            File(data="23==", content_type="text/plain"),
         ]
         output: AgentOutput = {
             "files": [
@@ -676,8 +676,8 @@ class TestAssignFiles:
         assert not remaining_files
         assert output == {
             "files": [
-                {"file": {"data": "1", "content_type": "text/plain"}, "description": "file1"},
-                {"file": {"data": "2", "content_type": "text/plain"}, "description": "file2"},
+                {"file": {"data": "12==", "content_type": "text/plain"}, "description": "file1"},
+                {"file": {"data": "23==", "content_type": "text/plain"}, "description": "file2"},
             ],
         }
 

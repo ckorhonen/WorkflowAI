@@ -358,7 +358,7 @@ class TestComplete:
                 MessageDeprecated(
                     role=MessageDeprecated.Role.USER,
                     content="Hello",
-                    files=[File(content_type="image/png", data="bla")],
+                    files=[File(content_type="image/png", data="bla=")],
                 ),
             ],
             options=ProviderOptions(model=Model.CLAUDE_3_5_SONNET_20241022, max_tokens=10, temperature=0),
@@ -383,7 +383,7 @@ class TestComplete:
                                 "source": {
                                     "type": "base64",
                                     "media_type": "image/png",
-                                    "data": "bla",
+                                    "data": "bla=",
                                 },
                             },
                         ],
