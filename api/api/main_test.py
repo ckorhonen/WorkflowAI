@@ -1,3 +1,4 @@
+import re
 from collections.abc import Callable
 from typing import Any, Iterator, cast
 from unittest.mock import Mock
@@ -184,6 +185,10 @@ class TestModelsEndpoint:
         pricing = cast(dict[str, Any], first_model["pricing"])
         assert "input_token_usd" in pricing
         assert "output_token_usd" in pricing
+
+        assert "release_date" in first_model
+        release_date = cast(str, first_model["release_date"])
+        assert re.match(r"\d{4}-\d{2}-\d{2}", release_date)
 
     async def test_models_endpoint_order_check(self, test_api_client: AsyncClient, mock_tenant_dep: Mock):
         # Making sure we raise if the tenant dep is called
