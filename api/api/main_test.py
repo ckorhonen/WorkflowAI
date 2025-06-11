@@ -75,6 +75,8 @@ def authenticated_routes(
 
         if route.path in not_authenticated:
             continue
+        if route.path.startswith("/_mcp") or route.path.startswith("/mcp"):
+            continue
 
         if not route.path.startswith(prefix):
             continue
