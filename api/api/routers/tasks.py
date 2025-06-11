@@ -537,10 +537,10 @@ async def update_task(agent_id: AgentID, request: UpdateTaskRequest, storage: St
     include_in_schema=INCLUDE_PRIVATE_ROUTES,
 )
 async def delete_task(
-    task_id: str,
+    agent_id: AgentID,
     storage: StorageDep,
 ) -> None:
-    await storage.delete_task(task_id)
+    await storage.delete_task(agent_id)
 
 
 class TaskStats(BaseModel):
