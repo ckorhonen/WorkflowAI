@@ -616,7 +616,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             supports_structured_output=True,
             release_date=date(2025, 6, 10),
             quality_data=QualityData(
-                equivalent_to=(Model.O3_2025_04_16_MEDIUM_REASONING_EFFORT, 0),  # Same quality as o3
+                equivalent_to=(Model.O3_PRO_2025_06_10_MEDIUM_REASONING_EFFORT, 5),  # Same quality as o3
             ),
             provider_name=DisplayedProvider.OPEN_AI.value,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
@@ -639,7 +639,10 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             supports_structured_output=True,
             release_date=date(2025, 6, 10),
             quality_data=QualityData(
-                equivalent_to=(Model.O3_2025_04_16_MEDIUM_REASONING_EFFORT, 0),  # Same quality as o3
+                # TODO: for now using same quality data as o3
+                gpqa_diamond=83.6,
+                mmlu_pro=85.6,
+                source="https://www.vals.ai/models/openai_o3-2025-04-16",
             ),
             provider_name=DisplayedProvider.OPEN_AI.value,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
@@ -663,7 +666,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
             supports_structured_output=True,
             release_date=date(2025, 6, 10),
             quality_data=QualityData(
-                equivalent_to=(Model.O3_2025_04_16_MEDIUM_REASONING_EFFORT, 0),  # Same quality as o3
+                equivalent_to=(Model.O3_PRO_2025_06_10_MEDIUM_REASONING_EFFORT, -5),  # Same quality as o3
             ),
             provider_name=DisplayedProvider.OPEN_AI.value,
             icon_url="https://workflowai.blob.core.windows.net/workflowai-public/openai.svg",
