@@ -103,7 +103,6 @@ async def lifespan(app: FastAPI):
     await HTTPXProviderBase.close()
 
 
-
 _ONLY_RUN_ROUTES = os.getenv("ONLY_RUN_ROUTES") == "true"
 
 app = FastAPI(
@@ -143,11 +142,6 @@ if WORKFLOWAI_ALLOWED_ORIGINS:
 app.include_router(probes.router)
 app.include_router(run.router)
 app.include_router(openai_proxy_router.router)
-
-if not _ONLY_RUN_ROUTES:
-    from .main_router import main_router
-
-    app.include_router(main_router)
 
 
 class StandardModelResponse(BaseModel):
@@ -209,6 +203,19 @@ async def list_all_available_models(
                 continue
 
     return StandardModelResponse(data=list(_model_data_iterator()))
+
+
+if not _ONLY_RUN_ROUTES:
+    # Include router containing all the other routes
+    from .main_router import main_router
+
+    app.include_router(main_router)
+
+    # Build MCP app and moun it
+    from fastapi_mcp import FastApiMCP
+
+    mcp = FastApiMCP(app, include_tags=[RouteTags.MCP])
+    mcp.mount()
 
 
 @app.exception_handler(ObjectNotFoundException)
