@@ -17,7 +17,7 @@ from core.domain.version_environment import VersionEnvironment
 from core.domain.version_major import VersionDeploymentMetadata, VersionMajor
 from core.utils.fields import datetime_zero
 
-router = APIRouter(prefix="/_mcp", tags=[RouteTags.MCP])
+router = APIRouter(prefix="/_mcp", tags=[RouteTags.MCP], include_in_schema=False)
 """A specific router for MCP. This way we can maintain routes separately."""
 
 
