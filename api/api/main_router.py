@@ -7,11 +7,11 @@ from api.routers import (
     feedback_v1,
     helpscout_webhooks,
     integrations_router,
-    mcp_router,
     slack_webhooks,
     stripe_webhooks,
 )
 from api.routers.agents import meta_agent, new_tool_agent
+from api.routers.mcp import mcp_router
 from api.tags import RouteTags
 from core.domain.tenant_data import PublicOrganizationData
 
