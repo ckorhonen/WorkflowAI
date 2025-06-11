@@ -1,13 +1,18 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from api.dependencies.services import ModelsServiceDep, VersionsServiceDep
+from api.dependencies.storage import StorageDep
 from api.dependencies.task_info import TaskTupleDep
+from api.jobs.common import MetaAgentServiceDep
 from api.schemas.user_identifier import UserIdentifier
 from api.schemas.version_properties import ShortVersionProperties
+from api.services.documentation_service import DocumentationService
+from api.services.internal_tasks.meta_agent_service import MetaAgentChatMessage, PlaygroundState
 from api.tags import RouteTags
+from core.domain.fields.chat_message import ChatMessage
 from core.domain.message import Message
 from core.domain.models.models import Model
 from core.domain.task_group import TaskGroup
@@ -193,3 +198,61 @@ async def get_agent_versions(
         return [MajorVersion.from_version(*v)]
     versions = await versions_service.list_version_majors(task_tuple, None, models_service)
     return [MajorVersion.from_major(v) for v in versions]
+
+
+class AskAIEngineerRequest(BaseModel):
+    agent_schema_id: int | None = Field(
+        description="The schema ID of the user's agent version, if known",
+        default=None,
+    )
+    agent_id: str | None = Field(
+        description="The id of the user's agent, example: 'email-filtering-agent'. Pass 'new' when the user wants to create a new agent.",
+        default=None,
+    )
+    message: str = Field(
+        description="Your message to the AI engineer about what help you need",
+        default="I need help improving my agent",
+    )
+
+
+class AskAIEngineerResponse(BaseModel):
+    response: str
+
+
+@router.post("/ask-ai-engineer", operation_id="ask_ai_engineer", description="Ask the AI Engineer a question")
+async def ask_ai_engineer(
+    request: AskAIEngineerRequest,
+    meta_agent_service: MetaAgentServiceDep,
+    storage: StorageDep,
+) -> AskAIEngineerResponse:
+    if not request.agent_id or request.agent_id == "new":
+        # Find the relevant section in the documentation
+        relevant_docs = await DocumentationService().get_relevant_doc_sections(
+            chat_messages=[ChatMessage(role="USER", content=request.message)],
+            agent_instructions="",
+        )
+        return AskAIEngineerResponse(
+            response=f"""Here are some relevant documentation from WorkflowAI for your request:
+                {"\n".join([f"- {doc.title}: {doc.content}" for doc in relevant_docs])}
+                """,
+        )
+
+    task_info = await storage.tasks.get_task_info(request.agent_id)
+    # TODO: figure out the right schema id to use here
+    schema_id = request.agent_schema_id or task_info.latest_schema_id or 1
+
+    last_messages: list[MetaAgentChatMessage] = []
+    async for messages in meta_agent_service.stream_proxy_meta_agent_response(
+        task_tuple=task_info.id_tuple,
+        agent_schema_id=schema_id,
+        user_email=None,  # TODO:
+        messages=[MetaAgentChatMessage(role="USER", content=request.message)],
+        playground_state=PlaygroundState(
+            is_proxy=True,
+            selected_models=PlaygroundState.SelectedModels(column_1=None, column_2=None, column_3=None),
+            agent_run_ids=[],
+        ),
+    ):
+        last_messages = messages
+
+    return AskAIEngineerResponse(response="\n\n".join([message.content for message in last_messages]))
