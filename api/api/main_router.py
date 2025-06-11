@@ -10,7 +10,7 @@ from api.routers import (
     slack_webhooks,
     stripe_webhooks,
 )
-from api.routers.agents import meta_agent, new_tool_agent
+from api.routers.agents import ai_engineer_router, meta_agent, new_tool_agent
 from api.tags import RouteTags
 from core.domain.tenant_data import PublicOrganizationData
 
@@ -66,6 +66,7 @@ def _tenant_router():
     # TODO: remove once the client has been updated
     tenant_router.include_router(payments.router, deprecated=True, include_in_schema=False)
     tenant_router.include_router(meta_agent.router, tags=[RouteTags.PROMPT_ENGINEER_AGENT])
+    tenant_router.include_router(ai_engineer_router.router, tags=[RouteTags.PROMPT_ENGINEER_AGENT])
     tenant_router.include_router(new_tool_agent.router, tags=[RouteTags.NEW_TOOL_AGENT])
     tenant_router.include_router(tools_router.router, tags=[RouteTags.TOOLS])
     return tenant_router

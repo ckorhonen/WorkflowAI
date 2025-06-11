@@ -54,7 +54,7 @@ The MCP server can run in two modes:
 ### 1. SSE Mode (Server-Sent Events)
 Run with uvicorn for development and testing:
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8001
+poetry run uvicorn main:app --reload --host 0.0.0.0 --port 8001
 ```
 
 ### 2. STDIO Mode (Standard I/O)
@@ -155,10 +155,10 @@ Based on the current implementation, here are the pending tasks:
 
 ## Use cases implementation summary
 
-- [ ] Scenario 1: Build Text Summarization Agent from Scratch (WIP)
-- [ ] Scenario 2: Optimize Agent Performance with Faster Models  (WIP)
-- [ ] Scenario 3: Migrate Agent from OpenAI to WorkflowAI
-- [ ] Scenario 4: Debug Agent Incorrect Output
+- [x] Scenario 1: Build Text Summarization Agent from Scratch
+- [x] Scenario 2: Optimize Agent Performance with Faster Models
+- [x] Scenario 3: Migrate Agent from OpenAI to WorkflowAI (WIP)
+- [X] Scenario 4: Debug Agent Incorrect Output
 - [ ] Scenario 5: Edit Agent in Playground and Sync to IDE
 - [ ] Scenario 6: Investigate User's Bad Agent Experience
 - [ ] Scenario 7: Fix User Bug When Agent Lacks Metadata Tracking

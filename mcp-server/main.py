@@ -10,7 +10,6 @@ import asyncio
 import json
 import logging
 import sys
-from pathlib import Path
 from typing import Any, Dict, List
 
 import httpx
@@ -36,21 +35,106 @@ def _headers() -> dict[str, str]:
     }
 
 
+async def _call_ai_engineer_without_agent_id(messages: list[dict[str, Any]]) -> dict[str, Any]:
+    headers = _headers()
+    headers["Content-Type"] = "application/json"
+    headers["Accept"] = "text/event-stream"
+
+    try:
+        logger.info(
+            "Calling AI Engineer API without agent ID",
+            extra={
+                "url": f"{WORKFLOWAI_API_URL}/{TENANT}/agents/ai-engineer/messages",
+                "messages": messages,
+            },
+        )
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                f"{WORKFLOWAI_API_URL}/{TENANT}/agents/ai-engineer/messages",
+                json={"messages": messages},
+                headers=headers,
+            )
+            response.raise_for_status()
+
+            last_messages: List[Dict[str, Any]] = []
+            async for line in response.aiter_lines():
+                if line.startswith("data: "):
+                    try:
+                        data_str = line[6:]  # Remove "data: " prefix
+                        if data_str.strip() == "[DONE]":
+                            break
+
+                        data = json.loads(data_str)
+                        if "messages" in data and isinstance(data["messages"], list):
+                            last_messages = data["messages"]  # Replace with latest chunk
+                    except json.JSONDecodeError:
+                        continue
+
+            return {
+                "success": True,
+                "messages": last_messages,
+            }
+
+    except httpx.HTTPStatusError as e:
+        logger.error("HTTP error calling meta agent API", extra={"status_code": e.response.status_code})
+        return {
+            "success": False,
+            "error": f"API returned status {e.response.status_code}",
+            "details": str(e),
+        }
+    except Exception as e:
+        logger.error("Error calling meta agent API", extra={"error": str(e)})
+        return {
+            "success": False,
+            "error": "Failed to call AI engineer API",
+            "details": str(e),
+        }
+
+
 @mcp.tool
-async def get_ai_engineer_response(
-    agent_id: str = Field(
-        description="The ID of the agent you want help with, typically found in model='{agent id}/{model name}' in existing user code",
-        default="",
+async def get_ai_engineer_response(  # noqa: C901
+    agent_schema_id: int | None = Field(
+        description="The schema ID of the user's agent version, if known",
+        default=None,
     ),
-    agent_schema_id: int = Field(description="The schema ID of the agent version", default=1),
+    agent_model_parameter: str | None = Field(
+        description="The model parameter of the user's agent, example: 'email-filtering-agent/gemini-2.0-flash-001' (agent id / model name). Pass 'new' to start a new agent.",
+        default=None,
+    ),
     message: str = Field(
         description="Your message to the AI engineer about what help you need",
         default="I need help improving my agent",
     ),
 ) -> dict[str, Any]:
     """
+    <when_to_use>
+    Most user request about WorkflowAI must be processed by starting a conversation with the AI engineer agent to get insight about the WorkflowAI platform and the user's agents.
+    </when_to_use>
+
+    <returns>
+    Returns a response from WorkflowAI's AI engineer (meta agent) to help improve your agent.
+    </returns>
     Get a response from WorkflowAI's AI engineer (meta agent) to help improve your agent.
     """
+
+    if not agent_model_parameter or agent_model_parameter == "new":
+        # run the "AI Engineer" with no agent ID
+        return await _call_ai_engineer_without_agent_id(
+            messages=[
+                {
+                    "role": "USER",
+                    "content": message,
+                },
+            ]
+        )
+
+    if not agent_schema_id:
+        agent_schema_id = 1
+
+    if "/" in agent_model_parameter:
+        agent_id = agent_model_parameter.split("/")[0]
+    else:
+        agent_id = agent_model_parameter
 
     body: dict[str, Any] = {
         "schema_id": agent_schema_id,
@@ -128,6 +212,8 @@ async def get_ai_engineer_response(
         }
 
 
+# Deactivate for now, will probably be deleted
+'''
 @mcp.tool
 async def fetch_getting_started_docs() -> dict[str, Any]:
     """<when_to_use>
@@ -153,6 +239,7 @@ async def fetch_getting_started_docs() -> dict[str, Any]:
         "success": True,
         "documentation": docs,
     }
+'''
 
 
 @mcp.tool
