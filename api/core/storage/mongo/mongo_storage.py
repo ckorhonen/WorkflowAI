@@ -30,6 +30,7 @@ from core.domain.version_environment import VersionEnvironment
 from core.storage import ObjectNotFoundException
 from core.storage.backend_storage import BackendStorage
 from core.storage.evaluator_storage import EvaluatorStorage
+from core.storage.key_value_storage import KeyValueStorage
 from core.storage.models import TaskUpdate
 from core.storage.mongo.models.task_group import TaskGroupDocument
 from core.storage.mongo.models.user_identifier import UserIdentifierSchema
@@ -279,6 +280,14 @@ class MongoStorage(BackendStorage):
     @property
     def tools(self):
         return MongoToolsStorage(self._tenant_tuple, self._tools_collection)
+
+    @property
+    @override
+    def kv(self) -> KeyValueStorage:
+        logger.warning("MongoStorage does not support key-value storage")
+        from core.storage.noop_storage import NoopKeyValueStorage
+
+        return NoopKeyValueStorage()
 
     @override
     async def is_ready(self) -> bool:

@@ -12,6 +12,11 @@ permissions:
 jobs:
   api-quality:
     uses: ./.github/workflows/.api-quality.yml
+    secrets: inherit
+
+  api-integration:
+    uses: ./.github/workflows/.api-integration.yml
+    secrets: inherit
 
   client-quality:
     uses: ./.github/workflows/.client-quality.yml

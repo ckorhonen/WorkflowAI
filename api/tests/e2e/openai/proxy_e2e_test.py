@@ -3,6 +3,7 @@ import os
 from typing import Any
 
 import openai
+import pytest
 from dotenv import load_dotenv
 from openai.types.chat.chat_completion import ChatCompletion
 
@@ -21,6 +22,7 @@ def _print_completion(completion: ChatCompletion):
     _print(completion.choices[0].message.content)
 
 
+@pytest.mark.requires_deployed
 def test_string_completion():
     res = openai.chat.completions.create(
         model="gpt-4o",
@@ -29,6 +31,7 @@ def test_string_completion():
     _print_completion(res)
 
 
+@pytest.mark.requires_deployed
 def test_json_mode():
     res = openai.chat.completions.create(
         model="gpt-4o",
@@ -41,6 +44,7 @@ def test_json_mode():
     _print(json_res["greeting"])
 
 
+@pytest.mark.requires_deployed
 def test_json_mode_with_schema():
     res = openai.chat.completions.create(
         model="gpt-4o",
@@ -62,6 +66,7 @@ def test_json_mode_with_schema():
     _print(json_res["greeting"])
 
 
+@pytest.mark.requires_deployed
 def test_with_image():
     res = openai.chat.completions.create(
         model="gpt-4o",

@@ -10,8 +10,8 @@ from core.tools import ToolKind
 
 
 @pytest.fixture(scope="function")
-def internal_tasks_service(mock_storage: Mock, mock_wai: Mock, mock_event_router: Mock):
-    return InternalTasksService(wai=mock_wai, storage=mock_storage, event_router=mock_event_router)
+def internal_tasks_service(mock_storage: Mock, mock_event_router: Mock):
+    return InternalTasksService(storage=mock_storage, event_router=mock_event_router)
 
 
 class TestSanitizeRequiredTools:

@@ -378,7 +378,7 @@ class TestInlineMessages:
             output_schema={"properties": {"output": {"type": "string"}}},
         )
         messages = await runner._inline_messages(
-            Messages(messages=[Message(role="user", content=[MessageContent(text="cool cool cool")])]),
+            [Message(role="user", content=[MessageContent(text="cool cool cool")])],
             Mock(),
             True,
             False,
@@ -394,7 +394,7 @@ class TestInlineMessages:
             output_schema=RawJSONMessageSchema,
         )
         messages = await runner._inline_messages(
-            Messages(messages=[Message(role="user", content=[MessageContent(text="cool cool cool")])]),
+            [Message(role="user", content=[MessageContent(text="cool cool cool")])],
             Mock(),
             False,
             False,
@@ -407,7 +407,7 @@ class TestInlineMessages:
 
     async def test_inlined_no_structured_output_with_tool_use(self, patched_runner: WorkflowAIRunner):
         messages = await patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
-            Messages(messages=[Message(role="user", content=[MessageContent(text="cool cool cool")])]),
+            [Message(role="user", content=[MessageContent(text="cool cool cool")])],
             Mock(),
             False,
             True,
@@ -436,7 +436,7 @@ class TestInlineMessages:
     )
     async def test_no_addition_if_already_present(self, patched_runner: WorkflowAIRunner, system_message: str):
         messages = await patched_runner._inline_messages(  # pyright: ignore [reportPrivateUsage]
-            Messages(messages=[Message(role="system", content=[MessageContent(text=system_message)])]),
+            [Message(role="system", content=[MessageContent(text=system_message)])],
             Mock(),
             False,
             False,

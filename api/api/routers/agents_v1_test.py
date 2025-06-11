@@ -1,3 +1,5 @@
+from unittest import mock
+
 from httpx import AsyncClient
 
 
@@ -45,4 +47,48 @@ class TestExtractTemplate:
                     "content_index": 0,
                 },
             },
+        }
+
+    async def test_extract_template_with_ref(
+        self,
+        test_api_client: AsyncClient,
+    ):
+        response = await test_api_client.post(
+            url="/v1/_/agents/blblbl/templates/extract",
+            json={
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": [
+                            {
+                                "text": "Describe the audio {{audio}} {{image}}",
+                            },
+                        ],
+                    },
+                ],
+                "base_schema": {
+                    "format": "messages",
+                    "type": "object",
+                    "properties": {
+                        "audio": {
+                            "$ref": "#/$defs/Audio",
+                        },
+                    },
+                },
+            },
+        )
+        assert response.status_code == 200
+        assert response.json() == {
+            "json_schema": {
+                "format": "messages",
+                "type": "object",
+                "properties": {
+                    "audio": {
+                        "$ref": "#/$defs/Audio",
+                    },
+                    "image": {},
+                },
+                "$defs": {"Audio": mock.ANY},
+            },
+            "last_templated_index": 0,
         }

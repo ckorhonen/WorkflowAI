@@ -3,6 +3,8 @@
 from typing import Any
 
 import pytest
+from pydantic import AliasChoices
+from pydantic.alias_generators import to_camel
 
 from core.domain.errors import BadRequestError
 from core.domain.fields.file import File
@@ -10,10 +12,11 @@ from core.domain.message import Message, MessageContent
 from core.domain.models.models import Model
 from core.domain.task_group_properties import TaskGroupProperties, ToolChoiceFunction
 from core.domain.tool import Tool
-from core.domain.tool_call import ToolCall
+from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.domain.version_environment import VersionEnvironment
 from core.providers.base.provider_error import MissingModelError
 from core.tools import ToolKind
+from core.utils.strings import to_pascal_case
 
 from ._openai_proxy_models import (
     EnvironmentRef,
@@ -24,6 +27,7 @@ from ._openai_proxy_models import (
     OpenAIProxyImageURL,
     OpenAIProxyMessage,
     OpenAIProxyToolCall,
+    _OpenAIProxyExtraFields,
 )
 
 
@@ -37,6 +41,72 @@ class TestOpenAIProxyChatCompletionRequest:
             },
         )
         assert payload
+
+    @pytest.mark.parametrize(
+        "extra",
+        (
+            pytest.param(
+                {
+                    "input": {"h": "w"},
+                    "conversation_id": "123",
+                    "agent_id": "456",
+                    "use_fallback": "never",
+                    "provider": "openai",
+                },
+                id="snake_case",
+            ),
+            pytest.param(
+                {
+                    "input": {"h": "w"},
+                    "conversationId": "123",
+                    "agentId": "456",
+                    "useFallback": "never",
+                    "provider": "openai",
+                },
+                id="camel_case",
+            ),
+            pytest.param(
+                {
+                    "Input": {"h": "w"},
+                    "ConversationId": "123",
+                    "AgentId": "456",
+                    "UseFallback": "never",
+                    "Provider": "openai",
+                },
+                id="pascal_case",
+            ),
+        ),
+    )
+    def test_alias_generator(self, extra: dict[str, Any]):
+        base: dict[str, Any] = {"messages": [], "model": "gpt-4o"}
+        payload = OpenAIProxyChatCompletionRequest.model_validate(base | extra)
+        assert payload.model_dump(exclude_unset=True) == {
+            **base,
+            "input": {"h": "w"},
+            "conversation_id": "123",
+            "agent_id": "456",
+            "use_fallback": "never",
+            "provider": "openai",
+        }
+
+    def test_different_alias_generators(self):
+        payload = OpenAIProxyChatCompletionRequest.model_validate(
+            {"messages": [], "model": "gpt-4o", "reasoningEffort": "low"},
+        )
+        assert payload.reasoning_effort is None
+
+
+class TestOpenAIProxyExtraFieldsValidation:
+    def test_exhaustive(self):
+        # Check that all fields have a choice validation alias
+        for k, field in _OpenAIProxyExtraFields.model_fields.items():
+            assert field.validation_alias is not None
+            assert isinstance(field.validation_alias, AliasChoices)
+            assert field.validation_alias.choices[0] == k
+
+            choice_set = set(field.validation_alias.choices)
+            assert to_pascal_case(k) in choice_set
+            assert to_camel(k) in choice_set
 
 
 class TestOpenAIProxyContent:
@@ -81,7 +151,6 @@ class TestOpenAIProxyMessageToDomain:
     def test_with_tool_call_requests(self):
         message = OpenAIProxyMessage(
             content="I'll help you draft an email to this GitHub user. First, let me gather their information to personalize the message.",
-            name=None,
             role="assistant",
             tool_calls=[
                 OpenAIProxyToolCall(
@@ -117,6 +186,74 @@ class TestOpenAIProxyMessageToDomain:
         domain_message = message.to_domain()
         assert len(domain_message.content) == 1
         assert domain_message.content[0].tool_call_result
+
+    def test_function_role(self):
+        message = OpenAIProxyMessage(
+            role="function",
+            name="my_function",
+            content="Hello, world!",
+            # Will likely not be set by the user but instead by the domain_messages method
+            tool_call_id="1",
+        )
+        domain_message = message.to_domain()
+        assert domain_message.role == "user"
+        assert domain_message.content[0] == MessageContent(
+            tool_call_result=ToolCall(
+                id="1",
+                tool_name="",
+                tool_input_dict={},
+                result="Hello, world!",
+            ),
+        )
+
+
+class TestOpenAIProxyChatCompletionRequestDomainMessages:
+    def test_with_function_call(self):
+        payload = OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "messages": [
+                    {"role": "user", "content": "Hello, world!"},
+                    {
+                        "role": "assistant",
+                        "function_call": {"name": "get_weather", "arguments": '{"city": "Paris"}'},
+                    },
+                    {
+                        "role": "function",
+                        "name": "get_weather",
+                        "content": "The weather in Paris is sunny",
+                    },
+                ],
+                "model": "gpt-4o",
+            },
+        )
+        messages = list(payload.domain_messages())
+        assert len(messages) == 3
+        assert messages[0] == Message(role="user", content=[MessageContent(text="Hello, world!")])
+        assert messages[1] == Message(
+            role="assistant",
+            content=[
+                MessageContent(
+                    tool_call_request=ToolCallRequestWithID(
+                        id="get_weather_30f889b51cc908ea225f3b5a5c6939cf",
+                        tool_name="get_weather",
+                        tool_input_dict={"city": "Paris"},
+                    ),
+                ),
+            ],
+        )
+        assert messages[2] == Message(
+            role="user",
+            content=[
+                MessageContent(
+                    tool_call_result=ToolCall(
+                        id="get_weather_30f889b51cc908ea225f3b5a5c6939cf",
+                        tool_name="",
+                        tool_input_dict={},
+                        result="The weather in Paris is sunny",
+                    ),
+                ),
+            ],
+        )
 
 
 class TestOpenAIProxyChatCompletionRequestToolChoice:

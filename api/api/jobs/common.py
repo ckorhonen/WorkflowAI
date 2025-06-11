@@ -68,13 +68,12 @@ def event_router_dep(event: EventDep) -> EventRouter:
 EventRouterDep = Annotated[EventRouter, TaskiqDepends(event_router_dep)]
 
 
-def analytics_service_dep(event: EventDep, event_router: EventRouterDep) -> AnalyticsService:
+def analytics_service_dep(event: EventDep) -> AnalyticsService:
     from api.services.analytics import analytics_service
 
     return analytics_service(
         user_properties=event.user_properties,
         organization_properties=event.organization_properties,
-        event_router=event_router,
         task_properties=event.task_properties,
     )
 
@@ -183,9 +182,8 @@ def runs_service_for_event_dep(
 RunsServiceDep = Annotated[RunsService, TaskiqDepends(runs_service_for_event_dep)]
 
 
-def internal_tasks_service_dep(wai: WaiDep, storage: StorageDep, event_router: EventRouterDep) -> InternalTasksService:
+def internal_tasks_service_dep(storage: StorageDep, event_router: EventRouterDep) -> InternalTasksService:
     return InternalTasksService(
-        wai=wai,
         storage=storage,
         event_router=event_router,
     )

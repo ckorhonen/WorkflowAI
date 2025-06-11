@@ -91,6 +91,9 @@ async def fresh_clickhouse_client(dsn: str | None = None):
     ), "sanity check"
     await client.command(setup_commands[1])
 
+    for cmd in setup_commands[2:]:
+        await client.command(cmd)
+
     return client
 
 
@@ -105,7 +108,7 @@ async def truncate_run_table(clickhouse_client: ClickhouseClient):
 
 
 def _uuid7(v: int):
-    return uuid7(ms=lambda: 0, rand=lambda: v)
+    return uuid7(ms=lambda: v, rand=lambda: 0)
 
 
 _TASK_TUPLE = ("task_1", 1)
@@ -193,6 +196,19 @@ class TestSearchTaskRun:
 
         r = await self._search(clickhouse_client, [], task_uid=2)
         assert r == [str(_uuid7(2))]
+
+    async def test_unique_by_conversation(self, clickhouse_client: ClickhouseClient):
+        await self._insert_runs(
+            clickhouse_client,
+            task_run_ser(conversation_id=str(_uuid7(2))),
+            task_run_ser(conversation_id=str(_uuid7(3))),
+            task_run_ser(conversation_id=str(_uuid7(3))),
+            task_run_ser(conversation_id=str(_uuid7(4))),
+            task_run_ser(conversation_id=str(_uuid7(1))),
+            task_run_ser(conversation_id=str(_uuid7(1))),
+        )
+        r = await self._search(clickhouse_client, [])
+        assert r == [str(_uuid7(1)), str(_uuid7(3)), str(_uuid7(4)), str(_uuid7(6))]
 
     async def test_count(self, clickhouse_client: ClickhouseClient):
         await self._insert_runs(

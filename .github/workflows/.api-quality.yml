@@ -9,6 +9,9 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: read
+
 jobs:
   api-quality:
     if: inputs.skip != true
@@ -22,7 +25,7 @@ jobs:
         ports:
           - 27017:27017
       redis:
-        image: redis:latest
+        image: redis:6.0
         ports:
           - 6379:6379
       azurite:
@@ -66,12 +69,12 @@ jobs:
       - name: Pyright
         run: poetry run pyright
 
-      # Run all tests in the app and tests directories except integration tests
+      # Run all tests in the app directories
       - name: Run Unit Tests
-        run: PYTHONPATH=. poetry run pytest . -W ignore::pydantic.warnings.PydanticDeprecatedSince20 -vv --junitxml=junit/test-results.xml --ignore=api/tests/LLM_tests --ignore=api/tests/e2e --ignore=api/tests/integration -m "not poppler and not ffmpeg"
+        run: PYTHONPATH=. poetry run pytest . -W ignore::pydantic.warnings.PydanticDeprecatedSince20 -vv --junitxml=junit/test-results.xml --ignore=api/tests -m "not poppler and not ffmpeg"
 
-  # Run integration tests separately
-  api-integration:
+  # Run component tests separately
+  api-component:
     if: inputs.skip != true
     runs-on: ubuntu-latest
     services:
@@ -83,7 +86,7 @@ jobs:
         ports:
           - 27017:27017
       redis:
-        image: redis:latest
+        image: redis:6.0
         ports:
           - 6379:6379
       azurite:
@@ -121,7 +124,7 @@ jobs:
           poetry install
       # Run all tests in the app and tests directories
       - name: Run Unit Tests
-        run: PYTHONPATH=. poetry run pytest api/tests/integration -W ignore::pydantic.warnings.PydanticDeprecatedSince20 -vv --junitxml=junit/test-results.xml -m "not poppler and not ffmpeg"
+        run: PYTHONPATH=. poetry run pytest api/tests/component -W ignore::pydantic.warnings.PydanticDeprecatedSince20 -vv --junitxml=junit/test-results.xml -m "not poppler and not ffmpeg"
 
   # Run tests that rely on extra dependencies to avoid installing them on all jobs
   # TODO: we should likely use tool caching instead -> https://github.com/actions/toolkit/tree/main/packages/tool-cache
@@ -137,7 +140,7 @@ jobs:
         ports:
           - 27017:27017
       redis:
-        image: redis:latest
+        image: redis:6.0
         ports:
           - 6379:6379
       azurite:
@@ -177,6 +180,6 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y poppler-utils ffmpeg
       # Run all tests in the app and tests directories
       - name: Run Unit Tests
-        run: PYTHONPATH=. poetry run pytest api/tests/integration -W ignore::pydantic.warnings.PydanticDeprecatedSince20 -vv --junitxml=junit/test-results.xml -m "poppler or ffmpeg"
+        run: PYTHONPATH=. poetry run pytest api/tests/component -W ignore::pydantic.warnings.PydanticDeprecatedSince20 -vv --junitxml=junit/test-results.xml -m "poppler or ffmpeg"
         env:
           JOBS_BROKER_URL: 'redis://localhost:6379'

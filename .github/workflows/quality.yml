@@ -26,6 +26,7 @@ jobs:
   api:
     needs: changes
     uses: ./.github/workflows/.api-quality.yml
+    secrets: inherit
     with:
       skip: ${{ needs.changes.outputs.api == 'false' }}
 

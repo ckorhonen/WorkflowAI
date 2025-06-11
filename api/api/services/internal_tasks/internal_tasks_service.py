@@ -8,7 +8,6 @@ from datetime import datetime, timezone
 from typing import Annotated, Any, AsyncIterator, Literal, NamedTuple, Optional, Sequence, overload
 
 import workflowai
-from workflowai import Run
 
 from api.services.internal_tasks._internal_tasks_utils import (
     OFFICIALLY_SUGGESTED_TOOLS,
@@ -21,11 +20,11 @@ from api.services.internal_tasks.instructions_service import InstructionsService
 from api.services.internal_tasks.moderation_service import ModerationService
 from api.services.internal_tasks.task_input_service import TaskInputService
 from api.services.tasks import list_agent_summaries
-from core.agents.audio_transcription_task import AudioTranscriptionTask, AudioTranscriptionTaskInput
 from core.agents.chat_task_schema_generation.chat_task_schema_generation_task import (
     INSTRUCTIONS as AGENT_BUILDER_INSTRUCTIONS,
 )
 from core.agents.chat_task_schema_generation.chat_task_schema_generation_task import (
+    OUTPUT_SCHEMA_INSTRUCTIONS,
     AgentBuilderInput,
     AgentBuilderOutput,
     AgentSchemaJson,
@@ -33,6 +32,8 @@ from core.agents.chat_task_schema_generation.chat_task_schema_generation_task im
     InputObjectFieldConfig,
     OutputObjectFieldConfig,
     agent_builder,
+    agent_builder_wrapper,
+    output_schema_builder_wrapper,
 )
 from core.agents.chat_task_schema_generation.chat_task_schema_generation_task_utils import (
     build_json_schema_with_defs,
@@ -80,10 +81,6 @@ from core.agents.task_instruction_generation.task_instructions_generation_task i
     AgentInstructionsGenerationTaskInput,
     agent_instructions_redaction,
 )
-from core.agents.task_instruction_generation.task_schema_comparison_task import (
-    TaskSchemaComparisonTask,
-    TaskSchemaComparisonTaskInput,
-)
 from core.agents.task_instruction_required_tools_picking.task_instructions_required_tools_picking_task import (
     TaskInstructionsRequiredToolsPickingTaskInput,
     run_task_instructions_required_tools_picking,
@@ -98,13 +95,10 @@ from core.agents.update_correct_outputs_and_instructions import (
     update_correct_outputs_and_instructions,
 )
 from core.agents.url_finder_agent import URLFinderAgentInput, url_finder_agent
-from core.deprecated.workflowai import WorkflowAI
 from core.domain.changelogs import VersionChangelog
-from core.domain.deprecated.task import Task, TaskInput, TaskOutput
 from core.domain.errors import InternalError, JSONSchemaValidationError, UnparsableChunkError
 from core.domain.events import AgentInstructionsGeneratedEvent, EventRouter
 from core.domain.fields.chat_message import ChatMessage
-from core.domain.fields.file import File
 from core.domain.input_evaluation import InputEvaluation
 from core.domain.models import Model
 from core.domain.run_identifier import RunIdentifier
@@ -113,9 +107,8 @@ from core.domain.task_evaluator import EvalV2Evaluator
 from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_io import SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
-from core.domain.types import AgentInput, CacheUsage
+from core.domain.types import AgentInput
 from core.domain.url_content import URLContent
-from core.domain.version_reference import VersionReference
 from core.providers.base.provider_error import FailedGenerationError
 from core.runners.workflowai.utils import FileWithKeyPath
 from core.runners.workflowai.workflowai_runner import WorkflowAIRunner
@@ -139,9 +132,9 @@ DEFAULT_NEW_TASK_ASSISTANT_ANSWER_WITHOUT_SCHEMA = "I did not understand your re
 
 
 class InternalTasksService:
-    def __init__(self, wai: WorkflowAI, storage: BackendStorage, event_router: EventRouter):
+    def __init__(self, storage: BackendStorage, event_router: EventRouter):
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.wai = wai
+
         self.storage = storage
         self._event_router = event_router
 
@@ -160,18 +153,6 @@ class InternalTasksService:
     @property
     def moderation(self) -> ModerationService:
         return ModerationService()
-
-    # Wrappers
-
-    def _run(
-        self,
-        task: Task[TaskInput, TaskOutput],
-        input: TaskInput,
-        group: VersionReference,
-        # Cache is never by default for internal tasks
-        cache: CacheUsage = "never",
-    ):
-        return self.wai.run(task, input=input, group=group, trigger="internal", cache=cache)
 
     # ----------------------------------------
     # New task schema creation (new_task)
@@ -351,6 +332,7 @@ class InternalTasksService:
         chat_messages: list[ChatMessage],
         user_email: str | None,
         existing_task: AgentSchemaJson | None = None,
+        is_proxy_agent: bool = False,
     ) -> AsyncIterator[
         tuple[
             Annotated[Optional[AgentSchemaJson], "The generated task schema (if any)"],
@@ -358,7 +340,7 @@ class InternalTasksService:
         ]
     ]:
         AGENT_BUILDER_MODELS = [
-            workflowai.Model.CLAUDE_3_7_SONNET_20250219,
+            Model.CLAUDE_4_SONNET_20250514,
             Model.GPT_41_2025_04_14,  # TODO: use workflowai.Model when the model will be in the SDK
             Model.GROK_3_BETA,  # TODO: use workflowai.Model when the model will be in the SDK
         ]
@@ -368,22 +350,35 @@ class InternalTasksService:
         for model in AGENT_BUILDER_MODELS:
             is_last_chance = model == AGENT_BUILDER_MODELS[-1]
 
-            version = workflowai.VersionProperties(
-                model=model,
-                max_tokens=2500,  # Generated schema can be lengthy, so 2500 instead of 1000 of most Claude agents
-                instructions=AGENT_BUILDER_INSTRUCTIONS,
-            )
+            if is_proxy_agent:
+                version = workflowai.VersionProperties(
+                    model=model,
+                    max_tokens=2500,  # Generated schema can be lengthy, so 2500 instead of 1000 of most Claude agents
+                    instructions=OUTPUT_SCHEMA_INSTRUCTIONS,
+                )
 
-            iterator = agent_builder.stream(
-                agent_input,
-                version=version,
-                use_cache="always",
-            )
-            chunk: Run[AgentBuilderOutput] | None = None
+                iterator = output_schema_builder_wrapper(
+                    agent_input,
+                    version=version,
+                    use_cache="always",
+                )
+            else:
+                version = workflowai.VersionProperties(
+                    model=model,
+                    max_tokens=2500,  # Generated schema can be lengthy, so 2500 instead of 1000 of most Claude agents
+                    instructions=AGENT_BUILDER_INSTRUCTIONS,
+                )
+
+                iterator = agent_builder_wrapper(
+                    agent_input,
+                    version=version,
+                    use_cache="always",
+                )
+            chunk: AgentBuilderOutput | None = None
             latest_chunk_is_error = False
             async for chunk in iterator:
                 try:
-                    yield self._handle_stream_task_iterations_chunk(chunk.output, partial=True)
+                    yield self._handle_stream_task_iterations_chunk(chunk, partial=True)
                     latest_chunk_is_error = False
                 except UnparsableChunkError:
                     latest_chunk_is_error = True
@@ -391,7 +386,7 @@ class InternalTasksService:
             if chunk:
                 try:
                     # We stream the last chunk with partial=False, because it is the final chunk
-                    yield self._handle_stream_task_iterations_chunk(chunk.output, partial=False)
+                    yield self._handle_stream_task_iterations_chunk(chunk, partial=False)
                     latest_chunk_is_error = False
                 except UnparsableChunkError:
                     latest_chunk_is_error = True
@@ -981,35 +976,6 @@ class InternalTasksService:
             stream=False,
         )
 
-    async def compare_task_schemas(
-        self,
-        reference_schema: AgentSchemaJson,
-        candidate_schema: AgentSchemaJson,
-        group: VersionReference,
-    ) -> str:
-        """
-        Compares two task schemas and returns a summary of the differences.
-
-        Args:
-            reference_schema (TaskSchema): The reference task schema.
-            candidate_schema (TaskSchema): The candidate task schema to compare.
-            group (VersionReference): The task group reference for running the task.
-
-        Returns:
-            str: A summary of the differences between the schemas.
-        """
-        task = TaskSchemaComparisonTask()
-        task_input = TaskSchemaComparisonTaskInput(
-            reference_schema=reference_schema,
-            candidate_schema=candidate_schema,
-        )
-        output = await self._run(
-            task,
-            input=task_input,
-            group=group,
-        )
-        return output.differences_summary
-
     async def generate_changelog(
         self,
         tenant: str,
@@ -1148,28 +1114,6 @@ class InternalTasksService:
 
     async def evaluate_output(self, task_input: EvaluateOutputTaskInput):
         return await evaluate_output(task_input)
-
-    # Audio transcription task
-    async def transcribe_audio(
-        self,
-        audio_file: File,
-        model: str | None = None,
-    ) -> str:
-        if not audio_file.is_audio:
-            raise InternalError(
-                "File is not an audio file",
-                extras={"file": audio_file.model_dump(mode="json", exclude={"data"})},
-            )
-
-        output = await self.wai.run(
-            AudioTranscriptionTask(),
-            input=AudioTranscriptionTaskInput(
-                audio_file=audio_file,
-            ),
-            group=VersionReference.with_properties(model=model),
-        )
-
-        return output.transcription
 
     def stream_generate_task_preview(
         self,
