@@ -50,7 +50,7 @@ async def analytics_task_properties(
     url_public_org: URLPublicOrganizationDep,
     user_org: UserOrganizationDep,
 ) -> TaskProperties | None:
-    task_id = request.path_params.get("task_id")
+    task_id = request.path_params.get("agent_id")
     if not task_id:
         return None
 
