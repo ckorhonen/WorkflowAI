@@ -2115,7 +2115,7 @@ async def test_with_model_fallback_on_rate_limit(test_client: IntegrationTestCli
     assert [(c["model"], c["provider"], len(c["messages"]), c.get("cost_usd")) for c in completions2] == [
         (Model.CLAUDE_3_5_SONNET_20241022, Provider.ANTHROPIC, 2, None),
         (Model.CLAUDE_3_5_SONNET_20241022, Provider.AMAZON_BEDROCK, 2, None),
-        (Model.O3_2025_04_16_LOW_REASONING_EFFORT, Provider.OPEN_AI, 2, approx((10 * 10 + 11 * 40) / 1_000_000)),
+        (Model.O3_2025_04_16_LOW_REASONING_EFFORT, Provider.OPEN_AI, 2, approx((10 * 2 + 11 * 8) / 1_000_000)),
     ]
 
 
@@ -2173,7 +2173,7 @@ async def test_with_model_fallback_on_failed_generation(test_client: Integration
         (Model.CLAUDE_3_5_SONNET_20241022, Provider.ANTHROPIC, 2, approx(10 * (3 + 15) / 1_000_000)),
         # Second time we retry with different messages
         (Model.CLAUDE_3_5_SONNET_20241022, Provider.ANTHROPIC, 4, approx(10 * (3 + 15) / 1_000_000)),  # 2 + 2
-        (Model.O3_2025_04_16_LOW_REASONING_EFFORT, Provider.OPEN_AI, 2, approx((10 * 10 + 11 * 40) / 1_000_000)),
+        (Model.O3_2025_04_16_LOW_REASONING_EFFORT, Provider.OPEN_AI, 2, approx((10 * 2 + 11 * 8) / 1_000_000)),
     ]
 
 
