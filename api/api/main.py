@@ -158,8 +158,17 @@ class StandardModelResponse(BaseModel):
         icon_url: str
         supports: dict[str, Any]
 
+        class Pricing(BaseModel):
+            input_token_usd: float
+            output_token_usd: float
+
+        pricing: Pricing
+
+        release_date: datetime.date
+
         @classmethod
         def from_model_data(cls, id: str, model: FinalModelData):
+            provider_data = model.providers[0][1]
             return cls(
                 id=id,
                 created=int(datetime.datetime.combine(model.release_date, datetime.time(0, 0)).timestamp()),
@@ -173,6 +182,11 @@ class StandardModelResponse(BaseModel):
                         include=set(ModelDataSupports.model_fields.keys()),
                     ).items()
                 },
+                pricing=cls.Pricing(
+                    input_token_usd=provider_data.text_price.prompt_cost_per_token,
+                    output_token_usd=provider_data.text_price.completion_cost_per_token,
+                ),
+                release_date=model.release_date,
             )
 
     data: list[ModelItem]
