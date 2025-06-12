@@ -83,6 +83,6 @@ The [documentation](./docsv2) is written in [MDX](https://mdxjs.com/) and uses [
 
 Useful commands:
 
-- `yarn workspace docsv2 dev` to start the development server.
-- `yarn workspace docsv2 build` to build the documentation. Make sure to run this before pushing the PR to make sure it builds
-- `yarn workspace docsv2 lint` to lint the documentation.
+- `yarn workspace docs dev` to start the development server.
+- `yarn workspace docs build` to build the documentation. Make sure to run this before pushing the PR to make sure it builds
+- `yarn workspace docs lint` to lint the documentation.
