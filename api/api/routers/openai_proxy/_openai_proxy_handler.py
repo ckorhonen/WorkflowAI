@@ -91,15 +91,18 @@ class OpenAIProxyHandler:
             streamline=True,
         ), last_templated_index
 
-    def _update_event_router(self, tenant_data: PublicOrganizationData, variant: SerializableTaskVariant):
+    def _update_task_properties(self, tenant_data: PublicOrganizationData, variant: SerializableTaskVariant):
         try:
-            self._event_router.task_properties = TaskProperties.build(  # pyright: ignore [reportAttributeAccessIssue]
+            properties = TaskProperties.build(
                 variant.task_id,
                 variant.task_schema_id,
                 tenant_data,
             )
+            self._event_router.task_properties = properties  # pyright: ignore [reportAttributeAccessIssue]
+            self._run_service.analytics_service.task_properties = properties  # pyright: ignore [reportAttributeAccessIssue]
+            self._group_service.analytics_service.task_properties = properties  # pyright: ignore[reportAttributeAccessIssue]
         except Exception:
-            _logger.exception("Could not set task properties for event router")
+            _logger.exception("Could not set task properties for event router, run service or group service")
 
     @classmethod
     def _build_variant(
@@ -202,7 +205,7 @@ class OpenAIProxyHandler:
             )
             variant, _ = self._build_variant(messages, agent_ref.agent_id, input, response_format)
             variant, _ = await self._storage.store_task_resource(variant)
-        self._update_event_router(tenant_data, variant)
+        self._update_task_properties(tenant_data, variant)
 
         if not properties.messages:
             # The version does not contain any messages so the input is the messages
@@ -243,7 +246,7 @@ class OpenAIProxyHandler:
             response_format=response_format,
         )
         variant, new_variant_created = await self._storage.store_task_resource(raw_variant)
-        self._update_event_router(tenant_data, variant)
+        self._update_task_properties(tenant_data, variant)
 
         if new_variant_created:
             self._event_router(
