@@ -60,11 +60,11 @@ async def get_agent_versions(
 
 class AskAIEngineerRequest(BaseModel):
     agent_schema_id: int | None = Field(
-        description="The schema ID of the user's agent version, if known",
+        description="The schema ID of the user's agent version, if known from model=<agent_id>/<agent_schema_id>/<deployment_environment> when the workflowAI agent is already deployed",
         default=None,
     )
     agent_id: str | None = Field(
-        description="The id of the user's agent, example: 'email-filtering-agent'. Pass 'new' when the user wants to create a new agent.",
+        description="The id of the user's agent, example: 'email-filtering-agent' in 'model=email-filtering-agent/gpt-4o-latest'. Pass 'new' when the user wants to create a new agent.",
         default=None,
     )
     message: str = Field(
@@ -78,21 +78,6 @@ class AskAIEngineerRequest(BaseModel):
     user_code_extract: str | None = Field(
         description="The code you are working on to improve the user's agent, if any. Please DO NOT include API keys or other sensitive information.",
         default=None,
-    )
-
-
-class GetAIEngineerRequest(BaseModel):
-    agent_schema_id: int | None = Field(
-        description="The schema ID of the user's agent version, if known",
-        default=None,
-    )
-    agent_model_parameter: str | None = Field(
-        description="The model parameter of the user's agent, example: 'email-filtering-agent/gemini-2.0-flash-001' (agent id / model name). Pass 'new' when the user wants to create a new agent.",
-        default=None,
-    )
-    message: str = Field(
-        description="Your message to the AI engineer about what help you need",
-        default="I need help improving my agent",
     )
 
 
