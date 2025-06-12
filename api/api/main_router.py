@@ -11,7 +11,6 @@ from api.routers import (
     stripe_webhooks,
 )
 from api.routers.agents import ai_engineer_router, meta_agent, new_tool_agent
-from api.routers.agents import meta_agent, new_tool_agent
 from api.routers.mcp import mcp_router
 from api.tags import RouteTags
 from core.domain.tenant_data import PublicOrganizationData
