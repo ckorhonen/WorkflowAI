@@ -307,31 +307,46 @@ class TestOpenAIProxyChatCompletionRequestToolChoice:
 
 
 class TestOpenAIProxyChatCompletionRequestExtractReferences:
-    def test_model_only(self):
-        """Test when only model is provided"""
+    @pytest.mark.parametrize(
+        ("req", "agent_id"),
+        [
+            pytest.param({}, None, id="model only"),
+            pytest.param({"model": "my-agent/gpt-4o"}, "my-agent", id="model with agent_id"),
+            pytest.param({"metadata": {"agent_id": "my-agent"}}, "my-agent", id="agent id in metadata"),
+            pytest.param({"agent_id": "my-agent"}, "my-agent", id="model with agent_id"),
+            # Model has a provider prefix but agent_id is provided so it takes precedence
+            pytest.param(
+                {"model": "openai/gpt-4o", "agent_id": "my-agent"},
+                "my-agent",
+                id="model with provider prefix",
+            ),
+            # Model has a provider prefix but agent id is provided in metadata so it takes precedence
+            pytest.param(
+                {"model": "openai/gpt-4o", "metadata": {"agent_id": "my-agent"}},
+                "my-agent",
+                id="model with provider prefix and agent id in metadata",
+            ),
+            # agent_id and metadata are set so agent_id takes precedence
+            pytest.param(
+                {"model": "openai/gpt-4o", "agent_id": "my-agent", "metadata": {"agent_id": "metadata-agent"}},
+                "my-agent",
+                id="model with provider prefix, agent id in body and metadata",
+            ),
+        ],
+    )
+    def test_model_ref(self, req: dict[str, Any], agent_id: str | None):
+        """Test cases where the request points to a model, not a deployment"""
         payload = OpenAIProxyChatCompletionRequest.model_validate(
             {
                 "messages": [{"role": "user", "content": "Hello, world!"}],
                 "model": "gpt-4o",
+                **req,
             },
         )
         refs = payload.extract_references()
         assert isinstance(refs, ModelRef)
         assert refs.model == Model.GPT_4O_LATEST
-        assert refs.agent_id is None
-
-    def test_agent_model_format(self):
-        """Test when model is in format agent_id/model"""
-        payload = OpenAIProxyChatCompletionRequest.model_validate(
-            {
-                "messages": [{"role": "user", "content": "Hello, world!"}],
-                "model": "my-agent/gpt-4o",
-            },
-        )
-        refs = payload.extract_references()
-        assert isinstance(refs, ModelRef)
-        assert refs.model == Model.GPT_4O_LATEST
-        assert refs.agent_id == "my-agent"
+        assert refs.agent_id == agent_id
 
     def test_agent_schema_env_format(self):
         """Test when model is in format agent_id/#schema_id/environment"""
@@ -405,20 +420,6 @@ class TestOpenAIProxyChatCompletionRequestExtractReferences:
             payload.extract_references()
         assert "agent_id, environment and schema_id must be provided" in str(exc_info.value)
 
-    def test_provider_prefixed_model(self):
-        """Test when model has provider prefix"""
-        payload = OpenAIProxyChatCompletionRequest.model_validate(
-            {
-                "messages": [{"role": "user", "content": "Hello, world!"}],
-                "model": "openai/gpt-4o",
-                "agent_id": "my-agent",  # otherwise the agent id will be `openai`
-            },
-        )
-        refs = payload.extract_references()
-        assert isinstance(refs, ModelRef)
-        assert refs.model == Model.GPT_4O_LATEST
-        assert refs.agent_id == "my-agent"
-
     def test_invalid_deployment_string(self):
         """Test when environment is invalid"""
         payload = OpenAIProxyChatCompletionRequest.model_validate(
@@ -444,20 +445,6 @@ class TestOpenAIProxyChatCompletionRequestExtractReferences:
         assert refs.agent_id == "my-agent"
         assert refs.schema_id == 123
         assert refs.environment == VersionEnvironment.PRODUCTION
-
-    def test_metadata_with_agent_id_only(self):
-        """Test when metadata contains only agent_id"""
-        payload = OpenAIProxyChatCompletionRequest.model_validate(
-            {
-                "messages": [{"role": "user", "content": "Hello, world!"}],
-                "model": "gpt-4o",
-                "metadata": {"agent_id": "metadata-agent"},
-            },
-        )
-        refs = payload.extract_references()
-        assert isinstance(refs, ModelRef)
-        assert refs.model == Model.GPT_4O_LATEST
-        assert refs.agent_id == "metadata-agent"
 
     def test_metadata_with_environment_deployment(self):
         """Test when metadata contains agent_id and environment in deployment format"""
@@ -513,20 +500,6 @@ class TestOpenAIProxyChatCompletionRequestExtractReferences:
         assert refs.schema_id == 101
         assert refs.environment == VersionEnvironment.DEV
 
-    def test_metadata_overrides_agent_id_from_model(self):
-        """Test that metadata agent_id overrides agent_id from model"""
-        payload = OpenAIProxyChatCompletionRequest.model_validate(
-            {
-                "messages": [{"role": "user", "content": "Hello, world!"}],
-                "model": "model-agent/gpt-4o",
-                "metadata": {"agent_id": "metadata-agent"},
-            },
-        )
-        refs = payload.extract_references()
-        assert isinstance(refs, ModelRef)
-        assert refs.model == Model.GPT_4O_LATEST
-        assert refs.agent_id == "metadata-agent"
-
     def test_metadata_without_agent_id_returns_none(self):
         """Test when metadata exists but has no agent_id"""
         payload = OpenAIProxyChatCompletionRequest.model_validate(
@@ -557,22 +530,6 @@ class TestOpenAIProxyChatCompletionRequestExtractReferences:
         assert isinstance(refs, ModelRef)
         assert refs.model == Model.GPT_4O_LATEST
         assert refs.agent_id == "metadata-agent"
-
-    def test_metadata_with_body_agent_id_precedence(self):
-        """Test precedence when both body agent_id and metadata agent_id are provided"""
-        payload = OpenAIProxyChatCompletionRequest.model_validate(
-            {
-                "messages": [{"role": "user", "content": "Hello, world!"}],
-                "model": "gpt-4o",
-                "agent_id": "body-agent",
-                "metadata": {"agent_id": "metadata-agent"},
-            },
-        )
-        refs = payload.extract_references()
-        assert isinstance(refs, ModelRef)
-        assert refs.model == Model.GPT_4O_LATEST
-        # Body agent_id should take precedence over metadata agent_id
-        assert refs.agent_id == "body-agent"
 
     def test_metadata_with_no_metadata(self):
         """Test when no metadata is provided"""

@@ -645,7 +645,8 @@ class OpenAIProxyChatCompletionRequest(_OpenAIProxyExtraFields):
         if not self.metadata or "agent_id" not in self.metadata:
             return None
 
-        if not agent_id:
+        # Overriding if the agent_id is None or not provided directly in the request
+        if not agent_id or not self.agent_id:
             agent_id = self.metadata.get("agent_id")
         if not agent_id:
             return None
