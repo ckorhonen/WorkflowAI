@@ -104,7 +104,7 @@ class MessageBuilder:
     async def extract(self, input: Any):
         # No matter what, the input should be a valid Messages object
         if isinstance(input, list):
-            messages = StoredMessages(messages=[StoredMessage.model_validate(m) for m in input])  # type:ignore
+            messages = StoredMessages.with_messages(*(StoredMessage.model_validate(m) for m in input))  # pyright: ignore [reportUnknownVariableType]
         else:
             try:
                 # Stored messages allows extras

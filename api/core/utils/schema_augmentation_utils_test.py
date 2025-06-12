@@ -1,5 +1,6 @@
 import logging
 from typing import Any
+from unittest import mock
 from unittest.mock import patch
 
 from core.utils.schema_augmentation_utils import (
@@ -18,6 +19,18 @@ class TestAddReasoningSteps:
 
         assert output_schema == {}
         mock_logger.assert_called_once_with("Output schema has no properties, skipping schema addition")
+
+    def test_add_reasoning_steps_to_object_schema(self):
+        """Test adding reasoning steps to a non-object schema"""
+        output_schema: dict[str, Any] = {"type": "object"}
+
+        add_reasoning_steps_to_schema(output_schema)  # pyright: ignore[reportPrivateUsage]
+        assert output_schema == {
+            "type": "object",
+            "properties": {
+                "internal_reasoning_steps": mock.ANY,
+            },
+        }
 
     def test_add_reasoning_steps_when_already_present(self):
         """Test adding reasoning steps when they already exist in schema"""

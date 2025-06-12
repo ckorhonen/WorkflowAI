@@ -324,7 +324,7 @@ class OpenAIProxyHandler:
         input_io.enforce(final_input, files_as_strings=True)
 
     async def _prepare_run(self, body: OpenAIProxyChatCompletionRequest, tenant_data: PublicOrganizationData):
-        messages = Messages(messages=list(body.domain_messages()))
+        messages = Messages.with_messages(*body.domain_messages())
 
         # First we need to locate the agent
         try:

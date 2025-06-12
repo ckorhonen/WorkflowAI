@@ -541,7 +541,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         await self._handle_files_in_messages(messages, provider)
         messages = self._fix_messages(messages)
 
-        final = Messages(messages=messages)
+        final = Messages.with_messages(*messages)
 
         if structured_output or self._prepared_output_schema.prepared_schema is None:
             return final.to_deprecated()
@@ -578,6 +578,9 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         return final.to_deprecated()
 
     async def _extract_raw_messages(self, input: AgentInput) -> Sequence[Message] | None:
+        if not self.task.input_schema.uses_messages and not self._options.messages:
+            return None
+
         builder = MessageBuilder(self.template_manager, self.task.input_schema, self._options.messages, logger)
         return await builder.extract(input)
 
@@ -612,7 +615,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         # If the input is a raw messages schema we have to extract the messages
         # and use. It would be nice to merge with the above call but it would break
         # the typeguard on the input object
-        if self.task.input_schema.uses_messages and (raw_messages := await self._extract_raw_messages(input)):
+        if raw_messages := await self._extract_raw_messages(input):
             return await self._inline_messages(
                 raw_messages,
                 provider,

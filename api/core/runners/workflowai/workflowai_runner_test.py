@@ -3034,9 +3034,9 @@ class TestMessagesInput:
     @pytest.mark.parametrize(
         "input",
         [
-            pytest.param({"messages": [{"content": [{"text": "Hello world"}], "role": "user"}]}, id="dict"),
+            pytest.param({"workflowai.messages": [{"content": [{"text": "Hello world"}], "role": "user"}]}, id="dict"),
             pytest.param(
-                Messages(messages=[Message(role="user", content=[MessageContent(text="Hello world")])]),
+                Messages.with_messages(Message(role="user", content=[MessageContent(text="Hello world")])),
                 id="messages_model",
             ),
         ],
@@ -3082,6 +3082,33 @@ class TestTemplatedMessages:
         builder = await runner.task_run_builder(
             {
                 "text": "bla",
+            },
+            start_time=0,
+        )
+        run = await runner.run(builder)
+        assert run.task_output == "Hello world"
+
+        mock_provider_factory_full.openai.complete.assert_called_once()
+
+        messages = mock_provider_factory_full.openai.complete.call_args_list[0].args[0]
+        assert isinstance(messages, list)
+        messages = cast(list[MessageDeprecated], messages)
+        assert len(messages) == 1
+        assert messages[0].content == "Hello bla"
+
+    async def test_templated_messages_with_messages_key(self, mock_provider_factory_full: Mock):
+        runner = _build_runner2(
+            mock_provider_factory_full,
+            SerializableTaskIO.from_json_schema({"type": "object", "properties": {"messages": {"type": "string"}}}),
+            RawStringMessageSchema,
+            messages=[Message.with_text("Hello {{messages}}")],
+        )
+
+        mock_provider_factory_full.openai.complete.side_effect = mock_complete("Hello world")
+
+        builder = await runner.task_run_builder(
+            {
+                "messages": "bla",
             },
             start_time=0,
         )
