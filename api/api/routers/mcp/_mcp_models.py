@@ -16,6 +16,15 @@ from core.domain.version_major import VersionDeploymentMetadata, VersionMajor
 from core.utils.fields import datetime_zero
 
 
+class MCPToolReturn(BaseModel):
+    """Standardized return format for MCP tools"""
+
+    success: bool
+    data: Any | None = None
+    error: str | None = None
+    messages: list[str] | None = None
+
+
 class _VersionDeploymentMetadata(BaseModel):
     environment: VersionEnvironment
     deployed_at: datetime

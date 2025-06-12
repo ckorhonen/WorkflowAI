@@ -2,10 +2,8 @@ from collections.abc import Iterator
 from datetime import datetime, timedelta
 from typing import Any
 
-from pydantic import BaseModel
-
 from api.main import StandardModelResponse
-from api.routers.mcp._mcp_models import MajorVersion
+from api.routers.mcp._mcp_models import MajorVersion, MCPToolReturn
 from api.services.documentation_service import DocumentationService
 from api.services.internal_tasks.meta_agent_service import MetaAgentChatMessage, PlaygroundState
 from api.services.internal_tasks.meta_agent_service import MetaAgentService as MetaAgentServiceType
@@ -19,15 +17,6 @@ from core.domain.models.models import Model
 from core.storage import ObjectNotFoundException
 from core.storage.backend_storage import BackendStorage
 from core.utils.url_utils import IGNORE_URL_END_TAG, IGNORE_URL_START_TAG
-
-
-class MCPToolReturn(BaseModel):
-    """Standardized return format for MCP tools"""
-
-    success: bool
-    data: Any | None = None
-    error: str | None = None
-    messages: list[str] | None = None
 
 
 class MCPService:
