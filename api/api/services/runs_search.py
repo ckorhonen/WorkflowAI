@@ -247,13 +247,7 @@ class RunsSearchService:
         # Whenever we are dealing with messages or message, we allow searching through the raw input / output
         # TODO: we should use the SerializableTaskIO functions instead
         # TODO: we should add tests for searching through messages
-        if schema.get("format") == "messages":
-            yield SearchFieldOption(
-                field_name=field,
-                type="string",
-                operators=[SearchOperator.CONTAINS, SearchOperator.NOT_CONTAINS],
-            )
-        if schema.get("format") == "message":
+        if (format := schema.get("format")) and format in {"messages", "message"}:
             yield SearchFieldOption(
                 field_name=field,
                 type="string",
