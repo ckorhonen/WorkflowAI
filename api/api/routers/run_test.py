@@ -9,7 +9,7 @@ from freezegun import freeze_time
 from httpx import AsyncClient
 
 from api.dependencies.security import user_organization
-from api.routers.run import DeprecatedVersionReference, version_reference_to_domain
+from api.routers.run import DeprecatedVersionReference, RunResponse, RunResponseStreamChunk, version_reference_to_domain
 from core.domain.agent_run import AgentRun
 from core.domain.ban import Ban
 from core.domain.llm_completion import LLMCompletion
@@ -28,6 +28,7 @@ from core.domain.version_reference import VersionReference
 from core.providers.base.provider_error import InvalidGenerationError, ProviderRateLimitError
 from core.runners.abstract_runner import AbstractRunner
 from core.runners.workflowai.workflowai_runner import WorkflowAIRunner
+from tests import models as test_models
 from tests.models import task_run_ser
 from tests.utils import mock_aiter
 
@@ -73,6 +74,38 @@ class TestRunModelsNotAuthenticated:
         # Unauthenticated
         models = await test_api_client.get("/v1/models")
         assert models.status_code == 200
+
+
+class TestRunResponseFromDomain:
+    def test_with_none_output(self):
+        run = test_models.task_run_ser()
+        run.task_output = None
+
+        res = RunResponse.from_domain(run, "")
+        assert res.task_output == {}
+
+    def test_with_empty_string(self):
+        run = test_models.task_run_ser()
+        run.task_output = ""
+
+        res = RunResponse.from_domain(run, "")
+        assert res.task_output == ""
+
+
+class TestRunResponseStreamChunkFromDomain:
+    def test_with_none_output(self):
+        run = test_models.task_run_ser()
+        run.task_output = None
+
+        res = RunResponseStreamChunk.from_stream("hello", RunOutput(None))
+        assert res.task_output == {}
+
+    def test_with_empty_string(self):
+        run = test_models.task_run_ser()
+        run.task_output = ""
+
+        res = RunResponseStreamChunk.from_stream("hello", RunOutput(""))
+        assert res.task_output == ""
 
 
 @pytest.fixture(scope="function")

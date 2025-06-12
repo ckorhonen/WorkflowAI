@@ -23,6 +23,7 @@ from core.providers.base.provider_error import (
     MaxTokensExceededError,
     ModelDoesNotSupportMode,
     ProviderBadRequestError,
+    ProviderInvalidFileError,
     StructuredGenerationError,
     UnknownProviderError,
 )
@@ -79,6 +80,9 @@ _UNSUPPORTED_TEMPERATURES = {
     Model.O3_2025_04_16_HIGH_REASONING_EFFORT,
     Model.O3_2025_04_16_MEDIUM_REASONING_EFFORT,
     Model.O3_2025_04_16_LOW_REASONING_EFFORT,
+    # Model.O3_PRO_2025_06_10_HIGH_REASONING_EFFORT,
+    # Model.O3_PRO_2025_06_10_MEDIUM_REASONING_EFFORT,
+    # Model.O3_PRO_2025_06_10_LOW_REASONING_EFFORT,
     *_O1_PREVIEW_MODELS,
     *_AUDIO_PREVIEW_MODELS,
 }
@@ -93,6 +97,9 @@ _REASONING_EFFORT_FOR_MODEL = {
     Model.O3_2025_04_16_HIGH_REASONING_EFFORT: "high",
     Model.O3_2025_04_16_MEDIUM_REASONING_EFFORT: "medium",
     Model.O3_2025_04_16_LOW_REASONING_EFFORT: "low",
+    # Model.O3_PRO_2025_06_10_HIGH_REASONING_EFFORT: "high",
+    # Model.O3_PRO_2025_06_10_MEDIUM_REASONING_EFFORT: "medium",
+    # Model.O3_PRO_2025_06_10_LOW_REASONING_EFFORT: "low",
     Model.O4_MINI_2025_04_16_HIGH_REASONING_EFFORT: "high",
     Model.O4_MINI_2025_04_16_MEDIUM_REASONING_EFFORT: "medium",
     Model.O4_MINI_2025_04_16_LOW_REASONING_EFFORT: "low",
@@ -263,6 +270,8 @@ class OpenAIProviderBase(HTTPXProvider[_OpenAIConfigVar, CompletionResponse], Ge
                 response=response,
                 capture=True,
             )
+        if "Too many images in request" in payload.error.message:
+            return ProviderInvalidFileError(msg=payload.error.message, response=response)
 
         return None
 
@@ -301,6 +310,8 @@ class OpenAIProviderBase(HTTPXProvider[_OpenAIConfigVar, CompletionResponse], Ge
                     return ProviderBadRequestError(msg=payload.error.message, response=response)
                 case "invalid_image_url":
                     return ProviderBadRequestError(msg=payload.error.message, response=response)
+                case "invalid_base64":
+                    return ProviderInvalidFileError(msg="Base64 data is not valid")
                 case "BadRequest":
                     # Capturing for now
                     return ProviderBadRequestError(msg=payload.error.message, response=response, capture=True)

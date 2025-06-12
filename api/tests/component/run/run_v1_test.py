@@ -2115,7 +2115,7 @@ async def test_with_model_fallback_on_rate_limit(test_client: IntegrationTestCli
     assert [(c["model"], c["provider"], len(c["messages"]), c.get("cost_usd")) for c in completions2] == [
         (Model.CLAUDE_3_5_SONNET_20241022, Provider.ANTHROPIC, 2, None),
         (Model.CLAUDE_3_5_SONNET_20241022, Provider.AMAZON_BEDROCK, 2, None),
-        (Model.O3_2025_04_16_LOW_REASONING_EFFORT, Provider.OPEN_AI, 2, approx((10 * 10 + 11 * 40) / 1_000_000)),
+        (Model.O3_2025_04_16_LOW_REASONING_EFFORT, Provider.OPEN_AI, 2, approx((10 * 2 + 11 * 8) / 1_000_000)),
     ]
 
 
@@ -2173,7 +2173,7 @@ async def test_with_model_fallback_on_failed_generation(test_client: Integration
         (Model.CLAUDE_3_5_SONNET_20241022, Provider.ANTHROPIC, 2, approx(10 * (3 + 15) / 1_000_000)),
         # Second time we retry with different messages
         (Model.CLAUDE_3_5_SONNET_20241022, Provider.ANTHROPIC, 4, approx(10 * (3 + 15) / 1_000_000)),  # 2 + 2
-        (Model.O3_2025_04_16_LOW_REASONING_EFFORT, Provider.OPEN_AI, 2, approx((10 * 10 + 11 * 40) / 1_000_000)),
+        (Model.O3_2025_04_16_LOW_REASONING_EFFORT, Provider.OPEN_AI, 2, approx((10 * 2 + 11 * 8) / 1_000_000)),
     ]
 
 
@@ -2228,6 +2228,40 @@ async def test_preserve_credits(test_client: IntegrationTestClient):
     await test_client.wait_for_completed_tasks()
     org = await test_client.get_org()
     assert org["current_credits_usd"] == approx(10 - run_cost)
+
+
+async def test_with_invalid_base64_data(test_client: IntegrationTestClient):
+    """Check that we handle invalid base64 data correctly by returning an error immediately
+    and not forwarding the request to the provider"""
+
+    task = await test_client.create_task(
+        input_schema={
+            "properties": {
+                "image": {
+                    "$ref": "#/$defs/Image",
+                },
+            },
+        },
+    )
+
+    with pytest.raises(HTTPStatusError) as e:
+        await test_client.run_task_v1(
+            task,
+            model=Model.GPT_4O_2024_11_20,
+            task_input={"image": {"data": "bla"}},
+        )
+    assert e.value.response.status_code == 400
+    assert e.value.response.json()["error"]["code"] == "invalid_file"
+
+    # I should get the same error if I use a URL
+    with pytest.raises(HTTPStatusError) as e:
+        await test_client.run_task_v1(
+            task,
+            model=Model.GPT_4O_2024_11_20,
+            task_input={"image": {"url": "data:image/png;base64,bla"}},
+        )
+    assert e.value.response.status_code == 400
+    assert e.value.response.json()["error"]["code"] == "invalid_file"
 
 
 async def test_with_inlined_files_with_url(test_client: IntegrationTestClient):

@@ -124,13 +124,13 @@ async def _get_enrichment_data(client_email: str) -> EnrichmentData:
         if linked_url := latest_position.linkedInUrl:
             try:
                 enrich_so_company_data = await get_enriched_company_profile_data(linked_url)
-
-                enriched_contents.append(
-                    URLContent(
-                        url=f"enrich.so company API response for {linked_url}",
-                        content=enrich_so_company_data.model_dump_json(),
-                    ),
-                )
+                if enrich_so_company_data:
+                    enriched_contents.append(
+                        URLContent(
+                            url=f"enrich.so company API response for {linked_url}",
+                            content=enrich_so_company_data.model_dump_json(),
+                        ),
+                    )
             except Exception as e:
                 _logger.exception("Error getting enriched company data from enrich.so", exc_info=e)
 

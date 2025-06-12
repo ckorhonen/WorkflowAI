@@ -93,7 +93,7 @@ async def _enrich_client():
         yield client
 
 
-async def get_enriched_email_data(user_email: str) -> EnrichSoEnrichedEmailData:
+async def get_enriched_email_data(user_email: str) -> EnrichSoEnrichedEmailData | None:
     async with _enrich_client() as client:
         response = await client.get(
             "/person",
@@ -103,7 +103,12 @@ async def get_enriched_email_data(user_email: str) -> EnrichSoEnrichedEmailData:
             timeout=60.0,
         )
 
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            return None
+        raise e
 
     return EnrichSoEnrichedEmailData.model_validate(response.json())
 
@@ -213,7 +218,7 @@ class EnrichSoEnrichedCompanyData(BaseModel):
     credits_remaining: int | None = None
 
 
-async def get_enriched_company_profile_data(linkedin_company_domain: str) -> EnrichSoEnrichedCompanyData:
+async def get_enriched_company_profile_data(linkedin_company_domain: str) -> EnrichSoEnrichedCompanyData | None:
     async with _enrich_client() as client:
         response = await client.get(
             "/linkedin-by-url",
@@ -224,6 +229,11 @@ async def get_enriched_company_profile_data(linkedin_company_domain: str) -> Enr
             timeout=60.0,
         )
 
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            return None
+        raise e
 
     return EnrichSoEnrichedCompanyData.model_validate(response.json())

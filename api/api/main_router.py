@@ -11,6 +11,8 @@ from api.routers import (
     stripe_webhooks,
 )
 from api.routers.agents import ai_engineer_router, meta_agent, new_tool_agent
+from api.routers.agents import meta_agent, new_tool_agent
+from api.routers.mcp import mcp_router
 from api.tags import RouteTags
 from core.domain.tenant_data import PublicOrganizationData
 
@@ -91,6 +93,7 @@ def _authenticated_router():
     authenticated_router.include_router(features.router, tags=[RouteTags.FEATURES])
     authenticated_router.include_router(feedback_v1.router)
     authenticated_router.include_router(integrations_router.router, tags=[RouteTags.INTEGRATIONS])
+    authenticated_router.include_router(mcp_router.router)
     return authenticated_router
 
 

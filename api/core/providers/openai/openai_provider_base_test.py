@@ -3,6 +3,7 @@
 from typing import Any
 
 import pytest
+from httpx import Response
 
 from core.domain.llm_usage import LLMUsage
 from core.domain.message import Message, MessageContent, Messages
@@ -10,11 +11,12 @@ from core.domain.models import Model, Provider
 from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.providers.base.abstract_provider import RawCompletion
 from core.providers.base.httpx_provider import ParsedResponse
-from core.providers.base.provider_error import MaxTokensExceededError
+from core.providers.base.provider_error import MaxTokensExceededError, ProviderInvalidFileError
 from core.providers.base.provider_options import ProviderOptions
 from core.providers.base.streaming_context import StreamingContext
 from core.providers.openai.openai_domain import (
     ChoiceDelta,
+    OpenAIError,
     StreamedResponse,
     StreamedToolCall,
     StreamedToolCallFunction,
@@ -678,3 +680,32 @@ class TestBuildRequest:
                 "tool_call_id": "call_ucYQgwUMFhWu2e91vA9FgRCj",
             },
         ]
+
+
+def test_invalid_request_error_too_many_images() -> None:
+    """Test that 'Too many images in request' error returns ProviderInvalidFileError."""
+    provider = _TestOpenAIProviderBase()
+
+    # Create a mock OpenAI error payload
+    error_payload = OpenAIError(
+        error=OpenAIError.Payload(
+            code="invalid_request_error",
+            message="Too many images in request. Only 5 images are allowed per request.",
+            type="invalid_request_error",
+            param="messages",
+        ),
+    )
+
+    # Create a mock HTTP response
+    response = Response(
+        status_code=400,
+        headers={},
+        content=b'{"error": {"code": "invalid_request_error", "message": "Too many images in request. Only 5 images are allowed per request.", "type": "invalid_request_error", "param": "messages"}}',
+    )
+
+    # Test the _invalid_request_error method
+    result = provider._invalid_request_error(error_payload, response)  # pyright: ignore[reportPrivateUsage]
+
+    # Verify it returns ProviderInvalidFileError
+    assert isinstance(result, ProviderInvalidFileError)
+    assert "Too many images in request" in str(result)

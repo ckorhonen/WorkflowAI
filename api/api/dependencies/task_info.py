@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 async def task_info_dependency(
+    # TODO: rename dependency to agent_id
     task_id: TaskID,
     storage: StorageDep,
 ) -> TaskInfo | None:
