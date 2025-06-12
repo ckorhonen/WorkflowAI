@@ -1,2 +1,0 @@
-- Add typology param
-- Add agent param id to models list
