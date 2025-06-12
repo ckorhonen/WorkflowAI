@@ -810,6 +810,7 @@ class OpenAIProxyChatCompletionResponse(BaseModel):
     object: Literal["chat.completion"] = "chat.completion"
     usage: OpenAIProxyCompletionUsage | None = None
 
+    version_id: str = Field(description="The version id of the completion, WorkflowAI specific")
     metadata: dict[str, Any] | None = Field(description="Metadata about the completion, WorkflowAI specific")
 
     @classmethod
@@ -836,6 +837,7 @@ class OpenAIProxyChatCompletionResponse(BaseModel):
             model=model,
             usage=OpenAIProxyCompletionUsage.from_domain(run.llm_completions[-1]) if run.llm_completions else None,
             metadata=run.metadata,
+            version_id=run.group.id,
         )
 
 
