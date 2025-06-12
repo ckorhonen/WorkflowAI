@@ -205,7 +205,7 @@ def _streamline_array(schema: dict[str, Any], handle_ref: _RefHandler, defs: dic
 
 def _streamline_object(schema: dict[str, Any], handle_ref: _RefHandler, defs: dict[str, Any]):
     required = set(schema.get("required", []))
-    properties = schema.get("properties", {})
+    properties = schema.get("properties")
     if not properties:
         return schema
 
@@ -263,10 +263,11 @@ def _handle_one_any_all_ofs(
     return streamlined_not_null
 
 
-def _remove_falsy_key(schema: dict[str, Any], key: str):
-    if key in schema and not schema[key]:
-        return {k: v for k, v in schema.items() if k != key}
-    return schema
+def _remove_falsy_keys(schema: dict[str, Any], keys: set[str]):
+    return {k: v for k, v in schema.items() if k not in keys or v}
+
+
+_FALSY_KEYS_TO_REMOVE = {"examples", "description", "items", "properties"}
 
 
 def _inner_streamline_schema(
@@ -276,8 +277,7 @@ def _inner_streamline_schema(
     is_required: bool,
 ) -> dict[str, Any]:
     obj_type = _get_or_set_type(schema)
-    schema = _remove_falsy_key(schema, "examples")
-    schema = _remove_falsy_key(schema, "description")
+    schema = _remove_falsy_keys(schema, _FALSY_KEYS_TO_REMOVE)
 
     if obj_type == "array":
         return _streamline_array(schema, handle_ref, defs)
