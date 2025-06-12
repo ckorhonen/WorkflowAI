@@ -2339,3 +2339,17 @@ async def test_with_inlined_files_with_url(test_client: IntegrationTestClient):
             "image_url": {"url": "data:image/png;base64,helloi=="},
         },
     ]
+
+
+async def test_with_messages(test_client: IntegrationTestClient):
+    """There was an issue with a conflict with the use of a key named messages in the input schema
+    for non proxy agents"""
+    task = await test_client.create_task(
+        input_schema={
+            "type": "object",
+            "properties": {"messages": {"type": "string"}},
+        },
+    )
+    test_client.mock_openai_call()
+    run = await test_client.run_task_v1(task, task_input={"messages": "world"})
+    assert run

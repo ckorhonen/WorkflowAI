@@ -612,7 +612,7 @@ class WorkflowAIRunner(AbstractRunner[WorkflowAIRunnerOptions]):
         # If the input is a raw messages schema we have to extract the messages
         # and use. It would be nice to merge with the above call but it would break
         # the typeguard on the input object
-        if raw_messages := await self._extract_raw_messages(input):
+        if self.task.input_schema.uses_messages and (raw_messages := await self._extract_raw_messages(input)):
             return await self._inline_messages(
                 raw_messages,
                 provider,
