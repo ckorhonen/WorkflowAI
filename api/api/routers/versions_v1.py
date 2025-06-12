@@ -245,6 +245,9 @@ class MajorVersionProperties(BaseModel):
     instructions: str | None
     messages: list[Message] | None
     task_variant_id: str | None = Field(description="The id of the full schema, including versions and examples")
+    top_p: float | None
+    frequency_penalty: float | None
+    presence_penalty: float | None
 
     @classmethod
     def from_domain(cls, properties: VersionMajor.Properties):
@@ -253,6 +256,9 @@ class MajorVersionProperties(BaseModel):
             instructions=properties.instructions,
             messages=properties.messages,
             task_variant_id=properties.task_variant_id,
+            top_p=properties.top_p,
+            frequency_penalty=properties.frequency_penalty,
+            presence_penalty=properties.presence_penalty,
         )
 
 

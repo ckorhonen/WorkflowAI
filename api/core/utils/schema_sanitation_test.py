@@ -227,6 +227,13 @@ class TestStreamlineSchema:
         }
         assert streamline_schema(schema) == {"type": "object", "properties": {"field": {"type": "string"}}}
 
+    def test_empty_properties_are_removed(self):
+        schema: dict[str, Any] = {
+            "type": "object",
+            "properties": {"field": {"type": "object", "properties": {}}},
+        }
+        assert streamline_schema(schema) == {"type": "object", "properties": {"field": {"type": "object"}}}
+
     def test_streamlined_schemas_refs(self):
         schema1: dict[str, Any] = {
             "$defs": {
@@ -286,6 +293,11 @@ class TestStreamlineSchema:
                 SCHEMA_WITH_REQUIRED_AS_FIELD_NAME,
                 SCHEMA_WITH_REQUIRED_AS_FIELD_NAME_CLEANED,
                 id="required as field name",
+            ),
+            pytest.param(
+                {"properties": {}},
+                {"type": "object"},
+                id="empty properties",
             ),
         ],
     )
