@@ -12,11 +12,6 @@ This MCP server provides programmatic access to WorkflowAI's functionality, allo
 - View agent and statistics
 - View agent versions
 
-## Prerequisites
-
-- Python 3.12 or higher
-- Poetry (for dependency management)
-- Access to WorkflowAI API (requires API key)
 
 ## Connecting from Cursor
 
@@ -81,21 +76,13 @@ For production:
     // your other mcp servers here
   }
 }
+```
 
 1. Create (or edit) `~/.cursor/mcp.json` and paste the snippet above (replace the token if necessary).
 2. Restart Cursor or run **MCP: Reload Servers**.
 3. WorkflowAI tools will now appear in the command palette just like any other MCP server.
 
 > You no longer need to clone, install or run the MCP server locally—Cursor will proxy all calls to the URL provided.
-
-## TODO – WorkflowAI MCP v0.1 ([WOR-4911](https://linear.app/workflowai/issue/WOR-4911/workflowai-mcp-v01))
-
-- [ ] Replace the fixed API key with proper authentication.
-- [ ] Refactor tool implementations to call internal Python services directly instead of external HTTP endpoints.
-- [ ] Expose additional tools (e.g., **deploy_agent**) planned in the specs.
-- [ ] Improve test coverage: unit tests for every tool + LLM/tool-selection tests.
-- [ ] Review and merge the initial POC [PR #386](https://github.com/WorkflowAI/WorkflowAI/pull/386) and follow-up changes [PR #403](https://github.com/WorkflowAI/WorkflowAI/pull/403).
-- [ ] Update documentation (this file) whenever new tools or endpoints are added.
 
 ## Available Tools
 
@@ -110,6 +97,15 @@ The MCP server exposes 5 tools for working with WorkflowAI agents:
 For detailed parameters, descriptions, and usage examples, see:
 - **Router definitions**: [`api/api/routers/mcp/mcp_router.py`](api/api/routers/mcp/mcp_router.py)
 - **Service implementations**: [`api/api/services/mcp_service.py`](api/api/services/mcp_service.py)
+
+
+
+# What's next?
+
+- See https://linear.app/workflowai/issue/WOR-4911/workflowai-mcp-v01
+
+Notes from Yann: I wonder if I should not simply manage my subtasque in this README instead of linear.
+
 
 # Use cases from [docs](https://github.com/WorkflowAI/fumadocs-demo/blob/main/demo/my-app/content/docs/use-cases/mcp.mdx#ax-agent-experience)
 
