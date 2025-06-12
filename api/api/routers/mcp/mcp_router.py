@@ -124,32 +124,6 @@ async def ask_ai_engineer(
     )
 
 
-@router.post(
-    "/ai-engineer",
-    operation_id="get_ai_engineer_response",
-    description="""
-<when_to_use>
-Most user request about WorkflowAI must be processed by starting a conversation with the AI engineer agent to get insight about the WorkflowAI platform and the user's agents.
-</when_to_use>
-
-<returns>
-Returns a response from WorkflowAI's AI engineer (meta agent) to help improve your agent.
-</returns>
-Get a response from WorkflowAI's AI engineer (meta agent) to help improve your agent.
-""",
-)
-async def get_ai_engineer_response(
-    request: GetAIEngineerRequest,
-    mcp_service: MCPServiceDep,
-) -> MCPToolReturn:
-    """Get a response from WorkflowAI's AI engineer (meta agent) to help improve your agent."""
-    return await mcp_service.get_ai_engineer_response(
-        agent_schema_id=request.agent_schema_id,
-        agent_model_parameter=request.agent_model_parameter,
-        message=request.message,
-    )
-
-
 @router.get(
     "/models",
     operation_id="list_available_models",
