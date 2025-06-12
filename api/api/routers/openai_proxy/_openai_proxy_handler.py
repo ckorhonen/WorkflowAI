@@ -292,7 +292,7 @@ class OpenAIProxyHandler:
     ):
         if isinstance(final_input, Messages) or request_input_was_empty:
             # That can happen if the user passed a None input
-            if input_io.version == RawMessagesSchema.version:
+            if input_io.uses_raw_messages:
                 # Everything is ok here, we received messages with no input and expected no input
                 return
 
@@ -307,7 +307,7 @@ class OpenAIProxyHandler:
                 else BadRequestError("It seems that your messages expect templated variables but you did not send any.")
             )
 
-        if input_io.version == RawMessagesSchema.version and not request_input_was_empty:
+        if input_io.uses_raw_messages and not request_input_was_empty:
             raise (
                 BadRequestError(
                     f"You passed input variables to a deployment on schema #{agent_ref.schema_id} but schema "
