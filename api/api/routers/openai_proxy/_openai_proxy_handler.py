@@ -226,7 +226,8 @@ class OpenAIProxyHandler:
 
                 final_input = {
                     **final_input,
-                    INPUT_KEY_MESSAGES: messages.model_dump(mode="json", exclude_none=True)["messages"],
+                    # TODO: Pretty idiotic to dump here we should just build a StoredMessage instead
+                    INPUT_KEY_MESSAGES: messages.model_dump(mode="json", exclude_none=True)[INPUT_KEY_MESSAGES],
                 }
 
         return self.PreparedRun(properties=properties, variant=variant, final_input=final_input)

@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from enum import StrEnum, auto
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from core.domain.consts import INPUT_KEY_MESSAGES
 from core.domain.fields.file import File
@@ -87,6 +87,8 @@ class Messages(BaseModel):
         default_factory=list,
         alias=INPUT_KEY_MESSAGES,
     )
+
+    model_config = ConfigDict(serialize_by_alias=True)
 
     @classmethod
     def with_messages(cls, *messages: Message):
