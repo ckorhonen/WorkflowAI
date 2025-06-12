@@ -25,5 +25,5 @@ Rewrite to:
 However, including technical details for a specific feature directly in the documentation isn’t ideal. Creating a dedicated specification for each feature and storing both the specification and the corresponding documentation in a separate folder is a great approach.
 We should begin using the approach of writing documentation and a technical specification in parallel for each feature.”
 
-Returns only the rewritten text. Rewritten text is:
+Returns only the rewritten text without any other text.
 ```
