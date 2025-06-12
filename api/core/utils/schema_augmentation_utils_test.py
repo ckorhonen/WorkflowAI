@@ -18,7 +18,10 @@ class TestAddReasoningSteps:
             add_reasoning_steps_to_schema(output_schema)  # pyright: ignore[reportPrivateUsage]
 
         assert output_schema == {}
-        mock_logger.assert_called_once_with("Output schema has no properties, skipping schema addition")
+        mock_logger.assert_called_once_with(
+            "Output schema has no properties, skipping schema addition",
+            extra={"output_schema": {}},
+        )
 
     def test_add_reasoning_steps_to_object_schema(self):
         """Test adding reasoning steps to a non-object schema"""
@@ -153,7 +156,10 @@ class TestAddAgentRunResult:
             add_agent_run_result_to_schema(output_schema)  # pyright: ignore[reportPrivateUsage]
 
         assert output_schema == {}
-        mock_logger.assert_called_once_with("Output schema has no properties, skipping schema addition")
+        mock_logger.assert_called_once_with(
+            "Output schema has no properties, skipping schema addition",
+            extra={"output_schema": {}},
+        )
 
     def test_add_agent_run_result_when_already_present(self):
         """Test adding agent run result when it already exists in schema"""
