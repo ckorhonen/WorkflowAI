@@ -113,7 +113,7 @@ class FeedbackItem(BaseModel):
         )
 
 
-@router.get("/{tenant}/agents/{task_id}/runs/{run_id}/feedback", response_model_exclude_none=True)
+@router.get("/{tenant}/agents/{agent_id}/runs/{run_id}/feedback", response_model_exclude_none=True)
 async def list_run_feedback(
     task_tuple: TaskTupleDep,
     run_id: str,
@@ -130,7 +130,7 @@ async def list_run_feedback(
     )
 
 
-@router.get("/{tenant}/agents/{task_id}/feedback")
+@router.get("/{tenant}/agents/{agent_id}/feedback")
 async def list_task_feedback(
     task_tuple: TaskTupleDep,
     feedback_service: FeedbackServiceDep,

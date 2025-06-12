@@ -14,7 +14,7 @@ from api.services.internal_tasks.meta_agent_service import (
 )
 from core.utils.stream_response_utils import safe_streaming_response
 
-router = APIRouter(prefix="/agents/{task_id}/prompt-engineer-agent")
+router = APIRouter(prefix="/agents/{agent_id}/prompt-engineer-agent")
 
 
 class MetaAgentChatRequest(BaseModel):
