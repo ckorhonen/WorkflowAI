@@ -1,7 +1,7 @@
 # pyright: reportPrivateUsage=false
 import pytest
 
-from api.services.mcp_service import MCPService
+from api.routers.mcp.mcp_service import MCPService
 
 
 class TestMCPServiceExtractAgentIdAndRunId:

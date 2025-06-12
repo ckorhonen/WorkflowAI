@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from api.dependencies.services import MetaAgentServiceDep, ModelsServiceDep, RunsServiceDep, VersionsServiceDep
 from api.dependencies.storage import StorageDep
 from api.dependencies.task_info import TaskTupleDep
-from api.services.mcp_service import MCPService, MCPToolReturn
+from api.routers.mcp.mcp_service import MCPService, MCPToolReturn
 from api.tags import RouteTags
 
 router = APIRouter(prefix="/_mcp", tags=[RouteTags.MCP])
