@@ -445,6 +445,148 @@ class TestOpenAIProxyChatCompletionRequestExtractReferences:
         assert refs.schema_id == 123
         assert refs.environment == VersionEnvironment.PRODUCTION
 
+    def test_metadata_with_agent_id_only(self):
+        """Test when metadata contains only agent_id"""
+        payload = OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "messages": [{"role": "user", "content": "Hello, world!"}],
+                "model": "gpt-4o",
+                "metadata": {"agent_id": "metadata-agent"},
+            },
+        )
+        refs = payload.extract_references()
+        assert isinstance(refs, ModelRef)
+        assert refs.model == Model.GPT_4O_LATEST
+        assert refs.agent_id == "metadata-agent"
+
+    def test_metadata_with_environment_deployment(self):
+        """Test when metadata contains agent_id and environment in deployment format"""
+        payload = OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "messages": [{"role": "user", "content": "Hello, world!"}],
+                "model": "gpt-4o",
+                "metadata": {
+                    "agent_id": "metadata-agent",
+                    "environment": "#456/production",
+                },
+            },
+        )
+        refs = payload.extract_references()
+        assert isinstance(refs, EnvironmentRef)
+        assert refs.agent_id == "metadata-agent"
+        assert refs.schema_id == 456
+        assert refs.environment == VersionEnvironment.PRODUCTION
+
+    def test_metadata_with_environment_alias(self):
+        """Test when metadata contains environment with alias"""
+        payload = OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "messages": [{"role": "user", "content": "Hello, world!"}],
+                "model": "gpt-4o",
+                "metadata": {
+                    "agent_id": "metadata-agent",
+                    "environment": "#789/prod",
+                },
+            },
+        )
+        refs = payload.extract_references()
+        assert isinstance(refs, EnvironmentRef)
+        assert refs.agent_id == "metadata-agent"
+        assert refs.schema_id == 789
+        assert refs.environment == VersionEnvironment.PRODUCTION
+
+    def test_metadata_with_development_env(self):
+        """Test when metadata contains development environment"""
+        payload = OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "messages": [{"role": "user", "content": "Hello, world!"}],
+                "model": "gpt-4o",
+                "metadata": {
+                    "agent_id": "metadata-agent",
+                    "environment": "#101/development",
+                },
+            },
+        )
+        refs = payload.extract_references()
+        assert isinstance(refs, EnvironmentRef)
+        assert refs.agent_id == "metadata-agent"
+        assert refs.schema_id == 101
+        assert refs.environment == VersionEnvironment.DEV
+
+    def test_metadata_overrides_agent_id_from_model(self):
+        """Test that metadata agent_id overrides agent_id from model"""
+        payload = OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "messages": [{"role": "user", "content": "Hello, world!"}],
+                "model": "model-agent/gpt-4o",
+                "metadata": {"agent_id": "metadata-agent"},
+            },
+        )
+        refs = payload.extract_references()
+        assert isinstance(refs, ModelRef)
+        assert refs.model == Model.GPT_4O_LATEST
+        assert refs.agent_id == "metadata-agent"
+
+    def test_metadata_without_agent_id_returns_none(self):
+        """Test when metadata exists but has no agent_id"""
+        payload = OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "messages": [{"role": "user", "content": "Hello, world!"}],
+                "model": "gpt-4o",
+                "metadata": {"other_field": "value"},
+            },
+        )
+        refs = payload.extract_references()
+        assert isinstance(refs, ModelRef)
+        assert refs.model == Model.GPT_4O_LATEST
+        assert refs.agent_id is None
+
+    def test_metadata_invalid_environment_format(self):
+        """Test when metadata contains invalid environment format"""
+        payload = OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "messages": [{"role": "user", "content": "Hello, world!"}],
+                "model": "gpt-4o",
+                "metadata": {
+                    "agent_id": "metadata-agent",
+                    "environment": "invalid-format",
+                },
+            },
+        )
+        refs = payload.extract_references()
+        assert isinstance(refs, ModelRef)
+        assert refs.model == Model.GPT_4O_LATEST
+        assert refs.agent_id == "metadata-agent"
+
+    def test_metadata_with_body_agent_id_precedence(self):
+        """Test precedence when both body agent_id and metadata agent_id are provided"""
+        payload = OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "messages": [{"role": "user", "content": "Hello, world!"}],
+                "model": "gpt-4o",
+                "agent_id": "body-agent",
+                "metadata": {"agent_id": "metadata-agent"},
+            },
+        )
+        refs = payload.extract_references()
+        assert isinstance(refs, ModelRef)
+        assert refs.model == Model.GPT_4O_LATEST
+        # Body agent_id should take precedence over metadata agent_id
+        assert refs.agent_id == "body-agent"
+
+    def test_metadata_with_no_metadata(self):
+        """Test when no metadata is provided"""
+        payload = OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "messages": [{"role": "user", "content": "Hello, world!"}],
+                "model": "gpt-4o",
+            },
+        )
+        refs = payload.extract_references()
+        assert isinstance(refs, ModelRef)
+        assert refs.model == Model.GPT_4O_LATEST
+        assert refs.agent_id is None
+
 
 class TestOpenAIProxyChatCompletionRequestApplyTo:
     @pytest.fixture()
