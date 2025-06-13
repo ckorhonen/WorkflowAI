@@ -20,16 +20,20 @@ Each use case follows a consistent structure:
 use_cases/
 ├── ABOUT_MCP_USE_CASES.md          # This documentation
 └── [use_case_name]/
+    ├── SPECS.md                    # Raw requirements for the use case
     ├── initial_state.py            # Python starting code
     ├── initial_state.ts            # TypeScript starting code
     ├── initial_state.[lang]        # Additional language implementations
-    ├── GOAL.md                     # Command/transformation to execute
+    ├── GOAL.md                     # Exact command/transformation to send to Cursor / Windsurf / Claude Code / Codex
     └── EVALUATION.md               # Assertions and expected outcomes
 ```
 
 ## Integration Test Workflow
 
-### 1. **Initial State Setup**
+### 1. **Requirements Specification**
+The `SPECS.md` file contains the raw requirements and specifications from the product team that define what the use case should accomplish. This serves as the source of truth for the intended functionality and behavior.
+
+### 2. **Initial State Setup**
 Each use case defines initial code states in multiple programming languages:
 - `initial_state.py` - Python implementation
 - `initial_state.ts` - TypeScript implementation
@@ -37,17 +41,17 @@ Each use case defines initial code states in multiple programming languages:
 
 These files represent the **starting point** before any MCP operations are applied.
 
-### 2. **Goal Definition**
+### 3. **Goal Definition**
 The `GOAL.md` file contains:
 - The specific command or transformation to trigger in Cursor / Windsurf / Claude Code / Codex
 
-### 3. **Execution Phase**
+### 4. **Execution Phase**
 During testing, the system will:
 1. Load the appropriate initial state file for the target language
 2. Apply the command/transformation specified in `GOAL.md`
 3. Execute the resulting updated code
 
-### 4. **Evaluation & Assertions**
+### 5. **Evaluation & Assertions**
 The `EVALUATION.md` file defines:
 - Expected outcomes and behavior
 - Assertions to validate the transformation worked correctly
