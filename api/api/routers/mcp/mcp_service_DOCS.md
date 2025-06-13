@@ -11,6 +11,7 @@ This MCP server provides programmatic access to WorkflowAI's functionality, allo
 - Inspect agent runs and debug issues
 - View agent and statistics
 - View agent versions
+- create_completion(messages, ...) tool
 
 
 ## Connecting from Cursor
