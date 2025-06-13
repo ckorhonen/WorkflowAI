@@ -347,6 +347,7 @@ def _prepare_organization_payment_failure_emails(test_client: IntegrationTestCli
     )
 
 
+@patch.dict(os.environ, {"PAYMENT_FAILURE_EMAIL_ID": "1234", "LOW_CREDITS_EMAIL_ID": "12345"})
 async def test_automatic_payment_failure_with_retry(
     test_client: IntegrationTestClient,
     mock_stripe: Mock,
@@ -451,10 +452,12 @@ async def test_automatic_payment_failure_with_retry_single_user(
     test_client.httpx_mock.add_response(
         url=f"{CLERK_BASE_URL}/users/user_1234",
         json=fixtures_json("clerk/user.json"),
+        is_reusable=True,
     )
     test_client.httpx_mock.add_response(
         url=LOOPS_TRANSACTIONAL_URL,
         status_code=200,
+        is_reusable=True,
     )
 
     # Deplete credits which should trigger payments

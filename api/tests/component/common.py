@@ -806,6 +806,7 @@ class IntegrationTestClient:
         task_id: str,
         task_output: dict[str, Any],
         create_agent: bool = True,
+        is_reusable: bool = False,
     ):
         if create_agent:
             self.httpx_mock.add_response(
@@ -827,6 +828,7 @@ class IntegrationTestClient:
                 "version": {"properties": {"model": "gpt-4o-2024-11-20"}},
                 "task_output": task_output,
             },
+            is_reusable=is_reusable,
         )
 
     def mock_ai_review(
