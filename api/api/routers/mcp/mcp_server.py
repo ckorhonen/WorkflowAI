@@ -12,15 +12,19 @@ from api.services import file_storage, storage
 from api.services.analytics import analytics_service
 from api.services.event_handler import system_event_router, tenant_event_router
 from api.services.feedback_svc import FeedbackService
+from api.services.groups import GroupService
 from api.services.internal_tasks.internal_tasks_service import InternalTasksService
 from api.services.internal_tasks.meta_agent_service import MetaAgentService
 from api.services.models import ModelsService
 from api.services.providers_service import shared_provider_factory
 from api.services.reviews import ReviewsService
+from api.services.run import RunService
 from api.services.runs.runs_service import RunsService
 from api.services.security_service import SecurityService
+from api.services.task_deployments import TaskDeploymentsService
 from api.services.versions import VersionsService
 from core.domain.analytics_events.analytics_events import OrganizationProperties, UserProperties
+from core.domain.users import UserIdentifier
 
 _mcp = FastMCP("WorkflowAI 🚀")  # pyright: ignore [reportUnknownVariableType]
 
@@ -67,6 +71,29 @@ async def get_mcp_service():
         internal_tasks=internal_tasks,
         event_router=event_router,
     )
+
+    # Create GroupService and RunService for TaskDeploymentsService
+    user_identifier = UserIdentifier(user_id=None, user_email=None)  # System user for MCP operations
+    group_service = GroupService(
+        storage=_storage,
+        event_router=event_router,
+        analytics_service=analytics,
+        user=user_identifier,
+    )
+    run_service = RunService(
+        storage=_storage,
+        event_router=event_router,
+        analytics_service=analytics,
+        group_service=group_service,
+        user=user_identifier,
+    )
+    task_deployments_service = TaskDeploymentsService(
+        storage=_storage,
+        run_service=run_service,
+        group_service=group_service,
+        analytics_service=analytics,
+    )
+
     meta_agent_service = MetaAgentService(
         storage=_storage,
         event_router=event_router,
@@ -83,6 +110,7 @@ async def get_mcp_service():
         runs_service=runs_service,
         versions_service=versions_service,
         models_service=models_service,
+        task_deployments_service=task_deployments_service,
     )
 
 
@@ -339,6 +367,54 @@ async def ask_ai_engineer(request: AskAIEngineerRequest) -> MCPToolReturn:
         message=request.message,
         user_programming_language=request.user_programming_language,
         user_code_extract=request.user_code_extract,
+    )
+
+
+@_mcp.tool()
+async def deploy_agent_version(
+    agent_id: Annotated[str, "The id of the agent to deploy, e.g., 'email-filtering-agent'"],
+    version_id: Annotated[
+        str,
+        "The version ID to deploy (e.g., '1.0', '2.1', or a hash). This can be obtained from the agent versions list or from the version_id metadata in chat completion responses.",
+    ],
+    environment: Annotated[
+        str,
+        "The deployment environment. Must be one of: 'dev', 'staging', or 'production'",
+    ],
+) -> MCPToolReturn:
+    """<when_to_use>
+    When the user wants to deploy a specific version of their WorkflowAI agent to an environment (dev, staging, or production).
+
+    The version ID can be obtained by:
+    1. Asking the user which version they want to deploy
+    2. Using the get_agent_versions tool to list available versions
+    3. Checking the response payload from a chat completion endpoint which contains version_id metadata
+    </when_to_use>
+
+    <returns>
+    Returns deployment confirmation with:
+    - version_id: The deployed version ID
+    - task_schema_id: The schema ID of the deployed version
+    - environment: The deployment environment
+    - deployed_at: The deployment timestamp
+    - message: Success message
+    - migration_guide: Detailed instructions on how to update your code to use the deployed version, including:
+      - model_parameter: The exact model parameter to use in your code
+      - migration_instructions: Step-by-step examples for both scenarios (with and without input variables)
+      - important_notes: Key considerations for the migration
+    </returns>"""
+    service = await get_mcp_service()
+    task_tuple = await get_task_tuple_from_task_id(agent_id)
+
+    # Get user identifier for deployment tracking
+    # Since we already validated the token in get_mcp_service, we can create a basic user identifier
+    user_identifier = UserIdentifier(user_id=None, user_email=None)  # System user for MCP deployments
+
+    return await service.deploy_agent_version(
+        task_tuple=task_tuple,
+        version_id=version_id,
+        environment=environment,
+        deployed_by=user_identifier,
     )
 
 

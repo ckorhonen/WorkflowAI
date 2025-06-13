@@ -19,6 +19,7 @@ from core.domain.models.model_data import FinalModelData, LatestModel
 from core.domain.models.model_datas_mapping import MODEL_DATAS
 from core.domain.models.models import Model
 from core.domain.search_query import FieldQuery, SearchOperator
+from core.domain.version_environment import VersionEnvironment
 from core.storage import ObjectNotFoundException
 from core.storage.backend_storage import BackendStorage
 from core.utils.schemas import FieldType
@@ -48,12 +49,14 @@ class MCPService:
         runs_service: RunsService,
         versions_service: VersionsService,
         models_service: ModelsService,
+        task_deployments_service: Any,  # TaskDeploymentsService
     ):
         self.storage = storage
         self.meta_agent_service = meta_agent_service
         self.runs_service = runs_service
         self.versions_service = versions_service
         self.models_service = models_service
+        self.task_deployments_service = task_deployments_service
 
     async def list_available_models(self) -> MCPToolReturn:
         def _model_data_iterator() -> Iterator[StandardModelResponse.ModelItem]:
@@ -424,7 +427,95 @@ class MCPService:
             data="\n\n".join([message.content for message in last_messages]),
         )
 
-    async def search_runs_by_metadata(
+    async def deploy_agent_version(
+        self,
+        task_tuple: tuple[str, int],
+        version_id: str,
+        environment: str,
+        deployed_by: Any,  # UserIdentifier
+    ) -> MCPToolReturn:
+        """Deploy a specific version of an agent to an environment."""
+        try:
+            try:
+                env = VersionEnvironment(environment.lower())
+            except ValueError:
+                return MCPToolReturn(
+                    success=False,
+                    error=f"Invalid environment '{environment}'. Must be one of: dev, staging, production",
+                )
+
+            deployment = await self.task_deployments_service.deploy_version(
+                task_id=task_tuple,
+                task_schema_id=None,
+                version_id=version_id,
+                environment=env,
+                deployed_by=deployed_by,
+            )
+
+            # Build the model parameter for the migration guide
+            model_param = f"{task_tuple[0]}/#{deployment.schema_id}/{environment}"
+
+            # Create migration guide based on deployment documentation
+            migration_guide: dict[str, Any] = {
+                "model_parameter": model_param,
+                "migration_instructions": {
+                    "overview": "Update your code to point to the deployed version instead of hardcoded prompts",
+                    "with_input_variables": {
+                        "description": "If your prompt uses input variables (e.g., {email}, {context})",
+                        "before": {
+                            "model": f"{task_tuple[0]}/your-model-name",
+                            "messages": [{"role": "user", "content": "Your prompt with {variable}"}],
+                            "extra_body": {"input": {"variable": "value"}},
+                        },
+                        "after": {
+                            "model": model_param,
+                            "messages": [],  # Empty because prompt is stored in WorkflowAI
+                            "extra_body": {"input": {"variable": "value"}},
+                        },
+                    },
+                    "without_input_variables": {
+                        "description": "If your prompt doesn't use input variables (e.g., chatbots with system messages)",
+                        "before": {
+                            "model": f"{task_tuple[0]}/your-model-name",
+                            "messages": [
+                                {"role": "system", "content": "Your system instructions"},
+                                {"role": "user", "content": "user_message"},
+                            ],
+                        },
+                        "after": {
+                            "model": model_param,
+                            "messages": [
+                                {"role": "user", "content": "user_message"},
+                            ],  # System message now comes from the deployment
+                        },
+                    },
+                    "important_notes": [
+                        "The messages parameter is always required, even if empty",
+                        "Schema number defines the input/output contract",
+                        f"This deployment uses schema #{deployment.schema_id}",
+                        "Test thoroughly before deploying to production",
+                    ],
+                },
+            }
+
+            return MCPToolReturn(
+                success=True,
+                data={
+                    "version_id": deployment.version_id,
+                    "task_schema_id": deployment.schema_id,
+                    "environment": deployment.environment,
+                    "deployed_at": deployment.deployed_at.isoformat() if deployment.deployed_at else None,
+                    "message": f"Successfully deployed version {version_id} to {environment} environment",
+                    "migration_guide": migration_guide,
+                },
+            )
+        except Exception as e:
+            return MCPToolReturn(
+                success=False,
+                error=f"Failed to deploy version: {str(e)}",
+            )
+
+    async def search_runs_by_metadata(  # noqa: C901
         self,
         task_tuple: tuple[str, int],
         field_queries: list[dict[str, Any]],

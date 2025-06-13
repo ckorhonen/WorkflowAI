@@ -120,6 +120,8 @@ Notes from Yann: I wonder if I should not simply manage my subtasque in this REA
 - [X] Scenario 7: Fix User Bug When Agent Lacks Metadata Tracking
 *Notes from Yann: This is essentially solved by documenting the run metadata feature in the docs. We would need a little more details on how to fetch runs for a specific metadata, and to add potentially an MCP tool to fetch runs for a specific metadata.*
 - [X] Scenario 10: Ask WorkflowAI for Agent Improvement Recommendations
+  [X] Scenario 11: Setup Deployments on Existing Agent
+- [X] Scenario 12: Deploy Specific Agent Version
 
 ### WIP use cases:
 - [ ] Scenario 5: Edit Agent in Playground and Sync to IDE
@@ -135,12 +137,11 @@ Notes from Yann: I wonder if I should not simply manage my subtasque in this REA
 
 - [ ] Scenario 8: Evaluate New OpenAI Model Performance
 
+*Notes from Yann: should benchmarking be the realm of WorkflowAI cloud ? Having an UI for those things is very useful for the user*
+
 - [ ] Scenario 9: Get Latest Updates from WorkflowAI Platform
 
 *Notes from Yann: Doable, we'll just need to expose our release notes to the AI Engineer. Should release notes be included in the docs then ? Another options is to put the date at whic we release features in the feature's docs so the AI engineer can figure out what's old and what's new.*
-
-- [ ] Scenario 11: Setup Deployments on Existing Agent
-- [ ] Scenario 12: Deploy Specific Agent Version
 
 
 ## Scenario 1: Build Text Summarization Agent from Scratch
