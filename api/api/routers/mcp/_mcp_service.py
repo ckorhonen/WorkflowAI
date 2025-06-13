@@ -203,11 +203,11 @@ class MCPService:
             # Convert the run to a serializable format
             run_data = {
                 "id": run.id,
-                "task_id": run.task_id,
-                "task_schema_id": run.task_schema_id,
+                "agent_id": run.task_id,
+                "agent_schema_id": run.task_schema_id,
                 "status": run.status,
-                "task_input": run.task_input,
-                "task_output": run.task_output,
+                "agent_input": run.task_input,
+                "agent_output": run.task_output,
                 "duration_seconds": run.duration_seconds,
                 "cost_usd": run.cost_usd,
                 "created_at": run.created_at.isoformat() if run.created_at else None,
@@ -239,7 +239,7 @@ class MCPService:
                 error=f"Failed to fetch run details: {str(e)}",
             )
 
-    async def list_agents_with_stats(self, from_date: str = "") -> MCPToolReturn:
+    async def list_agents(self, from_date: str = "") -> MCPToolReturn:
         """List all agents with their statistics."""
         try:
             # Parse from_date or use default

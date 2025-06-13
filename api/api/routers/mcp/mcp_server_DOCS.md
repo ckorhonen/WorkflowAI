@@ -146,12 +146,14 @@ Notes from Yann: I wonder if I should not simply manage my subtasque in this REA
 ### Proposition for next use cases:
 - [ ] Add a new input variables (including with deployed agent)
 - [ ] Add a new output variable (including with deployed agent)
+- [ ] Migrate agent to stuctured output
 - [ ] Add a hosted tool capability
 - [ ] Add custom tool capability
 - [ ] Creating a workflow with multiple agents
 - [ ] Checking the last 10-100 runs and "vibe check" how the agent is doing.
 
 # TODOs
+- fill the ./use_cases/
 - Plug Slack to Cursor and ask to test #new-models on our agents
 - Try a model on a dataset (use case from Florian, talk to Anya)
 - migrate agent from SDK to proxy
