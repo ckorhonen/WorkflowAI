@@ -9,6 +9,7 @@ from core.domain.models.utils import get_model_data
 from core.providers.google.vertex_base_config import VertexBaseConfig
 from tests.component.common import (
     IntegrationTestClient,
+    vertex_url,
     vertex_url_matcher,
 )
 from tests.utils import request_json_body
@@ -46,7 +47,10 @@ async def test_vertex_global(test_client: IntegrationTestClient):
     task = await test_client.create_task()
 
     # Mock only one failed region at a time
-    test_client.mock_vertex_call(model=Model.GEMINI_2_5_FLASH_PREVIEW_0520, regions=["global"])
+    test_client.mock_vertex_call(
+        model=Model.GEMINI_2_5_FLASH_PREVIEW_0520,
+        url=vertex_url(Model.GEMINI_2_5_FLASH_PREVIEW_0520, region="global"),
+    )
     # provider = GoogleProvider()
     # assert provider.config.vertex_location == ["us-central1", "us-east4", "us-west1"]
     run = await test_client.run_task_v1(task, model=Model.GEMINI_2_5_FLASH_PREVIEW_0520)
