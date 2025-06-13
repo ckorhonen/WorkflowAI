@@ -155,6 +155,8 @@ Notes from Yann: I wonder if I should not simply manage my subtasque in this REA
 - Plug Slack to Cursor and ask to test #new-models on our agents
 - Try a model on a dataset (use case from Florian, talk to Anya)
 - migrate agent from SDK to proxy
+- mcp.tool to create an API key
+- return TODO list for the Cursor agent
 
 ## Scenario 1: Build Text Summarization Agent from Scratch
 

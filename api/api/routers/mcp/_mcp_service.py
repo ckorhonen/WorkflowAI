@@ -19,6 +19,7 @@ from core.domain.models.model_data import FinalModelData, LatestModel
 from core.domain.models.model_datas_mapping import MODEL_DATAS
 from core.domain.models.models import Model
 from core.domain.search_query import FieldQuery, SearchOperator
+from core.domain.users import UserIdentifier
 from core.domain.version_environment import VersionEnvironment
 from core.storage import ObjectNotFoundException
 from core.storage.backend_storage import BackendStorage
@@ -432,7 +433,7 @@ class MCPService:
         task_tuple: tuple[str, int],
         version_id: str,
         environment: str,
-        deployed_by: Any,  # UserIdentifier
+        deployed_by: UserIdentifier,
     ) -> MCPToolReturn:
         """Deploy a specific version of an agent to an environment."""
         try:
