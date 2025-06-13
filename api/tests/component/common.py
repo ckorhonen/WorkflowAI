@@ -571,7 +571,7 @@ async def create_organization_via_clerk(
                     "Authorization": "",
                     "svix-id": "msg_p5jXN8AQM9LWM0D4loKWxJek",
                     "svix-timestamp": f"{time.time()}",
-                    "svix-signature": "v1,/fIaJ/NmgVmJFQwJmEUI4ZI45BfTsMmENHHBha7/y4U=",
+                    "svix-signature": "v1,6K9hu/N3WmYci+BL3HFcB1pILyhtj5QkC/Ps1DFXCkY=",
                 },
             ),
         )
@@ -615,6 +615,15 @@ def vertex_url_matcher(model: str | Model, region: str | None = None, publisher:
     return re.compile(f"https://[^/]+{escape_1}[^/]+{escape_2}")
 
 
+def vertex_url(model: str | Model, region: str = "us-central1", publisher: str = "google", stream: bool = False):
+    path = "streamGenerateContent?alt=sse" if stream else "generateContent"
+    model = model.value if isinstance(model, Model) else model
+
+    region_prefix = "" if region == "global" else f"{region}-"
+
+    return f"https://{region_prefix}aiplatform.googleapis.com/v1/projects/worfklowai/locations/{region}/publishers/{publisher}/models/{model}:{path}"
+
+
 def mock_vertex_call(
     httpx_mock: HTTPXMock,
     json: dict[str, Any] | None = None,
@@ -626,6 +635,7 @@ def mock_vertex_call(
     url: str | re.Pattern[str] | None = None,
     status_code: int = 200,
     latency: float | None = None,
+    is_reusable: bool = False,
 ):
     response = json or {
         "candidates": [
@@ -654,7 +664,12 @@ def mock_vertex_call(
         _response,
         url=url
         or f"https://{region}-aiplatform.googleapis.com/v1/projects/worfklowai/locations/{region}/publishers/{publisher}/models/{model_str}:generateContent",
+        is_reusable=is_reusable,
     )
+
+
+def gemini_url(model: str, api_version: str = "v1beta"):
+    return f"https://generativelanguage.googleapis.com/{api_version}/models/{model}:generateContent?key={os.environ.get('GEMINI_API_KEY')}"
 
 
 def mock_gemini_call(
@@ -676,9 +691,8 @@ def mock_gemini_call(
     }
     model_str = model.value if isinstance(model, Model) else model
 
-    url = f"https://generativelanguage.googleapis.com/{api_version}/models/{model_str}:generateContent?key={os.environ.get('GEMINI_API_KEY')}"
     httpx_mock.add_response(
-        url=url,
+        url=gemini_url(model_str, api_version),
         json=response,
     )
 
@@ -794,6 +808,8 @@ class IntegrationTestClient:
         task_id: str,
         task_output: dict[str, Any],
         create_agent: bool = True,
+        is_reusable: bool = False,
+        is_optional: bool = False,
     ):
         if create_agent:
             self.httpx_mock.add_response(
@@ -815,6 +831,8 @@ class IntegrationTestClient:
                 "version": {"properties": {"model": "gpt-4o-2024-11-20"}},
                 "task_output": task_output,
             },
+            is_reusable=is_reusable,
+            is_optional=is_optional,
         )
 
     def mock_ai_review(
@@ -823,6 +841,7 @@ class IntegrationTestClient:
         confidence_score: float | None = None,
         positive_aspects: list[str] | None = None,
         negative_aspects: list[str] | None = None,
+        is_reusable: bool = False,
     ):
         self.mock_internal_task(
             "evaluate-output",
@@ -832,6 +851,7 @@ class IntegrationTestClient:
                 "positive_aspects": positive_aspects,
                 "negative_aspects": negative_aspects,
             },
+            is_reusable=is_reusable,
         )
 
     def mock_openai_call(
@@ -941,6 +961,7 @@ class IntegrationTestClient:
         url: str | re.Pattern[str] | None = None,
         status_code: int = 200,
         latency: float | None = None,
+        is_reusable: bool = False,
     ):
         if url:
             mock_vertex_call(
@@ -953,6 +974,7 @@ class IntegrationTestClient:
                 url=url,
                 status_code=status_code,
                 latency=latency,
+                is_reusable=is_reusable,
             )
             return
 
@@ -971,6 +993,7 @@ class IntegrationTestClient:
                 url,
                 status_code,
                 latency=latency,
+                is_reusable=is_reusable,
             )
 
     async def wait_for_completed_tasks(self):

@@ -122,7 +122,7 @@ class CustomerService:
     def __init__(self, storage: BackendStorage, user_service: UserService):
         self._storage = storage
         self._user_service = user_service
-        self._is_disabled = os.environ.get("CUSTOMER_SERVICE_DISABLED") != "true"
+        self._is_disabled = os.environ.get("CUSTOMER_SERVICE_DISABLED") == "true"
 
     @classmethod
     def _channel_name(cls, slug: str, uid: int):

@@ -776,11 +776,12 @@ async def test_with_n_value_of_1(test_client: IntegrationTestClient, openai_clie
 
 
 async def test_with_files_in_variables(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+    # TODO: figure out why the mock is not needed
     test_client.mock_openai_call(raw_content="Hello, world!")
-    test_client.httpx_mock.add_response(
-        url="https://blabla",
-        content=b"This is a test image",
-    )
+    # test_client.httpx_mock.add_response(
+    #     url="http://blabla",
+    #     content=b"This is a test image",
+    # )
 
     res = await openai_client.chat.completions.create(
         model="greeting/gpt-4o",
@@ -795,7 +796,7 @@ async def test_with_files_in_variables(test_client: IntegrationTestClient, opena
         ],
         extra_body={
             "input": {
-                "image_url": "https://blabla",
+                "image_url": "http://blabla",
             },
         },
     )
@@ -816,4 +817,4 @@ async def test_with_files_in_variables(test_client: IntegrationTestClient, opena
     req = test_client.httpx_mock.get_request(url="https://api.openai.com/v1/chat/completions")
     assert req
     body = json.loads(req.content)
-    assert body["messages"][0]["content"][1]["image_url"]["url"] == "https://blabla"
+    assert body["messages"][0]["content"][1]["image_url"]["url"] == "http://blabla"
