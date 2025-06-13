@@ -179,7 +179,7 @@ async def test_browser_text_success_firecrawl(httpx_mock: HTTPXMock) -> None:
     }
 
     httpx_mock.add_response(
-        url=re.compile(r"^https://app.scrapingbee.com.*"),
+        url=re.compile(r"^https://app\.scrapingbee\.com.*"),
         status_code=400,
     )
 
