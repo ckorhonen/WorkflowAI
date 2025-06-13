@@ -5,6 +5,7 @@ from fastmcp.server.dependencies import get_http_request
 from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException
 
+from api.dependencies.task_info import TaskTuple
 from api.routers.mcp._mcp_models import MCPToolReturn
 from api.routers.mcp._mcp_service import MCPService
 from api.services import file_storage, storage
@@ -85,6 +86,26 @@ async def get_mcp_service():
     )
 
 
+async def get_task_tuple_from_task_id(task_id: str) -> TaskTuple:
+    """Helper function to create TaskTuple from task_id for MCP tools that need it"""
+    request = get_http_request()
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+
+    _system_storage = storage.system_storage(storage.shared_encryption())
+    security_service = SecurityService(
+        _system_storage.organizations,
+        system_event_router(),
+        analytics_service(user_properties=None, organization_properties=None, task_properties=None),
+    )
+    tenant = await security_service.find_tenant(None, auth_header.split(" ")[1])
+    if not tenant:
+        raise HTTPException(status_code=401, detail="Invalid bearer token")
+
+    return (task_id, tenant.uid)
+
+
 @_mcp.tool()
 async def list_available_models() -> MCPToolReturn:
     """<when_to_use>
@@ -112,6 +133,55 @@ async def list_agents_with_stats(
     </returns>"""
     service = await get_mcp_service()
     return await service.list_agents_with_stats(from_date)
+
+
+@_mcp.tool()
+async def fetch_run_details(
+    agent_id: Annotated[
+        str | None,
+        "The id of the user's agent, example: 'email-filtering-agent'. Pass 'new' when the user wants to create a new agent.",
+    ] = None,
+    run_id: Annotated[
+        str | None,
+        "The id of the run to fetch details for",
+    ] = None,
+    run_url: Annotated[
+        str | None,
+        "The url of the run to fetch details for",
+    ] = None,
+) -> MCPToolReturn:
+    """<when_to_use>
+    When the user wants to investigate a specific run of a WorkflowAI agent, for debugging, improving the agent, fixing a problem on a specific use case, or any other reason.
+    You must either pass run_id + agent_id OR run_url.
+    </when_to_use>
+    <returns>
+    Returns the details of a specific run of a WorkflowAI agent.
+    </returns>"""
+    service = await get_mcp_service()
+    return await service.fetch_run_details(agent_id, run_id, run_url)
+
+
+@_mcp.tool()
+async def get_agent_versions(
+    task_id: Annotated[str, "The task ID of the agent"],
+    version_id: Annotated[
+        str | None,
+        "An optional version id, e-g 1.1. If not provided all versions are returned",
+    ] = None,
+) -> MCPToolReturn:
+    """<when_to_use>
+    When the user wants to retrieve details of versions of a WorkflowAI agent, or when they want to compare a specific version of an agent.
+    </when_to_use>
+    <returns>
+    Returns the details of one or more versions of a WorkflowAI agent.
+    </returns>"""
+    service = await get_mcp_service()
+    task_tuple = await get_task_tuple_from_task_id(task_id)
+
+    if version_id:
+        return await service.get_agent_version(task_tuple, version_id)
+
+    return await service.list_agent_versions(task_tuple)
 
 
 class AskAIEngineerRequest(BaseModel):
