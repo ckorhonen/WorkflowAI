@@ -208,12 +208,6 @@ if not _ONLY_RUN_ROUTES:
 
     app.include_router(main_router)
 
-    # Build MCP app and moun it
-    from fastapi_mcp import FastApiMCP
-
-    mcp = FastApiMCP(app, include_tags=[RouteTags.MCP])
-    mcp.mount()
-
 
 @app.exception_handler(ObjectNotFoundException)
 async def object_not_found_exception_handler(request: Request, exc: ObjectNotFoundException):

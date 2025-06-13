@@ -29,6 +29,7 @@ from core.domain.users import UserIdentifier
 _mcp = FastMCP("WorkflowAI 🚀")  # pyright: ignore [reportUnknownVariableType]
 
 
+# TODO: test auth
 async def get_mcp_service():
     request = get_http_request()
 
