@@ -86,6 +86,7 @@ async def test_pdf_conversion(test_client: IntegrationTestClient):
         url="http://hello.com/world.pdf",
         status_code=200,
         content=fixture_bytes("files/MSFT_SEC.pdf"),
+        is_reusable=True,
     )
 
     task_input = {

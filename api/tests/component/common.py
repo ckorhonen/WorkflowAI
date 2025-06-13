@@ -635,6 +635,7 @@ def mock_vertex_call(
     url: str | re.Pattern[str] | None = None,
     status_code: int = 200,
     latency: float | None = None,
+    is_reusable: bool = False,
 ):
     response = json or {
         "candidates": [
@@ -663,6 +664,7 @@ def mock_vertex_call(
         _response,
         url=url
         or f"https://{region}-aiplatform.googleapis.com/v1/projects/worfklowai/locations/{region}/publishers/{publisher}/models/{model_str}:generateContent",
+        is_reusable=is_reusable,
     )
 
 
@@ -807,6 +809,7 @@ class IntegrationTestClient:
         task_output: dict[str, Any],
         create_agent: bool = True,
         is_reusable: bool = False,
+        is_optional: bool = False,
     ):
         if create_agent:
             self.httpx_mock.add_response(
@@ -829,6 +832,7 @@ class IntegrationTestClient:
                 "task_output": task_output,
             },
             is_reusable=is_reusable,
+            is_optional=is_optional,
         )
 
     def mock_ai_review(
@@ -837,6 +841,7 @@ class IntegrationTestClient:
         confidence_score: float | None = None,
         positive_aspects: list[str] | None = None,
         negative_aspects: list[str] | None = None,
+        is_reusable: bool = False,
     ):
         self.mock_internal_task(
             "evaluate-output",
@@ -846,6 +851,7 @@ class IntegrationTestClient:
                 "positive_aspects": positive_aspects,
                 "negative_aspects": negative_aspects,
             },
+            is_reusable=is_reusable,
         )
 
     def mock_openai_call(
@@ -955,6 +961,7 @@ class IntegrationTestClient:
         url: str | re.Pattern[str] | None = None,
         status_code: int = 200,
         latency: float | None = None,
+        is_reusable: bool = False,
     ):
         if url:
             mock_vertex_call(
@@ -967,6 +974,7 @@ class IntegrationTestClient:
                 url=url,
                 status_code=status_code,
                 latency=latency,
+                is_reusable=is_reusable,
             )
             return
 
@@ -985,6 +993,7 @@ class IntegrationTestClient:
                 url,
                 status_code,
                 latency=latency,
+                is_reusable=is_reusable,
             )
 
     async def wait_for_completed_tasks(self):

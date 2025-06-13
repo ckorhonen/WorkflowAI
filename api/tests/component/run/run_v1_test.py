@@ -1093,7 +1093,8 @@ async def test_run_with_private_fields(
 
     file_url = "https://media3.giphy.com/media/giphy.png"
 
-    httpx_mock.add_response(url=file_url, content=b"1234")
+    # URL is never fetched
+    # httpx_mock.add_response(url=file_url, content=b"1234")
 
     run = await run_task_v1(
         int_api_client,
@@ -1370,6 +1371,8 @@ async def test_tool_call_recursion_streaming(test_client: IntegrationTestClient)
             },
         },
     )
+
+    test_client.mock_internal_task("detect-chain-of-thought", task_output={"should_use_chain_of_thought": False})
 
     # Create a version that includes a tool call
     version = await test_client.create_version(
@@ -2035,6 +2038,8 @@ async def test_with_raw_code_in_template(test_client: IntegrationTestClient):
     task = await test_client.create_task()
     test_client.mock_openai_call()
 
+    test_client.mock_internal_task("detect-chain-of-thought", task_output={"should_use_chain_of_thought": False})
+
     version = await test_client.create_version_v1(
         task,
         version_properties={
@@ -2378,6 +2383,7 @@ async def test_no_model_fallback_on_provider_internal_error_gemini(
         model=Model.GEMINI_1_5_PRO_002,
         status_code=google_status,  # Force an error
         url=vertex_url(Model.GEMINI_1_5_PRO_002.value),
+        is_reusable=True,
     )
 
     # Gemini will also return a 500
@@ -2385,6 +2391,7 @@ async def test_no_model_fallback_on_provider_internal_error_gemini(
         model=Model.GEMINI_1_5_PRO_002,
         status_code=google_status,  # Force an  error
         url=gemini_url(Model.GEMINI_1_5_PRO_002.value),
+        is_reusable=True,
     )
 
     # OpenAI will return a 200

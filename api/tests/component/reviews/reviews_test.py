@@ -65,7 +65,7 @@ async def test_reviews(test_client: IntegrationTestClient):
 async def test_extra_fields(test_client: IntegrationTestClient):
     task = await test_client.create_task()
 
-    test_client.httpx_mock.reset()
+    test_client.reset_httpx_mock()
     # First we create a run with some extra fields
     test_client.mock_openai_call(
         json_content={"greeting": "Hello James!", "internal_steps": ["bla"]},
@@ -73,7 +73,7 @@ async def test_extra_fields(test_client: IntegrationTestClient):
     run1 = await test_client.run_task_v1(task, use_cache="never")
     assert run1["task_output"] == {"greeting": "Hello James!", "internal_steps": ["bla"]}, "sanity"
 
-    test_client.httpx_mock.reset()
+    test_client.reset_httpx_mock()
     # Now same run but without other extra fields
     test_client.mock_openai_call(
         json_content={"greeting": "Hello James!"},
@@ -126,7 +126,7 @@ async def test_extra_fields(test_client: IntegrationTestClient):
     assert body["task_input"]["correct_outputs"] == ['{"greeting": "Hello James!"}']
 
     # Resetting the httpx mock
-    test_client.httpx_mock.reset()
+    test_client.reset_httpx_mock()
 
     # Finally make another run with an input / output that match above except with some extra fields
     test_client.mock_openai_call(
