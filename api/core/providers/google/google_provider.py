@@ -38,11 +38,11 @@ class GoogleProviderConfig(VertexBaseConfig):
 
 class GoogleProvider(GoogleProviderBase[GoogleProviderConfig]):
     def get_vertex_location(self, model: Model) -> str:
-        if model not in _MIXED_REGION_MODELS:
-            return self._config.vertex_location[0]
-
         if model in _GLOBAL_MODELS:
             return "global"
+
+        if model not in _MIXED_REGION_MODELS:
+            return self._config.vertex_location[0]
 
         return self._config.get_random_location(self._get_metadata, self._add_metadata)
 
