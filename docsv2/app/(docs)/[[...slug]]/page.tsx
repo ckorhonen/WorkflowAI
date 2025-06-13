@@ -7,6 +7,7 @@ import {
 } from 'fumadocs-ui/page';
 import { notFound } from 'next/navigation';
 import { createRelativeLink } from 'fumadocs-ui/mdx';
+import type { MDXComponents } from 'mdx/types';
 import { getMDXComponents } from '@/mdx-components';
 import { getLLMText } from '@/lib/get-llm-text';
 import { CopyMarkdownButton } from '@/components/copy-markdown-button';
@@ -43,7 +44,7 @@ export default async function Page(props: {
         <MDXContent
           components={getMDXComponents({
             // this allows you to link to other pages with relative file paths
-            a: createRelativeLink(source, page),
+            a: createRelativeLink(source, page) as MDXComponents['a'],
           })}
         />
       </DocsBody>

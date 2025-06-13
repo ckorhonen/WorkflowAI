@@ -9,7 +9,7 @@ const docsOptions: DocsLayoutProps = {
   tree: source.pageTree,
   sidebar: {
     tabs: {
-      transform: (option, node) => {
+      transform: (option) => {
         // Add custom icons based on the tab title
         const icons: Record<string, ReactNode> = {
           'Components': <FileText className="w-4 h-4" />,
