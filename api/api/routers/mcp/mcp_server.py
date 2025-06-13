@@ -21,7 +21,7 @@ from api.services.security_service import SecurityService
 from api.services.versions import VersionsService
 from core.domain.analytics_events.analytics_events import OrganizationProperties, UserProperties
 
-_mcp = FastMCP("WorkflowAI 🚀")  # pyright: ignore [reportUnknownVariableType]
+_mcp = FastMCP("WorkflowAI 🚀", stateless_http=True)  # pyright: ignore [reportUnknownVariableType]
 
 
 async def get_mcp_service():
