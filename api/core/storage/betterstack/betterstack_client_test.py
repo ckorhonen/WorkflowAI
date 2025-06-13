@@ -95,7 +95,7 @@ class TestSendMetrics:
 
     async def test_send_metrics_max_retry(self, betterstack_client: BetterStackClient, httpx_mock: HTTPXMock):
         httpx_mock.reset()
-        httpx_mock.add_exception(httpx.ConnectError("test"))
+        httpx_mock.add_exception(httpx.ConnectError("test"), is_reusable=True)
 
         with pytest.raises(httpx.ConnectError):
             await betterstack_client.send_metrics([], tags={"e": "test"})

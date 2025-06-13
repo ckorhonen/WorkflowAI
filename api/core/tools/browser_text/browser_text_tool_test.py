@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from pathlib import Path
 from unittest.mock import patch
 
@@ -176,6 +177,11 @@ async def test_browser_text_success_firecrawl(httpx_mock: HTTPXMock) -> None:
             "metadata": {"statusCode": 200},
         },
     }
+
+    httpx_mock.add_response(
+        url=re.compile(r"^https://app.scrapingbee.com.*"),
+        status_code=400,
+    )
 
     httpx_mock.add_response(
         method="POST",
