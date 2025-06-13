@@ -18,8 +18,6 @@ _MIXED_REGION_MODELS = {
     Model.GEMINI_1_5_FLASH_001,
     Model.GEMINI_1_5_PRO_001,
     Model.GEMINI_1_5_PRO_002,
-    Model.GEMINI_2_0_FLASH_001,
-    Model.GEMINI_2_0_FLASH_LITE_001,
 }
 
 _GLOBAL_MODELS = {
@@ -29,6 +27,8 @@ _GLOBAL_MODELS = {
     Model.GEMINI_2_5_PRO_PREVIEW_0605,
     Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417,
     Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0520,
+    Model.GEMINI_2_0_FLASH_001,
+    Model.GEMINI_2_0_FLASH_LITE_001,
 }
 
 
@@ -77,7 +77,9 @@ class GoogleProvider(GoogleProviderBase[GoogleProviderConfig]):
         model_str = self._model_url_str(model)
         publisher_str = PUBLISHER_OVERRIDES.get(model, "google")
 
-        return f"https://{location}-aiplatform.googleapis.com/v1/projects/{self._config.vertex_project}/locations/{location}/publishers/{publisher_str}/models/{model_str}:{suffix}"
+        location_prefix = "" if location == "global" else f"{location}-"
+
+        return f"https://{location_prefix}aiplatform.googleapis.com/v1/projects/{self._config.vertex_project}/locations/{location}/publishers/{publisher_str}/models/{model_str}:{suffix}"
 
     @override
     @classmethod

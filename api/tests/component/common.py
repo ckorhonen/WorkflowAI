@@ -617,7 +617,9 @@ def vertex_url(model: str | Model, region: str = "us-central1", publisher: str =
     path = "streamGenerateContent?alt=sse" if stream else "generateContent"
     model = model.value if isinstance(model, Model) else model
 
-    return f"https://{region}-aiplatform.googleapis.com/v1/projects/worfklowai/locations/{region}/publishers/{publisher}/models/{model}:{path}"
+    region_prefix = "" if region == "global" else f"{region}-"
+
+    return f"https://{region_prefix}aiplatform.googleapis.com/v1/projects/worfklowai/locations/{region}/publishers/{publisher}/models/{model}:{path}"
 
 
 def mock_vertex_call(
