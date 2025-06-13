@@ -5,6 +5,7 @@ from unittest.mock import Mock
 
 import pytest
 from fastapi import FastAPI, HTTPException
+from fastapi.routing import Mount
 from httpx import AsyncClient
 from starlette.routing import Route
 
@@ -70,13 +71,15 @@ def authenticated_routes(
     method_predicate = _include_methods(methods, exc_methods)
 
     for route in app.routes:
+        # TODO: test MCP routes auth
+        if isinstance(route, Mount) and (route.path.startswith("/_mcp") or route.path.startswith("/mcp")):
+            continue
+
         assert isinstance(route, Route)
         if not route.methods:
             continue
 
         if route.path in not_authenticated:
-            continue
-        if route.path.startswith("/_mcp") or route.path.startswith("/mcp"):
             continue
 
         if not route.path.startswith(prefix):
