@@ -16,7 +16,7 @@ async def test_review_benchmarks(test_client: IntegrationTestClient):
     task = await test_client.create_task()
 
     # First we create a run
-    test_client.mock_openai_call()
+    test_client.mock_openai_call(is_reusable=True)
     run1 = await test_client.run_task_v1(task)
 
     # Now we send a review
@@ -128,7 +128,7 @@ async def test_with_failed_runs(test_client: IntegrationTestClient):
     assert failed_run["group"]["iteration"] == 1, "sanity"
 
     # Create a new run that succeeds
-    test_client.mock_openai_call(model=Model.GPT_4O_2024_11_20)
+    test_client.mock_openai_call(model=Model.GPT_4O_2024_11_20, is_reusable=True)
     run1 = await test_client.run_task_v1(task, model=Model.GPT_4O_2024_11_20)
     successful_run = await test_client.fetch_run(task, run_id=run1["id"])
     assert successful_run["group"]["iteration"] == 2, "sanity"

@@ -642,7 +642,7 @@ async def test_internal_tools(test_client: IntegrationTestClient, openai_client:
 
     serper_request = test_client.httpx_mock.get_request(url="https://google.serper.dev/search")
     assert serper_request
-    assert serper_request.content == b'{"q": "bla"}'
+    assert json.loads(serper_request.content) == {"q": "bla"}
 
 
 @pytest.mark.parametrize("use_deployment", [True, False])
@@ -668,11 +668,11 @@ async def test_with_model_fallback_on_rate_limit(
         anthropic_message_count = 1
 
     # Anthropic and bedrock always return a 429 so we will proceed with model fallback
-    test_client.mock_anthropic_call(status_code=429)
-    test_client.mock_bedrock_call(model=Model.CLAUDE_3_5_SONNET_20241022, status_code=429)
+    test_client.mock_anthropic_call(status_code=429, is_reusable=True)
+    test_client.mock_bedrock_call(model=Model.CLAUDE_3_5_SONNET_20241022, status_code=429, is_reusable=True)
 
     # OpenAI returns a 200
-    test_client.mock_openai_call()
+    test_client.mock_openai_call(is_reusable=True)
 
     # Disable fallback -> we will raise
     with pytest.raises(RateLimitError):

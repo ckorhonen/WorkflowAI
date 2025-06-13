@@ -410,6 +410,7 @@ def mock_openai_call(
     model: str = "gpt-4o-2024-11-20",
     provider: Literal["openai", "azure_openai"] = "openai",
     raw_content: Any | None = -1,
+    is_reusable: bool = False,
 ):
     default_usage = {
         "prompt_tokens": 10,
@@ -434,6 +435,7 @@ def mock_openai_call(
     httpx_mock.add_response(
         url=url,
         status_code=status_code,
+        is_reusable=is_reusable,
         json=(
             json
             or {
@@ -801,6 +803,9 @@ class IntegrationTestClient:
                     "schema_id": 1,
                     "variant_id": "variant_id",
                 },
+                # This has to be optional, if running multiple tests in the same session
+                # the agent is not reset so the call is not made
+                is_optional=True,
             )
 
         self.httpx_mock.add_response(
@@ -841,6 +846,7 @@ class IntegrationTestClient:
         model: str | Model = "gpt-4o-2024-11-20",
         provider: Literal["openai", "azure_openai"] = "openai",
         raw_content: Any | None = -1,
+        is_reusable: bool = False,
     ):
         mock_openai_call(
             self.httpx_mock,
@@ -854,6 +860,7 @@ class IntegrationTestClient:
             model.value if isinstance(model, Model) else model,
             provider,
             raw_content,
+            is_reusable,
         )
 
     async def run_task_v1(
@@ -1193,10 +1200,12 @@ class IntegrationTestClient:
         raw_content: str | None = None,
         model: Model = Model.CLAUDE_3_5_SONNET_20241022,
         usage: dict[str, Any] | None = None,
+        is_reusable: bool = False,
     ):
         self.httpx_mock.add_response(
             url=self.ANTHROPIC_URL,
             status_code=status_code,
+            is_reusable=is_reusable,
             json={
                 "id": "msg_011FfbzF4F72Gc1rzSvvDCnR",
                 "type": "message",
@@ -1228,10 +1237,12 @@ class IntegrationTestClient:
         status_code: int = 200,
         body: dict[str, Any] | None = None,
         json_text: dict[str, Any] | None = None,
+        is_reusable: bool = False,
     ):
         self.httpx_mock.add_response(
             url=bedrock_endpoint(model),
             status_code=status_code,
+            is_reusable=is_reusable,
             json=body
             or {
                 "metrics": {
