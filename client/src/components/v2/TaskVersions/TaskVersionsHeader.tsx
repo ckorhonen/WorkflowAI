@@ -35,7 +35,7 @@ export function TaskVersionsHeader(props: TaskVersionsHeaderProps) {
       <div className='px-2 py-2.5 flex items-center gap-4 w-full border-b border-gray-100 font-lato text-gray-900 text-[13px] font-medium'>
         <div className={cn('flex items-center', SMALL_COLUMN_WIDTHS[ColumnName.Version])}>Version</div>
         <div className='flex-1 items-center'>Model</div>
-        <div className={cn('flex items-center', SMALL_COLUMN_WIDTHS[ColumnName.Price])}>Price</div>
+        <div className={cn('flex items-center', SMALL_COLUMN_WIDTHS[ColumnName.Price])}>Price (1k runs)</div>
       </div>
     );
   }
@@ -44,7 +44,7 @@ export function TaskVersionsHeader(props: TaskVersionsHeaderProps) {
     <div className='px-2 py-2.5 flex items-center gap-4 w-full border-b border-gray-100 font-lato text-gray-900 text-[13px] font-medium'>
       <div className={cn('flex items-center', COLUMN_WIDTHS[ColumnName.Version])}>Version</div>
       <div className={cn('flex items-center', COLUMN_WIDTHS[ColumnName.Model])}>Model</div>
-      <div className={cn('flex items-center', COLUMN_WIDTHS[ColumnName.Price])}>Price</div>
+      <div className={cn('flex items-center', COLUMN_WIDTHS[ColumnName.Price])}>Price (1k runs)</div>
       <div className={COLUMN_WIDTHS[ColumnName.Avatar]} />
       <div className='flex-1 items-center'>Preview</div>
       <div className={cn('flex items-center', COLUMN_WIDTHS[ColumnName.Temperature])}>Temperature</div>
