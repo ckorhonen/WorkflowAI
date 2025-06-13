@@ -143,6 +143,18 @@ Notes from Yann: I wonder if I should not simply manage my subtasque in this REA
 
 *Notes from Yann: Doable, we'll just need to expose our release notes to the AI Engineer. Should release notes be included in the docs then ? Another options is to put the date at whic we release features in the feature's docs so the AI engineer can figure out what's old and what's new.*
 
+### Proposition for next use cases:
+- [ ] Add a new input variables (including with deployed agent)
+- [ ] Add a new output variable (including with deployed agent)
+- [ ] Add a hosted tool capability
+- [ ] Add custom tool capability
+- [ ] Creating a workflow with multiple agents
+- [ ] Checking the last 10-100 runs and "vibe check" how the agent is doing.
+
+# TODOs
+- Plug Slack to Cursor and ask to test #new-models on our agents
+- Try a model on a dataset (use case from Florian, talk to Anya)
+- migrate agent from SDK to proxy
 
 ## Scenario 1: Build Text Summarization Agent from Scratch
 
