@@ -593,9 +593,9 @@ class MCPService:
                     user_review=run.user_review,
                     ai_review=run.ai_review,
                     error={
-                        "code": run.error.code,
-                        "message": run.error.message,
-                        "details": run.error.details,
+                        "code": getattr(run.error, "code", ""),
+                        "message": getattr(run.error, "message", ""),
+                        "details": getattr(run.error, "details", None),
                     }
                     if run.error
                     else None,
