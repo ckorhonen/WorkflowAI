@@ -585,6 +585,7 @@ async def test_run_schema_insufficient_credits(
             "prompt_tokens": 6 * tokens_for_one_dollar,
             "completion_tokens": 0,  # No completion tokens
         },
+        is_reusable=True,
     )
 
     # Create and run a task that consumes $6 worth of prompt tokens
@@ -640,6 +641,7 @@ async def test_run_public_task_with_different_tenant(
             "prompt_tokens": int(round(2 * 1 / 0.000_002_5)),  # prompt count for 2$ on GPT_4O_2024_11ß_20
             "completion_tokens": 0,  # No completion tokens
         },
+        is_reusable=True,
     )
 
     # No groups yet
@@ -1600,6 +1602,8 @@ You can also use the FAQ agent response if that is useful to your answer: "{{ fa
     assert completions[0]["messages"][0]["content"] == messages[0]["content"]
     assert completions[0]["messages"][1]["content"] == messages[1]["content"]
 
+    test_client.mock_openai_call()
+
     # Check with missing variables
     run = await test_client.run_task_v1(
         task,
@@ -1622,6 +1626,7 @@ async def test_fallback_on_unknown_provider(test_client: IntegrationTestClient):
     assert e.value.response.status_code == 400
     assert e.value.response.json()["error"]["code"] == "unknown_provider_error"
 
+    test_client.mock_openai_call(status_code=400, json={"error": {"message": "This should not happen"}})
     test_client.mock_openai_call(provider="azure_openai")
 
     res = await test_client.run_task_v1(task, model=Model.GPT_4O_2024_11_20)
@@ -1776,6 +1781,7 @@ class TestMultiProviderConfigs:
             url="https://api.fireworks.ai/inference/v1/chat/completions",
             method="POST",
             callback=_callback,
+            is_reusable=True,
         )
 
         for _ in range(10):
@@ -1818,6 +1824,7 @@ class TestMultiProviderConfigs:
             url="https://api.fireworks.ai/inference/v1/chat/completions",
             method="POST",
             callback=_callback,
+            is_reusable=True,
         )
 
         for _ in range(3):
@@ -1865,6 +1872,7 @@ class TestMultiProviderConfigs:
             url="https://api.anthropic.com/v1/messages",
             method="POST",
             callback=_callback,
+            is_reusable=True,
         )
 
         for _ in range(4):
@@ -2084,11 +2092,11 @@ async def test_with_model_fallback_on_rate_limit(test_client: IntegrationTestCli
         )
 
     # Anthropic and bedrock always return a 429 so we will proceed with model fallback
-    test_client.mock_anthropic_call(status_code=429)
-    test_client.mock_bedrock_call(model=Model.CLAUDE_3_5_SONNET_20241022, status_code=429)
+    test_client.mock_anthropic_call(status_code=429, is_reusable=True)
+    test_client.mock_bedrock_call(model=Model.CLAUDE_3_5_SONNET_20241022, status_code=429, is_reusable=True)
 
     # OpenAI returns a 200
-    test_client.mock_openai_call()
+    test_client.mock_openai_call(is_reusable=True)
 
     # Disable fallback -> we will raise
     with pytest.raises(HTTPStatusError) as e:
@@ -2141,10 +2149,11 @@ async def test_with_model_fallback_on_failed_generation(test_client: Integration
         # Not a JSON
         raw_content="hello",
         usage={"input_tokens": 10, "output_tokens": 10},
+        is_reusable=True,
     )
 
     # OpenAI returns a 200
-    test_client.mock_openai_call()
+    test_client.mock_openai_call(is_reusable=True)
 
     # Disable fallback -> we will raise the failed error
     with pytest.raises(HTTPStatusError) as e:
@@ -2291,7 +2300,7 @@ async def test_with_inlined_files_with_url(test_client: IntegrationTestClient):
     )
 
     # Run the version
-    test_client.mock_openai_call()
+    test_client.mock_openai_call(is_reusable=True)
 
     run = await test_client.run_task_v1(
         task,
