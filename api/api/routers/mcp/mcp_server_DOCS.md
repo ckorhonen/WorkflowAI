@@ -144,6 +144,7 @@ Notes from Yann: I wonder if I should not simply manage my subtasque in this REA
 *Notes from Yann: Doable, we'll just need to expose our release notes to the AI Engineer. Should release notes be included in the docs then ? Another options is to put the date at whic we release features in the feature's docs so the AI engineer can figure out what's old and what's new.*
 
 ### Proposition for next use cases:
+- [ ] Very large PDF payload that break agent, the MCP should be able to investigate https://workflowaihq.slack.com/archives/C075WQE2Y6M/p1749826343497299
 - [ ] Add a new input variables (including with deployed agent)
 - [ ] Add a new output variable (including with deployed agent)
 - [ ] Migrate agent to stuctured output
