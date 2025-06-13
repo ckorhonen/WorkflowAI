@@ -615,6 +615,15 @@ def vertex_url_matcher(model: str | Model, region: str | None = None, publisher:
     return re.compile(f"https://[^/]+{escape_1}[^/]+{escape_2}")
 
 
+def vertex_url(model: str | Model, region: str = "us-central1", publisher: str = "google", stream: bool = False):
+    path = "streamGenerateContent?alt=sse" if stream else "generateContent"
+    model = model.value if isinstance(model, Model) else model
+
+    region_prefix = "" if region == "global" else f"{region}-"
+
+    return f"https://{region_prefix}aiplatform.googleapis.com/v1/projects/worfklowai/locations/{region}/publishers/{publisher}/models/{model}:{path}"
+
+
 def mock_vertex_call(
     httpx_mock: HTTPXMock,
     json: dict[str, Any] | None = None,
@@ -657,6 +666,10 @@ def mock_vertex_call(
     )
 
 
+def gemini_url(model: str, api_version: str = "v1beta"):
+    return f"https://generativelanguage.googleapis.com/{api_version}/models/{model}:generateContent?key={os.environ.get('GEMINI_API_KEY')}"
+
+
 def mock_gemini_call(
     httpx_mock: HTTPXMock,
     json: dict[str, Any] | None = None,
@@ -676,9 +689,8 @@ def mock_gemini_call(
     }
     model_str = model.value if isinstance(model, Model) else model
 
-    url = f"https://generativelanguage.googleapis.com/{api_version}/models/{model_str}:generateContent?key={os.environ.get('GEMINI_API_KEY')}"
     httpx_mock.add_response(
-        url=url,
+        url=gemini_url(model_str, api_version),
         json=response,
     )
 

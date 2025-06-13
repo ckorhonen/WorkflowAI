@@ -10,5 +10,5 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     ...TabsComponents,
     img: (props) => <ImageZoom {...(props as any)} />,
     ...components,
-  };
+  } as MDXComponents;
 }
