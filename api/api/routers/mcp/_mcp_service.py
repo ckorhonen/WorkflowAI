@@ -2,7 +2,7 @@ from collections.abc import Iterator
 from datetime import datetime, timedelta
 from typing import Any
 
-from api.main import StandardModelResponse
+from api._standard_model_response import StandardModelResponse
 from api.routers.mcp._mcp_models import MajorVersion, MCPToolReturn
 from api.services.documentation_service import DocumentationService
 from api.services.internal_tasks.meta_agent_service import MetaAgentChatMessage, PlaygroundState
