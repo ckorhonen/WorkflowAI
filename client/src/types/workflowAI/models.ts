@@ -755,6 +755,14 @@ export type ImprovePromptToolCall = {
   run_feedback_message: string;
 };
 
+export type ImproveVersionMessagesToolCall = {
+  tool_name?: string;
+  status?: 'assistant_proposed' | 'user_ignored' | 'completed' | 'failed';
+  tool_call_id?: string;
+  improvement_instructions: string;
+  auto_run?: boolean | null;
+};
+
 export type ImproveVersionRequest = {
   run_id?: string | null;
   variant_id?: string | null;
@@ -914,6 +922,7 @@ export type MetaAgentChatMessage = {
    */
   tool_call?:
     | ImprovePromptToolCall
+    | ImproveVersionMessagesToolCall
     | EditSchemaToolCall
     | RunCurrentAgentOnModelsToolCall
     | GenerateAgentInputToolCall
@@ -1807,7 +1816,15 @@ export type TaskGroupProperties_Output = {
    */
   model?: string | null;
   /**
+   * The icon of the model
+   */
+  model_icon?: string | null;
+  /**
    * The LLM provider used for the run
+   */
+  model_name?: string | null;
+  /**
+   * The provider of the model
    */
   provider?: string | null;
   /**
@@ -1816,6 +1833,10 @@ export type TaskGroupProperties_Output = {
   temperature?: number | null;
   /**
    * The instructions passed to the runner in order to generate the prompt.
+   */
+  top_p?: number | null;
+  /**
+   * The top p for generation
    */
   instructions?: string | null;
   /**

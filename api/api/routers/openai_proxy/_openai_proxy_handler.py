@@ -3,6 +3,7 @@ import logging
 from typing import Any, NamedTuple
 
 from fastapi import Request
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from api.services.feedback_svc import FeedbackTokenGenerator
 from api.services.groups import GroupService
@@ -11,7 +12,7 @@ from api.services.models import ModelsService
 from api.services.run import RunService
 from api.utils import get_start_time
 from core.domain.analytics_events.analytics_events import SourceType, TaskProperties
-from core.domain.consts import INPUT_KEY_MESSAGES, WORKFLOWAI_APP_URL
+from core.domain.consts import INPUT_KEY_MESSAGES, METADATA_KEY_DEPLOYMENT_ENVIRONMENT, WORKFLOWAI_APP_URL
 from core.domain.errors import BadRequestError
 from core.domain.events import EventRouter, ProxyAgentCreatedEvent
 from core.domain.message import Message, Messages
@@ -20,7 +21,7 @@ from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_io import RawJSONMessageSchema, RawMessagesSchema, RawStringMessageSchema, SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.tenant_data import PublicOrganizationData
-from core.domain.types import AgentOutput
+from core.domain.types import AgentOutput, CacheUsage
 from core.domain.version_reference import VersionReference
 from core.providers.base.provider_error import MissingModelError
 from core.storage import ObjectNotFoundException
@@ -57,8 +58,8 @@ class OpenAIProxyHandler:
         self._feedback_generator = feedback_generator
 
     @classmethod
-    def _raw_string_mapper(cls, output: Any) -> str:
-        return output
+    def _raw_string_mapper(cls, output: Any) -> str | None:
+        return output or None
 
     @classmethod
     def _output_json_mapper(cls, output: AgentOutput) -> str:
@@ -90,15 +91,18 @@ class OpenAIProxyHandler:
             streamline=True,
         ), last_templated_index
 
-    def _update_event_router(self, tenant_data: PublicOrganizationData, variant: SerializableTaskVariant):
+    def _update_task_properties(self, tenant_data: PublicOrganizationData, variant: SerializableTaskVariant):
         try:
-            self._event_router.task_properties = TaskProperties.build(  # pyright: ignore [reportAttributeAccessIssue]
+            properties = TaskProperties.build(
                 variant.task_id,
                 variant.task_schema_id,
                 tenant_data,
             )
+            self._event_router.task_properties = properties  # pyright: ignore [reportAttributeAccessIssue]
+            self._run_service.analytics_service.task_properties = properties  # pyright: ignore [reportAttributeAccessIssue]
+            self._group_service.analytics_service.task_properties = properties  # pyright: ignore[reportAttributeAccessIssue]
         except Exception:
-            _logger.exception("Could not set task properties for event router")
+            _logger.exception("Could not set task properties for event router, run service or group service")
 
     @classmethod
     def _build_variant(
@@ -201,7 +205,7 @@ class OpenAIProxyHandler:
             )
             variant, _ = self._build_variant(messages, agent_ref.agent_id, input, response_format)
             variant, _ = await self._storage.store_task_resource(variant)
-        self._update_event_router(tenant_data, variant)
+        self._update_task_properties(tenant_data, variant)
 
         if not properties.messages:
             # The version does not contain any messages so the input is the messages
@@ -222,7 +226,8 @@ class OpenAIProxyHandler:
 
                 final_input = {
                     **final_input,
-                    INPUT_KEY_MESSAGES: messages.model_dump(mode="json", exclude_none=True)["messages"],
+                    # TODO: Pretty idiotic to dump here we should just build a StoredMessage instead
+                    INPUT_KEY_MESSAGES: messages.model_dump(mode="json", exclude_none=True)[INPUT_KEY_MESSAGES],
                 }
 
         return self.PreparedRun(properties=properties, variant=variant, final_input=final_input)
@@ -242,7 +247,7 @@ class OpenAIProxyHandler:
             response_format=response_format,
         )
         variant, new_variant_created = await self._storage.store_task_resource(raw_variant)
-        self._update_event_router(tenant_data, variant)
+        self._update_task_properties(tenant_data, variant)
 
         if new_variant_created:
             self._event_router(
@@ -291,7 +296,7 @@ class OpenAIProxyHandler:
     ):
         if isinstance(final_input, Messages) or request_input_was_empty:
             # That can happen if the user passed a None input
-            if input_io.version == RawMessagesSchema.version:
+            if input_io.uses_raw_messages:
                 # Everything is ok here, we received messages with no input and expected no input
                 return
 
@@ -306,7 +311,7 @@ class OpenAIProxyHandler:
                 else BadRequestError("It seems that your messages expect templated variables but you did not send any.")
             )
 
-        if input_io.version == RawMessagesSchema.version and not request_input_was_empty:
+        if input_io.uses_raw_messages and not request_input_was_empty:
             raise (
                 BadRequestError(
                     f"You passed input variables to a deployment on schema #{agent_ref.schema_id} but schema "
@@ -320,10 +325,10 @@ class OpenAIProxyHandler:
                 )
             )
 
-        input_io.enforce(final_input)
+        input_io.enforce(final_input, files_as_strings=True)
 
     async def _prepare_run(self, body: OpenAIProxyChatCompletionRequest, tenant_data: PublicOrganizationData):
-        messages = Messages(messages=[m.to_domain() for m in body.messages])
+        messages = Messages.with_messages(*body.domain_messages())
 
         # First we need to locate the agent
         try:
@@ -339,6 +344,9 @@ class OpenAIProxyHandler:
                 input=body.input,
                 response_format=body.response_format,
             )
+            # Keep track the run was made from a deployment
+            # TODO: Adding to the body is not great. We should add metadata to the prepared run and even remove the 'full_metadata'
+            body.register_metadata({METADATA_KEY_DEPLOYMENT_ENVIRONMENT: agent_ref.environment})
         else:
             prepared_run = await self._prepare_for_model(
                 agent_ref=agent_ref,
@@ -390,31 +398,66 @@ class OpenAIProxyHandler:
             else self._output_json_mapper
         )
 
-        return await self._run_service.run(
+        builder = await self._run_service.prepare_builder(
             runner=runner,
             task_input=prepared_run.final_input,
             task_run_id=None,
-            cache=body.use_cache or "auto",
             metadata=body.full_metadata(request.headers),
-            trigger="user",
-            source=SourceType.PROXY,
-            serializer=OpenAIProxyChatCompletionResponse.serializer(
-                model=body.model,
-                deprecated_function=body.uses_deprecated_functions,
-                output_mapper=output_mapper,
-                feedback_generator=lambda run_id: self._feedback_generator.generate_token(
-                    prepared_run.variant.task_uid,
-                    prepared_run.variant.task_schema_id,
-                    run_id,
-                ),
-            ),
             start_time=get_start_time(request),
-            stream_serializer=OpenAIProxyChatCompletionChunk.stream_serializer(
+            is_different_version=False,
+            author_tenant=None,
+            private_fields=set(),
+            conversation_id=body.conversation_id,
+        )
+        cache: CacheUsage = body.use_cache or "auto"
+        trigger = "user"
+        source = SourceType.PROXY
+
+        def _feedback_generator(run_id: str) -> str:
+            return self._feedback_generator.generate_token(
+                prepared_run.variant.task_uid,
+                prepared_run.variant.task_schema_id,
+                run_id,
+            )
+
+        if not body.stream:
+            task_run = await self._run_service.run_from_builder(
+                builder=builder,
+                runner=runner,
+                cache=cache,
+                trigger=trigger,
+                source=source,
+                store_inline=False,
+            )
+            response_object = OpenAIProxyChatCompletionResponse.from_domain(
+                task_run,
+                output_mapper=output_mapper,
                 model=body.model,
                 deprecated_function=body.uses_deprecated_functions,
+                feedback_generator=_feedback_generator,
             )
-            if body.stream is True
-            else None,
+            return JSONResponse(content=response_object.model_dump(mode="json", exclude_none=True))
+
+        return StreamingResponse(
+            self._run_service.stream_run(
+                builder=builder,
+                runner=runner,
+                cache=cache,
+                trigger=trigger,
+                chunk_serializer=OpenAIProxyChatCompletionChunk.stream_serializer(
+                    agent_id=prepared_run.variant.task_id,
+                    model=body.model,
+                    deprecated_function=body.uses_deprecated_functions,
+                ),
+                serializer=OpenAIProxyChatCompletionChunk.serializer(
+                    model=body.model,
+                    deprecated_function=body.uses_deprecated_functions,
+                    output_mapper=output_mapper,
+                    feedback_generator=_feedback_generator,
+                ),
+                source=source,
+            ),
+            media_type="text/event-stream",
         )
 
     @classmethod

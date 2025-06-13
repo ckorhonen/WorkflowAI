@@ -39,7 +39,6 @@ from core.agents.meta_agent import PlaygroundState as PlaygroundStateDomain
 from core.domain.agent_run import AgentRun
 from core.domain.documentation_section import DocumentationSection
 from core.domain.events import MetaAgentChatMessagesSent
-from core.domain.integration.integration_domain import IntegrationKind
 from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_variant import SerializableTaskVariant
 from core.storage.backend_storage import BackendStorage
@@ -1235,49 +1234,415 @@ class TestMetaAgentService:
         """Verify that _remove_typescript_comments correctly strips TypeScript style block comments."""
         assert remove_ts_comments(content) == expected
 
-    @pytest.mark.parametrize(
-        "used_integration_kind, expected_result",
-        [
-            # Test with None input
-            (None, None),
-            # Test with empty string
-            ("", None),
-            # Test with valid IntegrationKind values
-            ("instructor-python", IntegrationKind.INSTRUCTOR_PYTHON),
-            ("openai-sdk-python", IntegrationKind.OPENAI_SDK_PYTHON),
-            ("openai-sdk-ts", IntegrationKind.OPENAI_SDK_TS),
-            # Test with invalid integration kind
-            ("INVALID_KIND", None),
-            ("random_string", None),
-            ("123", None),
-            # Test with whitespace
-            ("  ", None),
-            ("\t", None),
-            ("\n", None),
-            # Test with similar but incorrect values
-            ("instructor_python", None),  # underscore instead of dash
-            ("INSTRUCTOR-PYTHON", None),  # uppercase
-            ("instructor-Python", None),  # mixed case
-        ],
-    )
-    def test_valid_integration_kind_or_none(
-        self,
-        used_integration_kind: str | None,
-        expected_result: IntegrationKind | None,
-    ) -> None:
-        """Test the _valid_integration_kind_or_none static method with various inputs."""
-        result = MetaAgentService(
+    async def test_proxy_build_model_list_with_rankings(self) -> None:
+        """Test that _build_model_list correctly calculates quality_index_ranking and cost_ranking."""
+        # Create mock models with different quality indexes and costs
+        mock_model_1 = Mock()
+        mock_model_1.id = "model1"
+        mock_model_1.name = "Model 1"
+        mock_model_1.quality_index = 100  # Highest quality -> rank 1
+        mock_model_1.average_cost_per_run_usd = 0.002  # Higher cost -> rank 3
+        mock_model_1.context_window_tokens = 4000
+        mock_model_1.is_not_supported_reason = None
+        mock_model_1.is_default = True
+        mock_model_1.is_latest = False
+        mock_model_1.supports_structured_output = True
+
+        mock_model_2 = Mock()
+        mock_model_2.id = "model2"
+        mock_model_2.name = "Model 2"
+        mock_model_2.quality_index = 80  # Middle quality -> rank 2
+        mock_model_2.average_cost_per_run_usd = 0.001  # Lowest cost -> rank 1
+        mock_model_2.context_window_tokens = 8000
+        mock_model_2.is_not_supported_reason = None
+        mock_model_2.is_default = False
+        mock_model_2.is_latest = True
+        mock_model_2.supports_structured_output = False
+
+        mock_model_3 = Mock()
+        mock_model_3.id = "model3"
+        mock_model_3.name = "Model 3"
+        mock_model_3.quality_index = 60  # Lowest quality -> rank 3
+        mock_model_3.average_cost_per_run_usd = 0.0015  # Middle cost -> rank 2
+        mock_model_3.context_window_tokens = 2000
+        mock_model_3.is_not_supported_reason = None
+        mock_model_3.is_default = False
+        mock_model_3.is_latest = False
+        mock_model_3.supports_structured_output = True
+
+        mock_models = [mock_model_1, mock_model_2, mock_model_3]
+
+        # Create mock models service
+        mock_models_service = AsyncMock()
+        mock_models_service.models_for_task.return_value = mock_models
+
+        # Create service instance
+        service = MetaAgentService(
             storage=Mock(),
             event_router=Mock(),
             runs_service=Mock(),
-            versions_service=Mock(),
-            models_service=Mock(),
+            models_service=mock_models_service,
             feedback_service=Mock(),
+            versions_service=Mock(),
             reviews_service=Mock(),
-        )._valid_integration_kind_or_none(used_integration_kind)  # pyright: ignore[reportPrivateUsage]
+        )
 
-        if expected_result is None:
-            assert result is None
-        else:
-            assert result == expected_result
-            assert isinstance(result, IntegrationKind)
+        # Mock agent
+        mock_agent = Mock(spec=SerializableTaskVariant)
+
+        # Call the method
+        result = await service._proxy_build_model_list(  # pyright: ignore[reportPrivateUsage]
+            instructions="test instructions",
+            current_agent=mock_agent,
+        )
+
+        # Verify we get 3 models back
+        assert len(result) == 3
+
+        # Find each model in the result by id
+        result_by_id = {model.id: model for model in result}
+
+        # Verify quality rankings (higher quality_index = better rank = lower number)
+        assert result_by_id["model1"].quality_index_ranking == 1  # quality_index=100 -> rank 1
+        assert result_by_id["model2"].quality_index_ranking == 2  # quality_index=80 -> rank 2
+        assert result_by_id["model3"].quality_index_ranking == 3  # quality_index=60 -> rank 3
+
+        # Verify cost rankings (lower cost = better rank = lower number)
+        assert result_by_id["model2"].cost_ranking == 1  # cost=0.001 -> rank 1
+        assert result_by_id["model3"].cost_ranking == 2  # cost=0.0015 -> rank 2
+        assert result_by_id["model1"].cost_ranking == 3  # cost=0.002 -> rank 3
+
+        # Verify other fields are preserved
+        assert result_by_id["model1"].name == "Model 1"
+        assert result_by_id["model1"].quality_index == 100
+        assert result_by_id["model1"].estimate_cost_per_thousand_runs_usd == 2.0  # 0.002 * 1000
+        assert result_by_id["model1"].is_default is True
+
+        assert result_by_id["model2"].name == "Model 2"
+        assert result_by_id["model2"].quality_index == 80
+        assert result_by_id["model2"].estimate_cost_per_thousand_runs_usd == 1.0  # 0.001 * 1000
+        assert result_by_id["model2"].is_latest is True
+
+        # Verify models_service was called correctly
+        mock_models_service.models_for_task.assert_called_once_with(
+            mock_agent,
+            instructions="test instructions",
+            requires_tools=None,
+        )
+
+    async def test_proxy_build_model_list_with_none_costs(self) -> None:
+        """Test that _build_model_list handles models with no cost data correctly."""
+        # Create mock models where some have no cost data
+        mock_model_1 = Mock()
+        mock_model_1.id = "model1"
+        mock_model_1.name = "Model 1"
+        mock_model_1.quality_index = 100
+        mock_model_1.average_cost_per_run_usd = 0.001  # Has cost -> better rank
+        mock_model_1.context_window_tokens = 4000
+        mock_model_1.is_not_supported_reason = None
+        mock_model_1.is_default = True
+        mock_model_1.is_latest = False
+        mock_model_1.supports_structured_output = True
+
+        mock_model_2 = Mock()
+        mock_model_2.id = "model2"
+        mock_model_2.name = "Model 2"
+        mock_model_2.quality_index = 80
+        mock_model_2.average_cost_per_run_usd = None  # No cost data -> worse rank
+        mock_model_2.context_window_tokens = 8000
+        mock_model_2.is_not_supported_reason = None
+        mock_model_2.is_default = False
+        mock_model_2.is_latest = True
+        mock_model_2.supports_structured_output = False
+
+        mock_models = [mock_model_1, mock_model_2]
+
+        # Create mock models service
+        mock_models_service = AsyncMock()
+        mock_models_service.models_for_task.return_value = mock_models
+
+        # Create service instance
+        service = MetaAgentService(
+            storage=Mock(),
+            event_router=Mock(),
+            runs_service=Mock(),
+            models_service=mock_models_service,
+            feedback_service=Mock(),
+            versions_service=Mock(),
+            reviews_service=Mock(),
+        )
+
+        # Mock agent
+        mock_agent = Mock(spec=SerializableTaskVariant)
+
+        # Call the method
+        result = await service._proxy_build_model_list(  # pyright: ignore[reportPrivateUsage]
+            instructions=None,
+            current_agent=mock_agent,
+        )
+
+        # Verify we get 2 models back
+        assert len(result) == 2
+
+        # Find each model in the result by id
+        result_by_id = {model.id: model for model in result}
+
+        # Verify cost rankings (model with cost gets better rank)
+        assert result_by_id["model1"].cost_ranking == 1  # Has cost data -> rank 1
+        assert result_by_id["model2"].cost_ranking == 2  # No cost data -> rank 2
+
+        # Verify model2 has None for cost estimate
+        assert result_by_id["model2"].estimate_cost_per_thousand_runs_usd is None
+
+    async def test_proxy_build_model_list_with_zero_values(self) -> None:
+        """Test that _build_model_list handles zero values correctly."""
+        # Create mock models with zero values
+        mock_model_1 = Mock()
+        mock_model_1.id = "model1"
+        mock_model_1.name = "Model 1"
+        mock_model_1.quality_index = 0  # Zero quality
+        mock_model_1.average_cost_per_run_usd = 0.001  # Has cost
+        mock_model_1.context_window_tokens = 4000
+        mock_model_1.is_not_supported_reason = None
+        mock_model_1.is_default = True
+        mock_model_1.is_latest = False
+        mock_model_1.supports_structured_output = True
+
+        mock_model_2 = Mock()
+        mock_model_2.id = "model2"
+        mock_model_2.name = "Model 2"
+        mock_model_2.quality_index = 100  # High quality
+        mock_model_2.average_cost_per_run_usd = 0.0  # Zero cost
+        mock_model_2.context_window_tokens = 8000
+        mock_model_2.is_not_supported_reason = None
+        mock_model_2.is_default = False
+        mock_model_2.is_latest = True
+        mock_model_2.supports_structured_output = False
+
+        mock_model_3 = Mock()
+        mock_model_3.id = "model3"
+        mock_model_3.name = "Model 3"
+        mock_model_3.quality_index = 50  # Middle quality
+        mock_model_3.average_cost_per_run_usd = 0.002  # Higher cost
+        mock_model_3.context_window_tokens = 2000
+        mock_model_3.is_not_supported_reason = None
+        mock_model_3.is_default = False
+        mock_model_3.is_latest = False
+        mock_model_3.supports_structured_output = True
+
+        mock_models = [mock_model_1, mock_model_2, mock_model_3]
+
+        # Create mock models service
+        mock_models_service = AsyncMock()
+        mock_models_service.models_for_task.return_value = mock_models
+
+        # Create service instance
+        service = MetaAgentService(
+            storage=Mock(),
+            event_router=Mock(),
+            runs_service=Mock(),
+            models_service=mock_models_service,
+            feedback_service=Mock(),
+            versions_service=Mock(),
+            reviews_service=Mock(),
+        )
+
+        # Mock agent
+        mock_agent = Mock(spec=SerializableTaskVariant)
+
+        # Call the method
+        result = await service._proxy_build_model_list(  # pyright: ignore[reportPrivateUsage]
+            instructions="test instructions",
+            current_agent=mock_agent,
+        )
+
+        # Find each model in the result by id
+        result_by_id = {model.id: model for model in result}
+
+        # Verify quality rankings (model2 has highest quality -> rank 1, model3 -> rank 2, model1 with 0 -> rank 3)
+        assert result_by_id["model2"].quality_index_ranking == 1  # quality_index=100 -> rank 1
+        assert result_by_id["model3"].quality_index_ranking == 2  # quality_index=50 -> rank 2
+        assert result_by_id["model1"].quality_index_ranking == 3  # quality_index=0 -> rank 3
+
+        # Verify cost rankings (model2 has zero cost -> rank 1, others follow ascending order)
+        assert result_by_id["model2"].cost_ranking == 1  # cost=0.0 -> rank 1
+        assert result_by_id["model1"].cost_ranking == 2  # cost=0.001 -> rank 2
+        assert result_by_id["model3"].cost_ranking == 3  # cost=0.002 -> rank 3
+
+        # Verify zero cost is handled correctly
+        assert result_by_id["model2"].estimate_cost_per_thousand_runs_usd == 0.0
+
+    async def test_proxy_build_model_list_empty_list(self) -> None:
+        """Test that _build_model_list handles empty model list correctly."""
+        mock_models = []
+
+        # Create mock models service
+        mock_models_service = AsyncMock()
+        mock_models_service.models_for_task.return_value = mock_models
+
+        # Create service instance
+        service = MetaAgentService(
+            storage=Mock(),
+            event_router=Mock(),
+            runs_service=Mock(),
+            models_service=mock_models_service,
+            feedback_service=Mock(),
+            versions_service=Mock(),
+            reviews_service=Mock(),
+        )
+
+        # Mock agent
+        mock_agent = Mock(spec=SerializableTaskVariant)
+
+        # Call the method
+        result = await service._build_model_list(  # pyright: ignore[reportPrivateUsage]
+            instructions=None,
+            current_agent=mock_agent,
+        )
+
+        # Verify empty result
+        assert result == []
+
+    async def test_proxy_build_model_list_identical_values(self) -> None:
+        """Test that _build_model_list handles identical quality indexes and costs correctly."""
+        # Create mock models with identical values
+        mock_model_1 = Mock()
+        mock_model_1.id = "model1"
+        mock_model_1.name = "Model 1"
+        mock_model_1.quality_index = 80  # Same quality
+        mock_model_1.average_cost_per_run_usd = 0.001  # Same cost
+        mock_model_1.context_window_tokens = 4000
+        mock_model_1.is_not_supported_reason = None
+        mock_model_1.is_default = True
+        mock_model_1.is_latest = False
+        mock_model_1.supports_structured_output = True
+
+        mock_model_2 = Mock()
+        mock_model_2.id = "model2"
+        mock_model_2.name = "Model 2"
+        mock_model_2.quality_index = 80  # Same quality
+        mock_model_2.average_cost_per_run_usd = 0.001  # Same cost
+        mock_model_2.context_window_tokens = 8000
+        mock_model_2.is_not_supported_reason = None
+        mock_model_2.is_default = False
+        mock_model_2.is_latest = True
+        mock_model_2.supports_structured_output = False
+
+        mock_model_3 = Mock()
+        mock_model_3.id = "model3"
+        mock_model_3.name = "Model 3"
+        mock_model_3.quality_index = 100  # Different quality
+        mock_model_3.average_cost_per_run_usd = 0.002  # Different cost
+        mock_model_3.context_window_tokens = 2000
+        mock_model_3.is_not_supported_reason = None
+        mock_model_3.is_default = False
+        mock_model_3.is_latest = False
+        mock_model_3.supports_structured_output = True
+
+        mock_models = [mock_model_1, mock_model_2, mock_model_3]
+
+        # Create mock models service
+        mock_models_service = AsyncMock()
+        mock_models_service.models_for_task.return_value = mock_models
+
+        # Create service instance
+        service = MetaAgentService(
+            storage=Mock(),
+            event_router=Mock(),
+            runs_service=Mock(),
+            models_service=mock_models_service,
+            feedback_service=Mock(),
+            versions_service=Mock(),
+            reviews_service=Mock(),
+        )
+
+        # Mock agent
+        mock_agent = Mock(spec=SerializableTaskVariant)
+
+        # Call the method
+        result = await service._proxy_build_model_list(  # pyright: ignore[reportPrivateUsage]
+            instructions="test instructions",
+            current_agent=mock_agent,
+        )
+
+        # Find each model in the result by id
+        result_by_id = {model.id: model for model in result}
+
+        # Verify quality rankings (model3 has highest -> rank 1, identical models get consecutive ranks)
+        assert result_by_id["model3"].quality_index_ranking == 1  # quality_index=100 -> rank 1
+        # Model1 and Model2 should get ranks 2 and 3 (order depends on original list order)
+        model1_rank = result_by_id["model1"].quality_index_ranking
+        model2_rank = result_by_id["model2"].quality_index_ranking
+        assert {model1_rank, model2_rank} == {2, 3}  # Should be 2 and 3 in some order
+
+        # Verify cost rankings (model3 has highest cost -> rank 3, identical models get ranks 1 and 2)
+        assert result_by_id["model3"].cost_ranking == 3  # cost=0.002 -> rank 3
+        model1_cost_rank = result_by_id["model1"].cost_ranking
+        model2_cost_rank = result_by_id["model2"].cost_ranking
+        assert {model1_cost_rank, model2_cost_rank} == {1, 2}  # Should be 1 and 2 in some order
+
+    async def test_proxy_build_model_list_mixed_none_and_zero(self) -> None:
+        """Test that _build_model_list handles mix of None and zero values correctly."""
+        # Create mock models with mix of None and zero values
+        mock_model_1 = Mock()
+        mock_model_1.id = "model1"
+        mock_model_1.name = "Model 1"
+        mock_model_1.quality_index = 0  # Zero quality
+        mock_model_1.average_cost_per_run_usd = None  # No cost data
+        mock_model_1.context_window_tokens = 4000
+        mock_model_1.is_not_supported_reason = None
+        mock_model_1.is_default = True
+        mock_model_1.is_latest = False
+        mock_model_1.supports_structured_output = True
+
+        mock_model_2 = Mock()
+        mock_model_2.id = "model2"
+        mock_model_2.name = "Model 2"
+        mock_model_2.quality_index = 100  # High quality
+        mock_model_2.average_cost_per_run_usd = 0.0  # Zero cost
+        mock_model_2.context_window_tokens = 8000
+        mock_model_2.is_not_supported_reason = None
+        mock_model_2.is_default = False
+        mock_model_2.is_latest = True
+        mock_model_2.supports_structured_output = False
+
+        mock_models = [mock_model_1, mock_model_2]
+
+        # Create mock models service
+        mock_models_service = AsyncMock()
+        mock_models_service.models_for_task.return_value = mock_models
+
+        # Create service instance
+        service = MetaAgentService(
+            storage=Mock(),
+            event_router=Mock(),
+            runs_service=Mock(),
+            models_service=mock_models_service,
+            feedback_service=Mock(),
+            versions_service=Mock(),
+            reviews_service=Mock(),
+        )
+
+        # Mock agent
+        mock_agent = Mock(spec=SerializableTaskVariant)
+
+        # Call the method
+        result = await service._proxy_build_model_list(  # pyright: ignore[reportPrivateUsage]
+            instructions=None,
+            current_agent=mock_agent,
+        )
+
+        # Find each model in the result by id
+        result_by_id = {model.id: model for model in result}
+
+        # Verify quality rankings
+        assert result_by_id["model2"].quality_index_ranking == 1  # quality_index=100 -> rank 1
+        assert result_by_id["model1"].quality_index_ranking == 2  # quality_index=0 -> rank 2
+
+        # Verify cost rankings (zero cost should rank better than None/inf cost)
+        assert result_by_id["model2"].cost_ranking == 1  # cost=0.0 -> rank 1
+        assert result_by_id["model1"].cost_ranking == 2  # cost=None -> rank 2
+
+        # Verify cost estimates
+        assert result_by_id["model2"].estimate_cost_per_thousand_runs_usd == 0.0  # 0.0 * 1000
+        assert result_by_id["model1"].estimate_cost_per_thousand_runs_usd is None  # None cost

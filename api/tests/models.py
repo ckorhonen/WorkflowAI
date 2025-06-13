@@ -17,7 +17,7 @@ from core.domain.task_group_properties import TaskGroupProperties
 from core.domain.task_io import SerializableTaskIO
 from core.domain.task_variant import SerializableTaskVariant
 from core.domain.tool import Tool
-from core.domain.tool_call import ToolCallRequestWithID
+from core.domain.tool_call import ToolCall, ToolCallRequestWithID
 from core.domain.types import AgentOutput
 from core.domain.users import UserIdentifier
 from core.domain.version_environment import VersionEnvironment
@@ -45,6 +45,7 @@ def task_run_ser(
     tool_call_requests: list[ToolCallRequestWithID] | None = None,
     task_uid: int | None = None,
     model: str | None = None,
+    id: str = "run_id",
     **kwargs: Any,
 ) -> AgentRun:
     if not group:
@@ -57,7 +58,7 @@ def task_run_ser(
         group = task_group(group_id=group_id, **final_kwargs)
 
     base = AgentRun(
-        id="run_id",
+        id=id,
         task_uid=task_uid or 0,
         task_id=task.task_id if task else task_id,
         task_schema_id=task.task_schema_id if task else task_schema_id,
@@ -303,4 +304,21 @@ def tool(**kwargs: Any) -> Tool:
         description="tool_description",
         input_schema={"type": "object"},
         output_schema={"type": "object"},
+    ).model_copy(update=kwargs)
+
+
+def tool_call_request(**kwargs: Any) -> ToolCallRequestWithID:
+    return ToolCallRequestWithID(
+        id="tool_call_request_id",
+        tool_name="tool_name",
+        tool_input_dict={"arg": "value"},
+    ).model_copy(update=kwargs)
+
+
+def tool_call(**kwargs: Any) -> ToolCall:
+    return ToolCall(
+        id="tool_call_id",
+        tool_name="tool_name",
+        tool_input_dict={"arg": "value"},
+        result={"arg": "value"},
     ).model_copy(update=kwargs)

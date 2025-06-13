@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta
 from typing import Annotated, Any, Self
 
@@ -11,6 +12,7 @@ from api.dependencies.services import (
     GroupServiceDep,
     InternalTasksServiceDep,
     ModelsServiceDep,
+    RunsServiceDep,
     TaskDeploymentsServiceDep,
     VersionsServiceDep,
 )
@@ -19,7 +21,10 @@ from api.dependencies.task_info import TaskTupleDep
 from api.schemas.user_identifier import UserIdentifier
 from api.schemas.version_properties import FullVersionProperties, ShortVersionProperties
 from api.tags import RouteTags
+from core.agents.improve_version_messages_agent import ImproveVersionMessagesResponse
+from core.domain.agent_run import AgentRun
 from core.domain.changelogs import VersionChangelog
+from core.domain.errors import BadRequestError
 from core.domain.major_minor import MajorMinor
 from core.domain.message import Message
 from core.domain.models import Model
@@ -32,7 +37,10 @@ from core.domain.version_environment import VersionEnvironment
 from core.domain.version_major import VersionDeploymentMetadata as DVersionDeploymentMetadata
 from core.domain.version_major import VersionMajor
 from core.utils.fields import datetime_factory
+from core.utils.stream_response_utils import safe_streaming_response
 from core.utils.streams import format_model_for_sse
+
+_logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/{tenant}/agents/{task_id}", tags=[RouteTags.VERSIONS])
 
@@ -180,11 +188,66 @@ async def improve_prompt(
     return StreamingResponse(_stream(), media_type="text/event-stream")
 
 
+class ImproveVersionMessagesRequest(BaseModel):
+    run_id: str | None = None
+    overriden_messages: list[Message] | None = Field(
+        default=None,
+        description="The messages to use for the improvement (in case the user has overriden the messages in the UI). If not provided, the version messages will be used.",
+    )
+    improvement_instructions: str | None = None
+
+
+@router.post(
+    "/versions/{version_id}/messages/improve",
+    description="Improve version messages based on an optional run and improvement instructions",
+    responses={
+        200: {
+            "text/event-stream": {"schema": ImproveVersionMessagesResponse.model_json_schema()},
+        },
+    },
+)
+async def improve_version_messages(
+    version_id: str,
+    versions_service: VersionsServiceDep,
+    models_service: ModelsServiceDep,
+    runs_service: RunsServiceDep,
+    internal_tasks: InternalTasksServiceDep,
+    request: ImproveVersionMessagesRequest,
+    task_id: TaskTupleDep,
+):
+    version = await versions_service.get_version(task_id, version_id, models_service)
+
+    if not request.overriden_messages and not version.group.properties.messages:
+        _logger.warning("Can not improve version message of a version without messages")
+        raise BadRequestError("Can not improve version message of a version without messages")
+
+    run: AgentRun | None = None
+    if request.run_id:
+        run = await runs_service.run_by_id(
+            task_id,
+            request.run_id,
+            include={"version_id", "task_input", "task_output", "llm_completions"},
+        )
+
+    async def _stream():
+        async for chunk in internal_tasks.improve_prompt.improve_version_messages(
+            version_messages=request.overriden_messages or version.group.properties.messages or [],
+            run=run,
+            improvement_instructions=request.improvement_instructions,
+        ):
+            yield chunk
+
+    return safe_streaming_response(_stream)
+
+
 class MajorVersionProperties(BaseModel):
     temperature: float
     instructions: str | None
     messages: list[Message] | None
     task_variant_id: str | None = Field(description="The id of the full schema, including versions and examples")
+    top_p: float | None
+    frequency_penalty: float | None
+    presence_penalty: float | None
 
     @classmethod
     def from_domain(cls, properties: VersionMajor.Properties):
@@ -193,6 +256,9 @@ class MajorVersionProperties(BaseModel):
             instructions=properties.instructions,
             messages=properties.messages,
             task_variant_id=properties.task_variant_id,
+            top_p=properties.top_p,
+            frequency_penalty=properties.frequency_penalty,
+            presence_penalty=properties.presence_penalty,
         )
 
 

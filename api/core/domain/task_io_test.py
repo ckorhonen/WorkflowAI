@@ -7,7 +7,7 @@ import pytest
 from core.domain.errors import JSONSchemaValidationError
 from tests.utils import fixtures_json
 
-from .task_io import RawJSONMessageSchema, RawStringMessageSchema, SerializableTaskIO
+from .task_io import RawJSONMessageSchema, RawMessagesSchema, RawStringMessageSchema, SerializableTaskIO
 
 
 @pytest.fixture
@@ -281,3 +281,205 @@ class TestRawJSONSchema:
     def test_enforce(self, obj: Any):
         # Check that we don't raise when returning a dict
         RawJSONMessageSchema.enforce(obj)
+
+
+class TestHasFiles:
+    def test_has_files_no_refs(self):
+        """Test has_files returns False when schema has no $refs"""
+        schema = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "age": {"type": "number"},
+            },
+        }
+        task_io = SerializableTaskIO.from_json_schema(schema)
+        assert not task_io.has_files
+
+    def test_has_files_empty_refs(self):
+        """Test has_files returns False when $refs is empty"""
+        schema = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+            },
+            "$defs": {},
+        }
+        task_io = SerializableTaskIO.from_json_schema(schema)
+        assert not task_io.has_files
+
+    def test_has_files_refs_without_file_types(self):
+        """Test has_files returns False when $refs exists but contains no file types"""
+        schema = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+            },
+            "$defs": {
+                "Person": {"type": "object"},
+                "Company": {"type": "object"},
+            },
+        }
+        task_io = SerializableTaskIO.from_json_schema(schema)
+        assert not task_io.has_files
+
+    @pytest.mark.parametrize("file_type", ["Image", "File", "Audio", "PDF"])
+    def test_has_files_single_file_type(self, file_type: str):
+        """Test has_files returns True when $refs contains a single file type"""
+        schema = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+            },
+            "$defs": {
+                file_type: {"type": "object"},
+            },
+        }
+        task_io = SerializableTaskIO.from_json_schema(schema)
+        assert task_io.has_files
+
+    def test_has_files_multiple_file_types(self):
+        """Test has_files returns True when $refs contains multiple file types"""
+        schema = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+            },
+            "$defs": {
+                "Image": {"type": "object"},
+                "File": {"type": "object"},
+                "Audio": {"type": "object"},
+                "PDF": {"type": "object"},
+            },
+        }
+        task_io = SerializableTaskIO.from_json_schema(schema)
+        assert task_io.has_files
+
+    def test_has_files_mixed_refs(self):
+        """Test has_files returns True when $refs contains both file types and other types"""
+        schema = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+            },
+            "$defs": {
+                "Person": {"type": "object"},
+                "Image": {"type": "object"},
+                "Company": {"type": "object"},
+            },
+        }
+        task_io = SerializableTaskIO.from_json_schema(schema)
+        assert task_io.has_files
+
+
+class TestEnforce:
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {"name": "https://example.com/file.pdf"},
+            {"name": {"url": "https://example.com/file.pdf"}},
+        ],
+    )
+    def test_files_as_strings(self, payload: dict[str, Any]):
+        task_io = SerializableTaskIO.from_json_schema(
+            {
+                "properties": {
+                    "name": {"$ref": "#/$defs/File"},
+                },
+            },
+            streamline=True,
+        )
+        assert task_io.has_files
+        task_io.enforce(payload, files_as_strings=True)
+
+    def test_files_as_string_raises(self):
+        task_io = SerializableTaskIO.from_json_schema(
+            {
+                "properties": {
+                    "name": {"$ref": "#/$defs/File"},
+                },
+            },
+            streamline=True,
+        )
+        with pytest.raises(JSONSchemaValidationError):
+            task_io.enforce(
+                {
+                    "name": "https://example.com/file.pdf",
+                },
+                files_as_strings=False,
+            )
+        task_io.enforce(
+            {
+                "name": {"url": "https://example.com/file.pdf"},
+            },
+            files_as_strings=False,
+        )
+
+
+class TestUsesMessages:
+    @pytest.mark.parametrize(
+        "json_schema",
+        [
+            pytest.param({"format": "messages"}, id="empty"),
+            pytest.param({"format": "messages", "properties": {"message": {"type": "string"}}}, id="with properties"),
+            pytest.param(
+                {"format": "messages", "type": "object", "properties": {"message": {"type": "string"}}},
+                id="with types",
+            ),
+        ],
+    )
+    def test_uses_messages_is_true(self, json_schema: dict[str, Any]):
+        task_io = SerializableTaskIO.from_json_schema(
+            json_schema,
+        )
+        assert task_io.uses_messages
+
+    @pytest.mark.parametrize(
+        "json_schema",
+        [
+            pytest.param({"format": "message"}, id="empty"),
+            pytest.param({"properties": {"messages": {"type": "array"}}}, id="messages properties"),
+        ],
+    )
+    def test_uses_messages_is_false(self, json_schema: dict[str, Any]):
+        task_io = SerializableTaskIO.from_json_schema(json_schema)
+        assert not task_io.uses_messages
+
+    def test_sanity_raw_messages(self):
+        assert RawMessagesSchema.uses_messages
+
+
+class TestUsesRawMessages:
+    @pytest.mark.parametrize(
+        "json_schema",
+        [
+            pytest.param({"format": "messages"}, id="format messages only"),
+            pytest.param({"format": "messages", "properties": {}}, id="format messages only"),
+            pytest.param({"format": "messages", "type": "object"}, id="format messages with type"),
+        ],
+    )
+    def test_uses_raw_messages_is_true(self, json_schema: dict[str, Any]):
+        task_io = SerializableTaskIO.from_json_schema(json_schema)
+        assert task_io.uses_raw_messages
+
+    @pytest.mark.parametrize(
+        "json_schema",
+        [
+            pytest.param(
+                {"format": "messages", "properties": {"message": {"type": "string"}}},
+                id="format messages with properties",
+            ),
+            pytest.param(
+                {"format": "messages", "type": "object", "properties": {"message": {"type": "string"}}},
+                id="format messages with type and properties",
+            ),
+            pytest.param({"format": "message"}, id="format message not messages"),
+            pytest.param({"properties": {"messages": {"type": "array"}}}, id="no format messages"),
+        ],
+    )
+    def test_uses_raw_messages_is_false(self, json_schema: dict[str, Any]):
+        task_io = SerializableTaskIO.from_json_schema(json_schema)
+        assert not task_io.uses_raw_messages
+
+    def test_sanity_raw_messages(self):
+        assert RawMessagesSchema.uses_raw_messages

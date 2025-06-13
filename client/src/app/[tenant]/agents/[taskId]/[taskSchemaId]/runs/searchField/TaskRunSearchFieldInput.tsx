@@ -44,6 +44,7 @@ export function TaskRunSearchFieldInput(props: TaskRunSearchFieldInputProps) {
         autoComplete='off'
         spellCheck={false}
         autoCapitalize='off'
+        data-1p-ignore
       />
       <div
         className={cx(

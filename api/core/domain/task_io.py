@@ -6,6 +6,7 @@ from jsonschema import ValidationError as SchemaValidationError
 from jsonschema.validators import validator_for  # pyright: ignore[reportUnknownVariableType]
 from pydantic import BaseModel, Field
 
+from core.domain.consts import FILE_DEFS
 from core.domain.errors import JSONSchemaValidationError
 from core.utils.hash import compute_obj_hash
 from core.utils.schema_sanitation import streamline_schema
@@ -24,12 +25,32 @@ class SerializableTaskIO(BaseModel):
 
     _optional_json_schema: dict[str, Any] | None = None
 
+    @classmethod
+    def _add_files_as_strings(cls, schema: dict[str, Any]) -> dict[str, Any]:
+        defs = schema.get("$defs")
+        if not defs:
+            return schema
+
+        def _add_string_type(key: str, schema: dict[str, Any]):
+            if key not in FILE_DEFS:
+                return schema
+            t = schema.get("type")
+            if t == "object":
+                t = ["object", "string"]
+            return {**schema, "type": t}
+
+        return {
+            **schema,
+            "$defs": {key: _add_string_type(key, value) for key, value in defs.items()},
+        }
+
     def enforce(
         self,
         obj: Any,
         partial: bool = False,
         strip_extras: bool = False,
         strip_opt_none_and_empty_strings: bool = False,
+        files_as_strings: bool = False,
     ) -> None:
         """Enforce validates that an object matches the schema. Object is updated in place."""
 
@@ -39,6 +60,8 @@ class SerializableTaskIO(BaseModel):
             schema = self._optional_json_schema
         else:
             schema = self.json_schema
+        if files_as_strings:
+            schema = self._add_files_as_strings(schema)
 
         navigators: list[JsonSchema.Navigator] = []
         if strip_opt_none_and_empty_strings:
@@ -95,8 +118,20 @@ class SerializableTaskIO(BaseModel):
         return self.json_schema.get("format") == "messages"
 
     @property
+    def has_files(self) -> bool:
+        refs = self.json_schema.get("$defs")
+        if not refs:
+            return False
+        keys = set(refs.keys())
+        return bool(keys.intersection(FILE_DEFS))
+
+    @property
     def is_structured_output_disabled(self) -> bool:
         return self.json_schema.get("format") == "message"
+
+    @property
+    def uses_raw_messages(self):
+        return self.uses_messages and not self.json_schema.get("properties")
 
 
 # Used to represent a list of messages as an input
