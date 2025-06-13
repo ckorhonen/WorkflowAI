@@ -45,7 +45,7 @@ _PUBLIC_ROUTES = {
 }
 
 
-def authenticated_routes(
+def authenticated_routes(  # noqa: C901
     prefix: str = "",
     methods: set[str] | None = None,
     exc_methods: set[str] | None = None,
@@ -80,8 +80,6 @@ def authenticated_routes(
             continue
 
         if route.path in not_authenticated:
-            continue
-        if route.path.startswith("/_mcp") or route.path.startswith("/mcp"):
             continue
 
         if not route.path.startswith(prefix):
