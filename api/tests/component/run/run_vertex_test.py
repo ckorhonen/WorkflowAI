@@ -11,7 +11,6 @@ from tests.component.common import (
     IntegrationTestClient,
     mock_gemini_call,
     vertex_url,
-    vertex_url_matcher,
 )
 from tests.utils import request_json_body
 
@@ -123,7 +122,7 @@ async def test_pdf_no_conversion(test_client: IntegrationTestClient):
     )
 
     test_client.mock_vertex_call(
-        url=vertex_url_matcher(Model.GEMINI_2_0_FLASH_001),
+        url=vertex_url(Model.GEMINI_2_0_FLASH_001, region="global"),
     )
     test_client.httpx_mock.add_response(
         url="https://hello.com/world.pdf",
@@ -139,7 +138,7 @@ async def test_pdf_no_conversion(test_client: IntegrationTestClient):
     res = await test_client.run_task_v1(task, model=Model.GEMINI_2_0_FLASH_001, task_input=task_input)
     assert res
 
-    call = test_client.httpx_mock.get_request(url=vertex_url_matcher(Model.GEMINI_2_0_FLASH_001))
+    call = test_client.httpx_mock.get_request(url=vertex_url(Model.GEMINI_2_0_FLASH_001, region="global"))
     assert call
     body = request_json_body(call)
     assert body["contents"] == [
