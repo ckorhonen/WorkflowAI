@@ -12,8 +12,8 @@ export enum ColumnName {
 export const COLUMN_WIDTHS = {
   [ColumnName.Version]: 'w-[80px]',
   [ColumnName.Model]: 'w-[200px]',
-  // widen to fit the "Price (1k runs)" label without wrapping
-  [ColumnName.Price]: 'w-[120px]',
+  // widen further so the "Price (1k runs)" label stays on one line
+  [ColumnName.Price]: 'w-[130px]',
   [ColumnName.Avatar]: 'w-[24px]',
   [ColumnName.Temperature]: 'w-[90px]',
   [ColumnName.Runs]: 'w-[45px]',
@@ -21,8 +21,8 @@ export const COLUMN_WIDTHS = {
 
 export const SMALL_COLUMN_WIDTHS = {
   [ColumnName.Version]: 'w-[60px]',
-  // widen to fit the "Price (1k runs)" label in small mode
-  [ColumnName.Price]: 'w-[80px]',
+  // match the wider label in small mode as well
+  [ColumnName.Price]: 'w-[110px]',
 };
 
 type TaskVersionsHeaderProps = {
