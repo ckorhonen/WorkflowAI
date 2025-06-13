@@ -429,7 +429,7 @@ class TestChainOfThought:
             {"title": "step title", "step": "step explaination"},
         ]
 
-        test_client.httpx_mock.reset(assert_all_responses_were_requested=False)
+        test_client.reset_httpx_mock(assert_all_responses_were_requested=False)
 
         # Re-run and trigger the cache
         cached_run = await test_client.run_task_v1(

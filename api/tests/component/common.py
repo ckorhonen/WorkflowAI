@@ -717,35 +717,35 @@ class IntegrationTestClient:
         for patcher in self._patches:
             patcher.stop()
 
+    def _assert_all_responses_were_requested(self):
+        """Check that all httpx mock were requested"""
+        callbacks_not_executed = [
+            matcher
+            for matcher, _ in self.httpx_mock._callbacks  # pyright: ignore[reportPrivateUsage]
+            if matcher.should_have_matched()
+        ]
+        matchers_description = "\n".join(
+            [f"- {matcher}" for matcher in callbacks_not_executed],
+        )
+        assert not callbacks_not_executed, (
+            "The following responses are mocked but not requested:\n"
+            f"{matchers_description}\n"
+            "\n"
+            "If this is on purpose, refer to https://github.com/Colin-b/pytest_httpx/blob/master/README.md#allow-to-register-more-responses-than-what-will-be-requested"
+        )
+
     def reset_httpx_mock(self, assert_all_responses_were_requested: bool = True):
-        _AMPLITUDE_URL = "https://amplitude-mock"
-        _BETTERSTACK_URL = "https://in.logs.betterstack.com/metrics"
-        # We are also skipping the agent creation request, depending on how it's imported we could have
-        # missing calls when running multiple tests at once.
-        _CREATE_AGENT_URL = "http://0.0.0.0:8000/v1/_/agents"
-        try:
-            self.httpx_mock.reset(assert_all_responses_were_requested=assert_all_responses_were_requested)
-        except AssertionError as e:
-            # As of now, httpx mock does not support excluding specific responses from the reset
-            # So we do this by hand
-            def _extract_missing_responses(e: AssertionError):
-                lines = str(e).splitlines()
-                assert "The following responses are mocked but not requested" in lines[0], "sanity"
-                assert "assert not" in lines[-1], "sanity"
-                return [
-                    line
-                    for line in lines[1:-1]
-                    if _AMPLITUDE_URL not in line and _BETTERSTACK_URL not in line and _CREATE_AGENT_URL not in line
-                ]
+        if assert_all_responses_were_requested:
+            self._assert_all_responses_were_requested()
+        self.httpx_mock.reset()
 
-            missing_responses = _extract_missing_responses(e)
-            if missing_responses:
-                raise AssertionError(
-                    f"The following responses are mocked but not requested:\n{'\n'.join(missing_responses)}",
-                )
-
-        self.httpx_mock.add_response(url="https://in.logs.betterstack.com/metrics", status_code=202)
-        self.httpx_mock.add_response(url="https://amplitude-mock", status_code=200)
+        self.httpx_mock.add_response(
+            url="https://in.logs.betterstack.com/metrics",
+            status_code=202,
+            is_optional=True,
+            is_reusable=True,
+        )
+        self.httpx_mock.add_response(url="https://amplitude-mock", status_code=200, is_optional=True, is_reusable=True)
 
     async def create_task(
         self,

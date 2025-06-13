@@ -698,6 +698,7 @@ class TestComplete:
         httpx_mock.add_response(
             url="https://api.openai.com/v1/chat/completions",
             json=fixtures_json("openai", "audio_refusal.json"),
+            is_reusable=True,
         )
 
         provider = OpenAIProvider()
