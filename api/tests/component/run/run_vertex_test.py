@@ -42,6 +42,17 @@ async def test_vertex_region_switch(
     assert run["metadata"]["workflowai.vertex_api_region"] == "us-east4"
 
 
+async def test_vertex_global(test_client: IntegrationTestClient):
+    task = await test_client.create_task()
+
+    # Mock only one failed region at a time
+    test_client.mock_vertex_call(model=Model.GEMINI_2_5_FLASH_PREVIEW_0520, regions=["global"])
+    # provider = GoogleProvider()
+    # assert provider.config.vertex_location == ["us-central1", "us-east4", "us-west1"]
+    run = await test_client.run_task_v1(task, model=Model.GEMINI_2_5_FLASH_PREVIEW_0520)
+    assert run
+
+
 async def test_vertex_prompt_feedback(test_client: IntegrationTestClient):
     """Sometimes vertex returns a 200 with prompt feedback with a usage. This is a
     content moderation error that should incur cost"""
