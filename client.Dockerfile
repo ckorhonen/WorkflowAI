@@ -19,10 +19,11 @@ FROM base AS deps
 WORKDIR /app
 COPY package.json yarn.lock .yarnrc.yml ./
 COPY client/package.json ./client/package.json
-# Only needed for the --immutable flag, TODO: there must be a way to focus on a single workspace
-COPY docsv2/package.json ./docsv2/package.json
 COPY ./.yarn/releases ./.yarn/releases/
-RUN yarn install --immutable
+RUN yarn workspaces focus workflowai
+# Can't have the immutable flag here since docsv2 workspace is not copied
+# We should be good since the immutable flag is in the client-quality.yml
+RUN yarn install
 
 
 FROM base AS sources
