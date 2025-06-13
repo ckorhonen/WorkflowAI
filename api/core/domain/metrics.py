@@ -32,9 +32,11 @@ class Metric(BaseModel):
 
 
 def send_counter(name: str, value: int = 1, **tags: int | str | float | bool | None):
+    # No need to catch exceptions here, add_background_task wraps coroutines in try/catch
     add_background_task(Metric(name=name, counter=value, tags={k: v for k, v in tags.items() if v is not None}).send())
 
 
+# TODO: switch to sync like send_counter
 async def send_gauge(name: str, value: float, timestamp: float | None = None, **tags: int | str | float | bool | None):
     try:
         await Metric(
