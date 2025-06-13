@@ -157,6 +157,8 @@ Notes from Yann: I wonder if I should not simply manage my subtasque in this REA
 - migrate agent from SDK to proxy
 - mcp.tool to create an API key
 - return TODO list for the Cursor agent
+- create_completion(messages, ...) tool
+
 
 ## Scenario 1: Build Text Summarization Agent from Scratch
 
