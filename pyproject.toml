@@ -95,7 +95,7 @@ httpx = "^0.28.1"
 motor = { extras = ["srv"], version = "^3.7.0" }
 pymongo = { extras = ["srv"], version = "^4.11.3" }
 urllib3 = "^2.2.2"
-openai = "^1.42.0"
+openai = "^1.86.0"
 pillow = "^10.4.0"
 pyyaml = "^6.0.1"
 pydantic-core = "^2.33.1"
