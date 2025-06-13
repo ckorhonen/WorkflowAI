@@ -571,7 +571,7 @@ async def create_organization_via_clerk(
                     "Authorization": "",
                     "svix-id": "msg_p5jXN8AQM9LWM0D4loKWxJek",
                     "svix-timestamp": f"{time.time()}",
-                    "svix-signature": "v1,/fIaJ/NmgVmJFQwJmEUI4ZI45BfTsMmENHHBha7/y4U=",
+                    "svix-signature": "v1,6K9hu/N3WmYci+BL3HFcB1pILyhtj5QkC/Ps1DFXCkY=",
                 },
             ),
         )

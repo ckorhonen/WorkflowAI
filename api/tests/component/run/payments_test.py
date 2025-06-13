@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 from collections.abc import Callable
 from typing import Any, Literal
 from unittest.mock import AsyncMock, Mock, patch
@@ -145,6 +146,7 @@ async def test_decrement_credits(test_client: IntegrationTestClient, mock_stripe
             "prompt_tokens": int(round(4 * 1 / 0.000_002_5)),  # prompt count for $4 on GPT_4O_2024_11_20
             "completion_tokens": 0,
         },
+        is_reusable=True,
     )
 
     # First run should succeed but consume all credits
@@ -422,6 +424,7 @@ async def test_automatic_payment_failure_with_retry(
     assert org["current_credits_usd"] == approx(10, abs=0.01)
 
 
+@patch.dict(os.environ, {"PAYMENT_FAILURE_EMAIL_ID": "1234", "LOW_CREDITS_EMAIL_ID": "12345"})
 async def test_automatic_payment_failure_with_retry_single_user(
     test_client: IntegrationTestClient,
     mock_stripe: Mock,
