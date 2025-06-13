@@ -9,6 +9,7 @@ from core.domain.models.utils import get_model_data
 from core.providers.google.vertex_base_config import VertexBaseConfig
 from tests.component.common import (
     IntegrationTestClient,
+    mock_gemini_call,
     vertex_url,
     vertex_url_matcher,
 )
@@ -51,7 +52,24 @@ async def test_vertex_global(test_client: IntegrationTestClient):
         model=Model.GEMINI_2_5_FLASH_PREVIEW_0520,
         url=vertex_url(Model.GEMINI_2_5_FLASH_PREVIEW_0520, region="global"),
     )
-    # provider = GoogleProvider()
+
+    run = await test_client.run_task_v1(task, model=Model.GEMINI_2_5_FLASH_PREVIEW_0520)
+    assert run
+
+
+async def test_vertex_invalid_response(test_client: IntegrationTestClient):
+    task = await test_client.create_task()
+
+    # Mock only one failed region at a time
+    test_client.mock_vertex_call(
+        model=Model.GEMINI_2_5_FLASH_PREVIEW_0520,
+        url=vertex_url(Model.GEMINI_2_5_FLASH_PREVIEW_0520, region="global"),
+        # parts have a missing name so the validation will fail
+        parts=[{"functionCall": {"args": {"url": "https://pastacaponi.it/"}}}],
+    )
+    # So we will fallback to gemin
+    mock_gemini_call(test_client.httpx_mock, model=Model.GEMINI_2_5_FLASH_PREVIEW_0520)
+
     # assert provider.config.vertex_location == ["us-central1", "us-east4", "us-west1"]
     run = await test_client.run_task_v1(task, model=Model.GEMINI_2_5_FLASH_PREVIEW_0520)
     assert run
