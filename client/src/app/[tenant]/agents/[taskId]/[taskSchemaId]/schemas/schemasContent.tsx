@@ -78,7 +78,7 @@ export function SchemasContent(props: SchemasContentProps) {
           className={cx('flex-1 bg-gradient-to-b from-white/60 to-white/0')}
         >
           <div className='flex-1 flex flex-col overflow-hidden h-full'>
-            <SchemasContentHeader title='Input' />
+            <SchemasContentHeader title='Input Variables' />
             <ObjectViewer
               textColor='text-gray-500'
               value={undefined}
@@ -91,7 +91,7 @@ export function SchemasContent(props: SchemasContentProps) {
           </div>
 
           <div className='h-full flex flex-col overflow-hidden border-l border-gray-200/70'>
-            <SchemasContentHeader title='Output' />
+            <SchemasContentHeader title='Output Format' />
             <TaskOutputViewer
               textColor='text-gray-500'
               value={undefined}
