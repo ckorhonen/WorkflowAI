@@ -115,16 +115,30 @@ Notes from Yann: I wonder if I should not simply manage my subtasque in this REA
 ### Supported use cases:
 - [x] Scenario 1: Build Text Summarization Agent from Scratch
 - [x] Scenario 2: Optimize Agent Performance with Faster Models
-- [x] Scenario 3: Migrate Agent from OpenAI to WorkflowAI (WIP)
+- [x] Scenario 3: Migrate Agent from OpenAI to WorkflowAI
 - [X] Scenario 4: Debug Agent Incorrect Output
+- [X] Scenario 7: Fix User Bug When Agent Lacks Metadata Tracking
+*Notes from Yann: This is essentially solved by documenting the run metadata feature in the docs. We would need a little more details on how to fetch runs for a specific metadata, and to add potentially an MCP tool to fetch runs for a specific metadata.*
+- [X] Scenario 10: Ask WorkflowAI for Agent Improvement Recommendations
 
 ### WIP use cases:
 - [ ] Scenario 5: Edit Agent in Playground and Sync to IDE
+
+*Notes from Yann: Should the goal be instead to make the user switch to deployments? I personally find this use case a little bit cumbersome.*
+
+*The user would update a version in the playground, then you would probably need to copy the version ID, pass it to Cursor. Cursor will need to fetch a version. Then Cursor will need to exactly copy the version message. If there is anything not exactly copied, like a line break or anything, a new version will be created when the agent will run*
+
+*I think this use case is better served by switching the user to deployment.*
+
 - [ ] Scenario 6: Investigate User's Bad Agent Experience
-- [ ] Scenario 7: Fix User Bug When Agent Lacks Metadata Tracking
+*Notes from Yann: WIP*
+
 - [ ] Scenario 8: Evaluate New OpenAI Model Performance
+
 - [ ] Scenario 9: Get Latest Updates from WorkflowAI Platform
-- [ ] Scenario 10: Ask WorkflowAI for Agent Improvement Recommendations
+
+*Notes from Yann: Doable, we'll just need to expose our release notes to the AI Engineer. Should release notes be included in the docs then ? Another options is to put the date at whic we release features in the feature's docs so the AI engineer can figure out what's old and what's new.*
+
 - [ ] Scenario 11: Setup Deployments on Existing Agent
 - [ ] Scenario 12: Deploy Specific Agent Version
 

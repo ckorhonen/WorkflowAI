@@ -2,6 +2,8 @@ from collections.abc import Iterator
 from datetime import datetime, timedelta
 from typing import Any
 
+from pydantic import BaseModel
+
 from api._standard_model_response import StandardModelResponse
 from api.routers.mcp._mcp_models import MajorVersion, MCPToolReturn
 from api.services.documentation_service import DocumentationService
@@ -9,14 +11,33 @@ from api.services.internal_tasks.meta_agent_service import MetaAgentChatMessage,
 from api.services.internal_tasks.meta_agent_service import MetaAgentService as MetaAgentServiceType
 from api.services.models import ModelsService
 from api.services.runs.runs_service import RunsService
+from api.services.runs_search import RunsSearchService
 from api.services.versions import VersionsService
+from core.domain.agent_run import AgentRunBase
 from core.domain.fields.chat_message import ChatMessage
 from core.domain.models.model_data import FinalModelData, LatestModel
 from core.domain.models.model_datas_mapping import MODEL_DATAS
 from core.domain.models.models import Model
+from core.domain.search_query import FieldQuery, SearchOperator
 from core.storage import ObjectNotFoundException
 from core.storage.backend_storage import BackendStorage
+from core.utils.schemas import FieldType
 from core.utils.url_utils import IGNORE_URL_END_TAG, IGNORE_URL_START_TAG
+
+
+class RunSearchResult(BaseModel):
+    """Model for run search results"""
+
+    id: str
+    task_id: str
+    task_schema_id: int
+    status: str
+    duration_seconds: float | None
+    cost_usd: float | None
+    created_at: str | None
+    user_review: str | None
+    ai_review: str | None
+    error: dict[str, Any] | None
 
 
 class MCPService:
@@ -347,17 +368,18 @@ class MCPService:
         agent_schema_id: int | None,
         agent_id: str | None,
         message: str,
-        user_programming_language: str,
+        user_programming_language: str | None,
         user_code_extract: str | None,
     ) -> MCPToolReturn:
         """Ask the AI Engineer a question (legacy endpoint)."""
 
-        user_message = f"""
-        {message}
+        user_message = message
 
-        The user is using the following programming language and integration:
-        {user_programming_language}
-        """
+        if user_programming_language:
+            user_message += f"""
+            The user is using the following programming language and integration:
+            {user_programming_language}
+            """
 
         if user_code_extract:
             user_message += f"""
@@ -401,3 +423,138 @@ class MCPService:
             success=True,
             data="\n\n".join([message.content for message in last_messages]),
         )
+
+    async def search_runs_by_metadata(
+        self,
+        task_tuple: tuple[str, int],
+        field_queries: list[dict[str, Any]],
+        limit: int,
+        offset: int,
+        include_full_data: bool = True,
+    ) -> MCPToolReturn:
+        """Search agent runs by metadata fields."""
+        try:
+            # Convert the field queries to the proper format
+            parsed_field_queries: list[FieldQuery] = []
+            for query_dict in field_queries:
+                try:
+                    # Validate required fields
+                    if "field_name" not in query_dict:
+                        return MCPToolReturn(
+                            success=False,
+                            error="Missing required field 'field_name' in field query",
+                        )
+
+                    if "operator" not in query_dict:
+                        return MCPToolReturn(
+                            success=False,
+                            error="Missing required field 'operator' in field query",
+                        )
+
+                    if "values" not in query_dict:
+                        return MCPToolReturn(
+                            success=False,
+                            error="Missing required field 'values' in field query",
+                        )
+
+                    # Parse the operator
+                    try:
+                        operator = SearchOperator(query_dict["operator"])
+                    except ValueError:
+                        return MCPToolReturn(
+                            success=False,
+                            error=f"Invalid operator: {query_dict['operator']}. Valid operators are: {', '.join([op.value for op in SearchOperator])}",
+                        )
+
+                    # Parse the field type if provided
+                    field_type: FieldType | None = None
+                    if "type" in query_dict and query_dict["type"]:
+                        field_type = query_dict["type"]
+
+                    parsed_field_queries.append(
+                        FieldQuery(
+                            field_name=query_dict["field_name"],
+                            operator=operator,
+                            values=query_dict["values"],
+                            type=field_type,
+                        ),
+                    )
+                except Exception as e:
+                    return MCPToolReturn(
+                        success=False,
+                        error=f"Error parsing field query: {str(e)}",
+                    )
+
+            # Use the runs search service to perform the search
+
+            search_service = RunsSearchService(self.storage)
+
+            # Search for runs using the parsed field queries
+            def run_mapper(run: AgentRunBase) -> RunSearchResult:
+                return RunSearchResult(
+                    id=run.id,
+                    task_id=run.task_id,
+                    task_schema_id=run.task_schema_id,
+                    status=run.status,
+                    duration_seconds=run.duration_seconds,
+                    cost_usd=run.cost_usd,
+                    created_at=run.created_at.isoformat() if run.created_at else None,
+                    user_review=run.user_review,
+                    ai_review=run.ai_review,
+                    error={
+                        "code": run.error.code,
+                        "message": run.error.message,
+                        "details": run.error.details,
+                    }
+                    if run.error
+                    else None,
+                )
+
+            page_result = await search_service.search_task_runs(
+                task_uid=task_tuple,
+                field_queries=parsed_field_queries,
+                limit=limit,
+                offset=offset,
+                map=run_mapper,
+            )
+
+            # If requested, fetch full run details for each result
+            # TODO: not optimal, we should fetch the full runs in the search service
+            items = page_result.items
+            if include_full_data:
+                full_runs: list[dict[str, Any]] = []
+                for run_summary in items:
+                    try:
+                        # Fetch the full AgentRun with task_input and task_output
+                        full_run = await self.runs_service.run_by_id(task_tuple, run_summary.id)
+                        full_run_data = {
+                            **run_summary.model_dump(),  # Convert RunSearchResult to dict
+                            "task_input": full_run.task_input,
+                            "task_output": full_run.task_output,
+                            "task_input_preview": full_run.task_input_preview,
+                            "task_output_preview": full_run.task_output_preview,
+                        }
+                        full_runs.append(full_run_data)
+                    except Exception:
+                        # If we can't fetch the full run, include what we have
+                        full_runs.append(run_summary.model_dump())
+                items = [item.model_dump() if isinstance(item, BaseModel) else item for item in full_runs]
+            else:
+                # Convert RunSearchResult objects to dicts
+                items = [item.model_dump() for item in items]
+
+            return MCPToolReturn(
+                success=True,
+                data={
+                    "items": items,
+                    "count": page_result.count,
+                    "limit": limit,
+                    "offset": offset,
+                },
+            )
+
+        except Exception as e:
+            return MCPToolReturn(
+                success=False,
+                error=f"Failed to search runs by metadata: {str(e)}",
+            )
