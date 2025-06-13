@@ -34,6 +34,7 @@ from tests.component.common import (
     create_version,
     extract_stream_chunks,
     fetch_run,
+    gemini_url,
     get_amplitude_events,
     list_groups,
     mock_openai_call,
@@ -43,6 +44,7 @@ from tests.component.common import (
     run_task_v1,
     stream_run_task_v1,
     task_schema_url,
+    vertex_url,
     wait_for_completed_tasks,
 )
 from tests.utils import approx, fixture_bytes, fixtures_json, request_json_body
@@ -2353,3 +2355,43 @@ async def test_with_messages(test_client: IntegrationTestClient):
     test_client.mock_openai_call()
     run = await test_client.run_task_v1(task, task_input={"messages": "world"})
     assert run
+
+
+@pytest.mark.parametrize("google_status", [500, 429])
+async def test_no_model_fallback_on_provider_internal_error_gemini(
+    test_client: IntegrationTestClient,
+    google_status: int,
+):
+    task = await test_client.create_task()
+
+    # Vertex is only configured on a single region here so we only need to mock one call
+    test_client.mock_vertex_call(
+        model=Model.GEMINI_1_5_PRO_002,
+        status_code=google_status,  # Force an error
+        url=vertex_url(Model.GEMINI_1_5_PRO_002.value),
+    )
+
+    # Gemini will also return a 500
+    test_client.mock_vertex_call(
+        model=Model.GEMINI_1_5_PRO_002,
+        status_code=google_status,  # Force an  error
+        url=gemini_url(Model.GEMINI_1_5_PRO_002.value),
+    )
+
+    # OpenAI will return a 200
+    test_client.mock_openai_call()
+
+    res = await test_client.run_task_v1(
+        task,
+        model=Model.GEMINI_1_5_PRO_002,
+        use_fallback=None,  # auto
+    )
+
+    assert res
+
+    vertex_reqs = test_client.httpx_mock.get_requests(url=vertex_url(Model.GEMINI_1_5_PRO_002.value))
+    gemini_reqs = test_client.httpx_mock.get_requests(url=gemini_url(Model.GEMINI_1_5_PRO_002.value))
+    openai_reqs = test_client.httpx_mock.get_requests(url=openai_endpoint())
+    assert len(vertex_reqs) >= 1
+    assert len(gemini_reqs) >= 1
+    assert len(openai_reqs) == 1

@@ -653,7 +653,7 @@ class AbstractProvider(ABC, Generic[ProviderConfigVar, ProviderRequestVar]):
             status = "workflowai_internal_error"
             raise e
         finally:
-            await send_counter(
+            send_counter(
                 "provider_inference",
                 model=model.value,
                 provider=self.name(),
