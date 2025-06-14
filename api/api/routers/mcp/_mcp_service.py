@@ -2,6 +2,8 @@ from collections.abc import Iterator
 from datetime import datetime, timedelta
 from typing import Any
 
+from pydantic import BaseModel
+
 from api._standard_model_response import StandardModelResponse
 from api.routers.mcp._mcp_models import MajorVersion, MCPToolReturn
 from api.services.documentation_service import DocumentationService
@@ -9,14 +11,35 @@ from api.services.internal_tasks.meta_agent_service import MetaAgentChatMessage,
 from api.services.internal_tasks.meta_agent_service import MetaAgentService as MetaAgentServiceType
 from api.services.models import ModelsService
 from api.services.runs.runs_service import RunsService
+from api.services.runs_search import RunsSearchService
 from api.services.versions import VersionsService
+from core.domain.agent_run import AgentRunBase
 from core.domain.fields.chat_message import ChatMessage
 from core.domain.models.model_data import FinalModelData, LatestModel
 from core.domain.models.model_datas_mapping import MODEL_DATAS
 from core.domain.models.models import Model
+from core.domain.search_query import FieldQuery, SearchOperator
+from core.domain.users import UserIdentifier
+from core.domain.version_environment import VersionEnvironment
 from core.storage import ObjectNotFoundException
 from core.storage.backend_storage import BackendStorage
+from core.utils.schemas import FieldType
 from core.utils.url_utils import IGNORE_URL_END_TAG, IGNORE_URL_START_TAG
+
+
+class RunSearchResult(BaseModel):
+    """Model for run search results"""
+
+    id: str
+    task_id: str
+    task_schema_id: int
+    status: str
+    duration_seconds: float | None
+    cost_usd: float | None
+    created_at: str | None
+    user_review: str | None
+    ai_review: str | None
+    error: dict[str, Any] | None
 
 
 class MCPService:
@@ -27,12 +50,14 @@ class MCPService:
         runs_service: RunsService,
         versions_service: VersionsService,
         models_service: ModelsService,
+        task_deployments_service: Any,  # TaskDeploymentsService
     ):
         self.storage = storage
         self.meta_agent_service = meta_agent_service
         self.runs_service = runs_service
         self.versions_service = versions_service
         self.models_service = models_service
+        self.task_deployments_service = task_deployments_service
 
     async def list_available_models(self) -> MCPToolReturn:
         def _model_data_iterator() -> Iterator[StandardModelResponse.ModelItem]:
@@ -178,11 +203,11 @@ class MCPService:
             # Convert the run to a serializable format
             run_data = {
                 "id": run.id,
-                "task_id": run.task_id,
-                "task_schema_id": run.task_schema_id,
+                "agent_id": run.task_id,
+                "agent_schema_id": run.task_schema_id,
                 "status": run.status,
-                "task_input": run.task_input,
-                "task_output": run.task_output,
+                "agent_input": run.task_input,
+                "agent_output": run.task_output,
                 "duration_seconds": run.duration_seconds,
                 "cost_usd": run.cost_usd,
                 "created_at": run.created_at.isoformat() if run.created_at else None,
@@ -214,7 +239,7 @@ class MCPService:
                 error=f"Failed to fetch run details: {str(e)}",
             )
 
-    async def list_agents_with_stats(self, from_date: str = "") -> MCPToolReturn:
+    async def list_agents(self, from_date: str = "") -> MCPToolReturn:
         """List all agents with their statistics."""
         try:
             # Parse from_date or use default
@@ -347,17 +372,18 @@ class MCPService:
         agent_schema_id: int | None,
         agent_id: str | None,
         message: str,
-        user_programming_language: str,
+        user_programming_language: str | None,
         user_code_extract: str | None,
     ) -> MCPToolReturn:
         """Ask the AI Engineer a question (legacy endpoint)."""
 
-        user_message = f"""
-        {message}
+        user_message = message
 
-        The user is using the following programming language and integration:
-        {user_programming_language}
-        """
+        if user_programming_language:
+            user_message += f"""
+            The user is using the following programming language and integration:
+            {user_programming_language}
+            """
 
         if user_code_extract:
             user_message += f"""
@@ -401,3 +427,226 @@ class MCPService:
             success=True,
             data="\n\n".join([message.content for message in last_messages]),
         )
+
+    async def deploy_agent_version(
+        self,
+        task_tuple: tuple[str, int],
+        version_id: str,
+        environment: str,
+        deployed_by: UserIdentifier,
+    ) -> MCPToolReturn:
+        """Deploy a specific version of an agent to an environment."""
+        try:
+            try:
+                env = VersionEnvironment(environment.lower())
+            except ValueError:
+                return MCPToolReturn(
+                    success=False,
+                    error=f"Invalid environment '{environment}'. Must be one of: dev, staging, production",
+                )
+
+            deployment = await self.task_deployments_service.deploy_version(
+                task_id=task_tuple,
+                task_schema_id=None,
+                version_id=version_id,
+                environment=env,
+                deployed_by=deployed_by,
+            )
+
+            # Build the model parameter for the migration guide
+            model_param = f"{task_tuple[0]}/#{deployment.schema_id}/{environment}"
+
+            # Create migration guide based on deployment documentation
+            migration_guide: dict[str, Any] = {
+                "model_parameter": model_param,
+                "migration_instructions": {
+                    "overview": "Update your code to point to the deployed version instead of hardcoded prompts",
+                    "with_input_variables": {
+                        "description": "If your prompt uses input variables (e.g., {email}, {context})",
+                        "before": {
+                            "model": f"{task_tuple[0]}/your-model-name",
+                            "messages": [{"role": "user", "content": "Your prompt with {variable}"}],
+                            "extra_body": {"input": {"variable": "value"}},
+                        },
+                        "after": {
+                            "model": model_param,
+                            "messages": [],  # Empty because prompt is stored in WorkflowAI
+                            "extra_body": {"input": {"variable": "value"}},
+                        },
+                    },
+                    "without_input_variables": {
+                        "description": "If your prompt doesn't use input variables (e.g., chatbots with system messages)",
+                        "before": {
+                            "model": f"{task_tuple[0]}/your-model-name",
+                            "messages": [
+                                {"role": "system", "content": "Your system instructions"},
+                                {"role": "user", "content": "user_message"},
+                            ],
+                        },
+                        "after": {
+                            "model": model_param,
+                            "messages": [
+                                {"role": "user", "content": "user_message"},
+                            ],  # System message now comes from the deployment
+                        },
+                    },
+                    "important_notes": [
+                        "The messages parameter is always required, even if empty",
+                        "Schema number defines the input/output contract",
+                        f"This deployment uses schema #{deployment.schema_id}",
+                        "Test thoroughly before deploying to production",
+                    ],
+                },
+            }
+
+            return MCPToolReturn(
+                success=True,
+                data={
+                    "version_id": deployment.version_id,
+                    "task_schema_id": deployment.schema_id,
+                    "environment": deployment.environment,
+                    "deployed_at": deployment.deployed_at.isoformat() if deployment.deployed_at else None,
+                    "message": f"Successfully deployed version {version_id} to {environment} environment",
+                    "migration_guide": migration_guide,
+                },
+            )
+        except Exception as e:
+            return MCPToolReturn(
+                success=False,
+                error=f"Failed to deploy version: {str(e)}",
+            )
+
+    async def search_runs_by_metadata(  # noqa: C901
+        self,
+        task_tuple: tuple[str, int],
+        field_queries: list[dict[str, Any]],
+        limit: int,
+        offset: int,
+        include_full_data: bool = True,
+    ) -> MCPToolReturn:
+        """Search agent runs by metadata fields."""
+        try:
+            # Convert the field queries to the proper format
+            parsed_field_queries: list[FieldQuery] = []
+            for query_dict in field_queries:
+                try:
+                    # Validate required fields
+                    if "field_name" not in query_dict:
+                        return MCPToolReturn(
+                            success=False,
+                            error="Missing required field 'field_name' in field query",
+                        )
+
+                    if "operator" not in query_dict:
+                        return MCPToolReturn(
+                            success=False,
+                            error="Missing required field 'operator' in field query",
+                        )
+
+                    if "values" not in query_dict:
+                        return MCPToolReturn(
+                            success=False,
+                            error="Missing required field 'values' in field query",
+                        )
+
+                    # Parse the operator
+                    try:
+                        operator = SearchOperator(query_dict["operator"])
+                    except ValueError:
+                        return MCPToolReturn(
+                            success=False,
+                            error=f"Invalid operator: {query_dict['operator']}. Valid operators are: {', '.join([op.value for op in SearchOperator])}",
+                        )
+
+                    # Parse the field type if provided
+                    field_type: FieldType | None = None
+                    if "type" in query_dict and query_dict["type"]:
+                        field_type = query_dict["type"]
+
+                    parsed_field_queries.append(
+                        FieldQuery(
+                            field_name=query_dict["field_name"],
+                            operator=operator,
+                            values=query_dict["values"],
+                            type=field_type,
+                        ),
+                    )
+                except Exception as e:
+                    return MCPToolReturn(
+                        success=False,
+                        error=f"Error parsing field query: {str(e)}",
+                    )
+
+            # Use the runs search service to perform the search
+
+            search_service = RunsSearchService(self.storage)
+
+            # Search for runs using the parsed field queries
+            def run_mapper(run: AgentRunBase) -> RunSearchResult:
+                return RunSearchResult(
+                    id=run.id,
+                    task_id=run.task_id,
+                    task_schema_id=run.task_schema_id,
+                    status=run.status,
+                    duration_seconds=run.duration_seconds,
+                    cost_usd=run.cost_usd,
+                    created_at=run.created_at.isoformat() if run.created_at else None,
+                    user_review=run.user_review,
+                    ai_review=run.ai_review,
+                    error={
+                        "code": getattr(run.error, "code", ""),
+                        "message": getattr(run.error, "message", ""),
+                        "details": getattr(run.error, "details", None),
+                    }
+                    if run.error
+                    else None,
+                )
+
+            page_result = await search_service.search_task_runs(
+                task_uid=task_tuple,
+                field_queries=parsed_field_queries,
+                limit=limit,
+                offset=offset,
+                map=run_mapper,
+            )
+
+            # If requested, fetch full run details for each result
+            # TODO: not optimal, we should fetch the full runs in the search service
+            items = page_result.items
+            if include_full_data:
+                full_runs: list[dict[str, Any]] = []
+                for run_summary in items:
+                    try:
+                        # Fetch the full AgentRun with task_input and task_output
+                        full_run = await self.runs_service.run_by_id(task_tuple, run_summary.id)
+                        full_run_data = {
+                            **run_summary.model_dump(),  # Convert RunSearchResult to dict
+                            "task_input": full_run.task_input,
+                            "task_output": full_run.task_output,
+                            "task_input_preview": full_run.task_input_preview,
+                            "task_output_preview": full_run.task_output_preview,
+                        }
+                        full_runs.append(full_run_data)
+                    except Exception:
+                        # If we can't fetch the full run, include what we have
+                        full_runs.append(run_summary.model_dump())
+                items = [item.model_dump() if isinstance(item, BaseModel) else item for item in full_runs]
+            else:
+                # Convert RunSearchResult objects to dicts
+                items = [item.model_dump() for item in items]
+
+            return MCPToolReturn(
+                success=True,
+                data={
+                    "items": items,
+                    "count": page_result.count,
+                    "limit": limit,
+                    "offset": offset,
+                },
+            )
+
+        except Exception as e:
+            return MCPToolReturn(
+                success=False,
+                error=f"Failed to search runs by metadata: {str(e)}",
+            )

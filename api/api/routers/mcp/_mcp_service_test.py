@@ -1,4 +1,6 @@
 # pyright: reportPrivateUsage=false
+from unittest.mock import Mock
+
 import pytest
 
 from api.routers.mcp._mcp_service import MCPService
@@ -10,11 +12,12 @@ class TestMCPServiceExtractAgentIdAndRunId:
         """Create a MCPService instance for testing."""
         # We only need to test the URL parsing method, so we can pass None for dependencies
         return MCPService(
-            storage=None,  # type: ignore
-            meta_agent_service=None,  # type: ignore
-            runs_service=None,  # type: ignore
-            versions_service=None,  # type: ignore
-            models_service=None,  # type: ignore
+            storage=Mock(),
+            meta_agent_service=Mock(),
+            runs_service=Mock(),
+            versions_service=Mock(),
+            models_service=Mock(),
+            task_deployments_service=Mock(),
         )
 
     @pytest.mark.parametrize(
