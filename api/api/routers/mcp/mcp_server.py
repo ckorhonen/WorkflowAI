@@ -2,7 +2,6 @@ from typing import Annotated, Any
 
 from fastmcp import FastMCP
 from fastmcp.server.dependencies import get_http_request
-from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException
 
 from api.dependencies.task_info import TaskTuple
@@ -244,19 +243,25 @@ async def get_agent_versions(
     return await service.list_agent_versions(task_tuple)
 
 
-class SearchRunsByMetadataRequest(BaseModel):
-    agent_id: str = Field(
-        description="The agent ID of the agent to search runs for",
-    )
-    field_queries: list[dict[str, Any]] = Field(
-        description="List of metadata field queries. Each query should have: field_name (string starting with 'metadata.'), operator (string like 'is', 'contains', etc.), values (list of values), and optionally type (string like 'string', 'number', etc.)",
-    )
-    limit: int = Field(default=20, description="Maximum number of results to return")
-    offset: int = Field(default=0, description="Number of results to skip")
-
-
-# @_mcp.tool() WIP
-async def search_runs_by_metadata(request: SearchRunsByMetadataRequest) -> MCPToolReturn:
+@_mcp.tool()
+async def search_runs_by_metadata(
+    agent_id: Annotated[
+        str,
+        "The agent ID of the agent to search runs for",
+    ],
+    field_queries: Annotated[
+        list[dict[str, Any]],
+        "List of metadata field queries. Each query should have: field_name (string starting with 'metadata.'), operator (string like 'is', 'contains', etc.), values (list of values), and optionally type (string like 'string', 'number', etc.)",
+    ],
+    limit: Annotated[
+        int,
+        "Maximum number of results to return",
+    ] = 20,
+    offset: Annotated[
+        int,
+        "Number of results to skip",
+    ] = 0,
+) -> MCPToolReturn:
     """<when_to_use>
     When the user wants to search agent runs based on metadata values, such as filtering runs by custom metadata fields they've added to their WorkflowAI agent calls.
     </when_to_use>
@@ -285,7 +290,7 @@ async def search_runs_by_metadata(request: SearchRunsByMetadataRequest) -> MCPTo
     <examples>
     Example 1 - Search for runs with specific user_id:
     {
-        "task_id": "email-classifier",
+        "agent_id": "email-classifier",
         "field_queries": [
             {
                 "field_name": "metadata.user_id",
@@ -298,7 +303,7 @@ async def search_runs_by_metadata(request: SearchRunsByMetadataRequest) -> MCPTo
 
     Example 2 - Search for runs in production environment with high priority:
     {
-        "task_id": "data-processor",
+        "agent_id": "data-processor",
         "field_queries": [
             {
                 "field_name": "metadata.environment",
@@ -317,7 +322,7 @@ async def search_runs_by_metadata(request: SearchRunsByMetadataRequest) -> MCPTo
 
     Example 3 - Search for runs that contain specific text in a notes field:
     {
-        "task_id": "content-moderator",
+        "agent_id": "content-moderator",
         "field_queries": [
             {
                 "field_name": "metadata.notes",
@@ -329,7 +334,7 @@ async def search_runs_by_metadata(request: SearchRunsByMetadataRequest) -> MCPTo
 
     Example 4 - Search for runs where a field is empty:
     {
-        "task_id": "task-analyzer",
+        "agent_id": "task-analyzer",
         "field_queries": [
             {
                 "field_name": "metadata.reviewer",
@@ -349,12 +354,12 @@ async def search_runs_by_metadata(request: SearchRunsByMetadataRequest) -> MCPTo
     - Error details if the run failed
     </returns>"""
     service = await get_mcp_service()
-    task_tuple = await get_task_tuple_from_task_id(request.agent_id)
+    task_tuple = await get_task_tuple_from_task_id(agent_id)
     return await service.search_runs_by_metadata(
         task_tuple=task_tuple,
-        field_queries=request.field_queries,
-        limit=request.limit,
-        offset=request.offset,
+        field_queries=field_queries,
+        limit=limit,
+        offset=offset,
     )
 
 
