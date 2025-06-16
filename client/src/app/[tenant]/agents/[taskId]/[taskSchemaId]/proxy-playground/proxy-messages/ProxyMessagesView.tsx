@@ -6,6 +6,27 @@ import { ProxyMessage } from '@/types/workflowAI';
 import { ProxyMessageView } from './ProxyMessageView';
 import { ExtendedMessageType, allExtendedMessageTypes, cleanMessagesAndAddIDs, createEmptyMessage } from './utils';
 
+function elementIdForMessage(messages: ProxyMessage[], index: number) {
+  if (
+    index === messages.length - 2 &&
+    messages.length - 2 >= 0 &&
+    messages[messages.length - 2].role === 'user' &&
+    messages[messages.length - 1].role === 'assistant'
+  ) {
+    return 'last-user-message';
+  }
+
+  if (index === 0) {
+    return 'first-message';
+  }
+
+  if (index === messages.length - 1) {
+    return 'last-message';
+  }
+
+  return undefined;
+}
+
 type Props = {
   messages: ProxyMessage[] | undefined;
   setMessages?: (messages: ProxyMessage[] | undefined) => void;
@@ -60,10 +81,12 @@ export function ProxyMessagesView(props: Props) {
 
   useEffect(() => {
     if (areMessagesLoaded && scrollToLastMessage) {
+      const lastUserMessageElement = document.getElementById('last-user-message');
       const lastMessageElement = document.getElementById('last-message');
-      if (lastMessageElement) {
+      const messageElement = lastUserMessageElement ?? lastMessageElement;
+      if (messageElement) {
         setTimeout(() => {
-          lastMessageElement.scrollIntoView({ behavior: 'instant', block: 'start' });
+          messageElement.scrollIntoView({ behavior: 'instant', block: 'start' });
         }, 0);
       }
     }
@@ -138,7 +161,7 @@ export function ProxyMessagesView(props: Props) {
     >
       {cleanedMessages?.map((message, index) => (
         <ProxyMessageView
-          id={index === 0 ? 'first-message' : index === cleanedMessages.length - 1 ? 'last-message' : undefined}
+          id={elementIdForMessage(cleanedMessages, index)}
           key={message.internal_id ?? index}
           message={message}
           setMessage={(message) => onMessageChange(message, index)}
