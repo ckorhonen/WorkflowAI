@@ -30,22 +30,6 @@ class ModelSupports(BaseModel):
         description="Whether the model supports output of the given modality. "
         "If false, the model will not return any output.",
     )
-
-    json_mode: bool = Field(
-        description="Whether the model supports JSON mode natively. "
-        "JSON mode guarantees that the inference will return a valid JSON object. If the model does not support JSON "
-        "mode but JSON is requested, the schema matching is guaranteed by WorkflowAI and not the model itself.",
-    )
-    structured_output: bool = Field(
-        description="Whether the model supports structured output natively. "
-        "Structured output guarantees that the inference will return an object matching a given schema. If the model "
-        "does not support structured output but a JSON schema is provided, the schema matching is guaranteed by "
-        "WorkflowAI and not the model itself.",
-    )
-    system_message: bool = Field(
-        description="Whether the model supports system messages. "
-        "If false and the request contains a system message, the system message will be converted to a user message.",
-    )
     parallel_tool_calls: bool = Field(
         description="Whether the model supports parallel tool calls, i.e. if the model can return multiple tool calls "
         "in a single inference. If the model does not support parallel tool calls, the parallel_tool_calls parameter "
@@ -85,13 +69,13 @@ class ModelReasoning(BaseModel):
     can_be_disabled: bool = Field(
         description="Whether the reasoning can be disabled for the model.",
     )
-    low: int = Field(
+    low_effort_reasoning_budget: int = Field(
         description="The maximum number of tokens that can be used for reasoning at low effort for the model.",
     )
-    medium: int = Field(
+    medium_effort_reasoning_budget: int = Field(
         description="The maximum number of tokens that can be used for reasoning at medium effort for the model.",
     )
-    high: int = Field(
+    high_effort_reasoning_budget: int = Field(
         description="The maximum number of tokens that can be used for reasoning at high effort for the model.",
     )
 
