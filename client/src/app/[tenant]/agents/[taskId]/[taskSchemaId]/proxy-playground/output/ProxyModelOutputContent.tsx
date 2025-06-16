@@ -184,7 +184,7 @@ export function ProxyModelOutputContent(props: Props) {
               onClick={onShowReplyView}
               icon={<Add16Filled className='h-3.5 w-3.5' />}
             >
-              Reply with {toolCallsPreview && toolCallsPreview.length > 0 ? 'Tool Call Result' : 'User'}
+              Reply with {toolCallsPreview && toolCallsPreview.length > 0 ? 'Tool Call Result' : 'User Message'}
             </Button>
           </div>
         )}
