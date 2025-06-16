@@ -1,4 +1,4 @@
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastmcp import FastMCP
 from fastmcp.server.dependencies import get_http_request
@@ -151,7 +151,9 @@ async def list_available_models() -> MCPToolReturn:
 async def list_agents(
     from_date: Annotated[
         str,
-        "ISO date string to filter stats from (e.g., '2024-01-01T00:00:00Z'). Defaults to 7 days ago if not provided.",
+        Field(
+            description="ISO date string to filter stats from (e.g., '2024-01-01T00:00:00Z'). Defaults to 7 days ago if not provided."
+        ),
     ],
 ) -> MCPToolReturn:
     """<when_to_use>
@@ -168,15 +170,17 @@ async def list_agents(
 async def fetch_run_details(
     agent_id: Annotated[
         str | None,
-        "The id of the user's agent, example: 'email-filtering-agent'. Pass 'new' when the user wants to create a new agent.",
+        Field(
+            description="The id of the user's agent, example: 'email-filtering-agent'. Pass 'new' when the user wants to create a new agent."
+        ),
     ] = None,
     run_id: Annotated[
         str | None,
-        "The id of the run to fetch details for",
+        Field(description="The id of the run to fetch details for"),
     ] = None,
     run_url: Annotated[
         str | None,
-        "The url of the run to fetch details for",
+        Field(description="The url of the run to fetch details for"),
     ] = None,
 ) -> MCPToolReturn:
     """<when_to_use>
@@ -223,10 +227,10 @@ async def fetch_run_details(
 
 @_mcp.tool()
 async def get_agent_versions(
-    task_id: Annotated[str, "The task ID of the agent"],
+    task_id: Annotated[str, Field(description="The task ID of the agent")],
     version_id: Annotated[
         str | None,
-        "An optional version id, e-g 1.1. If not provided all versions are returned",
+        Field(description="An optional version id, e-g 1.1. If not provided all versions are returned"),
     ] = None,
 ) -> MCPToolReturn:
     """<when_to_use>
@@ -404,14 +408,16 @@ async def ask_ai_engineer(request: AskAIEngineerRequest) -> MCPToolReturn:
 
 @_mcp.tool()
 async def deploy_agent_version(
-    agent_id: Annotated[str, "The id of the agent to deploy, e.g., 'email-filtering-agent'"],
+    agent_id: Annotated[str, Field(description="The id of the agent to deploy, e.g., 'email-filtering-agent'")],
     version_id: Annotated[
         str,
-        "The version ID to deploy (e.g., '1.0', '2.1', or a hash). This can be obtained from the agent versions list or from the version_id metadata in chat completion responses.",
+        Field(
+            description="The version ID to deploy (e.g., '1.0', '2.1', or a hash). This can be obtained from the agent versions list or from the version_id metadata in chat completion responses."
+        ),
     ],
     environment: Annotated[
-        str,
-        "The deployment environment. Must be one of: 'dev', 'staging', or 'production'",
+        Literal["dev", "staging", "production"],
+        Field(description="The deployment environment. Must be one of: 'dev', 'staging', or 'production'"),
     ],
 ) -> MCPToolReturn:
     """<when_to_use>
