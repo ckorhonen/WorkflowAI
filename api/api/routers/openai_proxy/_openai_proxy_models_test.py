@@ -206,6 +206,14 @@ class TestOpenAIProxyMessageToDomain:
             ),
         )
 
+    def test_empty_message(self):
+        message = OpenAIProxyMessage(
+            role="user",
+            content="",
+        )
+        domain_message = message.to_domain()
+        assert domain_message is None
+
 
 class TestOpenAIProxyChatCompletionRequestDomainMessages:
     def test_with_function_call(self):
@@ -254,6 +262,17 @@ class TestOpenAIProxyChatCompletionRequestDomainMessages:
                 ),
             ],
         )
+
+    def test_empty_message(self):
+        payload = OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "messages": [{"role": "system", "content": "Hello, world!"}, {"role": "user", "content": ""}],
+                "model": "gpt-4o",
+            },
+        )
+        messages = list(payload.domain_messages())
+        assert len(messages) == 1
+        assert messages[0] == Message(role="system", content=[MessageContent(text="Hello, world!")])
 
 
 class TestOpenAIProxyChatCompletionRequestToolChoice:
