@@ -12,12 +12,11 @@
 1. Click the **Environments** tab in the top navigation bar
 2. Select **Create environment**
 3. In the environment setup screen:
-a. **Repository**: Choose **WorkflowAI/WorkflowAI**
-b. **Name**: Enter `workflowai/python`
-c. **Image**: Set to `universal`
-d. **Environment variables**: Optional: Add `CEREBRAS_API_KEY` with your API key value
-e. **Agent internet access**: Set to **On** with domain allow list set to **common dependencies**
-f. **Setup script**: Add the following:
+   - **Repository**: Choose **WorkflowAI/WorkflowAI**
+   - **Name**: Enter `workflowai/python`
+   - **Image**: Set to `universal`
+   - **Agent internet access**: Set to **On** with domain allow list set to **common dependencies**
+   - **Setup script**: Add the following:
 ```bash
 corepack enable
 corepack prepare yarn@stable --activate
@@ -31,11 +30,11 @@ poetry install
 1. Click the **Environments** tab in the top navigation bar
 2. Select **Create environment**
 3. In the environment setup screen:
-a. **Repository**: Choose **WorkflowAI/WorkflowAI**
-b. **Name**: Enter `workflowai/typescript`
-c. **Image**: Set to `universal`
-d. **Agent internet access**: Set to **Off**
-e. **Setup script**: Add the following:
+   - **Repository**: Choose **WorkflowAI/WorkflowAI**
+   - **Name**: Enter `workflowai/typescript`
+   - **Image**: Set to `universal`
+   - **Agent internet access**: Set to **On** with domain allow list set to **common dependencies**
+   - **Setup script**: Add the following:
 ```bash
 corepack enable
 corepack prepare yarn@stable --activate
