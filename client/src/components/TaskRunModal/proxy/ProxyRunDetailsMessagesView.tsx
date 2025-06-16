@@ -24,7 +24,7 @@ export function ProxyRunDetailsMessagesView(props: Props) {
     if (!messages || messages.length <= 1) {
       return 'Output';
     }
-    return 'Conversations';
+    return 'Conversation';
   }, [messages]);
 
   return (

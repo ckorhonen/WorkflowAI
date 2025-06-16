@@ -87,11 +87,7 @@ export function ProxyRunView(props: ProxyRunViewProps) {
       >
         {showInputVariables && (
           <div className='flex flex-col h-full border-r border-dashed border-gray-200 overflow-hidden'>
-            <ProxyInputVariablesView
-              input={cleanInput}
-              schema={schema}
-              messages={inputAndOutputMessages}
-            />
+            <ProxyInputVariablesView input={cleanInput} schema={schema} messages={inputAndOutputMessages} />
           </div>
         )}
         <div className='flex flex-col h-full border-r border-dashed border-gray-200'>

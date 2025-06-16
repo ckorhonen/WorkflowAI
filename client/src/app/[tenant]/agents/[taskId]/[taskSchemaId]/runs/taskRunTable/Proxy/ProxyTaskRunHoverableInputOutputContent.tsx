@@ -43,11 +43,7 @@ export function ProxyTaskRunHoverableInputOutputContent(props: Props) {
       {showInputVariables && (
         <div className='flex flex-1 h-full border-r border-gray-200 border-dashed'>
           <div className='flex h-full w-full overflow-hidden'>
-            <ProxyInputVariablesView
-              input={cleanInput}
-              schema={schema}
-              messages={inputAndOutputMessages}
-            />
+            <ProxyInputVariablesView input={cleanInput} schema={schema} messages={inputAndOutputMessages} />
           </div>
         </div>
       )}
