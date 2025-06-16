@@ -96,17 +96,19 @@ Therefore, a request will **not** use the cache unless you either:
 # Example 1: Cache is NEVER hit (Default behavior)
 # Reason: temperature defaults to 1, and use_cache defaults to "auto"
 completion = client.chat.completions.create(
-  model="my-chatbot/gpt-4o-mini",
-  messages=[{"role": "user", "content": "Describe the meaning of life"}]
+  model="gpt-4o-mini",
+  messages=[{"role": "user", "content": "Describe the meaning of life"}],
+  metadata={"agent_id": "my-chatbot"}
 )
 
 # Example 2: Cache CAN be hit
 # Reason: temperature is explicitly 0, meeting the "auto" cache condition.
 # A subsequent identical request will hit the cache.
 completion = client.chat.completions.create(
-  model="my-chatbot/gpt-4o-mini",
+  model="gpt-4o-mini",
   messages=[{"role": "user", "content": "Describe the meaning of life"}],
-  temperature=0
+  temperature=0,
+  metadata={"agent_id": "my-chatbot"}
 )
 
 # Example 3: Cache CAN be hit (using Deployment and "always")
