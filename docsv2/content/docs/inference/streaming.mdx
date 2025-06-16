@@ -105,7 +105,7 @@ for chunk in stream:
 
 When using JSON outputs, it can be quite complicated to piece together the deltas in order to get a usable partial JSON object. The final payload is split into multiple chunks that only amount to a valid JSON object at the very end.
 
-For example, when trying to extract a user with a name, age and email in JSON form,
+For example, when trying to extract a user with a name, age and email in JSON form:
 
 ```json
 {
@@ -136,12 +136,13 @@ By setting the `stream_options.valid_json_chunks` parameter to `true`, WorkflowA
 ...
 ```
 
-<Tabs items={["Python", "TypeScript", "JSON"]}>
+<Tabs items={["Python", "TypeScript", "curl"]}>
 <Tab>
 
 ```python
 streamer = await openai_client.chat.completions.create(
-    model="my-agent/gpt-4o",
+    model="gpt-4o",
+    metadata={"agent_id": "my-agent"},
     messages=...,
     stream=True,
     # The following can break typing since `valid_json_chunks` is not supported by OpenAI,
@@ -158,7 +159,8 @@ async for chunk in streamer: # Every content delta is a valid JSON object
 <Tab>
 ```typescript
 const completion = await openai.chat.completions.create({
-    model: 'my-agent/gpt-4o',
+    model: 'gpt-4o',
+    metadata: { agent_id: 'my-agent' },
     messages: ...,
     response_format: { type: 'json_object' }, // or "json_schema"
     stream: true,
@@ -175,18 +177,24 @@ for await (const chunk of completion) {
 ```
 </Tab>
 <Tab>
-```json
-  {
-    "model": "my-agent/gpt-4o",
-    "messages": [...],
+```sh
+curl -X POST https://run.workflowai.com/v1/chat/completions \
+  -H "Authorization: Bearer wai--***" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [],
     "stream": true,
     "stream_options": {
       "valid_json_chunks": true
     },
     "response_format": {
-      "type": "json_object" // or "json_schema"
+      "type": "json_object"
+    },
+    "metadata": {
+      "agent_id": "my-agent"
     }
-  }
+}'
 ```
 </Tab>
 </Tabs>
