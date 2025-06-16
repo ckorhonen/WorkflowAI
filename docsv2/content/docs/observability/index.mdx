@@ -43,11 +43,7 @@ You don't need to install any additional packages or configure logging - it all 
 
 ### Identify your agent
 
-To properly organize your observability data, you can identify your agent using two methods:
-
-#### Method 1: Metadata field (Preferred)
-
-The recommended approach is to use the `agent_id` field in the `metadata` parameter:
+To properly organize your observability data, you can identify your agent using the `metadata` parameter:
 
 ```python
 response = client.completions.create(
@@ -58,31 +54,6 @@ response = client.completions.create(
     }
 )
 ```
-
-**Benefits:**
-- Clean separation between model selection and agent identification
-- Works with all deployment types and configurations
-- Easier to manage and modify agent identification
-
-#### Method 2: Model parameter prefix (Alternative)
-
-When editing metadata isn't possible or practical, you can include the agent ID as a prefix in the model parameter:
-
-```python
-response = client.completions.create(
-    model="my-agent-id/gpt-4o", # [!code highlight]
-    messages=[...],
-)
-```
-
-**Use cases:**
-- When working with frameworks that don't support custom metadata
-- When integrating with existing systems where metadata modification is difficult
-- For backwards compatibility with older implementations
-
-<Callout type="info">
-  **When to use each method**: Use the metadata approach (Method 1) whenever possible. Only use the model parameter prefix (Method 2) when technical constraints prevent you from modifying the metadata field.
-</Callout>
 
 <Callout type="info">
   Runs for un-named agents will be visible in the "Default" agent.
