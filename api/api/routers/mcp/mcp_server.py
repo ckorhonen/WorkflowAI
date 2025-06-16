@@ -250,7 +250,7 @@ class AskAIEngineerRequest(BaseModel):
         default=None,
     )
     agent_id: str = Field(
-        description="The id of the user's agent, MUST be passed when the user is asking a question in the context of a specific agent. Example: 'email-filtering-agent' in 'model=email-filtering-agent/gpt-4o-latest'. Pass 'new' when the user wants to create a new agent.",
+        description="The id of the user's agent, MUST be passed when the user is asking a question in the context of a specific agent. The agent_id can be identified from: 1) metadata field (preferred): 'metadata={\"agent_id\": \"email-filtering-agent\"}', or 2) model parameter prefix (alternative): 'model=email-filtering-agent/gpt-4o-latest'. Pass 'new' when the user wants to create a new agent.",
     )
     message: str = Field(
         description="Your message to the AI engineer about what help you need",
