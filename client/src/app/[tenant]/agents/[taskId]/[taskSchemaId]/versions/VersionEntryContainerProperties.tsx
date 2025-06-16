@@ -41,7 +41,9 @@ export function VersionEntryContainerProperties(props: VersionEntryContainerProp
   return (
     <div className='flex flex-col flex-1 border-l border-gray-200 border-dashed pt-3 pb-3 px-4 gap-3'>
       {!!messages ? (
-        <ProxyMessagesView messages={messages} />
+        <div className='max-h-[calc(100vh-260px)] overflow-y-auto'>
+          <ProxyMessagesView messages={messages} />
+        </div>
       ) : (
         !!instructions && (
           <div className='flex flex-col gap-1.5'>
