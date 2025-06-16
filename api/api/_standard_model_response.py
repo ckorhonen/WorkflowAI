@@ -96,12 +96,13 @@ class Model(BaseModel):
     """Complete model information including capabilities, pricing, and metadata."""
 
     id: str = Field(
-        description="Unique identifier for the model.",
+        description="Unique identifier for the model, which should be used in the `model` parameter of the OpenAI API.",
     )
     object: Literal["model"] = "model"
     created: int = Field(
         description="Unix timestamp of when the model was created.",
     )
+    # Field is not really interesting for us but is required to be compatible with the OpenAI API.
     owned_by: str = Field(
         description="The primary provider of the model, meaning the first "
         "provider that will be used to execute the model.",
