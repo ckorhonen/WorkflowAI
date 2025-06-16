@@ -152,7 +152,7 @@ async def list_agents(
     from_date: Annotated[
         str,
         Field(
-            description="ISO date string to filter stats from (e.g., '2024-01-01T00:00:00Z'). Defaults to 7 days ago if not provided."
+            description="ISO date string to filter stats from (e.g., '2024-01-01T00:00:00Z'). Defaults to 7 days ago if not provided.",
         ),
     ],
 ) -> MCPToolReturn:
@@ -171,7 +171,7 @@ async def fetch_run_details(
     agent_id: Annotated[
         str | None,
         Field(
-            description="The id of the user's agent, example: 'email-filtering-agent'. Pass 'new' when the user wants to create a new agent."
+            description="The id of the user's agent, example: 'email-filtering-agent'. Pass 'new' when the user wants to create a new agent.",
         ),
     ] = None,
     run_id: Annotated[
@@ -412,7 +412,7 @@ async def deploy_agent_version(
     version_id: Annotated[
         str,
         Field(
-            description="The version ID to deploy (e.g., '1.0', '2.1', or a hash). This can be obtained from the agent versions list or from the version_id metadata in chat completion responses."
+            description="The version ID to deploy (e.g., '1.0', '2.1', or a hash). This can be obtained from the agent versions list or from the version_id metadata in chat completion responses.",
         ),
     ],
     environment: Annotated[
