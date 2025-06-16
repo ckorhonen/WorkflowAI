@@ -304,10 +304,12 @@ class OpenAIProxyResponseFormat(BaseModel):
 class OpenAIProxyStreamOptions(BaseModel):
     include_usage: bool | None = None
 
-    aggregate_content: bool | None = Field(
+    valid_json_chunks: bool | None = Field(
         default=None,
-        description="Whether to send the aggregate the content server side and stream the entire payload "
-        "(as opposed to sending the delta). When using a json based format, the content is always a valid JSON object.",
+        description="Whether to only send valid JSON chunks when streaming. When set to true, the delta aggregation "
+        "is performed by WorkflowAI and only valid aggregated JSON strings are sent in place of the content delta. "
+        "valid_json_chunks is only relevant when using a json based response format (either `json_object` or "
+        "`json_schema`).",
     )
 
     model_config = ConfigDict(extra="allow")

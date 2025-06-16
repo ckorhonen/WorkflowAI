@@ -382,7 +382,7 @@ class OpenAIProxyHandler:
         except MissingModelError as e:
             raise await self.missing_model_error(e.extras.get("model"), prefix="fallback ")
 
-        aggregate_content = body.stream_options.aggregate_content if body.stream_options else None
+        aggregate_content = body.stream_options.valid_json_chunks if body.stream_options else None
 
         runner, _ = await self._group_service.sanitize_groups_for_internal_runner(
             task_id=prepared_run.variant.task_id,
