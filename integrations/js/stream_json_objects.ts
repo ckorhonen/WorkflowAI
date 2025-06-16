@@ -36,8 +36,8 @@ async function* extractUser(content: string): AsyncGenerator<User> {
     },
     stream: true,
     stream_options: {
-      //@ts-expect-error - aggregate_content is not supported by OpenAI
-      aggregate_content: true,
+      //@ts-expect-error - valid_json_chunks is not supported by OpenAI
+      valid_json_chunks: true,
     },
   });
 

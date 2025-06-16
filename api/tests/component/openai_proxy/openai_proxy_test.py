@@ -327,14 +327,14 @@ async def test_stream_raw_string(test_client: IntegrationTestClient, openai_clie
     assert run["task_output"] == "Hello world"
 
 
-async def test_stream_raw_string_with_aggregate_content(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+async def test_stream_raw_string_with_valid_json_chunks(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
     test_client.mock_openai_stream(deltas=["Hello", " world"])
 
     streamer = await openai_client.chat.completions.create(
         model="gpt-4o",
         messages=[{"role": "user", "content": "Hello, world!"}],
         stream=True,
-        stream_options=cast(ChatCompletionStreamOptionsParam, {"aggregate_content": True}),
+        stream_options=cast(ChatCompletionStreamOptionsParam, {"valid_json_chunks": True}),
     )
 
     chunks = [c async for c in streamer]
@@ -350,7 +350,7 @@ async def test_stream_raw_string_with_aggregate_content(test_client: Integration
     assert run["task_output"] == "Hello world"
 
 
-async def test_stream_json_with_aggregate_content(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+async def test_stream_json_with_valid_json_chunks(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
     test_client.mock_openai_stream(deltas=['{"hello": ', '"world2"}'])
 
     streamer = await openai_client.chat.completions.create(
@@ -358,7 +358,7 @@ async def test_stream_json_with_aggregate_content(test_client: IntegrationTestCl
         messages=[{"role": "user", "content": "Hello, world!"}],
         stream=True,
         response_format={"type": "json_object"},
-        stream_options=cast(ChatCompletionStreamOptionsParam, {"aggregate_content": True}),
+        stream_options=cast(ChatCompletionStreamOptionsParam, {"valid_json_chunks": True}),
     )
 
     chunks = [c async for c in streamer]

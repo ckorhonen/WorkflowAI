@@ -126,7 +126,7 @@ Doe
 ...
 ```
 
-By setting the `stream_options.aggregate_content` parameter to `true`, WorkflowAI can aggregate the deltas into valid partial JSON objects, transforming the above deltas into:
+By setting the `stream_options.valid_json_chunks` parameter to `true`, WorkflowAI can aggregate the deltas into valid partial JSON objects, transforming the above deltas into:
 
 ```sh
 # Chunks that do not represent an update of the JSON object are ignored
@@ -144,9 +144,9 @@ streamer = await openai_client.chat.completions.create(
     model="my-agent/gpt-4o",
     messages=...,
     stream=True,
-    # The following can break typing since `aggregate_content` is not supported by OpenAI,
+    # The following can break typing since `valid_json_chunks` is not supported by OpenAI,
     # one solution is to cast to ChatCompletionStreamOptionsParam
-    stream_options={"aggregate_content": True},
+    stream_options={"valid_json_chunks": True},
     response_format={"type": "json_object"}, # or "json_schema"
 )
 
@@ -163,8 +163,8 @@ const completion = await openai.chat.completions.create({
     response_format: { type: 'json_object' }, // or "json_schema"
     stream: true,
     stream_options: {
-      //@ts-expect-error - aggregate_content is not supported by OpenAI
-      aggregate_content: true,
+      //@ts-expect-error - valid_json_chunks is not supported by OpenAI
+      valid_json_chunks: true,
     },
 })
 for await (const chunk of completion) {
@@ -181,7 +181,7 @@ for await (const chunk of completion) {
     "messages": [...],
     "stream": true,
     "stream_options": {
-      "aggregate_content": true
+      "valid_json_chunks": true
     },
     "response_format": {
       "type": "json_object" // or "json_schema"
