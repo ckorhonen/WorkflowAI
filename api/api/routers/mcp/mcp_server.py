@@ -451,4 +451,4 @@ async def deploy_agent_version(
 
 
 def mcp_http_app():
-    return _mcp.http_app(path="/sse")
+    return _mcp.http_app(path="/")
