@@ -166,6 +166,7 @@ class TestOpenAIProxyMessageToDomain:
             tool_call_id=None,
         )
         domain_message = message.to_domain()
+        assert domain_message is not None
         assert domain_message.role == "assistant"
         assert len(domain_message.content) == 2
         assert (
@@ -184,6 +185,7 @@ class TestOpenAIProxyMessageToDomain:
             },
         )
         domain_message = message.to_domain()
+        assert domain_message is not None
         assert len(domain_message.content) == 1
         assert domain_message.content[0].tool_call_result
 
@@ -196,6 +198,7 @@ class TestOpenAIProxyMessageToDomain:
             tool_call_id="1",
         )
         domain_message = message.to_domain()
+        assert domain_message is not None
         assert domain_message.role == "user"
         assert domain_message.content[0] == MessageContent(
             tool_call_result=ToolCall(
