@@ -468,7 +468,7 @@ class OpenAIProxyHandler:
     @classmethod
     async def missing_model_error(cls, model: str | None, prefix: str = ""):
         _check_lineup = f"Check the lineup 👉 {WORKFLOWAI_APP_URL}/models ({MODEL_COUNT} models)"
-        _curl_command = "curl http://run.workflowai.com/v1/models"
+        _curl_command = "curl https://run.workflowai.com/v1/models"
         if not model:
             return BadRequestError(
                 f"""Empty model
