@@ -24,7 +24,7 @@ For local / dev:
 {
   "mcpServers": {
     "workflowai": {
-      "url": "http://localhost:8000/mcp/sse",
+      "url": "http://localhost:8000/mcp/",
       "headers": {
         "Authorization": "Bearer <your-api-key>"
       }
@@ -40,7 +40,7 @@ For staging:
 {
   "mcpServers": {
     "workflowai": {
-      "url": "https://api.workflowai.dev/mcp/sse",
+      "url": "https://api.workflowai.dev/mcp/",
       "headers": {
         "Authorization": "Bearer <your-api-key>"
       }
@@ -56,7 +56,7 @@ For prod preview:
 {
   "mcpServers": {
     "workflowai": {
-      "url": "https://workflowai-api-preview.bravewave-364a85ed.eastus.azurecontainerapps.io/mcp/sse",
+      "url": "https://workflowai-api-preview.bravewave-364a85ed.eastus.azurecontainerapps.io/mcp/",
       "headers": {
         "Authorization": "Bearer <your-api-key>"
       }
@@ -72,7 +72,7 @@ For production:
 {
   "mcpServers": {
     "workflowai": {
-      "url": "https://api.workflowai.com/mcp/sse",
+      "url": "https://api.workflowai.com/mcp/",
       "headers": {
         "Authorization": "Bearer <your-api-key>"
       }
