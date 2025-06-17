@@ -20,7 +20,7 @@ class MCPToolReturn(BaseModel):
     """Standardized return format for MCP tools"""
 
     success: bool
-    data: Any | None = None
+    data: dict[str, Any] | None = None
     error: str | None = None
     messages: list[str] | None = None
 

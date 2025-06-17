@@ -214,6 +214,32 @@ class ModelsService:
                 out.append(m)  # noqa: PERF401
         return out
 
+    async def model_for_task_typology(
+        self,
+        task_typology: TaskTypology,
+        instructions: str | None = None,
+        requires_tools: bool = False,
+    ) -> list[ModelForTask]:
+        models = await self._available_models_from_run_endpoint()
+
+        async def no_op_price_calculator():
+            def _compute_cost_estimate(model_provider_data: ModelProviderData, model: Model) -> float | None:
+                return None
+
+            return _compute_cost_estimate
+
+        out: list[ModelsService.ModelForTask] = []
+        for model in models:
+            if m := self._build_model_for_task(
+                model,
+                task_typology,
+                await no_op_price_calculator(),
+                instructions,
+                requires_tools,
+            ):
+                out.append(m)  # noqa: PERF401
+        return out
+
     async def get_cost_estimates(
         self,
         task_id: TaskTuple,
