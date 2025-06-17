@@ -12,7 +12,7 @@ class EvaluatorDefinition(BaseModel):
 
     class RequiredTool(BaseModel):
         name: str
-        input: dict[str, Any]
+        input: dict[str, Any] | None = None
 
     required_tools: list[RequiredTool] = Field(default_factory=list)
 
