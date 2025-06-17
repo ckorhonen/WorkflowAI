@@ -6,7 +6,7 @@ import { ProxyMessage } from '@/types/workflowAI';
 import { ProxyMessageView } from './ProxyMessageView';
 import { ExtendedMessageType, allExtendedMessageTypes, cleanMessagesAndAddIDs, createEmptyMessage } from './utils';
 
-function elementIdForMessage(messages: ProxyMessage[], index: number) {
+export function elementIdForMessage(messages: ProxyMessage[], index: number) {
   if (
     index === messages.length - 2 &&
     messages.length - 2 >= 0 &&
