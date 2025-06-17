@@ -176,9 +176,11 @@ Backend                              Frontend                             Workfl
   <Tab>
   ```python
   res = client.chat.completions.create(
-      model="gpt-4o-mini",
+      model="...",
       messages=[...],
-      metadata={"agent_id": "my-agent-name"}
+      metadata={
+        "agent_id": "my-agent-name"
+      }
   )
 
   # The following will likely raise typing errors since
@@ -262,6 +264,16 @@ Backend                              Frontend                             Workfl
 
 ## View user feedback
 
+### Via the UI
+
 Go to the "User Feedbacks" section from the menu, and you'll see a list of feedback.
 
 ![User Feedback Screen](</images/evaluations/user-feedback/user-feedback.png>)
+
+### Via the API
+
+[TODO: add API documentation]
+
+### Via MCP
+
+[TODO: add MCP documentation]
