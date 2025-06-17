@@ -13,8 +13,8 @@ from api.services.analytics import analytics_service
 from api.services.event_handler import system_event_router, tenant_event_router
 from api.services.feedback_svc import FeedbackService
 from api.services.groups import GroupService
+from api.services.internal_tasks.ai_engineer_service import AIEngineerService
 from api.services.internal_tasks.internal_tasks_service import InternalTasksService
-from api.services.internal_tasks.meta_agent_service import MetaAgentService
 from api.services.models import ModelsService
 from api.services.providers_service import shared_provider_factory
 from api.services.reviews import ReviewsService
@@ -95,7 +95,7 @@ async def get_mcp_service() -> MCPService:
         analytics_service=analytics,
     )
 
-    meta_agent_service = MetaAgentService(
+    ai_engineer_service = AIEngineerService(
         storage=_storage,
         event_router=event_router,
         runs_service=runs_service,
@@ -107,11 +107,13 @@ async def get_mcp_service() -> MCPService:
 
     return MCPService(
         storage=_storage,
-        meta_agent_service=meta_agent_service,
+        ai_engineer_service=ai_engineer_service,
         runs_service=runs_service,
         versions_service=versions_service,
         models_service=models_service,
         task_deployments_service=task_deployments_service,
+        user_email=user_identifier.user_email,
+        tenant_slug=tenant.slug,
     )
 
 
@@ -136,7 +138,26 @@ async def get_task_tuple_from_task_id(task_id: str) -> TaskTuple:
 
 
 @_mcp.tool()
-async def list_available_models() -> MCPToolReturn:
+async def list_available_models(
+    agent_id: Annotated[
+        str | None,
+        Field(
+            description="The id of the user's agent, MUST be passed when searching for models in the context of a specific agent. Example: 'agent_id': 'email-filtering-agent' in metadata, or 'email-filtering-agent' in 'model=email-filtering-agent/gpt-4o-latest'.",
+        ),
+    ] = None,
+    agent_schema_id: Annotated[
+        int | None,
+        Field(
+            description="The schema ID of the user's agent version, if known from model=<agent_id>/#<agent_schema_id>/<deployment_environment> or model=#<agent_schema_id>/<deployment_environment> when the workflowAI agent is already deployed, if not provided, all models are returned",
+        ),
+    ] = None,
+    agent_requires_tools: Annotated[
+        bool,
+        Field(
+            description="Whether the agent requires tools to be used, if not provided, the agent is assumed to not require tools",
+        ),
+    ] = False,
+) -> MCPToolReturn:
     """<when_to_use>
     When you need to pick a model for the user's WorkflowAI agent, or any model-related goal.
     </when_to_use>
@@ -144,7 +165,11 @@ async def list_available_models() -> MCPToolReturn:
     Returns a list of all available AI models from WorkflowAI.
     </returns>"""
     service = await get_mcp_service()
-    return await service.list_available_models()
+    return await service.list_available_models(
+        agent_id,
+        agent_schema_id=agent_schema_id,
+        agent_requires_tools=agent_requires_tools,
+    )
 
 
 @_mcp.tool()
@@ -171,7 +196,7 @@ async def fetch_run_details(
     agent_id: Annotated[
         str | None,
         Field(
-            description="The id of the user's agent, example: 'email-filtering-agent'. Pass 'new' when the user wants to create a new agent.",
+            description="The id of the user's agent. Example: 'agent_id': 'email-filtering-agent' in metadata, or 'email-filtering-agent' in 'model=email-filtering-agent/gpt-4o-latest'.",
         ),
     ] = None,
     run_id: Annotated[
@@ -251,7 +276,9 @@ async def get_agent_versions(
 async def search_runs_by_metadata(
     agent_id: Annotated[
         str,
-        Field(description="The agent ID of the agent to search runs for"),
+        Field(
+            description="The id of the user's agent. Example: 'agent_id': 'email-filtering-agent' in metadata, or 'email-filtering-agent' in 'model=email-filtering-agent/gpt-4o-latest'.",
+        ),
     ],
     field_queries: Annotated[
         list[dict[str, Any]],
@@ -374,29 +401,29 @@ async def ask_ai_engineer(
     agent_id: Annotated[
         str,
         Field(
-            description="The id of the user's agent, MUST be passed when the user is asking a question in the context of a specific agent. Example: 'email-filtering-agent' in 'model=email-filtering-agent/gpt-4o-latest'. Pass 'new' when the user wants to create a new agent.",
+            description="The id of the user's agent, MUST be passed when the user is asking a question in the context of a specific agent. Example: 'agent_id': 'email-filtering-agent' in metadata, or 'email-filtering-agent' in 'model=email-filtering-agent/gpt-4o-latest'. Pass 'NEW_AGENT' when the user wants to create a new agent.",
         ),
     ],
     message: Annotated[
         str,
         Field(description="Your message to the AI engineer about what help you need"),
-    ] = "I need help improving my agent",
-    agent_schema_id: Annotated[
-        int | None,
-        Field(
-            description="The schema ID of the user's agent version, if known from model=<agent_id>/<agent_schema_id>/<deployment_environment> when the workflowAI agent is already deployed",
-        ),
-    ] = None,
+    ],
     user_programming_language: Annotated[
-        str | None,
+        str,
         Field(
             description="The programming language and integration (if known) used by the user, e.g, Typescript, Python with OpenAI SDK, etc.",
         ),
-    ] = None,
+    ],
     user_code_extract: Annotated[
-        str | None,
+        str,
         Field(
             description="The code you are working on to improve the user's agent, if any. Please DO NOT include API keys or other sensitive information.",
+        ),
+    ],
+    agent_schema_id: Annotated[
+        int | None,
+        Field(
+            description="The schema ID of the user's agent version, if known from model=<agent_id>/#<agent_schema_id>/<deployment_environment> or model=#<agent_schema_id>/<deployment_environment> when the workflowAI agent is already deployed",
         ),
     ] = None,
 ) -> MCPToolReturn:
@@ -422,7 +449,12 @@ async def ask_ai_engineer(
 
 @_mcp.tool()
 async def deploy_agent_version(
-    agent_id: Annotated[str, Field(description="The id of the agent to deploy, e.g., 'email-filtering-agent'")],
+    agent_id: Annotated[
+        str,
+        Field(
+            description="The id of the user's agent. Example: 'agent_id': 'email-filtering-agent' in metadata, or 'email-filtering-agent' in 'model=email-filtering-agent/gpt-4o-latest'.",
+        ),
+    ],
     version_id: Annotated[
         str,
         Field(
