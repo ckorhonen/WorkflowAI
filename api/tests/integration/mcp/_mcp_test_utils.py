@@ -14,11 +14,11 @@ class EvaluatorDefinition(BaseModel):
         name: str
         input: dict[str, Any]
 
-    required_tools: list[RequiredTool]
+    required_tools: list[RequiredTool] = Field(default_factory=list)
 
     class Assertions(BaseModel):
-        final_response: list[str]
-        code: list[str]
+        final_response: list[str] = Field(default_factory=list)
+        code: list[str] = Field(default_factory=list)
 
     assertions: Assertions
 
@@ -102,13 +102,14 @@ def _find_tool_use(step: ClaudeStep, tool_name: str) -> _ClaudeContentToolUse | 
 
 
 def _result(claude_steps: list[ClaudeStep]):
-    return next(step for step in reversed(claude_steps) if step.type == "result" and step.subtype == "final_result")
+    return next(step for step in reversed(claude_steps) if step.type == "result")
 
 
 class Evaluator:
-    def __init__(self, definition: EvaluatorDefinition, mcp_name: str):
+    def __init__(self, definition: EvaluatorDefinition, mcp_name: str, claude_steps_dir: Path):
         self.definition = definition
         self.mcp_name = mcp_name
+        self.claude_steps_dir = claude_steps_dir
 
     def _full_tool_name(self, tool_name: str) -> str:
         return f"mcp__{self.mcp_name}__{tool_name}"
@@ -141,28 +142,33 @@ class Evaluator:
             for failure in _tool_failures_iter()
         ]
 
-    def _run_claude_evaluation(self, prompt: str, cwd: Path) -> list[str]:
+    def _run_claude_evaluation(self, prompt: str, cwd: Path, name: str) -> list[str]:
         # TODO: This could probably be a workflowai agent instead ?
-        final_prompt = f"{prompt}\n\nRespond with a list of failed assertions or PASS if the assertions are met."
+        final_prompt = f"{prompt}\n\nRespond either with a list of failed assertions that failed or only 'PASS' if all the assertions are met."
         cmd = [
             "echo",
-            final_prompt,
+            f'"{final_prompt}"',
             "|",
             "yarn",
             "run",
             "claude",
+            "--verbose",
             "--output-format",
             "json",
             "-p",
         ]
         result = subprocess.run(
-            cmd,
+            " ".join(cmd),
             cwd=cwd,
             capture_output=True,
             text=True,
+            shell=True,
         )
         assert result.returncode == 0, f"Failed to run claude: {result.stderr}"
-        steps = ClaudeSteps.validate_json(json.loads(result.stdout))
+        with open(self.claude_steps_dir / f"{name}.json", "w") as f:
+            f.write(result.stdout)
+
+        steps = ClaudeSteps.validate_python(json.loads(result.stdout))
 
         result = _result(steps)
         assert not result.is_error, f"Final result failed: {result.result}"
@@ -170,7 +176,7 @@ class Evaluator:
         if result.result == "PASS":
             return []
 
-        return result.result.split("\n")
+        return [result.result]
 
     def _run_final_response_assertion(self, code_dir: Path, claude_steps: list[ClaudeStep]) -> list[str]:
         final_result = _result(claude_steps)
@@ -190,7 +196,7 @@ The final result is:
 {final_result.result}
 """
 
-        return self._run_claude_evaluation(prompt, code_dir)
+        return self._run_claude_evaluation(prompt, code_dir, "final_response")
 
     def _run_code_assertion(self, code_dir: Path) -> list[str]:
         if not self.definition.assertions.code:
@@ -202,12 +208,15 @@ The final result is:
         {asserts}
         """
 
-        return self._run_claude_evaluation(prompt, code_dir)
+        return self._run_claude_evaluation(prompt, code_dir, "code")
 
     def evaluate(self, code_dir: Path, claude_steps: list[ClaudeStep]):
         """Evaluates the result and returns a list of failed assertions"""
 
-        self._check_required_tools(claude_steps)
-        self._check_all_tool_success(claude_steps)
-        self._run_final_response_assertion(code_dir, claude_steps)
-        self._run_code_assertion(code_dir)
+        failed_assertions: list[str] = []
+        failed_assertions.extend(self._check_required_tools(claude_steps))
+        failed_assertions.extend(self._check_all_tool_success(claude_steps))
+        failed_assertions.extend(self._run_final_response_assertion(code_dir, claude_steps))
+        failed_assertions.extend(self._run_code_assertion(code_dir))
+
+        return failed_assertions
