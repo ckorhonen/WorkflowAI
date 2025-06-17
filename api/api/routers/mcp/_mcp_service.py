@@ -1,12 +1,15 @@
-import os
 from collections.abc import Iterator
 from datetime import datetime, timedelta
 from typing import Any
 
 from pydantic import BaseModel
 
-from api._standard_model_response import StandardModelResponse
-from api.routers.mcp._mcp_models import MajorVersion, MCPToolReturn
+from api.routers.mcp._mcp_models import (
+    ConciseLatestModelResponse,
+    ConciseModelResponse,
+    MajorVersion,
+    MCPToolReturn,
+)
 from api.services.internal_tasks.ai_engineer_service import AIEngineerChatMessage, AIEngineerReponse, AIEngineerService
 from api.services.models import ModelsService
 from api.services.runs.runs_service import RunsService
@@ -14,6 +17,7 @@ from api.services.runs_search import RunsSearchService
 from api.services.task_deployments import TaskDeploymentsService
 from api.services.versions import VersionsService
 from core.domain.agent_run import AgentRunBase
+from core.domain.consts import WORKFLOWAI_APP_URL
 from core.domain.models.model_data import FinalModelData, LatestModel
 from core.domain.models.model_datas_mapping import MODEL_DATAS
 from core.domain.models.models import Model
@@ -24,8 +28,6 @@ from core.domain.version_environment import VersionEnvironment
 from core.storage import ObjectNotFoundException
 from core.storage.backend_storage import BackendStorage
 from core.utils.schemas import FieldType
-
-WORKFLOWAI_APP_URL = os.getenv("WORKFLOWAI_APP_URL", "https://workflowai.com")
 
 
 class RunSearchResult(BaseModel):
@@ -172,21 +174,59 @@ class MCPService:
             messages=messages,
         )
 
-    async def list_available_models(self) -> MCPToolReturn:
-        def _model_data_iterator() -> Iterator[StandardModelResponse.ModelItem]:
+    async def list_available_models(
+        self,
+        agent_id: str | None,
+        agent_schema_id: int | None,
+        agent_requires_tools: bool = False,
+    ) -> MCPToolReturn:
+        if agent_id:
+            if agent_schema_id is not None:
+                agent = await self.storage.task_variant_latest_by_schema_id(agent_id, agent_schema_id)
+            else:
+                agent = await self.storage.task_variants.get_latest_task_variant(agent_id)
+
+            if agent:
+                models = await self.models_service.models_for_task(
+                    agent,
+                    instructions=None,
+                    requires_tools=agent_requires_tools,
+                )
+                return await self._enrich_tool_return(
+                    success=True,
+                    data={
+                        "compatible_models": [
+                            ConciseModelResponse.from_model_for_task(m).model_dump(exclude_none=True)
+                            for m in models
+                            if m.is_not_supported_reason is None
+                        ],
+                    },
+                    agent_id=agent_id,
+                    agent_schema_id=agent_schema_id,
+                )
+
+        def _model_data_iterator() -> Iterator[ConciseLatestModelResponse | ConciseModelResponse]:
             for model in Model:
                 data = MODEL_DATAS[model]
                 if isinstance(data, LatestModel):
-                    yield StandardModelResponse.ModelItem.from_model_data(model.value, MODEL_DATAS[data.model])  # pyright: ignore [reportArgumentType]
+                    points_to_model = MODEL_DATAS[data.model]
+                    if isinstance(points_to_model, FinalModelData):
+                        yield ConciseLatestModelResponse(
+                            id=model.value,
+                            currently_points_to=points_to_model.model.value,
+                        )
+                    continue
                 elif isinstance(data, FinalModelData):
-                    yield StandardModelResponse.ModelItem.from_model_data(model.value, data)
+                    yield ConciseModelResponse.from_model_data(model.value, data)
                 else:
                     # Skipping deprecated models
                     continue
 
         return await self._enrich_tool_return(
             success=True,
-            data=StandardModelResponse(data=list(_model_data_iterator())).model_dump(exclude_none=True),
+            data={
+                "all_models": [m.model_dump(exclude_none=True) for m in _model_data_iterator()],
+            },
         )
 
     def _extract_agent_id_and_run_id(self, run_url: str) -> tuple[str, str]:  # noqa: C901
@@ -493,6 +533,23 @@ class MCPService:
                 agent_schema_id=schema_id,
             )
 
+    async def _get_agent_or_failed_tool_result(
+        self,
+        agent_id: str,
+    ) -> tuple[TaskInfo | None, MCPToolReturn | None]:
+        try:
+            agent_info = await self.storage.tasks.get_task_info(agent_id)
+        except ObjectNotFoundException:
+            list_agent_tool_answer = await self.list_agents()
+
+            return None, MCPToolReturn(
+                success=False,
+                error=f"Agent {agent_id} not found, please provide a valid agent id. Agent id can be found in either the model=... paramater (usually composed of '<agent_name>/<model_name>' or '<agent_name>/<agent_schema_id>/<deployment_environment>') or in the metadata of the agent run request. See 'data' for a list of existing agents for the user.",
+                data=list_agent_tool_answer.data,
+            )
+
+        return agent_info, None
+
     async def ask_ai_engineer(
         self,
         agent_schema_id: int | None,
@@ -506,18 +563,12 @@ class MCPService:
         user_message = message
 
         agent_info: TaskInfo | None = None
-        if agent_id and agent_id not in ["new", "NEW_AGENT"]:
-            try:
-                agent_info = await self.storage.tasks.get_task_info(agent_id)
+        if agent_id:
+            agent_info, error_tool_result = await self._get_agent_or_failed_tool_result(agent_id)
+            if error_tool_result:
+                return error_tool_result
+            if agent_info:
                 agent_schema_id = agent_schema_id or agent_info.latest_schema_id or 1
-            except ObjectNotFoundException:
-                list_agent_tool_answer = await self.list_agents()
-
-                return MCPToolReturn(
-                    success=False,
-                    error=f"Agent {agent_id} not found, please provide a valid agent id. Agent id can be found in either the model=... paramater (usually composed of '<agent_name>/<model_name>' or '<agent_name>/<agent_schema_id>/<deployment_environment>') or in the metadata of the agent run request. See 'data' for a list of existing agents for the user.",
-                    data=list_agent_tool_answer.data,
-                )
 
         # TODO: switch to a streamable MCP tool
         last_chunk: AIEngineerReponse | None = None
