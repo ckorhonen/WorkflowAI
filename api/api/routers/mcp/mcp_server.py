@@ -1,7 +1,8 @@
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastmcp import FastMCP
 from fastmcp.server.dependencies import get_http_request
+from pydantic import Field
 from starlette.exceptions import HTTPException
 
 from api.dependencies.task_info import TaskTuple
@@ -29,7 +30,7 @@ _mcp = FastMCP("WorkflowAI 🚀", stateless_http=True)  # pyright: ignore [repor
 
 
 # TODO: test auth
-async def get_mcp_service():
+async def get_mcp_service() -> MCPService:
     request = get_http_request()
 
     _system_storage = storage.system_storage(storage.shared_encryption())
@@ -150,7 +151,9 @@ async def list_available_models() -> MCPToolReturn:
 async def list_agents(
     from_date: Annotated[
         str,
-        "ISO date string to filter stats from (e.g., '2024-01-01T00:00:00Z'). Defaults to 7 days ago if not provided.",
+        Field(
+            description="ISO date string to filter stats from (e.g., '2024-01-01T00:00:00Z'). Defaults to 7 days ago if not provided.",
+        ),
     ],
 ) -> MCPToolReturn:
     """<when_to_use>
@@ -167,15 +170,17 @@ async def list_agents(
 async def fetch_run_details(
     agent_id: Annotated[
         str | None,
-        "The id of the user's agent, example: 'email-filtering-agent'. Pass 'new' when the user wants to create a new agent.",
+        Field(
+            description="The id of the user's agent, example: 'email-filtering-agent'. Pass 'new' when the user wants to create a new agent.",
+        ),
     ] = None,
     run_id: Annotated[
         str | None,
-        "The id of the run to fetch details for",
+        Field(description="The id of the run to fetch details for"),
     ] = None,
     run_url: Annotated[
         str | None,
-        "The url of the run to fetch details for",
+        Field(description="The url of the run to fetch details for"),
     ] = None,
 ) -> MCPToolReturn:
     """<when_to_use>
@@ -222,10 +227,10 @@ async def fetch_run_details(
 
 @_mcp.tool()
 async def get_agent_versions(
-    task_id: Annotated[str, "The task ID of the agent"],
+    task_id: Annotated[str, Field(description="The task ID of the agent")],
     version_id: Annotated[
         str | None,
-        "An optional version id, e-g 1.1. If not provided all versions are returned",
+        Field(description="An optional version id, e-g 1.1. If not provided all versions are returned"),
     ] = None,
 ) -> MCPToolReturn:
     """<when_to_use>
@@ -247,19 +252,21 @@ async def get_agent_versions(
 async def search_runs_by_metadata(
     agent_id: Annotated[
         str,
-        "The agent ID of the agent to search runs for",
+        Field(description="The agent ID of the agent to search runs for"),
     ],
     field_queries: Annotated[
         list[dict[str, Any]],
-        "List of metadata field queries. Each query should have: field_name (string starting with 'metadata.'), operator (string like 'is', 'contains', etc.), values (list of values), and optionally type (string like 'string', 'number', etc.)",
+        Field(
+            description="List of metadata field queries. Each query should have: field_name (string starting with 'metadata.'), operator (string like 'is', 'contains', etc.), values (list of values), and optionally type (string like 'string', 'number', etc.)",
+        ),
     ],
     limit: Annotated[
         int,
-        "Maximum number of results to return",
+        Field(description="Maximum number of results to return"),
     ] = 20,
     offset: Annotated[
         int,
-        "Number of results to skip",
+        Field(description="Number of results to skip"),
     ] = 0,
 ) -> MCPToolReturn:
     """<when_to_use>
@@ -367,23 +374,31 @@ async def search_runs_by_metadata(
 async def ask_ai_engineer(
     agent_id: Annotated[
         str,
-        "The id of the user's agent, MUST be passed when the user is asking a question in the context of a specific agent. Example: 'email-filtering-agent' in 'model=email-filtering-agent/gpt-4o-latest'. Pass 'new' when the user wants to create a new agent.",
+        Field(
+            description="The id of the user's agent, MUST be passed when the user is asking a question in the context of a specific agent. Example: 'email-filtering-agent' in 'model=email-filtering-agent/gpt-4o-latest'. Pass 'new' when the user wants to create a new agent.",
+        ),
     ],
     message: Annotated[
         str,
-        "Your message to the AI engineer about what help you need",
+        Field(description="Your message to the AI engineer about what help you need"),
     ] = "I need help improving my agent",
     agent_schema_id: Annotated[
         int | None,
-        "The schema ID of the user's agent version, if known from model=<agent_id>/<agent_schema_id>/<deployment_environment> when the workflowAI agent is already deployed",
+        Field(
+            description="The schema ID of the user's agent version, if known from model=<agent_id>/<agent_schema_id>/<deployment_environment> when the workflowAI agent is already deployed",
+        ),
     ] = None,
     user_programming_language: Annotated[
         str | None,
-        "The programming language and integration (if known) used by the user, e.g, Typescript, Python with OpenAI SDK, etc.",
+        Field(
+            description="The programming language and integration (if known) used by the user, e.g, Typescript, Python with OpenAI SDK, etc.",
+        ),
     ] = None,
     user_code_extract: Annotated[
         str | None,
-        "The code you are working on to improve the user's agent, if any. Please DO NOT include API keys or other sensitive information.",
+        Field(
+            description="The code you are working on to improve the user's agent, if any. Please DO NOT include API keys or other sensitive information.",
+        ),
     ] = None,
 ) -> MCPToolReturn:
     """
@@ -408,14 +423,16 @@ async def ask_ai_engineer(
 
 @_mcp.tool()
 async def deploy_agent_version(
-    agent_id: Annotated[str, "The id of the agent to deploy, e.g., 'email-filtering-agent'"],
+    agent_id: Annotated[str, Field(description="The id of the agent to deploy, e.g., 'email-filtering-agent'")],
     version_id: Annotated[
         str,
-        "The version ID to deploy (e.g., '1.0', '2.1', or a hash). This can be obtained from the agent versions list or from the version_id metadata in chat completion responses.",
+        Field(
+            description="The version ID to deploy (e.g., '1.0', '2.1', or a hash). This can be obtained from the agent versions list or from the version_id metadata in chat completion responses.",
+        ),
     ],
     environment: Annotated[
-        str,
-        "The deployment environment. Must be one of: 'dev', 'staging', or 'production'",
+        Literal["dev", "staging", "production"],
+        Field(description="The deployment environment. Must be one of: 'dev', 'staging', or 'production'"),
     ],
 ) -> MCPToolReturn:
     """<when_to_use>
