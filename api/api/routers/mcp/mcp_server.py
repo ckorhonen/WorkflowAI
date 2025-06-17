@@ -43,7 +43,7 @@ async def get_mcp_service() -> MCPService:
         system_event_router(),
         analytics_service(user_properties=None, organization_properties=None, task_properties=None),
     )
-    tenant = await security_service.find_tenant(None, auth_header.split(" ")[1])
+    tenant = await security_service.tenant_from_credentials(auth_header.split(" ")[1])
     if not tenant:
         raise HTTPException(status_code=401, detail="Invalid bearer token")
     org_properties = OrganizationProperties.build(tenant)
@@ -246,6 +246,7 @@ async def get_agent_versions(
         return await service.get_agent_version(task_tuple, version_id)
 
     return await service.list_agent_versions(task_tuple)
+
 
 # @_mcp.tool() WIP
 async def search_runs_by_metadata(
