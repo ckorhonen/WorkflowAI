@@ -20,12 +20,7 @@ export function ProxyRunDetailsMessagesView(props: Props) {
     return new Error(error?.message);
   }, [error]);
 
-  const headerText = useMemo(() => {
-    if (!messages || messages.length <= 1) {
-      return 'Output';
-    }
-    return 'Conversation';
-  }, [messages]);
+  const headerText = !messages || messages.length <= 1 ? 'Output' : 'Conversation';
 
   return (
     <div className='flex flex-col h-full w-full overflow-hidden'>

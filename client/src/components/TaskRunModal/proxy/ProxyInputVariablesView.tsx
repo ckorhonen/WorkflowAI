@@ -27,12 +27,7 @@ export function ProxyInputVariablesView(props: Props) {
     return mergeTaskInputAndVoid(input, voidInput);
   }, [input, voidInput]);
 
-  const headerText = useMemo(() => {
-    if (!messages || messages.length <= 1) {
-      return 'Input';
-    }
-    return 'Context';
-  }, [messages]);
+  const headerText = !messages || messages.length <= 1 ? 'Input' : 'Context';
 
   return (
     <div className='flex flex-col h-full w-full overflow-hidden'>
