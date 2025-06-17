@@ -138,7 +138,24 @@ async def get_task_tuple_from_task_id(task_id: str) -> TaskTuple:
 
 
 @_mcp.tool()
-async def list_available_models() -> MCPToolReturn:
+async def list_available_models(
+    agent_id: Annotated[
+        str | None,
+        Field(description="The id of the agent to list models for, if not provided, all models are returned"),
+    ] = None,
+    agent_schema_id: Annotated[
+        int | None,
+        Field(
+            description="The schema id of the agent to list models for, if not provided, all models are returned",
+        ),
+    ] = None,
+    agent_requires_tools: Annotated[
+        bool,
+        Field(
+            description="Whether the agent requires tools to be used, if not provided, the agent is assumed to not require tools",
+        ),
+    ] = False,
+) -> MCPToolReturn:
     """<when_to_use>
     When you need to pick a model for the user's WorkflowAI agent, or any model-related goal.
     </when_to_use>
@@ -146,7 +163,11 @@ async def list_available_models() -> MCPToolReturn:
     Returns a list of all available AI models from WorkflowAI.
     </returns>"""
     service = await get_mcp_service()
-    return await service.list_available_models()
+    return await service.list_available_models(
+        agent_id,
+        agent_schema_id=agent_schema_id,
+        agent_requires_tools=agent_requires_tools,
+    )
 
 
 @_mcp.tool()
