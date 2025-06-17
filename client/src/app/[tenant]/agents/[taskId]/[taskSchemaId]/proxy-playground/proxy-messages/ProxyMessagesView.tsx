@@ -4,28 +4,8 @@ import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { ProxyMessage } from '@/types/workflowAI';
 import { ProxyMessageView } from './ProxyMessageView';
+import { elementIdForMessage } from './elementIdForMessage';
 import { ExtendedMessageType, allExtendedMessageTypes, cleanMessagesAndAddIDs, createEmptyMessage } from './utils';
-
-export function elementIdForMessage(messages: ProxyMessage[], index: number) {
-  if (
-    index === messages.length - 2 &&
-    messages.length - 2 >= 0 &&
-    messages[messages.length - 2].role === 'user' &&
-    messages[messages.length - 1].role === 'assistant'
-  ) {
-    return 'last-user-message';
-  }
-
-  if (index === 0) {
-    return 'first-message';
-  }
-
-  if (index === messages.length - 1) {
-    return 'last-message';
-  }
-
-  return undefined;
-}
 
 type Props = {
   messages: ProxyMessage[] | undefined;

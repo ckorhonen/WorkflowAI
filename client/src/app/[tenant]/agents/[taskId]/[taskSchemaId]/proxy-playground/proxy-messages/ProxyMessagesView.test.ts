@@ -1,4 +1,4 @@
-import { elementIdForMessage } from './ProxyMessagesView';
+import { elementIdForMessage } from './elementIdForMessage';
 
 describe('elementIdForMessage', () => {
   const userMsg = (overrides = {}) => ({ role: 'user' as const, content: [], ...overrides });
