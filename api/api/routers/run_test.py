@@ -692,50 +692,36 @@ class TestReply:
 
 
 class TestRunRequestValidation:
-    def test_private_fields_accepts_task_input_and_task_output(self):
+    @pytest.mark.parametrize(
+        "private_fields,expected_contains",
+        [
+            pytest.param(["task_input"], ["task_input"], id="task_input_only"),
+            pytest.param(["task_output"], ["task_output"], id="task_output_only"),
+            pytest.param(["task_input", "task_output"], ["task_input", "task_output"], id="both_task_input_and_output"),
+            pytest.param(
+                ["task_input.image", "metadata.secret"],
+                ["task_input.image", "metadata.secret"],
+                id="custom_field_paths",
+            ),
+        ],
+    )
+    def test_private_fields_accepts_task_input_and_task_output(
+        self,
+        private_fields: list[str],
+        expected_contains: list[str],
+    ):
         """Test that private_fields accepts both 'task_input' and 'task_output' as valid literal values.
 
         This test ensures that the private_fields type annotation correctly includes both
         'task_input' and 'task_output' (not a duplicate 'task_input').
         """
-        # This should work - task_input is valid
-        request_with_task_input = RunRequest.model_validate(
+        request = RunRequest.model_validate(
             {
                 "task_input": {"test": "data"},
                 "version": 1,
-                "private_fields": ["task_input"],
-            }
+                "private_fields": private_fields,
+            },
         )
-        assert "task_input" in request_with_task_input.private_fields
-
-        # This should also work - task_output should be valid
-        request_with_task_output = RunRequest.model_validate(
-            {
-                "task_input": {"test": "data"},
-                "version": 1,
-                "private_fields": ["task_output"],
-            }
-        )
-        assert "task_output" in request_with_task_output.private_fields
-
-        # Both should work together
-        request_with_both = RunRequest.model_validate(
-            {
-                "task_input": {"test": "data"},
-                "version": 1,
-                "private_fields": ["task_input", "task_output"],
-            }
-        )
-        assert "task_input" in request_with_both.private_fields
-        assert "task_output" in request_with_both.private_fields
-
-        # Custom string fields should also work
-        request_with_custom = RunRequest.model_validate(
-            {
-                "task_input": {"test": "data"},
-                "version": 1,
-                "private_fields": ["task_input.image", "metadata.secret"],
-            }
-        )
-        assert "task_input.image" in request_with_custom.private_fields
-        assert "metadata.secret" in request_with_custom.private_fields
+        assert request.private_fields
+        for expected_field in expected_contains:
+            assert expected_field in request.private_fields
