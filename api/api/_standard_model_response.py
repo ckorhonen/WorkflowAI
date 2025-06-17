@@ -19,8 +19,7 @@ class SupportsModality(BaseModel):
 class ModelSupports(BaseModel):
     """Data about what the model supports on the WorkflowAI platform.
 
-    Note that a single model might have different capabilities based on the provider, or that sometimes WorkflowAI
-    might choose not to use a capability when it is not deemed beneficial.
+    Note that a single model might have different capabilities based on the provider.
     """
 
     input: SupportsModality = Field(
@@ -103,10 +102,7 @@ class Model(BaseModel):
         description="Unix timestamp of when the model was created.",
     )
     # Field is not really interesting for us but is required to be compatible with the OpenAI API.
-    owned_by: str = Field(
-        description="The primary provider of the model, meaning the first "
-        "provider that will be used to execute the model.",
-    )
+    owned_by: Literal["WorkflowAI"] = "WorkflowAI"
     display_name: str = Field(
         description="Human-readable name for the model.",
     )
