@@ -3,6 +3,8 @@ import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { SimpleTooltip } from '@/components/ui/Tooltip';
 import { ProxySaveBadgeButton } from '@/components/v2/ProxySaveBadgeButton';
+import { useIsAllowed } from '@/lib/hooks/useIsAllowed';
+import { useVersions } from '@/store/versions';
 import { TaskID, TenantID } from '@/types/aliases';
 import { VersionV1 } from '@/types/workflowAI';
 import { TaskRunner } from '../../playground/hooks/useTaskRunners';
@@ -56,12 +58,22 @@ export function ProxyRunButton(props: Props) {
 
   const [isHovering, setIsHovering] = useState(false);
 
+  const saveVersion = useVersions((state) => state.saveVersion);
+  const { checkIfSignedIn } = useIsAllowed();
+
+  const onSave = useCallback(async () => {
+    if (!checkIfSignedIn() || !version) {
+      return;
+    }
+    await saveVersion(tenant, taskId, version.id);
+  }, [saveVersion, tenant, taskId, version, checkIfSignedIn]);
+
   if (!taskRunner.loading && !!version) {
     return (
       <div className='flex items-center justify-center shadow-sm'>
         <ProxySaveBadgeButton
           version={version}
-          onSave={() => {}}
+          onSave={onSave}
           tenant={tenant}
           taskId={taskId}
           showLabels={false}
