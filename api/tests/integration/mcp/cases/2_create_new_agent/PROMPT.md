@@ -1,5 +1,3 @@
-Only consider files in the current directory.
-
 I want to add a route that can summarize a provided text using a WorkflowAI agent
 
 - if there is a URL in the text, extract the text from the URL to be able to write an accurate summary.

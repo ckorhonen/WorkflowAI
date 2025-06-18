@@ -96,6 +96,8 @@ def test_mcp_cases(case: str):
 
     cmd = f'cat "../PROMPT.md" | yarn run claude --verbose --allowedTools {allowed_tools} --disallowedTools {denied_tools} --output-format json -p'
 
+    print(cmd)
+
     result = subprocess.run(
         cmd,
         cwd=initial_state_dir,
