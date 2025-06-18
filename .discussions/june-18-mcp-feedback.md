@@ -36,3 +36,13 @@ I'm assuming that unsaved versions still have a `version_id` field, right?
 - [ ] the LLM completions are not returned in the current response, which can make the agent debugging harder. I think the LLM completions should be returned in the response.
 - [ ] I'm not sure that `agent_input` and `agent_output` needs to be returned in the response. `agent_input` might be useful to isolate the variables from the prompt. `agent_output` would actually be included in the LLM completions field.
 - [ ] I don't think that `workflowai.messages[]` should be returned in the response.
+
+- [ ] when returning a Run, we need to make sure that we return the output schema (including the examples and descriptions), as well. especially, for models that support structured outputs natively, I think the `response_format` is not part of the `llm_completions` and so the `response_format` should be included in the Run object.
+
+- [ ] for error like `failed_generation`, currently, the `agent.output` returned is empty.
+
+```json
+"agent_output": {}
+```
+
+I think that adding `llm_completions` would might fix the issue, where currently, a MCP client would not be able to know what the LLM completion was.
