@@ -36,7 +36,7 @@ def _skipJsonSchemaAnnotation(include_private: bool) -> Any:
 
 
 if TYPE_CHECKING:
-    SkipJsonSchema = PydanticSkipJsonSchema
+    SkipJsonSchema = Annotated[AnyType, ...]
 else:
     SkipJsonSchema = _skipJsonSchemaAnnotation(INCLUDE_PRIVATE_ROUTES)
 
