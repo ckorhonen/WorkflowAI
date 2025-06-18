@@ -16,7 +16,9 @@ def test_claude_step_deser():
 
 def _evaluator_fixtures():
     cases_dir = Path(__file__).parent / "cases"
-    for evaluator_path in cases_dir.glob("**/evaluator.yaml"):
+    paths = [evaluator_path for evaluator_path in cases_dir.glob("**/evaluator.yaml")]
+    paths.sort(key=lambda p: int(p.parent.name.split("_")[0]))
+    for evaluator_path in paths:
         yield pytest.param(evaluator_path, id=str(evaluator_path.relative_to(cases_dir)).split("/")[-2])
 
 

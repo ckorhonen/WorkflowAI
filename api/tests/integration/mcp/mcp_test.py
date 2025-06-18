@@ -43,7 +43,9 @@ def _cur_dir():
 
 def _list_cases():
     """List the test cases in the cases directory"""
-    return [f.name for f in (_cur_dir() / "cases").iterdir() if f.is_dir() and not f.name.startswith("_")]
+    names = [f.name for f in (_cur_dir() / "cases").iterdir() if f.is_dir() and not f.name.startswith("_")]
+    names.sort(key=lambda n: int(n.split("_")[0]))
+    return names
 
 
 _WAI_TOOLS = [

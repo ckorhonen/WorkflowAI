@@ -2,7 +2,8 @@ assertions:
   code:
     - deployment must be successfully set up
     - the code must run
-    - the model_name must use the deployment syntax: 'meeting-summarizer/#1/production'
+    - >
+      the model_name must use the deployment syntax: 'meeting-summarizer/#1/production'
     - the agent_id must not be passed in the metadata
     - messages must be empty
     - |
