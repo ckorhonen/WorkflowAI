@@ -1,0 +1,14 @@
+{
+  "title": "Observability",
+  "icon": "ChartLine",
+  "pages": [
+    "index",
+    "runs",
+    "conversations",
+    "versions",
+    "costs",
+    "insights",
+    "search",
+    "reports"
+  ]
+} 

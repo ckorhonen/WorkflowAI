@@ -8,12 +8,13 @@ from api.dependencies.path_params import TaskSchemaID
 from api.dependencies.services import ModelsServiceDep, RunsSearchServiceDep
 from api.dependencies.task_info import TaskTupleDep
 from api.schemas.models import ModelMetadata, ModelResponse
+from api.services.models import ModelForTask
 from core.domain.page import Page
 from core.domain.search_query import SearchFieldOption
 from core.utils.schemas import FieldType
 from core.utils.templates import InvalidTemplateError, TemplateManager
 
-router = APIRouter(prefix="/v1/{tenant}/agents/{task_id}/schemas/{task_schema_id}")
+router = APIRouter(prefix="/v1/{tenant}/agents/{agent_id}/schemas/{task_schema_id}")
 
 
 class AgentModelResponse(ModelResponse):
@@ -26,7 +27,7 @@ class AgentModelResponse(ModelResponse):
     )
 
     @classmethod
-    def from_model(cls, model: ModelsServiceDep.ModelForTask):
+    def from_model(cls, model: ModelForTask):
         return cls(
             id=model.id,
             name=model.name,
