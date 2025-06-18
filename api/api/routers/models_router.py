@@ -220,7 +220,7 @@ async def list_models() -> ModelResponse:
 # Because the run and api containers are deployed at different times,
 # the run container must be the source of truth for available models, otherwise
 # the API might believe that some models are available when they are not.
-@router.get("/ids")
+@router.get("/ids", include_in_schema=False)
 async def list_model_ids() -> list[str]:
     # No need to filter anything here as the raw models will not be exposed
     # The api container will filter the models based on the task schema

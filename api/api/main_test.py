@@ -37,6 +37,7 @@ def _include_methods(methods: set[str] | None, exc_methods: set[str] | None) -> 
 # Only GET requests though
 _PUBLIC_ROUTES = {
     "/v1/models",
+    "/v1/models/ids",
     "/probes/health",
     "/probes/readiness",
     "/openapi.json",
