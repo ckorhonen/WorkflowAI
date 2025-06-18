@@ -738,6 +738,7 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
                 rate_limit=Model.GEMINI_2_0_FLASH_001,
                 context_exceeded="no",
             ),
+            is_default=True,
         ),
         Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0417: DeprecatedModel(replacement_model=Model.GEMINI_2_5_FLASH),
         Model.GEMINI_2_5_FLASH_THINKING_PREVIEW_0520: DeprecatedModel(replacement_model=Model.GEMINI_2_5_FLASH),
@@ -825,7 +826,6 @@ def _raw_model_data() -> dict[Model, ModelData | LatestModel | DeprecatedModel]:
         Model.GEMINI_2_0_FLASH_LATEST: LatestModel(
             model=Model.GEMINI_2_0_FLASH_001,
             display_name="Gemini 2.0 Flash (latest)",
-            is_default=True,
         ),
         Model.GEMINI_1_5_PRO_LATEST: LatestModel(
             model=Model.GEMINI_1_5_PRO_002,
