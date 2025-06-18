@@ -53,6 +53,17 @@ The [ModelData](./api/core/domain/models/model_data.py) class contains metadata 
 
 The actual data is built by `_raw_model_data` in the [model_datas_mapping.py](./api/core/domain/models/model_datas_mapping.py) file. Every model in the Model enum should have an associated ModelData object.
 
+When adding a new model, you must provide:
+
+- `display_name`: Human-readable name for the model
+- `icon_url`: URL to the model's icon (typically the provider's logo)
+- `max_tokens_data`: Maximum token limits for input and output
+- `release_date`: When the model was released
+- `quality_data`: Performance metrics (MMLU, GPQA scores, etc.)
+- `provider_name`: Name of the provider
+- `supports_*` flags: What capabilities the model supports (JSON mode, images, etc.)
+- `fallback`: Optional fallback configuration for error handling
+
 When deprecating a model, make sure to replace every case where the model is used in the replacement model. We do not allow replacement models to be deprecated. Only deprecate models when either:
 
 - the model will no longer be supported by the provider in the near future
@@ -62,7 +73,16 @@ When deprecating a model, make sure to replace every case where the model is use
 
 The [ModelProviderData](./api/core/domain/models/model_provider_data.py) class contains pricing information per provider per model. If a model is supported by a provider, then it must have a ModelProviderData object.
 
-When deprecating a model, remove it's model provider data as well.
+The provider data is configured in [model_provider_datas_mapping.py](./api/core/domain/models/model_provider_datas_mapping.py). Each provider has its own dictionary mapping models to their provider data.
+
+When adding a new model, you must add pricing data for each provider that supports it, including:
+
+- `text_price`: Cost per token for input/output
+- `image_price`: Cost per image (if applicable)
+- `audio_price`: Cost per audio input (if applicable)
+- `lifecycle_data`: Sunset dates and replacement models (if applicable)
+
+When deprecating a model, remove its model provider data as well.
 
 #### Checking tests
 
