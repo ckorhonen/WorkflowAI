@@ -57,7 +57,14 @@ _WAI_TOOLS = [
 
 
 def base_allowed_tools():
-    return ["Read(./*)", "Write(./*)", *[f"mcp__{_MCP_NAME}__{tool}" for tool in _WAI_TOOLS]]
+    return [
+        "Read(./*)",
+        "Write(./*)",
+        *[f"mcp__{_MCP_NAME}__{tool}" for tool in _WAI_TOOLS],
+        "MultiEdit",
+        "Write",
+        "Edit",
+    ]
 
 
 def base_denied_tools():
@@ -100,21 +107,21 @@ def test_mcp_cases(case: str):
 
     print(cmd)
 
-    result = subprocess.run(
-        cmd,
-        cwd=initial_state_dir,
-        capture_output=True,
-        text=True,
-        shell=True,
-    )
+    # Write the output directly to the claude_steps.json file
+    with open(claude_steps_file, "w") as f:
+        result = subprocess.run(
+            cmd,
+            cwd=initial_state_dir,
+            stdout=f,
+            stderr=subprocess.PIPE,
+            text=True,
+            shell=True,
+        )
     assert result.returncode == 0, f"Failed to run claude: {result.stderr}"
 
-    # Write the steps to a claude_steps.json file
-    # So that it can be evaluated by claude with the rest of the repo
-    with open(claude_steps_file, "w") as f:
-        f.write(result.stdout)
-
-    steps = ClaudeSteps.validate_python(json.loads(result.stdout))
+    # Read the file back to parse the JSON
+    with open(claude_steps_file, "r") as f:
+        steps = ClaudeSteps.validate_python(json.load(f))
 
     with open(case_dir_path / "evaluator.yaml", "r") as f:
         evaluator = EvaluatorDefinition.model_validate(yaml.safe_load(f))
