@@ -19,7 +19,7 @@ from core.domain.version_major import VersionDeploymentMetadata, VersionMajor
 from core.utils.fields import datetime_zero
 from core.utils.token_utils import tokens_from_string
 
-SortAgentBy: TypeAlias = Literal["latest_active_first", "most_costly_first", "most_runs_first"]
+SortAgentBy: TypeAlias = Literal["last_active_first", "most_costly_first", "most_runs_first"]
 SortModelBy: TypeAlias = Literal["latest_released_first", "smartest_first", "cheapest_first"]
 
 

@@ -508,7 +508,7 @@ class MCPService:
         try:
             agent_info = await self.storage.tasks.get_task_info(agent_id)
         except ObjectNotFoundException:
-            list_agent_tool_answer = await self.list_agents(page=1, sort_by="latest_active_first")
+            list_agent_tool_answer = await self.list_agents(page=1, sort_by="last_active_first")
 
             return None, LegacyMCPToolReturn(
                 success=False,

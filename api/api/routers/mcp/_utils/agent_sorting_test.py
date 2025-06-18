@@ -41,7 +41,7 @@ def create_test_agent(
 class TestSortAgents:
     """Test suite for agent sorting functionality."""
 
-    def test_sort_by_latest_active_first_basic(self):
+    def test_sort_by_last_active_first_basic(self):
         """Test sorting by latest active first with basic scenarios."""
         agents = [
             create_test_agent("agent1", last_active_ats=["2024-01-01T00:00:00"]),
@@ -49,11 +49,11 @@ class TestSortAgents:
             create_test_agent("agent3", last_active_ats=["2024-01-02T00:00:00"]),
         ]
 
-        sorted_agents = sort_agents(agents, "latest_active_first")
+        sorted_agents = sort_agents(agents, "last_active_first")
 
         assert [a.agent_id for a in sorted_agents] == ["agent2", "agent3", "agent1"]
 
-    def test_sort_by_latest_active_first_multiple_schemas(self):
+    def test_sort_by_last_active_first_multiple_schemas(self):
         """Test sorting by latest active first with multiple schemas per agent."""
         agents = [
             create_test_agent(
@@ -70,12 +70,12 @@ class TestSortAgents:
             ),
         ]
 
-        sorted_agents = sort_agents(agents, "latest_active_first")
+        sorted_agents = sort_agents(agents, "last_active_first")
 
         # agent3 has max date 2024-01-06, agent1 has max date 2024-01-05, agent2 has max date 2024-01-04
         assert [a.agent_id for a in sorted_agents] == ["agent3", "agent1", "agent2"]
 
-    def test_sort_by_latest_active_first_with_none_values(self):
+    def test_sort_by_last_active_first_with_none_values(self):
         """Test sorting when some agents have no active dates."""
         agents = [
             create_test_agent("agent1", last_active_ats=[None, None]),
@@ -84,12 +84,12 @@ class TestSortAgents:
             create_test_agent("agent4", last_active_ats=["2024-01-01T00:00:00", None]),
         ]
 
-        sorted_agents = sort_agents(agents, "latest_active_first")
+        sorted_agents = sort_agents(agents, "last_active_first")
 
         # Agents with dates come first (sorted by date desc), then agents without dates (sorted by agent_id desc due to reverse=True)
         assert [a.agent_id for a in sorted_agents] == ["agent2", "agent4", "agent3", "agent1"]
 
-    def test_sort_by_latest_active_first_stable_ordering(self):
+    def test_sort_by_last_active_first_stable_ordering(self):
         """Test that sorting is stable for agents with same/no dates."""
         # All agents have no active dates
         agents = [
@@ -98,7 +98,7 @@ class TestSortAgents:
             create_test_agent("beta", last_active_ats=[None]),
         ]
 
-        sorted_agents = sort_agents(agents, "latest_active_first")
+        sorted_agents = sort_agents(agents, "last_active_first")
 
         # Should be sorted by agent_id when all have no dates
         assert [a.agent_id for a in sorted_agents] == ["zebra", "beta", "alpha"]
@@ -161,7 +161,7 @@ class TestSortAgents:
         """Test sorting an empty list."""
         agents: list[AgentResponse] = []
 
-        sorted_agents = sort_agents(agents, "latest_active_first")
+        sorted_agents = sort_agents(agents, "last_active_first")
         assert sorted_agents == []
 
         sorted_agents = sort_agents(agents, "most_costly_first")
@@ -174,7 +174,7 @@ class TestSortAgents:
         """Test sorting a single agent."""
         agents = [create_test_agent("agent1")]
 
-        sorted_agents = sort_agents(agents, "latest_active_first")
+        sorted_agents = sort_agents(agents, "last_active_first")
         assert [a.agent_id for a in sorted_agents] == ["agent1"]
 
         sorted_agents = sort_agents(agents, "most_costly_first")
@@ -197,10 +197,10 @@ class TestSortAgents:
         assert sorted_agents is original_list
         assert [a.agent_id for a in agents] == ["agent2", "agent1"]
 
-    @pytest.mark.parametrize("sort_by", ["latest_active_first", "most_costly_first", "most_runs_first"])
+    @pytest.mark.parametrize("sort_by", ["last_active_first", "most_costly_first", "most_runs_first"])
     def test_sort_preserves_agent_data(
         self,
-        sort_by: Literal["latest_active_first", "most_costly_first", "most_runs_first"],
+        sort_by: Literal["last_active_first", "most_costly_first", "most_runs_first"],
     ):
         """Test that sorting doesn't modify agent data."""
         agent = create_test_agent(

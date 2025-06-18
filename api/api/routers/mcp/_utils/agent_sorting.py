@@ -12,14 +12,14 @@ def sort_agents(
     Args:
         agents: List of agent responses to sort
         sort_by: Sort criteria
-            - "latest_active_first": Sort by maximum last_active_at across all schemas
+            - "last_active_first": Sort by maximum last_active_at across all schemas
             - "most_costly_first": Sort by total_cost_usd
             - "most_runs_first": Sort by run_count
 
     Returns:
         Sorted list of agents (modifies in place and returns the list)
     """
-    if sort_by == "latest_active_first":
+    if sort_by == "last_active_first":
 
         def get_max_last_active_at(agent: AgentResponse) -> tuple[str, str]:
             """Get the maximum last_active_at across all schemas, handling None values.

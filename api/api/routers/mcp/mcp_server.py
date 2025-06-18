@@ -220,7 +220,7 @@ async def list_agents(
         Field(
             description="The field to sort the agents by. Defaults to 'latest_release_date_first'.",
         ),
-    ] = "latest_active_first",
+    ] = "last_active_first",
     page: Annotated[
         int,
         Field(description="The page number to return. Defaults to 1."),
