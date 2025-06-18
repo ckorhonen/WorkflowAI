@@ -205,5 +205,5 @@ class TestModelsEndpoint:
         data = res.json()
         assert isinstance(data, list)
         assert data[0] == Model.GPT_41_LATEST.value
-        assert data[1] == Model.GEMINI_2_0_FLASH_LATEST.value
+        assert data[1] == Model.GEMINI_2_5_FLASH.value
         assert data[2] == Model.CLAUDE_4_SONNET_LATEST.value

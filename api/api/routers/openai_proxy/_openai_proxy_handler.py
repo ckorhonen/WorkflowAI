@@ -509,16 +509,19 @@ class OpenAIProxyHandler:
 
     @classmethod
     async def missing_model_error(cls, model: str | None, prefix: str = ""):
-        _check_lineup = f"Check the lineup 👉 {WORKFLOWAI_APP_URL}/models ({MODEL_COUNT} models)"
+        _check_lineup = f"Check the lineup 👉 {WORKFLOWAI_APP_URL} ({MODEL_COUNT} models)"
+        _curl_command = "curl https://run.workflowai.com/v1/models"
         if not model:
             return BadRequestError(
                 f"""Empty model
-{_check_lineup}""",
+{_check_lineup}
+To list all models programmatically: {_curl_command}""",
             )
 
         components = [
             f"Unknown {prefix}model: {model}",
             _check_lineup,
+            f"To list all models programmatically: {_curl_command}",
         ]
         if suggested := await ModelsService.suggest_model(model):
             components.insert(1, f"Did you mean {suggested}?")
