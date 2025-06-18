@@ -252,7 +252,8 @@ async def fetch_run_details(
 
 @_mcp.tool()
 async def get_agent_versions(
-    task_id: Annotated[str, Field(description="The task ID of the agent")],
+    # why is this tool not using the agent_id?
+    agent_id: Annotated[str, Field(description="The ID of the agent")],
     version_id: Annotated[
         str | None,
         Field(description="An optional version id, e-g 1.1. If not provided all versions are returned"),
@@ -260,17 +261,21 @@ async def get_agent_versions(
 ) -> MCPToolReturn:
     """<when_to_use>
     When the user wants to retrieve details of versions of a WorkflowAI agent, or when they want to compare a specific version of an agent.
+
+    Example:
+    - when debugging a failed run, you can use this tool to get the parameters of the agent that was used.
     </when_to_use>
     <returns>
     Returns the details of one or more versions of a WorkflowAI agent.
     </returns>"""
     service = await get_mcp_service()
-    task_tuple = await get_task_tuple_from_task_id(task_id)
+    task_tuple = await get_task_tuple_from_task_id(agent_id)
 
     if version_id:
         return await service.get_agent_version(task_tuple, version_id)
 
     return await service.list_agent_versions(task_tuple)
+
 
 # @_mcp.tool() WIP
 async def search_runs_by_metadata(

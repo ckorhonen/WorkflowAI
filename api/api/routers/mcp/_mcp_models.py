@@ -288,3 +288,5 @@ class Run(BaseModel):
         dict[str, Any] | None
     )  # needs to be included because the `response_format` is not part of the `llm_completions` field for models that support structured outputs natively
     error: Error | None
+    temperature: float
+    ## TODO: check parameters from /v1/chat/completions that needs to be included as well.

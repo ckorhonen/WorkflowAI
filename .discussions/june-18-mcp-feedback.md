@@ -46,3 +46,5 @@ I'm assuming that unsaved versions still have a `version_id` field, right?
 ```
 
 I think that adding `llm_completions` would might fix the issue, where currently, a MCP client would not be able to know what the LLM completion was.
+
+- [ ] `temperature` is not returned in the response, TODO: check the parameters from /v1/chat/completions that needs to be included as well.
