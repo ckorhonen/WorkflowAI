@@ -21,6 +21,11 @@ async def _dummy_find_tenant(_: Any, __: Any, ___: Any) -> None:
     return
 
 
+async def _dummy_tenant_from_credentials(_: Any, __: Any) -> None:
+    """Stub for SecurityService.tenant_from_credentials that always returns *None* (invalid token)."""
+    return
+
+
 class _DummySystemStorage:  # noqa: D101 – internal testing stub
     def __init__(self):
         self.organizations = SimpleNamespace()
@@ -81,6 +86,12 @@ async def test_invalid_bearer_token_raises(
 
     # Patch *SecurityService.find_tenant* to simulate an unknown token.
     monkeypatch.setattr(mcp_server.SecurityService, "find_tenant", _dummy_find_tenant, raising=True)
+    monkeypatch.setattr(
+        mcp_server.SecurityService,
+        "tenant_from_credentials",
+        _dummy_tenant_from_credentials,
+        raising=True,
+    )
 
     # Patch storage helpers used before *find_tenant* is called so they don't hit real infra.
     monkeypatch.setattr(
