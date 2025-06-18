@@ -1,8 +1,7 @@
 from collections.abc import Iterator
 from datetime import datetime, timedelta
 from typing import Any
-
-from pydantic import BaseModel
+from venv import logger
 
 from api.routers.mcp._mcp_models import (
     AgentResponse,
@@ -13,6 +12,7 @@ from api.routers.mcp._mcp_models import (
     MajorVersion,
     MCPToolReturn,
     PaginatedMCPToolReturn,
+    RunSearchResult,
     UsefulLinks,
 )
 from api.services import tasks
@@ -39,21 +39,6 @@ from core.utils.schemas import FieldType
 # Claude Code only support 25k tokens, for example.
 # Overall it's a good practice to limit the tool return tokens to avoid overflowing the coding agents context.
 MAX_TOOL_RETURN_TOKENS = 20000
-
-
-class RunSearchResult(BaseModel):
-    """Model for run search results"""
-
-    id: str
-    task_id: str
-    task_schema_id: int
-    status: str
-    duration_seconds: float | None
-    cost_usd: float | None
-    created_at: str | None
-    user_review: str | None
-    ai_review: str | None
-    error: dict[str, Any] | None
 
 
 class MCPService:
@@ -647,14 +632,15 @@ class MCPService:
                 error=f"Failed to deploy version: {str(e)}",
             )
 
-    async def search_runs_by_metadata(  # noqa: C901
+    async def search_runs(  # noqa: C901
         self,
         task_tuple: tuple[str, int],
         field_queries: list[dict[str, Any]],
         limit: int,
         offset: int,
+        page: int,
         include_full_data: bool = True,
-    ) -> LegacyMCPToolReturn:
+    ) -> PaginatedMCPToolReturn[None, RunSearchResult]:
         """Search agent runs by metadata fields."""
         try:
             # Convert the field queries to the proper format
@@ -663,28 +649,25 @@ class MCPService:
                 try:
                     # Validate required fields
                     if "field_name" not in query_dict:
-                        return LegacyMCPToolReturn(
+                        return PaginatedMCPToolReturn[None, RunSearchResult](
                             success=False,
                             error="Missing required field 'field_name' in field query",
                         )
 
                     if "operator" not in query_dict:
-                        return LegacyMCPToolReturn(
+                        return PaginatedMCPToolReturn[None, RunSearchResult](
                             success=False,
                             error="Missing required field 'operator' in field query",
                         )
 
                     if "values" not in query_dict:
-                        return LegacyMCPToolReturn(
-                            success=False,
-                            error="Missing required field 'values' in field query",
-                        )
+                        query_dict["values"] = []
 
                     # Parse the operator
                     try:
                         operator = SearchOperator(query_dict["operator"])
                     except ValueError:
-                        return LegacyMCPToolReturn(
+                        return PaginatedMCPToolReturn[None, RunSearchResult](
                             success=False,
                             error=f"Invalid operator: {query_dict['operator']}. Valid operators are: {', '.join([op.value for op in SearchOperator])}",
                         )
@@ -694,31 +677,30 @@ class MCPService:
                     if "type" in query_dict and query_dict["type"]:
                         field_type = query_dict["type"]
 
-                    parsed_field_queries.append(
-                        FieldQuery(
-                            field_name=query_dict["field_name"],
-                            operator=operator,
-                            values=query_dict["values"],
-                            type=field_type,
-                        ),
+                    field_query = FieldQuery(
+                        field_name=query_dict["field_name"],
+                        operator=operator,
+                        values=query_dict["values"],  # type: ignore
+                        type=field_type,
                     )
+                    parsed_field_queries.append(field_query)
                 except Exception as e:
-                    return LegacyMCPToolReturn(
+                    return PaginatedMCPToolReturn[None, RunSearchResult](
                         success=False,
                         error=f"Error parsing field query: {str(e)}",
                     )
-
             # Use the runs search service to perform the search
-
             search_service = RunsSearchService(self.storage)
 
             # Search for runs using the parsed field queries
             def run_mapper(run: AgentRunBase) -> RunSearchResult:
                 return RunSearchResult(
                     id=run.id,
-                    task_id=run.task_id,
-                    task_schema_id=run.task_schema_id,
+                    agent_id=run.task_id,
+                    agent_schema_id=run.task_schema_id,
                     status=run.status,
+                    agent_input=None,
+                    agent_output=None,
                     duration_seconds=run.duration_seconds,
                     cost_usd=run.cost_usd,
                     created_at=run.created_at.isoformat() if run.created_at else None,
@@ -733,53 +715,44 @@ class MCPService:
                     else None,
                 )
 
-            page_result = await search_service.search_task_runs(
-                task_uid=task_tuple,
-                field_queries=parsed_field_queries,
-                limit=limit,
-                offset=offset,
-                map=run_mapper,
-            )
+            try:
+                page_result = await search_service.search_task_runs(
+                    task_uid=task_tuple,
+                    field_queries=parsed_field_queries,
+                    limit=limit,
+                    offset=offset,
+                    map=run_mapper,
+                )
+            except Exception as e:
+                return PaginatedMCPToolReturn[None, RunSearchResult](
+                    success=False,
+                    error=f"Failed to search runs: {str(e)}",
+                )
 
             # If requested, fetch full run details for each result
             # TODO: not optimal, we should fetch the full runs in the search service
             items = page_result.items
             if include_full_data:
-                full_runs: list[dict[str, Any]] = []
-                for run_summary in items:
+                for i, run in enumerate(items):
                     try:
                         # Fetch the full AgentRun with task_input and task_output
-                        full_run = await self.runs_service.run_by_id(task_tuple, run_summary.id)
-                        full_run_data = {
-                            **run_summary.model_dump(exclude_none=True),  # Convert RunSearchResult to dict
-                            "task_input": full_run.task_input,
-                            "task_output": full_run.task_output,
-                            "task_input_preview": full_run.task_input_preview,
-                            "task_output_preview": full_run.task_output_preview,
-                        }
-                        full_runs.append(full_run_data)
-                    except Exception:
-                        # If we can't fetch the full run, include what we have
-                        full_runs.append(run_summary.model_dump(exclude_none=True))
-                items = [
-                    item.model_dump(exclude_none=True) if isinstance(item, BaseModel) else item for item in full_runs
-                ]
-            else:
-                # Convert RunSearchResult objects to dicts
-                items = [item.model_dump(exclude_none=True) for item in items]
+                        full_run = await self.runs_service.run_by_id(task_tuple, run.id)
+                        run.agent_input = str(full_run.task_input)  # TODO: better handle types
+                        run.agent_output = str(full_run.task_output)
+                    except Exception as e:
+                        logger.error(
+                            "Failed to fetch full run",
+                            extra={"run_id": run.id, "error": str(e)},
+                        )
+                        continue
 
-            return LegacyMCPToolReturn(
+            return PaginatedMCPToolReturn[None, RunSearchResult](
                 success=True,
-                data={
-                    "items": items,
-                    "count": page_result.count,
-                    "limit": limit,
-                    "offset": offset,
-                },
-            )
+                items=items,
+            ).paginate(max_tokens=MAX_TOOL_RETURN_TOKENS, page=page)
 
         except Exception as e:
-            return LegacyMCPToolReturn(
+            return PaginatedMCPToolReturn[None, RunSearchResult](
                 success=False,
                 error=f"Failed to search runs by metadata: {str(e)}",
             )

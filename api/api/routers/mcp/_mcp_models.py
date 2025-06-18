@@ -485,3 +485,20 @@ class StandardModelResponse(BaseModel):
             )
 
     data: list[ModelItem]
+
+
+class RunSearchResult(BaseModel):
+    """Model for run search results"""
+
+    id: str
+    agent_id: str
+    agent_schema_id: int
+    status: str
+    agent_input: str | None
+    agent_output: str | None
+    duration_seconds: float | None
+    cost_usd: float | None
+    created_at: str | None
+    user_review: str | None
+    ai_review: str | None
+    error: dict[str, Any] | None
