@@ -1,4 +1,0 @@
-The WorkflowAI AI engineer must AT LEAST suggest the following improvements:
-- add input variables in the user message ({{email_content}})
-- activate structured outputs (response_format=...)
-- adding agent_id in the metadata ex: {"metadata": {"agent_id": "email_prioritizer"}}
