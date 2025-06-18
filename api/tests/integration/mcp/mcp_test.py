@@ -89,6 +89,9 @@ def test_mcp_cases(case: str):
         shutil.rmtree(claude_steps_dir)
     claude_steps_dir.mkdir(parents=True, exist_ok=True)
 
+    # Add the CLAUDE.md file to the initial state directory
+    shutil.copy(case_dir_path.parent / "_CLAUDE.md", initial_state_dir / "CLAUDE.md")
+
     # TODO: assert no git changes in the initial_state directory
 
     allowed_tools = " ".join(f'"{tool}"' for tool in base_allowed_tools())

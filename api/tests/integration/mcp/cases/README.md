@@ -10,6 +10,12 @@ Each test case is a directory with the following structure:
 - `PROMPT.md`: The prompt for the test case.
 - `README.md`: A README explaining the test case
 
+### Notes
+
+- `CLAUDE.md` is dynamically added to each initial state directory
+  before running each test. This is the best way we found to make sure that Claude considers the `initial_state`
+  directory as the root of the project. Without it, it seems that Claude tries to grep the root of the current repo.
+
 ## Running test cases manually
 
 ### Claude Code
@@ -24,6 +30,9 @@ claude mcp add workflowai $WORKFLOWAI_API_HOST/mcp/ -H "Authorization: Bearer $W
 
 # CD into the test case initial state directory
 cd ../<test_case_name>/initial_state
+
+# Add the CLAUDE.md file to the initial state directory
+cp ../../_CLAUDE.md CLAUDE.md
 
 # cat the PROMPT.md file and pass it to claude -p
 cat ../PROMPT.md | claude --verbose
