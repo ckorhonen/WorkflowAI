@@ -84,6 +84,13 @@ When adding a new model, you must add pricing data for each provider that suppor
 
 When deprecating a model, remove its model provider data as well.
 
+When explicitly asked to make a model a "default" model, meaning that it will be displayed by default by the frontend:
+
+- set the `is_default` flag to `True` in the model provider data
+- make sure the model places high in the Model enum since the Model enum gives the default order of models.
+- add the model to its "usual" position in the enum but comment it out to enhance readability.
+- it likely replaces another "default" model, so remove it from the top of the enum and uncomment the corresponding line in its "usual" position.
+
 #### Checking tests
 
 All the tests in the [domain models directory](./api/core/domain/models) should be executed and pass
