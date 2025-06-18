@@ -284,7 +284,7 @@ class MCPService:
         agent_id: str | None,
         run_id: str | None,
         run_url: str | None,
-    ) -> MCPToolReturn[dict[str, Any]]:
+    ) -> LegacyMCPToolReturn:
         """Fetch details of a specific agent run."""
 
         if run_url:
@@ -292,19 +292,19 @@ class MCPService:
                 agent_id, run_id = self._extract_agent_id_and_run_id(run_url)
                 # find the task tuple from the agent id
             except ValueError:
-                return MCPToolReturn(
+                return LegacyMCPToolReturn(
                     success=False,
                     error="Invalid run URL, must be in the format 'https://workflowai.com/workflowai/agents/agent-id/runs/run-id', or you must pass 'agent_id' and 'run_id'",
                 )
 
         if not agent_id:
-            return MCPToolReturn(
+            return LegacyMCPToolReturn(
                 success=False,
                 error="Agent ID is required",
             )
 
         if not run_id:
-            return MCPToolReturn(
+            return LegacyMCPToolReturn(
                 success=False,
                 error="Run ID is required",
             )
@@ -312,7 +312,7 @@ class MCPService:
         task_info = await self.storage.tasks.get_task_info(agent_id)
         task_tuple = task_info.id_tuple
         if not task_tuple:
-            return MCPToolReturn(
+            return LegacyMCPToolReturn(
                 success=False,
                 error=f"Agent {agent_id} not found",
             )
@@ -343,18 +343,18 @@ class MCPService:
                 "conversation_id": run.conversation_id,
             }
 
-            return MCPToolReturn(
+            return LegacyMCPToolReturn(
                 success=True,
                 data=run_data,
             )
 
         except ObjectNotFoundException:
-            return MCPToolReturn(
+            return LegacyMCPToolReturn(
                 success=False,
                 error=f"Run {run_id} not found",
             )
         except Exception as e:
-            return MCPToolReturn(
+            return LegacyMCPToolReturn(
                 success=False,
                 error=f"Failed to fetch run details: {str(e)}",
             )
@@ -491,13 +491,13 @@ class MCPService:
     async def _get_agent_or_failed_tool_result(
         self,
         agent_id: str,
-    ) -> tuple[TaskInfo | None, MCPToolReturn[Any] | None]:
+    ) -> tuple[TaskInfo | None, LegacyMCPToolReturn | None]:
         try:
             agent_info = await self.storage.tasks.get_task_info(agent_id)
         except ObjectNotFoundException:
             list_agent_tool_answer = await self.list_agents(page=1)
 
-            return None, MCPToolReturn(
+            return None, LegacyMCPToolReturn(
                 success=False,
                 error=f"Agent {agent_id} not found, please provide a valid agent id. Agent id can be found in either the model=... paramater (usually composed of '<agent_name>/<model_name>' or '<agent_name>/<agent_schema_id>/<deployment_environment>') or in the metadata of the agent run request. See 'data' for a list of existing agents for the user.",
                 data={"user_agents": list_agent_tool_answer.items},
@@ -512,7 +512,7 @@ class MCPService:
         message: str,
         user_programming_language: str,
         user_code_extract: str,
-    ) -> MCPToolReturn[AIEngineerReponseWithUsefulLinks | dict[str, Any]]:
+    ) -> MCPToolReturn[AIEngineerReponseWithUsefulLinks] | LegacyMCPToolReturn:
         """Ask the AI Engineer a question (legacy endpoint)."""
 
         user_message = message
@@ -654,7 +654,7 @@ class MCPService:
         limit: int,
         offset: int,
         include_full_data: bool = True,
-    ) -> MCPToolReturn[dict[str, Any]]:
+    ) -> LegacyMCPToolReturn:
         """Search agent runs by metadata fields."""
         try:
             # Convert the field queries to the proper format
@@ -663,19 +663,19 @@ class MCPService:
                 try:
                     # Validate required fields
                     if "field_name" not in query_dict:
-                        return MCPToolReturn(
+                        return LegacyMCPToolReturn(
                             success=False,
                             error="Missing required field 'field_name' in field query",
                         )
 
                     if "operator" not in query_dict:
-                        return MCPToolReturn(
+                        return LegacyMCPToolReturn(
                             success=False,
                             error="Missing required field 'operator' in field query",
                         )
 
                     if "values" not in query_dict:
-                        return MCPToolReturn(
+                        return LegacyMCPToolReturn(
                             success=False,
                             error="Missing required field 'values' in field query",
                         )
@@ -684,7 +684,7 @@ class MCPService:
                     try:
                         operator = SearchOperator(query_dict["operator"])
                     except ValueError:
-                        return MCPToolReturn(
+                        return LegacyMCPToolReturn(
                             success=False,
                             error=f"Invalid operator: {query_dict['operator']}. Valid operators are: {', '.join([op.value for op in SearchOperator])}",
                         )
@@ -703,7 +703,7 @@ class MCPService:
                         ),
                     )
                 except Exception as e:
-                    return MCPToolReturn(
+                    return LegacyMCPToolReturn(
                         success=False,
                         error=f"Error parsing field query: {str(e)}",
                     )
@@ -768,7 +768,7 @@ class MCPService:
                 # Convert RunSearchResult objects to dicts
                 items = [item.model_dump(exclude_none=True) for item in items]
 
-            return MCPToolReturn(
+            return LegacyMCPToolReturn(
                 success=True,
                 data={
                     "items": items,
@@ -779,7 +779,7 @@ class MCPService:
             )
 
         except Exception as e:
-            return MCPToolReturn(
+            return LegacyMCPToolReturn(
                 success=False,
                 error=f"Failed to search runs by metadata: {str(e)}",
             )

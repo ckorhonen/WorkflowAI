@@ -242,7 +242,7 @@ async def fetch_run_details(
         str | None,
         Field(description="The url of the run to fetch details for"),
     ] = None,
-) -> MCPToolReturn[dict[str, Any]]:
+) -> LegacyMCPToolReturn:
     """<when_to_use>
     When the user wants to investigate a specific run of a WorkflowAI agent, for debugging, improving the agent, fixing a problem on a specific use case, or any other reason. This is particularly useful for:
     - Debugging failed runs by examining error details and input/output data
@@ -339,7 +339,7 @@ async def search_runs_by_metadata(
         int,
         Field(description="Number of results to skip"),
     ] = 0,
-) -> MCPToolReturn[dict[str, Any]]:
+) -> LegacyMCPToolReturn:
     """<when_to_use>
     When the user wants to search agent runs based on metadata values, such as filtering runs by custom metadata fields they've added to their WorkflowAI agent calls.
     </when_to_use>
@@ -471,7 +471,7 @@ async def ask_ai_engineer(
             description="The schema ID of the user's agent version, if known from model=<agent_id>/#<agent_schema_id>/<deployment_environment> or model=#<agent_schema_id>/<deployment_environment> when the workflowAI agent is already deployed",
         ),
     ] = None,
-) -> MCPToolReturn[AIEngineerReponseWithUsefulLinks | dict[str, Any]]:
+) -> MCPToolReturn[AIEngineerReponseWithUsefulLinks] | LegacyMCPToolReturn:
     """
     <when_to_use>
     Most user request about WorkflowAI must be processed by starting a conversation with the AI engineer agent to get insight about the WorkflowAI platform and the user's agents.
