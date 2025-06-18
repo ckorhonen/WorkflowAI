@@ -116,7 +116,10 @@ class OpenAIProxyHandler:
         try:
             input_schema, last_templated_index = cls._json_schema_from_input(messages, input)
         except InvalidTemplateError as e:
-            raise BadRequestError(f"Invalid template: {e.message}", details=e.serialize_details())
+            raise BadRequestError(
+                f"Invalid template: {e.message}. Templates must use Jinja2 formatting.",
+                details=e.serialize_details(),
+            )
 
         if response_format:
             match response_format.type:
