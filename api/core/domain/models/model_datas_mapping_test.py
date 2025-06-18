@@ -236,7 +236,7 @@ class TestLatestModels:
                 )
 
 
-class TestModelAvailability:
+class TestDefaultModels:
     @pytest.mark.parametrize(
         "typology",
         [
@@ -275,6 +275,12 @@ class TestModelAvailability:
         default_models = [model for model in supported_models if model.is_default]
         # Assert we have at least 3 models supporting this typology
         assert len(default_models) >= 3
+
+    @pytest.mark.parametrize("model", list(Model)[:3])
+    def test_first_three_models_are_default(self, model: Model):
+        model_data = MODEL_DATAS[model]
+        assert isinstance(model_data, ModelData) or isinstance(model_data, LatestModel), "sanity"
+        assert model_data.is_default, f"Model {model} is not default"
 
 
 class TestUniqueness:
