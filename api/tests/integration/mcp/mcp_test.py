@@ -14,8 +14,7 @@ _MCP_NAME = "workflowai_test"
 
 @pytest.fixture(scope="session", autouse=True)
 def install_js_dependencies(workflowai_api_key: str, api_server: str):
-    """Install the dependencies for the JS examples.
-    We need to have claude code installed to run the tests.
+    """Install the node dependencies since Claude CLI is a node dependency
     Also set up the mcp server in claude"""
     subprocess.run(["yarn", "install"], cwd=root_dir())
 
