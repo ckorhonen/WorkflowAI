@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, time
-from typing import Any, Generic, Literal, TypeVar
+from typing import Any, Generic, Literal, TypeAlias, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -18,6 +18,9 @@ from core.domain.version_environment import VersionEnvironment
 from core.domain.version_major import VersionDeploymentMetadata, VersionMajor
 from core.utils.fields import datetime_zero
 from core.utils.token_utils import tokens_from_string
+
+SortAgentBy: TypeAlias = Literal["latest_active_first", "most_costly_first", "most_runs_first"]
+SortModelBy: TypeAlias = Literal["latest_released_first", "smartest_first", "cheapest_first"]
 
 
 class UsefulLinks(BaseModel):
@@ -120,6 +123,7 @@ class PaginationInfo(BaseModel):
     max_tokens_limit: int | None = Field(default=None, description="Maximum tokens limit used for pagination")
 
 
+# TODO: delete this once we have migrated all the code to the new MCPToolReturn or PaginatedMCPToolReturn
 class LegacyMCPToolReturn(BaseModel):
     success: bool
     messages: list[str] | None = None

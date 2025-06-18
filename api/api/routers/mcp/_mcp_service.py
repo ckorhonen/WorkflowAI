@@ -13,8 +13,12 @@ from api.routers.mcp._mcp_models import (
     MajorVersion,
     MCPToolReturn,
     PaginatedMCPToolReturn,
+    SortAgentBy,
+    SortModelBy,
     UsefulLinks,
 )
+from api.routers.mcp._utils.agent_sorting import sort_agents
+from api.routers.mcp._utils.model_sorting import sort_models
 from api.services import tasks
 from api.services.internal_tasks.ai_engineer_service import AIEngineerChatMessage, AIEngineerReponse, AIEngineerService
 from api.services.models import ModelsService
@@ -151,6 +155,7 @@ class MCPService:
     async def list_available_models(
         self,
         page: int,
+        sort_by: SortModelBy,
         agent_id: str | None,
         agent_schema_id: int | None,
         agent_requires_tools: bool = False,
@@ -167,11 +172,13 @@ class MCPService:
                     instructions=None,
                     requires_tools=agent_requires_tools,
                 )
+                model_responses: list[ConciseModelResponse | ConciseLatestModelResponse] = [
+                    ConciseModelResponse.from_model_for_task(m) for m in models if m.is_not_supported_reason is None
+                ]
+                sort_models(model_responses, sort_by)
                 return PaginatedMCPToolReturn[None, ConciseModelResponse | ConciseLatestModelResponse](
                     success=True,
-                    items=[
-                        ConciseModelResponse.from_model_for_task(m) for m in models if m.is_not_supported_reason is None
-                    ],
+                    items=model_responses,
                 ).paginate(max_tokens=MAX_TOOL_RETURN_TOKENS, page=page)
 
         def _model_data_iterator() -> Iterator[ConciseLatestModelResponse | ConciseModelResponse]:
@@ -191,9 +198,12 @@ class MCPService:
                     # Skipping deprecated models
                     continue
 
+        model_responses = list(_model_data_iterator())
+        sort_models(model_responses, sort_by)
+
         return PaginatedMCPToolReturn[None, ConciseModelResponse | ConciseLatestModelResponse](
             success=True,
-            items=[m for m in _model_data_iterator()],
+            items=model_responses,
         ).paginate(max_tokens=MAX_TOOL_RETURN_TOKENS, page=page)
 
     def _extract_agent_id_and_run_id(self, run_url: str) -> tuple[str, str]:  # noqa: C901
@@ -362,6 +372,7 @@ class MCPService:
     async def list_agents(
         self,
         page: int,
+        sort_by: SortAgentBy,
         agent_id: str | None = None,
         stats_from_date: str = "",
         with_schemas: bool = False,
@@ -423,6 +434,8 @@ class MCPService:
                 )
 
                 agent_responses.append(agent_response)
+
+            sort_agents(agent_responses, sort_by)
 
             return PaginatedMCPToolReturn[None, AgentResponse](
                 success=True,
@@ -495,7 +508,7 @@ class MCPService:
         try:
             agent_info = await self.storage.tasks.get_task_info(agent_id)
         except ObjectNotFoundException:
-            list_agent_tool_answer = await self.list_agents(page=1)
+            list_agent_tool_answer = await self.list_agents(page=1, sort_by="latest_active_first")
 
             return None, LegacyMCPToolReturn(
                 success=False,
