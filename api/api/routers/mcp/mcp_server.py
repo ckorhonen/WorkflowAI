@@ -541,8 +541,11 @@ async def search_runs(
             offset=offset,
             page=page,
         )
-    except Exception:
-        raise
+    except Exception as e:
+        return PaginatedMCPToolReturn(
+            success=False,
+            error=f"Failed to search runs: {e}",
+        )
 
 
 @_mcp.tool()
