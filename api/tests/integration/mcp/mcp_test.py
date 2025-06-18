@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -83,6 +84,9 @@ def base_denied_tools():
 def test_mcp_cases(case: str):
     case_dir_path = _cur_dir() / "cases" / case
     initial_state_dir = case_dir_path / "initial_state"
+
+    if case_dir_path / "FAILURE.md" and os.getenv("MCP_TEST_IGNORE_FAILURES") != "true":
+        pytest.skip("Skipping for expected failure")
 
     # RM the claude_steps if exists
     # The claude steps file will contain the steps for the actual execution of the agent
