@@ -36,3 +36,38 @@ trigger deployments to the production environment. Once everything is ok, the br
 A hotfix allows fixing bugs in production without having to push changes to the development environment first.
 A hotfix branch should be created from the latest tag and a PR targeting main should be created. The flow is then the
 same as the release process.
+
+### Adding new models
+
+#### Model enum
+
+The [Model enum](./api/core/domain/models/models.py) contains the list of all models that were ever supported by WorkflowAI.
+
+- never remove a model from the Model enum
+- a model ID should always be versioned when possible, meaning that the model ID should include the version number when available e-g `gpt-4.1-2025-04-14`
+- the model ID should match the provider's model ID when possible
+
+#### Model data
+
+The [ModelData](./api/core/domain/models/model_data.py) class contains metadata about a model, including the display name, icon URL, etc. It also allows deprecating a model by providing a replacement model.
+
+The actual data is built by `_raw_model_data` in the [model_datas_mapping.py](./api/core/domain/models/model_datas_mapping.py) file. Every model in the Model enum should have an associated ModelData object.
+
+When deprecating a model, make sure to replace every case where the model is used in the replacement model. We do not allow replacement models to be deprecated. Only deprecate models when either:
+
+- the model will no longer be supported by the provider in the near future
+- the model has a clear replacement model and using the original model is not recommended
+
+#### Model provider data
+
+The [ModelProviderData](./api/core/domain/models/model_provider_data.py) class contains pricing information per provider per model. If a model is supported by a provider, then it must have a ModelProviderData object.
+
+When deprecating a model, remove it's model provider data as well.
+
+#### Checking tests
+
+All the tests in the [domain models directory](./api/core/domain/models) should be executed and pass
+
+```bash
+pytest api/core/domain/models
+```
