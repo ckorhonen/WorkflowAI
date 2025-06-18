@@ -253,3 +253,28 @@ class StandardModelResponse(BaseModel):
             )
 
     data: list[ModelItem]
+
+
+class Error(BaseModel):
+    code: str
+    message: str
+    details: dict[str, Any] | None # not sure this is the correct format, but you get the idea
+
+class Run(BaseModel):
+    # none exhaustive list of fields, to get started.
+    id: str
+    conversation_id: str # is there always a conversation_id?
+    agent_id: str
+    agent_schema_id: int
+    agent_version_id: str
+    status: Literal["success", "error", "pending", "running", "cancelled"] # not sure about the exact list of statuses, but you get the idea
+    agent_input: dict[str, Any] | None
+    # agent_output: dict[str, Any] (I don't think we should return a `agent_output`, the output is part of the `llm_completions` field)
+    duration_seconds: float
+    cost_usd: float
+    created_at: datetime
+    metadata: dict[str, Any] | None # very important
+    llm_completions: list[str] | None  # probably not the right format, but you get the idea (should be a list of Pydantic models)
+    error: Error | None
+
+class Agent(BaseModel):
