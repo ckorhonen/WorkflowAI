@@ -733,7 +733,7 @@ class MCPService:
             # TODO: not optimal, we should fetch the full runs in the search service
             items = page_result.items
             if include_full_data:
-                for i, run in enumerate(items):
+                for run in items:
                     try:
                         # Fetch the full AgentRun with task_input and task_output
                         full_run = await self.runs_service.run_by_id(task_tuple, run.id)
