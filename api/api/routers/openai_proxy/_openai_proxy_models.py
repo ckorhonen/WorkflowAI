@@ -9,6 +9,7 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel, to_pascal
 from workflowai import CacheUsage
 
+from api.routers._common import SkipJsonSchema
 from core.domain.agent_run import AgentRun
 from core.domain.consts import METADATA_KEY_INTEGRATION
 from core.domain.errors import BadRequestError
@@ -468,6 +469,15 @@ class OpenAIProxyChatCompletionRequest(_OpenAIProxyExtraFields):
     top_p: float | None = None
     user: str | None = None
     web_search_options: OpenAIProxyWebSearchOptions | None = None
+
+    # Internal workflowai properties, allowing the playground to trigger runs
+    # by providing a variant id and version messages
+    class WorkflowAIInternal(BaseModel):
+        variant_id: str
+        version_messages: list[Message] | None = None
+
+    # Not in extra fields because we don't want to expose them or add an alias
+    workflowai_internal: SkipJsonSchema[WorkflowAIInternal | None] = None
 
     model_config = ConfigDict(extra="allow")
 

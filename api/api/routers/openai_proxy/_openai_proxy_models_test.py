@@ -42,6 +42,34 @@ class TestOpenAIProxyChatCompletionRequest:
         )
         assert payload
 
+    def test_workflowai_internal(self):
+        payload = OpenAIProxyChatCompletionRequest.model_validate(
+            {
+                "model": "gpt-4o-mini",
+                "messages": [],
+                "workflowai_internal": {
+                    "variant_id": "123",
+                    "version_messages": [
+                        {
+                            "role": "system",
+                            "content": [{"type": "text", "text": "You are a helpful assistant"}],
+                        },
+                    ],
+                },
+                "agent_id": "123",
+                "stream": True,
+                "stream_options": {
+                    "valid_json_chunks": True,
+                },
+            },
+        )
+        assert payload
+        assert payload.workflowai_internal is not None
+        assert payload.workflowai_internal.variant_id == "123"
+        assert payload.workflowai_internal.version_messages == [
+            Message.with_text("You are a helpful assistant", role="system"),
+        ]
+
     @pytest.mark.parametrize(
         "extra",
         (

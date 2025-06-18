@@ -148,6 +148,7 @@ _Notes from Yann: Doable, we'll just need to expose our release notes to the AI 
 
 ### Proposition for next use cases:
 
+- [ ] pass unknown agent id and see how the AI Engineer Agent handles it
 - [ ] Very large PDF payload that break agent, the MCP should be able to investigate https://workflowaihq.slack.com/archives/C075WQE2Y6M/p1749826343497299
 - [ ] Add a new input variables (including with deployed agent)
 - [ ] Add a new output variable (including with deployed agent)

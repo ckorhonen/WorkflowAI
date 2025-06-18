@@ -364,9 +364,9 @@ export const useOrFetchTaskRunReviews = (
   };
 };
 
-export const useOrFetchCurrentTaskSchema = (
+export const useOrFetchSchema = (
   tenant: TenantID | undefined,
-  taskId: TaskID,
+  taskId: TaskID | undefined,
   taskSchemaId: TaskSchemaID | undefined
 ) => {
   const scopeKey = buildScopeKey({ tenant, taskId, taskSchemaId });
