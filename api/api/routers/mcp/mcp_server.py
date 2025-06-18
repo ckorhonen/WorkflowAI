@@ -6,7 +6,16 @@ from pydantic import Field
 from starlette.exceptions import HTTPException
 
 from api.dependencies.task_info import TaskTuple
-from api.routers.mcp._mcp_models import MCPToolReturn
+from api.routers.mcp._mcp_models import (
+    AgentResponse,
+    AIEngineerReponseWithUsefulLinks,
+    ConciseLatestModelResponse,
+    ConciseModelResponse,
+    LegacyMCPToolReturn,
+    MajorVersion,
+    MCPToolReturn,
+    PaginatedMCPToolReturn,
+)
 from api.routers.mcp._mcp_service import MCPService
 from api.services import file_storage, storage
 from api.services.analytics import analytics_service
@@ -157,7 +166,11 @@ async def list_available_models(
             description="Whether the agent requires tools to be used, if not provided, the agent is assumed to not require tools",
         ),
     ] = False,
-) -> MCPToolReturn:
+    page: Annotated[
+        int,
+        Field(description="The page number to return. Defaults to 1."),
+    ] = 1,
+) -> PaginatedMCPToolReturn[None, ConciseModelResponse | ConciseLatestModelResponse]:
     """<when_to_use>
     When you need to pick a model for the user's WorkflowAI agent, or any model-related goal.
     </when_to_use>
@@ -166,7 +179,8 @@ async def list_available_models(
     </returns>"""
     service = await get_mcp_service()
     return await service.list_available_models(
-        agent_id,
+        page=page,
+        agent_id=agent_id,
         agent_schema_id=agent_schema_id,
         agent_requires_tools=agent_requires_tools,
     )
@@ -174,13 +188,29 @@ async def list_available_models(
 
 @_mcp.tool()
 async def list_agents(
-    from_date: Annotated[
+    agent_id: Annotated[
+        str | None,
+        Field(
+            description="Filter on specific agent id. If omitted, all user's agents are returned. Example: 'agent_id': 'email-filtering-agent' in metadata, or 'email-filtering-agent' in 'model=email-filtering-agent/gpt-4o-latest'.",
+        ),
+    ] = None,
+    with_schemas: Annotated[
+        bool,
+        Field(
+            description="If true, the response will include the input and output schemas of the different schema ids of the agent. Useful to find on which schema id you are working on.",
+        ),
+    ] = False,
+    stats_from_date: Annotated[
         str,
         Field(
-            description="ISO date string to filter stats from (e.g., '2024-01-01T00:00:00Z'). Defaults to 7 days ago if not provided.",
+            description="ISO date string to filter usage (runs and costs) stats from (e.g., '2024-01-01T00:00:00Z'). Defaults to 7 days ago if not provided.",
         ),
-    ],
-) -> MCPToolReturn:
+    ] = "",
+    page: Annotated[
+        int,
+        Field(description="The page number to return. Defaults to 1."),
+    ] = 1,
+) -> PaginatedMCPToolReturn[None, AgentResponse]:
     """<when_to_use>
     When the user wants to see all agents they have created, along with their statistics (run counts and costs on the last 7 days).
     </when_to_use>
@@ -188,7 +218,12 @@ async def list_agents(
     Returns a list of all agents for the user along with their statistics (run counts and costs).
     </returns>"""
     service = await get_mcp_service()
-    return await service.list_agents(from_date)
+    return await service.list_agents(
+        agent_id=agent_id,
+        stats_from_date=stats_from_date,
+        with_schemas=with_schemas,
+        page=page,
+    )
 
 
 @_mcp.tool()
@@ -207,7 +242,7 @@ async def fetch_run_details(
         str | None,
         Field(description="The url of the run to fetch details for"),
     ] = None,
-) -> MCPToolReturn:
+) -> MCPToolReturn[dict[str, Any]]:
     """<when_to_use>
     When the user wants to investigate a specific run of a WorkflowAI agent, for debugging, improving the agent, fixing a problem on a specific use case, or any other reason. This is particularly useful for:
     - Debugging failed runs by examining error details and input/output data
@@ -252,12 +287,21 @@ async def fetch_run_details(
 
 @_mcp.tool()
 async def get_agent_versions(
-    task_id: Annotated[str, Field(description="The task ID of the agent")],
+    agent_id: Annotated[
+        str,
+        Field(
+            description="The id of the user's agent. Example: 'agent_id': 'email-filtering-agent' in metadata, or 'email-filtering-agent' in 'model=email-filtering-agent/gpt-4o-latest'.",
+        ),
+    ],
     version_id: Annotated[
         str | None,
         Field(description="An optional version id, e-g 1.1. If not provided all versions are returned"),
     ] = None,
-) -> MCPToolReturn:
+    page: Annotated[
+        int,
+        Field(description="The page number to return. Defaults to 1."),
+    ] = 1,
+) -> PaginatedMCPToolReturn[None, MajorVersion]:
     """<when_to_use>
     When the user wants to retrieve details of versions of a WorkflowAI agent, or when they want to compare a specific version of an agent.
     </when_to_use>
@@ -265,12 +309,13 @@ async def get_agent_versions(
     Returns the details of one or more versions of a WorkflowAI agent.
     </returns>"""
     service = await get_mcp_service()
-    task_tuple = await get_task_tuple_from_task_id(task_id)
+    task_tuple = await get_task_tuple_from_task_id(agent_id)
 
     if version_id:
         return await service.get_agent_version(task_tuple, version_id)
 
-    return await service.list_agent_versions(task_tuple)
+    return await service.list_agent_versions(task_tuple, page=page)
+
 
 # @_mcp.tool() WIP
 async def search_runs_by_metadata(
@@ -294,7 +339,7 @@ async def search_runs_by_metadata(
         int,
         Field(description="Number of results to skip"),
     ] = 0,
-) -> MCPToolReturn:
+) -> MCPToolReturn[dict[str, Any]]:
     """<when_to_use>
     When the user wants to search agent runs based on metadata values, such as filtering runs by custom metadata fields they've added to their WorkflowAI agent calls.
     </when_to_use>
@@ -426,7 +471,7 @@ async def ask_ai_engineer(
             description="The schema ID of the user's agent version, if known from model=<agent_id>/#<agent_schema_id>/<deployment_environment> or model=#<agent_schema_id>/<deployment_environment> when the workflowAI agent is already deployed",
         ),
     ] = None,
-) -> MCPToolReturn:
+) -> MCPToolReturn[AIEngineerReponseWithUsefulLinks | dict[str, Any]]:
     """
     <when_to_use>
     Most user request about WorkflowAI must be processed by starting a conversation with the AI engineer agent to get insight about the WorkflowAI platform and the user's agents.
@@ -465,7 +510,7 @@ async def deploy_agent_version(
         Literal["dev", "staging", "production"],
         Field(description="The deployment environment. Must be one of: 'dev', 'staging', or 'production'"),
     ],
-) -> MCPToolReturn:
+) -> LegacyMCPToolReturn:
     """<when_to_use>
     When the user wants to deploy a specific version of their WorkflowAI agent to an environment (dev, staging, or production).
 

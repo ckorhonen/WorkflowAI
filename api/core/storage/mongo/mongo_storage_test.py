@@ -1140,7 +1140,7 @@ class TestSetTaskDescription:
 
 class TestBuildListTasksPipeline:
     def test_basic_pipeline(self, storage: MongoStorage) -> None:
-        # Test basic pipeline without limit
+        # Test basic pipeline without limit and without schemas
         pipeline = storage._build_list_tasks_pipeline({}, None)  # pyright: ignore[reportPrivateUsage]
 
         expected_pipeline = [
@@ -1170,7 +1170,7 @@ class TestBuildListTasksPipeline:
         assert pipeline == expected_pipeline
 
     def test_pipeline_with_limit(self, storage: MongoStorage) -> None:
-        # Test pipeline with limit
+        # Test pipeline with limit but without schemas
         pipeline = storage._build_list_tasks_pipeline({}, 5)  # pyright: ignore[reportPrivateUsage]
 
         expected_pipeline = [
@@ -1201,7 +1201,7 @@ class TestBuildListTasksPipeline:
         assert pipeline == expected_pipeline
 
     def test_pipeline_with_filter(self, storage: MongoStorage) -> None:
-        # Test pipeline with custom filter
+        # Test pipeline with custom filter but without schemas
         custom_filter = {"name": "test_task"}
         pipeline = storage._build_list_tasks_pipeline(custom_filter, None)  # pyright: ignore[reportPrivateUsage]
 
@@ -1232,7 +1232,7 @@ class TestBuildListTasksPipeline:
         assert pipeline == expected_pipeline
 
     def test_pipeline_with_filter_and_limit(self, storage: MongoStorage) -> None:
-        # Test pipeline with both filter and limit
+        # Test pipeline with both filter and limit but without schemas
         custom_filter = {"is_public": True}
         pipeline = storage._build_list_tasks_pipeline(custom_filter, 10)  # pyright: ignore[reportPrivateUsage]
 
@@ -1259,6 +1259,72 @@ class TestBuildListTasksPipeline:
             },
             {"$sort": {"latest_created_at": -1}},
             {"$limit": 10},
+        ]
+
+        assert pipeline == expected_pipeline
+
+    def test_pipeline_with_schemas(self, storage: MongoStorage) -> None:
+        # Test pipeline with schemas included
+        pipeline = storage._build_list_tasks_pipeline({}, None, with_schemas=True)  # pyright: ignore[reportPrivateUsage]
+
+        expected_pipeline = [
+            {"$match": {"tenant": "test_tenant"}},
+            {
+                "$group": {
+                    "_id": "$slug",
+                    "id": {"$first": "$slug"},
+                    "name": {"$first": "$name"},
+                    "is_public": {"$first": "$is_public"},
+                    "latest_created_at": {"$max": "$created_at"},
+                    "versions": {
+                        "$push": {
+                            "schema_id": "$schema_id",
+                            "variant_id": "$version",
+                            "description": "$description",
+                            "input_schema_version": "$input_schema.version",
+                            "output_schema_version": "$output_schema.version",
+                            "created_at": "$created_at",
+                            "input_schema": "$input_schema.json_schema",
+                            "output_schema": "$output_schema.json_schema",
+                        },
+                    },
+                },
+            },
+            {"$sort": {"latest_created_at": -1}},
+        ]
+
+        assert pipeline == expected_pipeline
+
+    def test_pipeline_with_schemas_filter_and_limit(self, storage: MongoStorage) -> None:
+        # Test pipeline with schemas, filter, and limit
+        custom_filter = {"is_public": True}
+        pipeline = storage._build_list_tasks_pipeline(custom_filter, 5, with_schemas=True)  # pyright: ignore[reportPrivateUsage]
+
+        expected_pipeline = [
+            {"$match": {"is_public": True, "tenant": "test_tenant"}},
+            {
+                "$group": {
+                    "_id": "$slug",
+                    "id": {"$first": "$slug"},
+                    "name": {"$first": "$name"},
+                    "is_public": {"$first": "$is_public"},
+                    "latest_created_at": {"$max": "$created_at"},
+                    "versions": {
+                        "$push": {
+                            "schema_id": "$schema_id",
+                            "variant_id": "$version",
+                            "description": "$description",
+                            "input_schema_version": "$input_schema.version",
+                            "output_schema_version": "$output_schema.version",
+                            "created_at": "$created_at",
+                            "input_schema": "$input_schema.json_schema",
+                            "output_schema": "$output_schema.json_schema",
+                        },
+                    },
+                },
+            },
+            {"$sort": {"latest_created_at": -1}},
+            {"$limit": 5},
         ]
 
         assert pipeline == expected_pipeline
