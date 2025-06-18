@@ -239,6 +239,7 @@ class OpenAIProxyHandler:
         variant_id: str,
         version_messages: list[Message] | None,
         input: dict[str, Any] | None,
+        tenant_data: PublicOrganizationData,
     ) -> PreparedRun:
         variant = await self._storage.task_version_resource_by_id(
             agent_id,
@@ -246,6 +247,7 @@ class OpenAIProxyHandler:
         )
         properties = TaskGroupProperties(model=model, messages=version_messages)
         properties.task_variant_id = variant.id
+        self._update_task_properties(tenant_data, variant)
         # Here the input is exactly what we expect in run.task_input
         return self.PreparedRun(properties=properties, variant=variant, final_input=input or {})
 
@@ -365,6 +367,7 @@ class OpenAIProxyHandler:
                 variant_id=body.workflowai_internal.variant_id,
                 version_messages=body.workflowai_internal.version_messages,
                 input=body.input,
+                tenant_data=tenant_data,
             )
 
         messages = Messages.with_messages(*body.domain_messages())
