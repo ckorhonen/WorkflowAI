@@ -34,7 +34,13 @@ class ConciseModelResponse(BaseModel):
 
     @classmethod
     def from_model_data(cls, id: str, model: FinalModelData):
-        IGNORE_SUPPORTS = {"structured_output", "support_system_messages", "json_mode"}
+        SUPPORTS_WHITELIST = {
+            "supports_input_image",
+            "supports_input_pdf",
+            "supports_input_audio",
+            "supports_audio_only",
+            "supports_tool_calling",
+        }
 
         provider_data = model.providers[0][1]
         return cls(
@@ -44,7 +50,7 @@ class ConciseModelResponse(BaseModel):
             supports=[
                 k.removeprefix("supports_")
                 for k, v in model.model_dump().items()
-                if v is True and k.startswith("supports_") and k not in IGNORE_SUPPORTS
+                if v is True and k in SUPPORTS_WHITELIST
             ],
             quality_index=model.quality_index,
             cost_per_input_token_usd=provider_data.text_price.prompt_cost_per_token,
