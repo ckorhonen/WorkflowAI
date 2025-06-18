@@ -120,6 +120,7 @@ class PaginationInfo(BaseModel):
     max_tokens_limit: int | None = Field(default=None, description="Maximum tokens limit used for pagination")
 
 
+# TODO: delete this class when all tools are migrated to the new MCPToolReturn or PaginatedMCPToolReturn
 class LegacyMCPToolReturn(BaseModel):
     success: bool
     messages: list[str] | None = None
