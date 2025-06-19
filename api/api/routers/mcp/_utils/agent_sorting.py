@@ -25,6 +25,8 @@ def sort_agents(
     Returns:
         Sorted list of agents (modifies in place and returns the list)
     """
+    reverse_sort = order == "desc"
+
     if sort_by == "last_active_at":
 
         def get_sort_key(agent: AgentResponse) -> tuple[float, str]:
@@ -38,26 +40,12 @@ def sort_agents(
                 # Convert ISO string to timestamp for proper numerical sorting
                 max_timestamp = datetime.datetime.fromisoformat(max_date.replace("Z", "+00:00")).timestamp()
 
-            # For descending order, negate the timestamp while keeping agent_id ascending
-            if order == "desc":
-                return (-max_timestamp, agent.agent_id)
-            # For ascending order, use timestamp as-is
             return (max_timestamp, agent.agent_id)
 
-        agents.sort(key=get_sort_key)
+        agents.sort(key=get_sort_key, reverse=reverse_sort)
     elif sort_by == "total_cost_usd":
-        if order == "desc":
-            # For descending order, negate the primary key but keep agent_id ascending
-            agents.sort(key=lambda x: (-x.total_cost_usd, x.agent_id))
-        else:
-            # For ascending order, use values as-is
-            agents.sort(key=lambda x: (x.total_cost_usd, x.agent_id))
+        agents.sort(key=lambda x: (x.total_cost_usd, x.agent_id), reverse=reverse_sort)
     elif sort_by == "run_count":
-        if order == "desc":
-            # For descending order, negate the primary key but keep agent_id ascending
-            agents.sort(key=lambda x: (-x.run_count, x.agent_id))
-        else:
-            # For ascending order, use values as-is
-            agents.sort(key=lambda x: (x.run_count, x.agent_id))
+        agents.sort(key=lambda x: (x.run_count, x.agent_id), reverse=reverse_sort)
 
     return agents
