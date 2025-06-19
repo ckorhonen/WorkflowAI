@@ -100,7 +100,7 @@ export function ProxyMessagesView(props: Props) {
       }
 
       const lastIndex = !!cleanedMessages && cleanedMessages.length > 0 ? cleanedMessages.length - 1 : 0;
-      const previouseIndex = Math.max(0, index ?? lastIndex);
+      const previouseIndex = Math.max(0, index !== undefined ? index - 1 : lastIndex);
       const previouseMessage = cleanedMessages?.[previouseIndex];
 
       const allMessages = cleanedMessages ?? [];
