@@ -261,13 +261,19 @@ class Error(BaseModel):
     details: dict[str, Any] | None  # not sure this is the correct format, but you get the idea
 
 
+class AgentVersion(BaseModel):
+    id: str
+    temperature: float
+    # ...
+
+
 class Run(BaseModel):
     # none exhaustive list of fields, to get started.
     id: str
     conversation_id: str  # is there always a conversation_id?
     agent_id: str
     agent_schema_id: int
-    agent_version_id: str
+    agent_version: AgentVersion
     status: Literal[
         "success",
         "error",
