@@ -1,14 +1,5 @@
 {
   "title": "Inference",
   "icon": "Zap",
-  "pages": [
-    "index",
-    "models",
-    "structured-outputs",
-    "reliability",
-    "streaming",
-    "reasoning",
-    "caching",
-    "cost"
-  ]
-} 
+  "pages": ["index", "models", "reasoning", "structured-outputs", "reliability", "streaming", "caching", "cost"]
+}

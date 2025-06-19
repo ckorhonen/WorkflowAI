@@ -1,12 +1,13 @@
 import json
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, cast
 from unittest import mock
 
 import openai
 import pytest
 from openai import AsyncOpenAI, RateLimitError
 from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall, Function
+from openai.types.chat.chat_completion_stream_options_param import ChatCompletionStreamOptionsParam
 
 from core.domain.models.models import Model
 from core.domain.models.providers import Provider
@@ -326,6 +327,57 @@ async def test_stream_raw_string(test_client: IntegrationTestClient, openai_clie
     assert run["task_output"] == "Hello world"
 
 
+async def test_stream_raw_string_with_valid_json_chunks(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+    test_client.mock_openai_stream(deltas=["Hello", " world"])
+
+    streamer = await openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "Hello, world!"}],
+        stream=True,
+        stream_options=cast(ChatCompletionStreamOptionsParam, {"valid_json_chunks": True}),
+    )
+
+    chunks = [c async for c in streamer]
+    assert len(chunks) == 4
+
+    # TODO: fix the extra chunk
+    deltas = [c.choices[0].delta.content for c in chunks]
+    assert deltas == ["Hello", "Hello world", "Hello world", "Hello world"]
+
+    await test_client.wait_for_completed_tasks()
+
+    run = await test_client.get("/v1/_/agents/default/runs/latest")
+    assert run["task_output"] == "Hello world"
+
+
+async def test_stream_json_with_valid_json_chunks(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
+    test_client.mock_openai_stream(deltas=['{"hello": ', '"world2"}'])
+
+    streamer = await openai_client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "Hello, world!"}],
+        stream=True,
+        response_format={"type": "json_object"},
+        stream_options=cast(ChatCompletionStreamOptionsParam, {"valid_json_chunks": True}),
+    )
+
+    chunks = [c async for c in streamer]
+    assert len(chunks) == 3
+
+    deltas = [json.loads(c.choices[0].delta.content or "") for c in chunks]
+    # TODO: fix the extra chunks
+    assert deltas == [
+        {"hello": "world2"},
+        {"hello": "world2"},
+        {"hello": "world2"},
+    ]
+
+    await test_client.wait_for_completed_tasks()
+
+    run = await test_client.get("/v1/_/agents/default/runs/latest")
+    assert run["task_output"] == {"hello": "world2"}
+
+
 async def test_stream_raw_json(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
     test_client.mock_openai_stream(deltas=['{"hello": ', '"world2"}'])
 
@@ -493,6 +545,11 @@ async def test_list_models(openai_client: AsyncOpenAI):
     assert model_ids < set(Model)
     assert Model.GPT_41_LATEST in model_ids
     assert Model.GPT_3_5_TURBO_1106 not in model_ids
+
+    first_model = res.data[0]
+    assert first_model.supports and isinstance(first_model.supports, dict)  # type: ignore
+    assert first_model.pricing and isinstance(first_model.pricing, dict)  # type: ignore
+    assert first_model.release_date and isinstance(first_model.release_date, str)  # type: ignore
 
 
 async def test_deployed_version_no_messages(test_client: IntegrationTestClient, openai_client: AsyncOpenAI):
