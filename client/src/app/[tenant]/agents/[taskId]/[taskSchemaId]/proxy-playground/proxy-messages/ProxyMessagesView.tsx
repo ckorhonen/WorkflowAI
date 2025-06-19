@@ -166,7 +166,12 @@ export function ProxyMessagesView(props: Props) {
       ))}
       {showAddMessageButton && (
         <div className='flex flex-row gap-2 py-2'>
-          <Button variant='newDesign' size='sm' icon={<Add16Regular />} onClick={() => addMessage()}>
+          <Button
+            variant='newDesign'
+            size='sm'
+            icon={<Add16Regular />}
+            onClick={() => addMessage(messages?.length ?? 0)}
+          >
             Add Message
           </Button>
         </div>
