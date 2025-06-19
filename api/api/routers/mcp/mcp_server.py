@@ -8,15 +8,15 @@ from starlette.exceptions import HTTPException
 from api.dependencies.task_info import TaskTuple
 from api.routers.mcp._mcp_models import (
     AgentResponse,
+    AgentSortField,
     AIEngineerReponseWithUsefulLinks,
     ConciseLatestModelResponse,
     ConciseModelResponse,
     LegacyMCPToolReturn,
     MajorVersion,
     MCPToolReturn,
+    ModelSortField,
     PaginatedMCPToolReturn,
-    SortAgentBy,
-    SortModelBy,
 )
 from api.routers.mcp._mcp_service import MCPService
 from api.services import file_storage, storage
@@ -169,11 +169,17 @@ async def list_available_models(
         ),
     ] = False,
     sort_by: Annotated[
-        SortModelBy,
+        ModelSortField,
         Field(
-            description="The field to sort the models by. Defaults to 'latest_released_first'.",
+            description="The field name to sort by, e.g., 'release_date', 'quality_index', 'cost'",
         ),
-    ] = "smartest_first",
+    ] = "quality_index",
+    order: Annotated[
+        SortOrder,
+        Field(
+            description="The direction to sort: 'asc' for ascending, 'desc' for descending",
+        ),
+    ] = "desc",
     page: Annotated[
         int,
         Field(description="The page number to return. Defaults to 1."),
@@ -192,6 +198,7 @@ async def list_available_models(
         agent_schema_id=agent_schema_id,
         agent_requires_tools=agent_requires_tools,
         sort_by=sort_by,
+        order=order,
     )
 
 
@@ -216,11 +223,17 @@ async def list_agents(
         ),
     ] = "",
     sort_by: Annotated[
-        SortAgentBy,
+        AgentSortField,
         Field(
-            description="The field to sort the agents by. Defaults to 'latest_release_date_first'.",
+            description="The field name to sort by, e.g., 'last_active_at', 'total_cost_usd', 'run_count'",
         ),
-    ] = "last_active_first",
+    ] = "last_active_at",
+    order: Annotated[
+        SortOrder,
+        Field(
+            description="The direction to sort: 'asc' for ascending, 'desc' for descending",
+        ),
+    ] = "desc",
     page: Annotated[
         int,
         Field(description="The page number to return. Defaults to 1."),
@@ -239,6 +252,7 @@ async def list_agents(
         with_schemas=with_schemas,
         page=page,
         sort_by=sort_by,
+        order=order,
     )
 
 

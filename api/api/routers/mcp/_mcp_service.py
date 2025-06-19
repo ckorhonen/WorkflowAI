@@ -6,15 +6,16 @@ from pydantic import BaseModel
 
 from api.routers.mcp._mcp_models import (
     AgentResponse,
+    AgentSortField,
     AIEngineerReponseWithUsefulLinks,
     ConciseLatestModelResponse,
     ConciseModelResponse,
     LegacyMCPToolReturn,
     MajorVersion,
     MCPToolReturn,
+    ModelSortField,
     PaginatedMCPToolReturn,
-    SortAgentBy,
-    SortModelBy,
+    SortOrder,
     UsefulLinks,
 )
 from api.routers.mcp._utils.agent_sorting import sort_agents
@@ -155,7 +156,8 @@ class MCPService:
     async def list_available_models(
         self,
         page: int,
-        sort_by: SortModelBy,
+        sort_by: ModelSortField,
+        order: SortOrder,
         agent_id: str | None,
         agent_schema_id: int | None,
         agent_requires_tools: bool = False,
@@ -175,7 +177,7 @@ class MCPService:
                 model_responses: list[ConciseModelResponse | ConciseLatestModelResponse] = [
                     ConciseModelResponse.from_model_for_task(m) for m in models if m.is_not_supported_reason is None
                 ]
-                sort_models(model_responses, sort_by)
+                sort_models(model_responses, sort_by, order)
                 return PaginatedMCPToolReturn[None, ConciseModelResponse | ConciseLatestModelResponse](
                     success=True,
                     items=model_responses,
@@ -199,7 +201,7 @@ class MCPService:
                     continue
 
         model_responses = list(_model_data_iterator())
-        sort_models(model_responses, sort_by)
+        sort_models(model_responses, sort_by, order)
 
         return PaginatedMCPToolReturn[None, ConciseModelResponse | ConciseLatestModelResponse](
             success=True,
@@ -372,7 +374,8 @@ class MCPService:
     async def list_agents(
         self,
         page: int,
-        sort_by: SortAgentBy,
+        sort_by: AgentSortField,
+        order: SortOrder,
         agent_id: str | None = None,
         stats_from_date: str = "",
         with_schemas: bool = False,
@@ -435,7 +438,7 @@ class MCPService:
 
                 agent_responses.append(agent_response)
 
-            sort_agents(agent_responses, sort_by)
+            sort_agents(agent_responses, sort_by, order)
 
             return PaginatedMCPToolReturn[None, AgentResponse](
                 success=True,
@@ -508,7 +511,7 @@ class MCPService:
         try:
             agent_info = await self.storage.tasks.get_task_info(agent_id)
         except ObjectNotFoundException:
-            list_agent_tool_answer = await self.list_agents(page=1, sort_by="last_active_first")
+            list_agent_tool_answer = await self.list_agents(page=1, sort_by="last_active_at", order="desc")
 
             return None, LegacyMCPToolReturn(
                 success=False,
