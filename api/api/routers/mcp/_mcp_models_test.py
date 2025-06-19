@@ -59,7 +59,6 @@ class TestConciseModelResponseFromModelData:
         result = ConciseModelResponse.from_model_data("test-model-id", mock_final_model_data)
 
         assert result.id == "test-model-id"
-        assert result.maker == "OpenAI"
         assert result.display_name == "GPT-4"
         assert result.cost_per_input_token_usd == 0.001
         assert result.cost_per_output_token_usd == 0.002

@@ -42,7 +42,6 @@ class ConciseLatestModelResponse(BaseModel):
 
 class ConciseModelResponse(BaseModel):
     id: str
-    maker: str
     display_name: str
     supports: list[str]
     quality_index: int
@@ -63,7 +62,6 @@ class ConciseModelResponse(BaseModel):
         provider_data = model.providers[0][1]
         return cls(
             id=id,
-            maker=model.provider_name,
             display_name=model.display_name,
             supports=[
                 k.removeprefix("supports_")
@@ -80,7 +78,6 @@ class ConciseModelResponse(BaseModel):
     def from_model_for_task(cls, model: ModelForTask):
         return cls(
             id=model.id,
-            maker=model.provider_name,
             display_name=model.name,
             supports=model.modes,
             quality_index=model.quality_index,
@@ -125,7 +122,8 @@ class PaginationInfo(BaseModel):
     max_tokens_limit: int | None = Field(default=None, description="Maximum tokens limit used for pagination")
 
 
-# TODO: delete this once we have migrated all the code to the new MCPToolReturn or PaginatedMCPToolReturn
+
+# TODO: delete this class when all tools are migrated to the new MCPToolReturn or PaginatedMCPToolReturn
 class LegacyMCPToolReturn(BaseModel):
     success: bool
     messages: list[str] | None = None
