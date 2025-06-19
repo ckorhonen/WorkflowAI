@@ -172,13 +172,13 @@ async def list_available_models(
     sort_by: Annotated[
         ModelSortField,
         Field(
-            description="The field name to sort by, e.g., 'release_date', 'quality_index', 'cost'",
+            description="The field name to sort by, e.g., 'release_date', 'quality_index' (default), 'cost'",
         ),
     ] = "quality_index",
     order: Annotated[
         SortOrder,
         Field(
-            description="The direction to sort: 'asc' for ascending, 'desc' for descending",
+            description="The direction to sort: 'asc' for ascending, 'desc' for descending (default)",
         ),
     ] = "desc",
     page: Annotated[
@@ -226,13 +226,13 @@ async def list_agents(
     sort_by: Annotated[
         AgentSortField,
         Field(
-            description="The field name to sort by, e.g., 'last_active_at', 'total_cost_usd', 'run_count'",
+            description="The field name to sort by, e.g., 'last_active_at' (default), 'total_cost_usd', 'run_count'",
         ),
     ] = "last_active_at",
     order: Annotated[
         SortOrder,
         Field(
-            description="The direction to sort: 'asc' for ascending, 'desc' for descending",
+            description="The direction to sort: 'asc' for ascending, 'desc' for descending (default)",
         ),
     ] = "desc",
     page: Annotated[
