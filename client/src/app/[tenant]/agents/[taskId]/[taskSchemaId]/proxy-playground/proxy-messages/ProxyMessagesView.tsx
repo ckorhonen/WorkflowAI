@@ -173,7 +173,7 @@ export function ProxyMessagesView(props: Props) {
             variant='newDesign'
             size='sm'
             icon={<Add16Regular />}
-            onClick={() => addMessage(messages?.length ?? 0)}
+            onClick={() => addMessage(cleanedMessages?.length ?? 0)}
           >
             Add Message
           </Button>
