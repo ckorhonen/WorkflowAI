@@ -42,7 +42,7 @@ def create_test_latest_model(
 class TestSortModels:
     """Test suite for model sorting functionality."""
 
-    def test_sort_by_latest_released_first(self):
+    def test_sort_by_release_date_desc(self):
         """Test sorting by release date (newest first)."""
         models: list[ConciseModelResponse | ConciseLatestModelResponse] = [
             create_test_model("model1", release_date="2024-01-01"),
@@ -50,11 +50,23 @@ class TestSortModels:
             create_test_model("model3", release_date="2024-02-01"),
         ]
 
-        sorted_models = sort_models(models, "latest_released_first")
+        sorted_models = sort_models(models, "release_date", "desc")
 
         assert [m.id for m in sorted_models] == ["model2", "model3", "model1"]
 
-    def test_sort_by_latest_released_first_same_date(self):
+    def test_sort_by_release_date_asc(self):
+        """Test sorting by release date (oldest first)."""
+        models: list[ConciseModelResponse | ConciseLatestModelResponse] = [
+            create_test_model("model1", release_date="2024-01-01"),
+            create_test_model("model2", release_date="2024-03-01"),
+            create_test_model("model3", release_date="2024-02-01"),
+        ]
+
+        sorted_models = sort_models(models, "release_date", "asc")
+
+        assert [m.id for m in sorted_models] == ["model1", "model3", "model2"]
+
+    def test_sort_by_release_date_same_date(self):
         """Test stable sorting when models have same release date."""
         models: list[ConciseModelResponse | ConciseLatestModelResponse] = [
             create_test_model("zebra", release_date="2024-01-01"),
@@ -62,12 +74,12 @@ class TestSortModels:
             create_test_model("beta", release_date="2024-01-01"),
         ]
 
-        sorted_models = sort_models(models, "latest_released_first")
+        sorted_models = sort_models(models, "release_date", "desc")
 
-        # Should be sorted by id when dates are the same (reverse order due to reverse=True)
+        # Should be sorted by id when dates are the same (reverse order due to desc)
         assert [m.id for m in sorted_models] == ["zebra", "beta", "alpha"]
 
-    def test_sort_by_smartest_first(self):
+    def test_sort_by_quality_index_desc(self):
         """Test sorting by quality index (highest first)."""
         models: list[ConciseModelResponse | ConciseLatestModelResponse] = [
             create_test_model("model1", quality_index=50),
@@ -75,11 +87,23 @@ class TestSortModels:
             create_test_model("model3", quality_index=75),
         ]
 
-        sorted_models = sort_models(models, "smartest_first")
+        sorted_models = sort_models(models, "quality_index", "desc")
 
         assert [m.id for m in sorted_models] == ["model2", "model3", "model1"]
 
-    def test_sort_by_smartest_first_same_quality(self):
+    def test_sort_by_quality_index_asc(self):
+        """Test sorting by quality index (lowest first)."""
+        models: list[ConciseModelResponse | ConciseLatestModelResponse] = [
+            create_test_model("model1", quality_index=50),
+            create_test_model("model2", quality_index=100),
+            create_test_model("model3", quality_index=75),
+        ]
+
+        sorted_models = sort_models(models, "quality_index", "asc")
+
+        assert [m.id for m in sorted_models] == ["model1", "model3", "model2"]
+
+    def test_sort_by_quality_index_same_quality(self):
         """Test stable sorting when models have same quality index."""
         models: list[ConciseModelResponse | ConciseLatestModelResponse] = [
             create_test_model("zebra", quality_index=100),
@@ -87,12 +111,12 @@ class TestSortModels:
             create_test_model("beta", quality_index=100),
         ]
 
-        sorted_models = sort_models(models, "smartest_first")
+        sorted_models = sort_models(models, "quality_index", "desc")
 
-        # Should be sorted by id when quality is the same (reverse order due to reverse=True)
+        # Should be sorted by id when quality is the same (reverse order due to desc)
         assert [m.id for m in sorted_models] == ["zebra", "beta", "alpha"]
 
-    def test_sort_by_cheapest_first(self):
+    def test_sort_by_cost_asc(self):
         """Test sorting by combined cost (lowest first)."""
         models: list[ConciseModelResponse | ConciseLatestModelResponse] = [
             create_test_model("model1", cost_per_input_token_usd=0.002, cost_per_output_token_usd=0.003),  # 0.005 total
@@ -100,11 +124,23 @@ class TestSortModels:
             create_test_model("model3", cost_per_input_token_usd=0.001, cost_per_output_token_usd=0.002),  # 0.003 total
         ]
 
-        sorted_models = sort_models(models, "cheapest_first")
+        sorted_models = sort_models(models, "cost", "asc")
 
         assert [m.id for m in sorted_models] == ["model2", "model3", "model1"]
 
-    def test_sort_by_cheapest_first_same_cost(self):
+    def test_sort_by_cost_desc(self):
+        """Test sorting by combined cost (highest first)."""
+        models: list[ConciseModelResponse | ConciseLatestModelResponse] = [
+            create_test_model("model1", cost_per_input_token_usd=0.002, cost_per_output_token_usd=0.003),  # 0.005 total
+            create_test_model("model2", cost_per_input_token_usd=0.001, cost_per_output_token_usd=0.001),  # 0.002 total
+            create_test_model("model3", cost_per_input_token_usd=0.001, cost_per_output_token_usd=0.002),  # 0.003 total
+        ]
+
+        sorted_models = sort_models(models, "cost", "desc")
+
+        assert [m.id for m in sorted_models] == ["model1", "model3", "model2"]
+
+    def test_sort_by_cost_same_cost(self):
         """Test stable sorting when models have same cost."""
         models: list[ConciseModelResponse | ConciseLatestModelResponse] = [
             create_test_model("zebra", cost_per_input_token_usd=0.001, cost_per_output_token_usd=0.001),
@@ -112,9 +148,9 @@ class TestSortModels:
             create_test_model("beta", cost_per_input_token_usd=0.001, cost_per_output_token_usd=0.001),
         ]
 
-        sorted_models = sort_models(models, "cheapest_first")
+        sorted_models = sort_models(models, "cost", "asc")
 
-        # Should be sorted by id when cost is the same (normal order since reverse=False)
+        # Should be sorted by id when cost is the same (normal order since asc)
         assert [m.id for m in sorted_models] == ["alpha", "beta", "zebra"]
 
     def test_latest_models_appear_above_target(self):
@@ -127,7 +163,7 @@ class TestSortModels:
             create_test_model("model3", quality_index=75),
         ]
 
-        sorted_models = sort_models(models, "smartest_first")
+        sorted_models = sort_models(models, "quality_index", "desc")
 
         # Expected order: latest-model1, model2, model3, latest-model2, model1
         # (latest models appear just above their targets in the sorted order)
@@ -142,7 +178,7 @@ class TestSortModels:
             create_test_model("model2", quality_index=50),
         ]
 
-        sorted_models = sort_models(models, "smartest_first")
+        sorted_models = sort_models(models, "quality_index", "desc")
 
         # Both latest models should appear before model1, sorted by their id
         assert [m.id for m in sorted_models] == ["latest-a", "latest-b", "model1", "model2"]
@@ -156,7 +192,7 @@ class TestSortModels:
             create_test_latest_model("latest-good", currently_points_to="model2"),
         ]
 
-        sorted_models = sort_models(models, "smartest_first")
+        sorted_models = sort_models(models, "quality_index", "desc")
 
         # Orphaned latest models should appear at the end
         assert [m.id for m in sorted_models] == ["model1", "latest-good", "model2", "latest-orphan"]
@@ -165,14 +201,14 @@ class TestSortModels:
         """Test sorting an empty list."""
         models: list[ConciseModelResponse | ConciseLatestModelResponse] = []
 
-        sorted_models = sort_models(models, "smartest_first")
+        sorted_models = sort_models(models, "quality_index", "desc")
         assert sorted_models == []
 
     def test_single_model(self):
         """Test sorting a single model."""
         models: list[ConciseModelResponse | ConciseLatestModelResponse] = [create_test_model("model1")]
 
-        sorted_models = sort_models(models, "smartest_first")
+        sorted_models = sort_models(models, "quality_index", "desc")
         assert [m.id for m in sorted_models] == ["model1"]
 
     def test_only_latest_models(self):
@@ -183,7 +219,7 @@ class TestSortModels:
             create_test_latest_model("latest-b", currently_points_to="missing-b"),
         ]
 
-        sorted_models = sort_models(models, "smartest_first")
+        sorted_models = sort_models(models, "quality_index", "desc")
 
         # Should be sorted by id since they're all orphaned
         assert [m.id for m in sorted_models] == ["latest-a", "latest-b", "latest-c"]
@@ -196,7 +232,7 @@ class TestSortModels:
             create_test_model("model3", quality_index=75),
         ]
 
-        sorted_models = sort_models(models, "smartest_first")
+        sorted_models = sort_models(models, "quality_index", "desc")
 
         # Should be sorted by quality index
         assert [m.id for m in sorted_models] == ["model2", "model3", "model1"]
@@ -209,16 +245,18 @@ class TestSortModels:
         ]
 
         original_list = models
-        sorted_models = sort_models(models, "smartest_first")
+        sorted_models = sort_models(models, "quality_index", "desc")
 
         # Should return the same list object
         assert sorted_models is original_list
         assert [m.id for m in models] == ["model2", "model1"]
 
-    @pytest.mark.parametrize("sort_by", ["latest_released_first", "smartest_first", "cheapest_first"])
+    @pytest.mark.parametrize("sort_by", ["release_date", "quality_index", "cost"])
+    @pytest.mark.parametrize("order", ["asc", "desc"])
     def test_sort_preserves_model_data(
         self,
-        sort_by: Literal["latest_released_first", "smartest_first", "cheapest_first"],
+        sort_by: Literal["release_date", "quality_index", "cost"],
+        order: Literal["asc", "desc"],
     ):
         """Test that sorting doesn't modify model data."""
         model = create_test_model(
@@ -230,7 +268,7 @@ class TestSortModels:
         )
         models: list[ConciseModelResponse | ConciseLatestModelResponse] = [model]
 
-        sort_models(models, sort_by)
+        sort_models(models, sort_by, order)
 
         # Verify model data is unchanged
         sorted_model = models[0]

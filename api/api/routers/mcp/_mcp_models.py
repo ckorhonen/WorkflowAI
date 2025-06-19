@@ -19,8 +19,10 @@ from core.domain.version_major import VersionDeploymentMetadata, VersionMajor
 from core.utils.fields import datetime_zero
 from core.utils.token_utils import tokens_from_string
 
-SortAgentBy: TypeAlias = Literal["last_active_first", "most_costly_first", "most_runs_first"]
-SortModelBy: TypeAlias = Literal["latest_released_first", "smartest_first", "cheapest_first"]
+# New sorting type aliases with two-field approach
+AgentSortField: TypeAlias = Literal["last_active_at", "total_cost_usd", "run_count"]
+ModelSortField: TypeAlias = Literal["release_date", "quality_index", "cost"]
+SortOrder: TypeAlias = Literal["asc", "desc"]
 
 
 class UsefulLinks(BaseModel):

@@ -1,44 +1,51 @@
 """Agent sorting utilities for MCP service."""
 
-from api.routers.mcp._mcp_models import AgentResponse, SortAgentBy
+import datetime
+
+from api.routers.mcp._mcp_models import AgentResponse, AgentSortField, SortOrder
 
 
 def sort_agents(
     agents: list[AgentResponse],
-    sort_by: SortAgentBy,
+    sort_by: AgentSortField,
+    order: SortOrder,
 ) -> list[AgentResponse]:
-    """Sort agents based on the specified criteria with stable secondary sorting by agent_id.
+    """Sort agents based on the specified field and order with stable secondary sorting by agent_id.
 
     Args:
         agents: List of agent responses to sort
-        sort_by: Sort criteria
-            - "last_active_first": Sort by maximum last_active_at across all schemas
-            - "most_costly_first": Sort by total_cost_usd
-            - "most_runs_first": Sort by run_count
+        sort_by: Field to sort by
+            - "last_active_at": Sort by maximum last_active_at across all schemas
+            - "total_cost_usd": Sort by total_cost_usd
+            - "run_count": Sort by run_count
+        order: Sort direction
+            - "asc": Ascending order (lowest to highest)
+            - "desc": Descending order (highest to lowest)
 
     Returns:
         Sorted list of agents (modifies in place and returns the list)
     """
-    if sort_by == "last_active_first":
+    reverse_sort = order == "desc"
 
-        def get_max_last_active_at(agent: AgentResponse) -> tuple[str, str]:
-            """Get the maximum last_active_at across all schemas, handling None values.
-            Returns a tuple of (max_last_active_at, agent_id) for stable sorting."""
+    if sort_by == "last_active_at":
+
+        def get_sort_key(agent: AgentResponse) -> tuple[float, str]:
+            """Get the sort key for last_active_at sorting with stable ordering."""
             active_dates = [schema.last_active_at for schema in agent.schemas if schema.last_active_at is not None]
             if not active_dates:
-                # Use a very old date for agents with no active dates, ensuring they sort last
-                # Using "0000" as a prefix ensures these sort after all real dates (which start with "2")
-                max_date = "0000-00-00T00:00:00"
+                # Use a very old timestamp for agents with no active dates
+                max_timestamp = 0.0
             else:
                 max_date = max(active_dates)
+                # Convert ISO string to timestamp for proper numerical sorting
+                max_timestamp = datetime.datetime.fromisoformat(max_date.replace("Z", "+00:00")).timestamp()
 
-            # Return tuple with agent_id as secondary sort key for stable ordering
-            return (max_date, agent.agent_id)
+            return (max_timestamp, agent.agent_id)
 
-        agents.sort(key=get_max_last_active_at, reverse=True)
-    elif sort_by == "most_costly_first":
-        agents.sort(key=lambda x: (x.total_cost_usd, x.agent_id), reverse=True)
-    elif sort_by == "most_runs_first":
-        agents.sort(key=lambda x: (x.run_count, x.agent_id), reverse=True)
+        agents.sort(key=get_sort_key, reverse=reverse_sort)
+    elif sort_by == "total_cost_usd":
+        agents.sort(key=lambda x: (x.total_cost_usd, x.agent_id), reverse=reverse_sort)
+    elif sort_by == "run_count":
+        agents.sort(key=lambda x: (x.run_count, x.agent_id), reverse=reverse_sort)
 
     return agents

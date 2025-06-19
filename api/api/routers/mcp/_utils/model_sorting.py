@@ -2,23 +2,27 @@
 
 import logging
 
-from api.routers.mcp._mcp_models import ConciseLatestModelResponse, ConciseModelResponse, SortModelBy
+from api.routers.mcp._mcp_models import ConciseLatestModelResponse, ConciseModelResponse, ModelSortField, SortOrder
 
 logger = logging.getLogger(__name__)
 
 
 def sort_models(
     models: list[ConciseModelResponse | ConciseLatestModelResponse],
-    sort_by: SortModelBy,
+    sort_by: ModelSortField,
+    order: SortOrder,
 ) -> list[ConciseModelResponse | ConciseLatestModelResponse]:
-    """Sort models based on the specified criteria with stable secondary sorting by model id.
+    """Sort models based on the specified field and order with stable secondary sorting by model id.
 
     Args:
         models: List of model responses to sort
-        sort_by: Sort criteria
-            - "latest_released_first": Sort by release_date (newest first)
-            - "smartest_first": Sort by quality_index (highest first)
-            - "cheapest_first": Sort by combined input+output cost (lowest first)
+        sort_by: Field to sort by
+            - "release_date": Sort by release_date
+            - "quality_index": Sort by quality_index
+            - "cost": Sort by combined input+output cost
+        order: Sort direction
+            - "asc": Ascending order (lowest to highest)
+            - "desc": Descending order (highest to lowest)
 
     Returns:
         Sorted list of models (modifies in place and returns the list)
@@ -27,18 +31,19 @@ def sort_models(
     latest_models = [m for m in models if isinstance(m, ConciseLatestModelResponse)]
     concrete_models = [m for m in models if isinstance(m, ConciseModelResponse)]
 
-    if sort_by == "latest_released_first":
-        # Sort by release date (newest first), with model id as secondary key for stable ordering
-        concrete_models.sort(key=lambda x: (x.release_date, x.id), reverse=True)
-    elif sort_by == "smartest_first":
-        # Sort by quality index (highest first), with model id as secondary key
-        concrete_models.sort(key=lambda x: (x.quality_index, x.id), reverse=True)
-    elif sort_by == "cheapest_first":
-        # Sort by combined cost (lowest first), with model id as secondary key
-        # Note: For cheapest first, we don't use reverse=True because we want lowest cost first
+    reverse_sort = order == "desc"
+
+    if sort_by == "release_date":
+        # Sort by release date, with model id as secondary key for stable ordering
+        concrete_models.sort(key=lambda x: (x.release_date, x.id), reverse=reverse_sort)
+    elif sort_by == "quality_index":
+        # Sort by quality index, with model id as secondary key
+        concrete_models.sort(key=lambda x: (x.quality_index, x.id), reverse=reverse_sort)
+    elif sort_by == "cost":
+        # Sort by combined cost, with model id as secondary key
         concrete_models.sort(
             key=lambda x: (x.cost_per_input_token_usd + x.cost_per_output_token_usd, x.id),
-            reverse=False,
+            reverse=reverse_sort,
         )
 
     # Sort latest models by their id for stable ordering
