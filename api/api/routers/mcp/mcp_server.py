@@ -17,6 +17,7 @@ from api.routers.mcp._mcp_models import (
     MCPToolReturn,
     ModelSortField,
     PaginatedMCPToolReturn,
+    SortOrder,
 )
 from api.routers.mcp._mcp_service import MCPService
 from api.services import file_storage, storage
