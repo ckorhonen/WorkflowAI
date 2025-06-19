@@ -1,5 +1,7 @@
 """Agent sorting utilities for MCP service."""
 
+import datetime
+
 from api.routers.mcp._mcp_models import AgentResponse, AgentSortField, SortOrder
 
 
@@ -23,28 +25,39 @@ def sort_agents(
     Returns:
         Sorted list of agents (modifies in place and returns the list)
     """
-    reverse_sort = order == "desc"
-
     if sort_by == "last_active_at":
 
-        def get_max_last_active_at(agent: AgentResponse) -> tuple[str, str]:
-            """Get the maximum last_active_at across all schemas, handling None values.
-            Returns a tuple of (max_last_active_at, agent_id) for stable sorting."""
+        def get_sort_key(agent: AgentResponse) -> tuple[float, str]:
+            """Get the sort key for last_active_at sorting with stable ordering."""
             active_dates = [schema.last_active_at for schema in agent.schemas if schema.last_active_at is not None]
             if not active_dates:
-                # Use a very old date for agents with no active dates
-                # Using "0000" as a prefix ensures these sort appropriately relative to real dates
-                max_date = "0000-00-00T00:00:00"
+                # Use a very old timestamp for agents with no active dates
+                max_timestamp = 0.0
             else:
                 max_date = max(active_dates)
+                # Convert ISO string to timestamp for proper numerical sorting
+                max_timestamp = datetime.datetime.fromisoformat(max_date.replace("Z", "+00:00")).timestamp()
 
-            # Return tuple with agent_id as secondary sort key for stable ordering
-            return (max_date, agent.agent_id)
+            # For descending order, negate the timestamp while keeping agent_id ascending
+            if order == "desc":
+                return (-max_timestamp, agent.agent_id)
+            # For ascending order, use timestamp as-is
+            return (max_timestamp, agent.agent_id)
 
-        agents.sort(key=get_max_last_active_at, reverse=reverse_sort)
+        agents.sort(key=get_sort_key)
     elif sort_by == "total_cost_usd":
-        agents.sort(key=lambda x: (x.total_cost_usd, x.agent_id), reverse=reverse_sort)
+        if order == "desc":
+            # For descending order, negate the primary key but keep agent_id ascending
+            agents.sort(key=lambda x: (-x.total_cost_usd, x.agent_id))
+        else:
+            # For ascending order, use values as-is
+            agents.sort(key=lambda x: (x.total_cost_usd, x.agent_id))
     elif sort_by == "run_count":
-        agents.sort(key=lambda x: (x.run_count, x.agent_id), reverse=reverse_sort)
+        if order == "desc":
+            # For descending order, negate the primary key but keep agent_id ascending
+            agents.sort(key=lambda x: (-x.run_count, x.agent_id))
+        else:
+            # For ascending order, use values as-is
+            agents.sort(key=lambda x: (x.run_count, x.agent_id))
 
     return agents
