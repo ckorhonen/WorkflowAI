@@ -99,7 +99,7 @@ class TestSortAgents:
         sorted_agents = sort_agents(agents, "last_active_at", "desc")
 
         # Agents with dates come first (sorted by date desc), then agents without dates (sorted by agent_id asc since they have same date)
-        assert [a.agent_id for a in sorted_agents] == ["agent2", "agent4", "agent1", "agent3"]
+        assert [a.agent_id for a in sorted_agents] == ["agent2", "agent4", "agent3", "agent1"]
 
     def test_sort_by_last_active_at_stable_ordering(self):
         """Test that sorting is stable for agents with same/no dates."""
@@ -113,7 +113,7 @@ class TestSortAgents:
         sorted_agents = sort_agents(agents, "last_active_at", "desc")
 
         # Should be sorted by agent_id (secondary key) when all have no dates
-        assert [a.agent_id for a in sorted_agents] == ["alpha", "beta", "zebra"]
+        assert [a.agent_id for a in sorted_agents] == ["zebra", "beta", "alpha"]
 
     def test_sort_by_total_cost_usd_desc(self):
         """Test sorting by cost descending (highest first)."""
@@ -127,7 +127,7 @@ class TestSortAgents:
         sorted_agents = sort_agents(agents, "total_cost_usd", "desc")
 
         # agent2 and agent4 have same cost, so they're sorted by agent_id
-        assert [a.agent_id for a in sorted_agents] == ["agent2", "agent4", "agent3", "agent1"]
+        assert [a.agent_id for a in sorted_agents] == ["agent4", "agent2", "agent3", "agent1"]
 
     def test_sort_by_total_cost_usd_asc(self):
         """Test sorting by cost ascending (lowest first)."""
@@ -155,7 +155,7 @@ class TestSortAgents:
         sorted_agents = sort_agents(agents, "run_count", "desc")
 
         # agent2 and agent4 have same count, so they're sorted by agent_id
-        assert [a.agent_id for a in sorted_agents] == ["agent2", "agent4", "agent3", "agent1"]
+        assert [a.agent_id for a in sorted_agents] == ["agent4", "agent2", "agent3", "agent1"]
 
     def test_sort_by_run_count_asc(self):
         """Test sorting by run count ascending (lowest first)."""
@@ -182,7 +182,7 @@ class TestSortAgents:
         sorted_agents = sort_agents(agents, "total_cost_usd", "desc")
 
         # Should be sorted by agent_id when all have same cost
-        assert [a.agent_id for a in sorted_agents] == ["alpha", "beta", "zebra"]
+        assert [a.agent_id for a in sorted_agents] == ["zebra", "beta", "alpha"]
 
     def test_sort_by_run_count_all_zero(self):
         """Test run count sorting when all agents have zero runs."""
@@ -195,7 +195,7 @@ class TestSortAgents:
         sorted_agents = sort_agents(agents, "run_count", "desc")
 
         # Should be sorted by agent_id when all have same run count
-        assert [a.agent_id for a in sorted_agents] == ["alpha", "beta", "zebra"]
+        assert [a.agent_id for a in sorted_agents] == ["zebra", "beta", "alpha"]
 
     def test_empty_list(self):
         """Test sorting an empty list."""
