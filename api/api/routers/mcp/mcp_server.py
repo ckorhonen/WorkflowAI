@@ -6,7 +6,20 @@ from pydantic import Field
 from starlette.exceptions import HTTPException
 
 from api.dependencies.task_info import TaskTuple
-from api.routers.mcp._mcp_models import MCPToolReturn
+from api.routers.mcp._mcp_models import (
+    AgentResponse,
+    AgentSortField,
+    AIEngineerReponseWithUsefulLinks,
+    ConciseLatestModelResponse,
+    ConciseModelResponse,
+    LegacyMCPToolReturn,
+    MajorVersion,
+    MCPToolReturn,
+    ModelSortField,
+    PaginatedMCPToolReturn,
+    RunSearchResult,
+    SortOrder,
+)
 from api.routers.mcp._mcp_service import MCPService
 from api.services import file_storage, storage
 from api.services.analytics import analytics_service
@@ -25,6 +38,7 @@ from api.services.task_deployments import TaskDeploymentsService
 from api.services.versions import VersionsService
 from core.domain.analytics_events.analytics_events import OrganizationProperties, UserProperties
 from core.domain.users import UserIdentifier
+from core.storage.backend_storage import BackendStorage
 
 _mcp = FastMCP("WorkflowAI 🚀", stateless_http=True)  # pyright: ignore [reportUnknownVariableType]
 
@@ -43,7 +57,7 @@ async def get_mcp_service() -> MCPService:
         system_event_router(),
         analytics_service(user_properties=None, organization_properties=None, task_properties=None),
     )
-    tenant = await security_service.find_tenant(None, auth_header.split(" ")[1])
+    tenant = await security_service.tenant_from_credentials(auth_header.split(" ")[1])
     if not tenant:
         raise HTTPException(status_code=401, detail="Invalid bearer token")
     org_properties = OrganizationProperties.build(tenant)
@@ -117,24 +131,12 @@ async def get_mcp_service() -> MCPService:
     )
 
 
-async def get_task_tuple_from_task_id(task_id: str) -> TaskTuple:
+async def get_task_tuple_from_task_id(storage: BackendStorage, agent_id: str) -> TaskTuple:
     """Helper function to create TaskTuple from task_id for MCP tools that need it"""
-    request = get_http_request()
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing bearer token")
-
-    _system_storage = storage.system_storage(storage.shared_encryption())
-    security_service = SecurityService(
-        _system_storage.organizations,
-        system_event_router(),
-        analytics_service(user_properties=None, organization_properties=None, task_properties=None),
-    )
-    tenant = await security_service.find_tenant(None, auth_header.split(" ")[1])
-    if not tenant:
-        raise HTTPException(status_code=401, detail="Invalid bearer token")
-
-    return (task_id, tenant.uid)
+    task_info = await storage.tasks.get_task_info(agent_id)
+    if not task_info:
+        raise HTTPException(status_code=404, detail=f"Task {agent_id} not found")
+    return task_info.id_tuple
 
 
 @_mcp.tool()
@@ -157,7 +159,23 @@ async def list_available_models(
             description="Whether the agent requires tools to be used, if not provided, the agent is assumed to not require tools",
         ),
     ] = False,
-) -> MCPToolReturn:
+    sort_by: Annotated[
+        ModelSortField,
+        Field(
+            description="The field name to sort by, e.g., 'release_date', 'quality_index' (default), 'cost'",
+        ),
+    ] = "quality_index",
+    order: Annotated[
+        SortOrder,
+        Field(
+            description="The direction to sort: 'asc' for ascending, 'desc' for descending (default)",
+        ),
+    ] = "desc",
+    page: Annotated[
+        int,
+        Field(description="The page number to return. Defaults to 1."),
+    ] = 1,
+) -> PaginatedMCPToolReturn[None, ConciseModelResponse | ConciseLatestModelResponse]:
     """<when_to_use>
     When you need to pick a model for the user's WorkflowAI agent, or any model-related goal.
     </when_to_use>
@@ -166,21 +184,52 @@ async def list_available_models(
     </returns>"""
     service = await get_mcp_service()
     return await service.list_available_models(
-        agent_id,
+        page=page,
+        agent_id=agent_id,
         agent_schema_id=agent_schema_id,
         agent_requires_tools=agent_requires_tools,
+        sort_by=sort_by,
+        order=order,
     )
 
 
 @_mcp.tool()
 async def list_agents(
-    from_date: Annotated[
+    agent_id: Annotated[
+        str | None,
+        Field(
+            description="Filter on specific agent id. If omitted, all user's agents are returned. Example: 'agent_id': 'email-filtering-agent' in metadata, or 'email-filtering-agent' in 'model=email-filtering-agent/gpt-4o-latest'.",
+        ),
+    ] = None,
+    with_schemas: Annotated[
+        bool,
+        Field(
+            description="If true, the response will include the input and output schemas of the different schema ids of the agent. Useful to find on which schema id you are working on.",
+        ),
+    ] = False,
+    stats_from_date: Annotated[
         str,
         Field(
-            description="ISO date string to filter stats from (e.g., '2024-01-01T00:00:00Z'). Defaults to 7 days ago if not provided.",
+            description="ISO date string to filter usage (runs and costs) stats from (e.g., '2024-01-01T00:00:00Z'). Defaults to 7 days ago if not provided.",
         ),
-    ],
-) -> MCPToolReturn:
+    ] = "",
+    sort_by: Annotated[
+        AgentSortField,
+        Field(
+            description="The field name to sort by, e.g., 'last_active_at' (default), 'total_cost_usd', 'run_count'",
+        ),
+    ] = "last_active_at",
+    order: Annotated[
+        SortOrder,
+        Field(
+            description="The direction to sort: 'asc' for ascending, 'desc' for descending (default)",
+        ),
+    ] = "desc",
+    page: Annotated[
+        int,
+        Field(description="The page number to return. Defaults to 1."),
+    ] = 1,
+) -> PaginatedMCPToolReturn[None, AgentResponse]:
     """<when_to_use>
     When the user wants to see all agents they have created, along with their statistics (run counts and costs on the last 7 days).
     </when_to_use>
@@ -188,7 +237,14 @@ async def list_agents(
     Returns a list of all agents for the user along with their statistics (run counts and costs).
     </returns>"""
     service = await get_mcp_service()
-    return await service.list_agents(from_date)
+    return await service.list_agents(
+        agent_id=agent_id,
+        stats_from_date=stats_from_date,
+        with_schemas=with_schemas,
+        page=page,
+        sort_by=sort_by,
+        order=order,
+    )
 
 
 @_mcp.tool()
@@ -207,7 +263,7 @@ async def fetch_run_details(
         str | None,
         Field(description="The url of the run to fetch details for"),
     ] = None,
-) -> MCPToolReturn:
+) -> LegacyMCPToolReturn:
     """<when_to_use>
     When the user wants to investigate a specific run of a WorkflowAI agent, for debugging, improving the agent, fixing a problem on a specific use case, or any other reason. This is particularly useful for:
     - Debugging failed runs by examining error details and input/output data
@@ -252,13 +308,21 @@ async def fetch_run_details(
 
 @_mcp.tool()
 async def get_agent_versions(
-    # why is this tool not using the agent_id?
-    agent_id: Annotated[str, Field(description="The ID of the agent")],
+    agent_id: Annotated[
+        str,
+        Field(
+            description="The id of the user's agent. Example: 'agent_id': 'email-filtering-agent' in metadata, or 'email-filtering-agent' in 'model=email-filtering-agent/gpt-4o-latest'.",
+        ),
+    ],
     version_id: Annotated[
         str | None,
         Field(description="An optional version id, e-g 1.1. If not provided all versions are returned"),
     ] = None,
-) -> MCPToolReturn:
+    page: Annotated[
+        int,
+        Field(description="The page number to return. Defaults to 1."),
+    ] = 1,
+) -> PaginatedMCPToolReturn[None, MajorVersion]:
     """<when_to_use>
     When the user wants to retrieve details of versions of a WorkflowAI agent, or when they want to compare a specific version of an agent.
 
@@ -269,16 +333,16 @@ async def get_agent_versions(
     Returns the details of one or more versions of a WorkflowAI agent.
     </returns>"""
     service = await get_mcp_service()
-    task_tuple = await get_task_tuple_from_task_id(agent_id)
+    task_tuple = await get_task_tuple_from_task_id(service.storage, agent_id)
 
     if version_id:
         return await service.get_agent_version(task_tuple, version_id)
 
-    return await service.list_agent_versions(task_tuple)
+    return await service.list_agent_versions(task_tuple, page=page)
 
 
-# @_mcp.tool() WIP
-async def search_runs_by_metadata(
+@_mcp.tool()
+async def search_runs(
     agent_id: Annotated[
         str,
         Field(
@@ -288,7 +352,7 @@ async def search_runs_by_metadata(
     field_queries: Annotated[
         list[dict[str, Any]],
         Field(
-            description="List of metadata field queries. Each query should have: field_name (string starting with 'metadata.'), operator (string like 'is', 'contains', etc.), values (list of values), and optionally type (string like 'string', 'number', etc.)",
+            description="List of field queries to search runs. Each query should have: field_name (string), operator (string), values (list of values), and optionally type (string like 'string', 'number', 'date', etc.)",
         ),
     ],
     limit: Annotated[
@@ -299,47 +363,103 @@ async def search_runs_by_metadata(
         int,
         Field(description="Number of results to skip"),
     ] = 0,
-) -> MCPToolReturn:
+    page: Annotated[
+        int,
+        Field(description="The page number to return. Defaults to 1."),
+    ] = 1,
+) -> PaginatedMCPToolReturn[None, RunSearchResult]:
     """<when_to_use>
-    When the user wants to search agent runs based on metadata values, such as filtering runs by custom metadata fields they've added to their WorkflowAI agent calls.
+    When the user wants to search agent runs based on various criteria including metadata values, run properties (status, time, cost, latency), model parameters, input/output content, and reviews.
     </when_to_use>
 
-    <how_to_query_metadata>
-    To search by metadata, you need to construct field queries with the following structure:
+    <searchable_fields>
+    You can search across multiple types of fields:
 
-    1. field_name: Must start with "metadata." followed by the metadata field name
-       - Example: "metadata.user_id", "metadata.session_id", "metadata.environment"
+    **Run Properties:**
+    - "status": Run status (operators: is, is not | values: "success", "failure")
+    - "time": Run creation time (operators: is before, is after | date values)
+    - "price": Run cost in USD (operators: is, is not, greater than, less than, etc. | numeric values)
+    - "latency": Run duration (operators: is, is not, greater than, less than, etc. | numeric values)
 
-    2. operator: One of these search operators:
-       - "is" - exact match
-       - "is not" - not equal to
-       - "contains" - string contains (for text fields)
-       - "does not contain" - string does not contain
-       - "greater than" - numeric comparison
-       - "less than" - numeric comparison
-       - "is empty" - field has no value
-       - "is not empty" - field has a value
+    **Model & Version:**
+    - "model": Model used (operators: is, is not, contains, does not contain | string values)
+    - "schema": Schema ID (operators: is, is not | numeric values)
+    - "version": Version ID (operators: is, is not | string values)
+    - "temperature": Temperature setting (operators: is, is not, greater than, less than, etc. | numeric values)
+    - "source": Source of the run (operators: is, is not | string values)
 
-    3. values: List of values to search for (usually just one value)
+    **Reviews:**
+    - "review": User review status (operators: is | values: "positive", "negative", "unsure", "any")
 
-    4. type: Optional field type ("string", "number", "boolean", "date")
-    </how_to_query_metadata>
+    **Content Fields (nested search):**
+    - "input.{key_path}": Search within input data (e.g., "input.message", "input.user.name")
+    - "output.{key_path}": Search within output data (e.g., "output.result", "output.items[0].status")
+    - "metadata.{key_path}": Search within metadata (e.g., "metadata.user_id", "metadata.environment")
+
+    For nested fields, use dot notation for objects and brackets for arrays (e.g., "items[0].name")
+    </searchable_fields>
+
+    <operators_by_type>
+    Different field types support different operators:
+
+    **String fields:**
+    - "is" - exact match
+    - "is not" - not equal to
+    - "contains" - string contains
+    - "does not contain" - string does not contain
+    - "is empty" - field has no value
+    - "is not empty" - field has a value
+
+    **Number fields:**
+    - "is" - exact match
+    - "is not" - not equal to
+    - "greater than" - value > X
+    - "greater than or equal to" - value >= X
+    - "less than" - value < X
+    - "less than or equal to" - value <= X
+    - "is empty" - field has no value
+    - "is not empty" - field has a value
+
+    **Date fields:**
+    - "is before" - date < X
+    - "is after" - date > X
+
+    **Boolean fields:**
+    - "is" - exact match (true/false)
+    - "is not" - not equal to
+    </operators_by_type>
+
+    <field_query_structure>
+    Each field query should have this structure:
+    {
+        "field_name": "field_name",  // Required: the field to search
+        "operator": "operator",       // Required: the search operator
+        "values": [value1, value2],   // Required: list of values (usually one)
+        "type": "string"             // Optional: field type hint
+    }
+    </field_query_structure>
 
     <examples>
-    Example 1 - Search for runs with specific user_id:
+    Example 1 - Search for failed runs with high cost:
     {
         "agent_id": "email-classifier",
         "field_queries": [
             {
-                "field_name": "metadata.user_id",
+                "field_name": "status",
                 "operator": "is",
-                "values": ["user123"],
+                "values": ["failure"]
                 "type": "string"
+            },
+            {
+                "field_name": "price",
+                "operator": "greater than",
+                "values": [0.10],
+                "type": "number"
             }
         ]
     }
 
-    Example 2 - Search for runs in production environment with high priority:
+    Example 2 - Search for runs with specific metadata and positive reviews:
     {
         "agent_id": "data-processor",
         "field_queries": [
@@ -350,55 +470,93 @@ async def search_runs_by_metadata(
                 "type": "string"
             },
             {
-                "field_name": "metadata.priority",
-                "operator": "greater than",
-                "values": [5],
+                "field_name": "review",
+                "operator": "is",
+                "values": ["positive"]
+                "type": "string"
+            }
+        ]
+    }
+
+    Example 3 - Search for runs with specific input content and recent time:
+    {
+        "agent_id": "content-moderator",
+        "field_queries": [
+            {
+                "field_name": "input.text",
+                "operator": "contains",
+                "values": ["urgent"],
+                "type": "string"
+            },
+            {
+                "field_name": "time",
+                "operator": "is after",
+                "values": ["2024-01-01T00:00:00Z"],
+                "type": "date"
+            }
+        ]
+    }
+
+    Example 4 - Search for runs using specific models with low latency:
+    {
+        "agent_id": "task-analyzer",
+        "field_queries": [
+            {
+                "field_name": "model",
+                "operator": "contains",
+                "values": ["gpt-4"]
+                "type": "string"
+            },
+            {
+                "field_name": "latency",
+                "operator": "less than",
+                "values": [5.0],
                 "type": "number"
             }
         ]
     }
 
-    Example 3 - Search for runs that contain specific text in a notes field:
+    Example 5 - Search within nested output structure:
     {
-        "agent_id": "content-moderator",
+        "agent_id": "data-extractor",
         "field_queries": [
             {
-                "field_name": "metadata.notes",
-                "operator": "contains",
-                "values": ["urgent"]
-            }
-        ]
-    }
-
-    Example 4 - Search for runs where a field is empty:
-    {
-        "agent_id": "task-analyzer",
-        "field_queries": [
+                "field_name": "output.entities[0].type",
+                "operator": "is",
+                "values": ["person"],
+                "type": "string"
+            },
             {
-                "field_name": "metadata.reviewer",
-                "operator": "is empty",
-                "values": []
+                "field_name": "output.confidence",
+                "operator": "greater than",
+                "values": [0.95],
+                "type": "number"
             }
         ]
     }
     </examples>
 
     <returns>
-    Returns a paginated list of agent runs that match the metadata search criteria, including run details like:
-    - Full task input and output data (task_input, task_output)
-    - Input/output previews (task_input_preview, task_output_preview)
-    - Run status, duration, cost, and timestamps
-    - User and AI reviews
-    - Error details if the run failed
+    Returns a paginated list of agent runs that match the search criteria, including run details.
     </returns>"""
-    service = await get_mcp_service()
-    task_tuple = await get_task_tuple_from_task_id(agent_id)
-    return await service.search_runs_by_metadata(
-        task_tuple=task_tuple,
-        field_queries=field_queries,
-        limit=limit,
-        offset=offset,
-    )
+
+    try:
+        service = await get_mcp_service()
+
+        task_tuple = await get_task_tuple_from_task_id(service.storage, agent_id)
+
+        return await service.search_runs(
+            task_tuple=task_tuple,
+            field_queries=field_queries,
+            limit=limit,
+            offset=offset,
+            page=page,
+        )
+    except Exception as e:
+        return PaginatedMCPToolReturn(
+            success=False,
+            error=f"Failed to search runs: {e}",
+        )
 
 
 @_mcp.tool()
@@ -431,7 +589,7 @@ async def ask_ai_engineer(
             description="The schema ID of the user's agent version, if known from model=<agent_id>/#<agent_schema_id>/<deployment_environment> or model=#<agent_schema_id>/<deployment_environment> when the workflowAI agent is already deployed",
         ),
     ] = None,
-) -> MCPToolReturn:
+) -> MCPToolReturn[AIEngineerReponseWithUsefulLinks] | LegacyMCPToolReturn:
     """
     <when_to_use>
     Most user request about WorkflowAI must be processed by starting a conversation with the AI engineer agent to get insight about the WorkflowAI platform and the user's agents.
@@ -470,7 +628,7 @@ async def deploy_agent_version(
         Literal["dev", "staging", "production"],
         Field(description="The deployment environment. Must be one of: 'dev', 'staging', or 'production'"),
     ],
-) -> MCPToolReturn:
+) -> LegacyMCPToolReturn:
     """<when_to_use>
     When the user wants to deploy a specific version of their WorkflowAI agent to an environment (dev, staging, or production).
 
@@ -493,7 +651,7 @@ async def deploy_agent_version(
       - important_notes: Key considerations for the migration
     </returns>"""
     service = await get_mcp_service()
-    task_tuple = await get_task_tuple_from_task_id(agent_id)
+    task_tuple = await get_task_tuple_from_task_id(service.storage, agent_id)
 
     # Get user identifier for deployment tracking
     # Since we already validated the token in get_mcp_service, we can create a basic user identifier
@@ -504,6 +662,33 @@ async def deploy_agent_version(
         version_id=version_id,
         environment=environment,
         deployed_by=user_identifier,
+    )
+
+
+@_mcp.tool()
+async def create_api_key() -> LegacyMCPToolReturn:
+    """<when_to_use>
+    When the user wants to get their API key for WorkflowAI. This is a temporary tool that returns the API key that was used to authenticate the current request.
+    </when_to_use>
+    <returns>
+    Returns the API key that was used to authenticate the current MCP request.
+    </returns>"""
+    request = get_http_request()
+
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return LegacyMCPToolReturn(
+            success=False,
+            error="No Authorization header found or invalid format",
+        )
+
+    # Extract the API key from "Bearer <key>"
+    api_key = auth_header.split(" ")[1]
+
+    return LegacyMCPToolReturn(
+        success=True,
+        data={"api_key": api_key},
+        messages=["API key retrieved successfully"],
     )
 
 

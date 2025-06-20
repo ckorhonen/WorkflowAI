@@ -37,6 +37,7 @@ def _include_methods(methods: set[str] | None, exc_methods: set[str] | None) -> 
 # Only GET requests though
 _PUBLIC_ROUTES = {
     "/v1/models",
+    "/v1/models/ids",
     "/probes/health",
     "/probes/readiness",
     "/openapi.json",
@@ -162,7 +163,7 @@ class TestModelsEndpoint:
     async def test_models_endpoint_no_auth(self, test_api_client: AsyncClient, mock_tenant_dep: Mock):
         # Making sure we raise if the tenant dep is called
         mock_tenant_dep.side_effect = ValueError("test")
-        res = await test_api_client.get("/v1/models?raw=true")
+        res = await test_api_client.get("/v1/models/ids")
         assert res.status_code == 200, "Expected /models endpoint to be accessible without authentication"
 
         # Add some basic checks to ensure the response contains expected data
@@ -198,7 +199,7 @@ class TestModelsEndpoint:
     async def test_models_endpoint_order_check(self, test_api_client: AsyncClient, mock_tenant_dep: Mock):
         # Making sure we raise if the tenant dep is called
         mock_tenant_dep.side_effect = ValueError("test")
-        res = await test_api_client.get("/v1/models?raw=true")
+        res = await test_api_client.get("/v1/models/ids")
         assert res.status_code == 200, "Expected /models endpoint to be accessible without authentication"
 
         # Add some basic checks to ensure the response contains expected data
