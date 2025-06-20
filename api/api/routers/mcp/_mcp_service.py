@@ -698,6 +698,7 @@ class MCPService:
                     id=run.id,
                     agent_id=run.task_id,
                     agent_schema_id=run.task_schema_id,
+                    agent_version_id=run.group.id,
                     status=run.status,
                     agent_input=None,
                     agent_output=None,

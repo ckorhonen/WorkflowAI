@@ -493,6 +493,7 @@ class RunSearchResult(BaseModel):
     id: str
     agent_id: str
     agent_schema_id: int
+    agent_version_id: str
     status: str
     agent_input: str | None
     agent_output: str | None
