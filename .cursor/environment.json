@@ -1,0 +1,45 @@
+{
+  "install": "yarn install && poetry install",
+  "terminals": [
+    {
+      "name": "Start the client application",
+      "command": "yarn dev"
+    },
+    {
+      "name": "Start the server application",
+      "command": "cd api && poetry run uvicorn api.main:app"
+    },
+    {
+      "name": "Start the worker application",
+      "command": "cd api && poetry run taskiq worker api.broker:broker --fs-discover --tasks-pattern api/jobs/*_jobs.py --workers 1"
+    },
+    {
+      "name": "Run ruff",
+      "description": "Ruff is used for linting python code",
+      "command": "poetry run ruff check ."
+    },
+    {
+      "name": "Run pyright",
+      "description": "Pyright is used for type checking python code",
+      "command": "poetry run pyright"
+    },
+    {
+      "name": "Run pytest",
+      "description": "Pytest is used for testing python code",
+      "command": "poetry run pytest"
+    },
+    {
+      "name": "Run build",
+      "description": "Build the project",
+      "command": "yarn build"
+    },
+    {
+      "name": "Lint the client application",
+      "command": "yarn workspace client lint"
+    },
+    {
+      "name": "Build the client application",
+      "command": "yarn workspace client build"
+    }
+  ]
+}
