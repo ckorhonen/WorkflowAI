@@ -14,10 +14,10 @@ from api.routers.mcp._mcp_models import (
     ConciseModelResponse,
     LegacyMCPToolReturn,
     MajorVersion,
+    MCPRun,
     MCPToolReturn,
     ModelSortField,
     PaginatedMCPToolReturn,
-    RunSearchResult,
     SortOrder,
 )
 from api.routers.mcp._mcp_service import MCPService
@@ -263,7 +263,7 @@ async def fetch_run_details(
         str | None,
         Field(description="The url of the run to fetch details for"),
     ] = None,
-) -> LegacyMCPToolReturn:
+) -> MCPToolReturn[MCPRun]:
     """<when_to_use>
     When the user wants to investigate a specific run of a WorkflowAI agent, for debugging, improving the agent, fixing a problem on a specific use case, or any other reason. This is particularly useful for:
     - Debugging failed runs by examining error details and input/output data
@@ -325,10 +325,14 @@ async def get_agent_versions(
 ) -> PaginatedMCPToolReturn[None, MajorVersion]:
     """<when_to_use>
     When the user wants to retrieve details of versions of a WorkflowAI agent, or when they want to compare a specific version of an agent.
+
+    Example:
+    - when debugging a failed run, you can use this tool to get the parameters of the agent that was used.
     </when_to_use>
     <returns>
     Returns the details of one or more versions of a WorkflowAI agent.
     </returns>"""
+    # TODO: remind the agent what an AgentVersion is ?
     service = await get_mcp_service()
     task_tuple = await get_task_tuple_from_task_id(service.storage, agent_id)
 
@@ -364,7 +368,7 @@ async def search_runs(
         int,
         Field(description="The page number to return. Defaults to 1."),
     ] = 1,
-) -> PaginatedMCPToolReturn[None, RunSearchResult]:
+) -> PaginatedMCPToolReturn[None, MCPRun]:
     """<when_to_use>
     When the user wants to search agent runs based on various criteria including metadata values, run properties (status, time, cost, latency), model parameters, input/output content, and reviews.
     </when_to_use>
