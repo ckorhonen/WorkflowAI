@@ -1,0 +1,16 @@
+name: Commit Quality
+
+on:
+  push:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  api-quality:
+    uses: ./.github/workflows/.api-quality.yml
+    secrets: inherit
+  client-quality:
+    uses: ./.github/workflows/.client-quality.yml
+
