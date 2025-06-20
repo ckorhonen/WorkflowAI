@@ -8,14 +8,17 @@ from starlette.exceptions import HTTPException
 from api.dependencies.task_info import TaskTuple
 from api.routers.mcp._mcp_models import (
     AgentResponse,
+    AgentSortField,
     AIEngineerReponseWithUsefulLinks,
     ConciseLatestModelResponse,
     ConciseModelResponse,
     LegacyMCPToolReturn,
     MajorVersion,
     MCPToolReturn,
+    ModelSortField,
     PaginatedMCPToolReturn,
     RunSearchResult,
+    SortOrder,
 )
 from api.routers.mcp._mcp_service import MCPService
 from api.services import file_storage, storage
@@ -179,6 +182,18 @@ async def list_available_models(
             description="Whether the agent requires tools to be used, if not provided, the agent is assumed to not require tools",
         ),
     ] = False,
+    sort_by: Annotated[
+        ModelSortField,
+        Field(
+            description="The field name to sort by, e.g., 'release_date', 'quality_index' (default), 'cost'",
+        ),
+    ] = "quality_index",
+    order: Annotated[
+        SortOrder,
+        Field(
+            description="The direction to sort: 'asc' for ascending, 'desc' for descending (default)",
+        ),
+    ] = "desc",
     page: Annotated[
         int,
         Field(description="The page number to return. Defaults to 1."),
@@ -196,6 +211,8 @@ async def list_available_models(
         agent_id=agent_id,
         agent_schema_id=agent_schema_id,
         agent_requires_tools=agent_requires_tools,
+        sort_by=sort_by,
+        order=order,
     )
 
 
@@ -219,6 +236,18 @@ async def list_agents(
             description="ISO date string to filter usage (runs and costs) stats from (e.g., '2024-01-01T00:00:00Z'). Defaults to 7 days ago if not provided.",
         ),
     ] = "",
+    sort_by: Annotated[
+        AgentSortField,
+        Field(
+            description="The field name to sort by, e.g., 'last_active_at' (default), 'total_cost_usd', 'run_count'",
+        ),
+    ] = "last_active_at",
+    order: Annotated[
+        SortOrder,
+        Field(
+            description="The direction to sort: 'asc' for ascending, 'desc' for descending (default)",
+        ),
+    ] = "desc",
     page: Annotated[
         int,
         Field(description="The page number to return. Defaults to 1."),
@@ -236,6 +265,8 @@ async def list_agents(
         stats_from_date=stats_from_date,
         with_schemas=with_schemas,
         page=page,
+        sort_by=sort_by,
+        order=order,
     )
 
 

@@ -1,6 +1,6 @@
 import json
 from datetime import datetime, time
-from typing import Any, Generic, Literal, TypeVar
+from typing import Any, Generic, Literal, TypeAlias, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -18,6 +18,11 @@ from core.domain.version_environment import VersionEnvironment
 from core.domain.version_major import VersionDeploymentMetadata, VersionMajor
 from core.utils.fields import datetime_zero
 from core.utils.token_utils import tokens_from_string
+
+# New sorting type aliases with two-field approach
+AgentSortField: TypeAlias = Literal["last_active_at", "total_cost_usd", "run_count"]
+ModelSortField: TypeAlias = Literal["release_date", "quality_index", "cost"]
+SortOrder: TypeAlias = Literal["asc", "desc"]
 
 
 class UsefulLinks(BaseModel):
@@ -115,6 +120,7 @@ class PaginationInfo(BaseModel):
     has_next_page: bool = Field(description="Whether there is a next page")
     next_page: int | None = Field(default=None, description="The next page number")
     max_tokens_limit: int | None = Field(default=None, description="Maximum tokens limit used for pagination")
+
 
 
 # TODO: delete this class when all tools are migrated to the new MCPToolReturn or PaginatedMCPToolReturn
