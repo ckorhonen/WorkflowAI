@@ -18,7 +18,6 @@ def create_test_model(
     """Helper function to create test models."""
     return ConciseModelResponse(
         id=model_id,
-        maker="TestMaker",
         display_name=f"Test Model {model_id}",
         supports=["tool_calling"],
         quality_index=quality_index,
