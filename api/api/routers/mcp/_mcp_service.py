@@ -1,4 +1,3 @@
-import asyncio
 from collections.abc import Iterator
 from datetime import datetime, timedelta
 from typing import Any
@@ -35,7 +34,6 @@ from core.domain.models.models import Model
 from core.domain.search_query import FieldQuery, SearchOperator
 from core.domain.task_group import TaskGroup, TaskGroupQuery
 from core.domain.task_info import TaskInfo
-from core.domain.task_variant import SerializableTaskVariant
 from core.domain.users import UserIdentifier
 from core.domain.version_environment import VersionEnvironment
 from core.storage import ObjectNotFoundException
@@ -283,7 +281,7 @@ class MCPService:
         agent_id: str | None,
         run_id: str | None,
         run_url: str | None,
-    ) -> LegacyMCPToolReturn:
+    ) -> MCPToolReturn[MCPRun]:
         """Fetch details of a specific agent run."""
 
         if run_url:
@@ -291,19 +289,19 @@ class MCPService:
                 agent_id, run_id = self._extract_agent_id_and_run_id(run_url)
                 # find the task tuple from the agent id
             except ValueError:
-                return LegacyMCPToolReturn(
+                return MCPToolReturn(
                     success=False,
                     error="Invalid run URL, must be in the format 'https://workflowai.com/workflowai/agents/agent-id/runs/run-id', or you must pass 'agent_id' and 'run_id'",
                 )
 
         if not agent_id:
-            return LegacyMCPToolReturn(
+            return MCPToolReturn(
                 success=False,
                 error="Agent ID is required",
             )
 
         if not run_id:
-            return LegacyMCPToolReturn(
+            return MCPToolReturn(
                 success=False,
                 error="Run ID is required",
             )
@@ -311,55 +309,32 @@ class MCPService:
         task_info = await self.storage.tasks.get_task_info(agent_id)
         task_tuple = task_info.id_tuple
         if not task_tuple:
-            return LegacyMCPToolReturn(
+            return MCPToolReturn(
                 success=False,
                 error=f"Agent {agent_id} not found",
             )
-
         try:
             run = await self.runs_service.run_by_id(task_tuple, run_id)
-
-            # Convert the run to a serializable format
-            # TODO: use a Pydantic model for the run
-            # See Run model in _mcp_models.py for the expected format
-            run_data = {
-                "id": run.id,
-                "agent_id": run.task_id,
-                "agent_schema_id": run.task_schema_id,
-                # "agent_version_id": ...,
-                "status": run.status,
-                "agent_input": run.task_input,
-                "agent_output": run.task_output,
-                "duration_seconds": run.duration_seconds,
-                "cost_usd": run.cost_usd,
-                "created_at": run.created_at.isoformat() if run.created_at else None,
-                "user_review": run.user_review,
-                "ai_review": run.ai_review,
-                "error": {
-                    "code": run.error.code,
-                    "message": run.error.message,
-                    "details": run.error.details,
-                }
-                if run.error
-                else None,
-                "conversation_id": run.conversation_id,
-            }
-
-            return LegacyMCPToolReturn(
-                success=True,
-                data=run_data,
-            )
-
         except ObjectNotFoundException:
-            return LegacyMCPToolReturn(
+            return MCPToolReturn(
                 success=False,
                 error=f"Run {run_id} not found",
             )
-        except Exception as e:
-            return LegacyMCPToolReturn(
-                success=False,
-                error=f"Failed to fetch run details: {str(e)}",
-            )
+
+        # Retrieve variant to get output schema
+        version = await self.storage.task_groups.get_task_group_by_id(task_tuple[0], run.group.id)
+        # Version Properties should always have a variant id
+        if variant_id := version.properties.task_variant_id:
+            variant = await self.storage.task_version_resource_by_id(task_tuple[0], variant_id)
+        else:
+            variant = None
+
+        mcp_run = MCPRun.from_domain(run, version, variant.output_schema.json_schema if variant else None)
+
+        return MCPToolReturn(
+            success=True,
+            data=mcp_run,
+        )
 
     async def list_agents(
         self,
@@ -656,29 +631,24 @@ class MCPService:
 
     async def _map_runs(self, task_tuple: tuple[str, int], runs: list[AgentRun]) -> list[MCPRun]:
         version_ids = {run.group.id for run in runs}
-        schema_ids = {run.task_schema_id for run in runs}
 
-        async def _list_versions() -> dict[str, TaskGroup]:
-            return {
-                v.id: v
-                async for v in self.storage.task_groups.list_task_groups(
-                    TaskGroupQuery(
-                        task_id=task_tuple[0],
-                        ids=version_ids,
-                    ),
-                )
-            }
+        variant_ids: set[str] = set()
+        versions: dict[str, TaskGroup] = {}
+        async for v in self.storage.task_groups.list_task_groups(
+            TaskGroupQuery(
+                task_id=task_tuple[0],
+                ids=version_ids,
+            ),
+        ):
+            versions[v.id] = v
+            if v.properties.task_variant_id:
+                variant_ids.add(v.properties.task_variant_id)
 
-        results = await asyncio.gather(
-            _list_versions(),
-            *[self.storage.task_variants.get_latest_task_variant(task_tuple[0], schema_id) for schema_id in schema_ids],
-            return_exceptions=True,
-        )
-        versions = results[0] if isinstance(results[0], dict) else {}
         schema_by_id: dict[int, dict[str, Any]] = {
-            v.task_schema_id: v.output_schema.json_schema for v in results[1:] if isinstance(v, SerializableTaskVariant)
+            v.task_schema_id: v.output_schema.json_schema
+            async for v in self.storage.task_variants.variants_iterator(task_tuple[0], variant_ids)
         }
-        # TODO: log any errors
+
         return [
             MCPRun.from_domain(run, versions.get(run.group.id), schema_by_id.get(run.task_schema_id)) for run in runs
         ]

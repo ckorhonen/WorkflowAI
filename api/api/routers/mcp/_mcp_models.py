@@ -575,7 +575,9 @@ class MCPRun(BaseModel):
             # See https://linear.app/workflowai/issue/WOR-4485/stop-storing-non-saved-versions-and-attach-them-to-runs-instead
             agent_version=AgentVersion.from_domain(version) if version else AgentVersion.from_domain(run.group),
             status="success" if run.status == "success" else "error",
-            agent_input=run.task_input,
+            agent_input={k: v for k, v in run.task_input.items() if k != "workflowai.messages"}
+            if run.task_input
+            else None,
             messages=run.messages,
             duration_seconds=run.duration_seconds,
             cost_usd=run.cost_usd,
