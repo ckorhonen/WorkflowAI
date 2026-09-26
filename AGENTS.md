@@ -7,6 +7,10 @@ This monorepo has two major components:
 
 As a base rule, always check the README.md of the directory you are working in.
 
+## Toolchain and local entrypoints
+
+Run repository commands from the root. `.nvmrc` pins Node 22.8.0, `packageManager` and `.yarnrc.yml` select Yarn 4.1.0, and Poetry requires Python >=3.12,<3.13. Use the pinned Yarn release with `yarn install --immutable`; `poetry install` prepares Python dependencies. `make api.start` starts the API and `yarn dev` starts the client; both need the local environment described in `CONTRIBUTING.md`. `yarn workspace workflowai test --runInBand` runs client Jest tests, while `yarn workspace workflowai tsc --noEmit` checks client types. Preserve workspace and API/client contract boundaries.
+
 ## API
 
 Dependency management is done with `poetry`. `poetry install` installs dependencies.
@@ -22,7 +26,7 @@ When modifying the API, ensure that:
 
 Pytest is used for testing. It is possible to run tests using `poetry run pytest <test-file.py>` for all tests within a file or `poetry run pytest <test-file.py::test_name>` for a specific test.
 
-There are 4 layers of tests:
+There are 3 documented layers of tests:
 
 - Unit tests are added next to the code they test. For example, unit tests for `api/core/models.py` are in `api/core/models_test.py`. A unit test should be added or modified every time there is a change to the API.
 - Component tests hit the API "from the outside" but mock external http calls and use containerized, isolated dependencies. See [the component test README.md](./api/tests/component/README.md) for more details. You should execute at least one component tests after having made changes to the API.
@@ -91,3 +95,9 @@ Useful commands:
 - `yarn workspace docs dev` to start the development server.
 - `yarn workspace docs build` to build the documentation. Make sure to run this before pushing the PR to make sure it builds
 - `yarn workspace docs lint` to lint the documentation.
+
+## Completion and effects
+
+Carry authorized work through the affected component gates above and repair caused failures. Resolve routine reversible choices directly; ask only when missing information changes correctness, scope, or authorization. Keep changes within the requested surface and preserve unrelated local work. Component tests require disposable MongoDB, Redis, ClickHouse, and Azurite on the ports in `api/tests/component/README.md`; their setup scrubs databases. Do not point them at shared data. Integration tests call real providers and run after main merges; do not equate a PR unit/component pass with live integration evidence. Deployment, migrations, credentials, and production/provider actions must stay within task authorization. For instruction-only changes, inspect command sources and check the diff; report actual checks, exact blockers, and unverified runtime behavior concisely.
+
+The Git tree also contains lowercase `agents.md`. On case-insensitive filesystems, inspect this uppercase canonical file through Git objects before relying on the working-copy content; do not overwrite either path to resolve the collision during unrelated work.
